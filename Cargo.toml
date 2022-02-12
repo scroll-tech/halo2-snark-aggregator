@@ -1,0 +1,21 @@
+[package]
+name = "halo2ecc"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+num-bigint = { version = "0.4", features = ["rand"] }
+num-integer = "0.1"
+num-traits = "0.2"
+rand = "0.8"
+group = "0.11"
+subtle = { version = "2.3", default-features = false }
+cfg-if = "0.1"
+halo2_proofs = { git = "https://github.com/zcash/halo2.git" }
+
+[features]
+default = []
+
+[dev-dependencies]
+rand_core = { version = "0.6", default-features = false }
+rand_xorshift = "0.3"
