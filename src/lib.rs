@@ -1,1 +1,4 @@
-mod unit_gate;
+mod base_gate;
+
+#[cfg(test)]
+mod tests;

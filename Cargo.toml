@@ -12,6 +12,7 @@ group = "0.11"
 subtle = { version = "2.3", default-features = false }
 cfg-if = "0.1"
 halo2_proofs = { git = "https://github.com/zcash/halo2.git" }
+chrono = "0.4.19"
 
 [features]
 default = []
