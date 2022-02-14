@@ -98,7 +98,7 @@ pub struct AssignedValue<N: FieldExt> {
 pub enum ValueSchema<'a, N: FieldExt> {
     Assigned(&'a AssignedValue<N>),
     Unassigned(N),
-    Empty,
+    Constant(N),
 }
 
 impl<'a, N: FieldExt> From<N> for ValueSchema<'a, N> {
@@ -118,7 +118,7 @@ impl<'a, N: FieldExt> ValueSchema<'a, N> {
         match self {
             ValueSchema::Assigned(cell) => cell.value.clone(),
             ValueSchema::Unassigned(n) => n.clone(),
-            ValueSchema::Empty => N::zero(),
+            ValueSchema::Constant(n) => n.clone(),
         }
     }
 
@@ -126,6 +126,30 @@ impl<'a, N: FieldExt> ValueSchema<'a, N> {
         match self {
             ValueSchema::Assigned(c) => region.constrain_equal(c.cell.clone(), new_cell),
             _ => Ok(()),
+        }
+    }
+
+    pub fn is_constant(&self) -> bool {
+        match self {
+            ValueSchema::Assigned(_) |
+            ValueSchema::Unassigned(_) => false,
+            ValueSchema::Constant(_) => true,
+        }
+    }
+
+    pub fn is_unassigned(&self) -> bool {
+        match self {
+            ValueSchema::Unassigned(_) => true,
+            ValueSchema::Assigned(_) |
+            ValueSchema::Constant(_) => false,
+        }
+    }
+
+    pub fn to_assigned_value(&self) -> Option<&'a AssignedValue<N>> {
+        match self {
+            ValueSchema::Assigned(v) => Some(v),
+            ValueSchema::Unassigned(_) |
+            ValueSchema::Constant(_) => None,
         }
     }
 }

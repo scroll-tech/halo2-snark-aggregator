@@ -1,9 +1,17 @@
 use super::{AssignedValue, BaseGate, BaseRegion, ValueSchema};
 use halo2_proofs::{arithmetic::FieldExt, plonk::Error};
 
+#[macro_export]
 macro_rules! pair {
     ($x: expr, $y: expr) => {
         (($x).into(), ($y))
+    };
+}
+
+#[macro_export]
+macro_rules! pair_empty {
+    ($N: tt) => {
+        (ValueSchema::Constant($N::zero()), $N::zero())
     };
 }
 
@@ -19,7 +27,7 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize> BaseGate<N
 
         let zero = N::zero();
 
-        base_coeff_pairs.resize_with(VAR_COLUMNS, || (ValueSchema::Empty, zero));
+        base_coeff_pairs.resize_with(VAR_COLUMNS, || (ValueSchema::Constant(zero), zero));
         for (i, (base, coeff)) in base_coeff_pairs.into_iter().enumerate() {
             r.region
                 .assign_fixed(|| format!("coeff_{}", i), self.config.coeff[i], *r.offset, || Ok(coeff))?
@@ -94,6 +102,32 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize> BaseGate<N
         let zero = N::zero();
         let one = N::one();
         self.sum_with_constant(r, vec![(a, one), (b, one)], zero)
+    }
+
+    pub fn add_any(
+        &self,
+        r: &mut BaseRegion<'_, '_, N>,
+        a: ValueSchema<N>,
+        b: ValueSchema<N>,
+    ) -> Result<AssignedValue<N>, Error> {
+        let zero = N::zero();
+        let one = N::one();
+        let arr = vec![a, b];
+
+        assert!(!arr.iter().any(|x| x.is_unassigned()));
+
+        let vars = arr
+            .iter()
+            .filter_map(|v| v.to_assigned_value())
+            .map(|v| (v, one))
+            .collect();
+
+        let constant = arr
+            .iter()
+            .filter(|v| v.is_constant())
+            .fold(zero, |acc, v| acc + v.value());
+
+        self.sum_with_constant(r, vars, constant)
     }
 
     pub fn mul(

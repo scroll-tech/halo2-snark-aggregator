@@ -1,7 +1,7 @@
-use crate::base_gate::{
+use crate::{base_gate::{
     five::{FiveBaseGate, FiveBaseGateConfig, MUL_COLUMNS, VAR_COLUMNS},
     BaseRegion, ValueSchema,
-};
+}, pair_empty};
 use halo2_proofs::{
     arithmetic::FieldExt,
     circuit::{Layouter, SimpleFloorPlanner},
@@ -74,10 +74,10 @@ impl<N: FieldExt> Circuit<N> for TestFiveBaseGateCircuit<N> {
                 base_gate.one_line(
                     &mut r,
                     vec![
-                        (ValueSchema::Empty, N::zero()),
-                        (ValueSchema::Empty, N::zero()),
-                        (ValueSchema::Empty, N::zero()),
-                        (ValueSchema::Empty, N::zero()),
+                        pair_empty!(N),
+                        pair_empty!(N),
+                        pair_empty!(N),
+                        pair_empty!(N),
                         (ValueSchema::Unassigned(next_rands[1]), N::zero()),
                     ],
                     N::zero(),
