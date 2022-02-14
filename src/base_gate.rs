@@ -8,6 +8,7 @@ use halo2_proofs::{
 };
 
 pub mod five;
+pub mod four;
 pub mod ops;
 
 #[derive(Clone, Debug)]
@@ -36,14 +37,14 @@ impl<N: FieldExt, const VAR_VAR_COLUMNS: usize, const MUL_VAR_COLUMNS: usize>
         }
     }
 
-    pub fn configure(
-        meta: &mut ConstraintSystem<N>,
-    ) -> BaseGateConfig<VAR_VAR_COLUMNS, MUL_VAR_COLUMNS> {
+    pub fn configure(meta: &mut ConstraintSystem<N>) -> BaseGateConfig<VAR_VAR_COLUMNS, MUL_VAR_COLUMNS> {
         let base = [(); VAR_VAR_COLUMNS].map(|_| meta.advice_column());
         let coeff = [(); VAR_VAR_COLUMNS].map(|_| meta.fixed_column());
         let mul_coeff = [(); MUL_VAR_COLUMNS].map(|_| meta.fixed_column());
         let next_coeff = meta.fixed_column();
         let constant = meta.fixed_column();
+
+        base.iter().for_each(|c| meta.enable_equality(c.clone()));
 
         meta.create_gate("base_gate", |meta| {
             let _constant = meta.query_fixed(constant, Rotation::cur());
@@ -87,16 +88,29 @@ impl<'a, 'b, N: FieldExt> BaseRegion<'a, 'b, N> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct AssignedValue<N: FieldExt> {
     cell: Cell,
     value: N,
 }
 
+#[derive(Debug)]
 pub enum ValueSchema<'a, N: FieldExt> {
     Assigned(&'a AssignedValue<N>),
     Unassigned(N),
     Empty,
+}
+
+impl<'a, N: FieldExt> From<N> for ValueSchema<'a, N> {
+    fn from(v: N) -> Self {
+        Self::Unassigned(v)
+    }
+}
+
+impl<'a, N: FieldExt> From<&'a AssignedValue<N>> for ValueSchema<'a, N> {
+    fn from(v: &'a AssignedValue<N>) -> Self {
+        Self::Assigned(v)
+    }
 }
 
 impl<'a, N: FieldExt> ValueSchema<'a, N> {
@@ -104,15 +118,11 @@ impl<'a, N: FieldExt> ValueSchema<'a, N> {
         match self {
             ValueSchema::Assigned(cell) => cell.value.clone(),
             ValueSchema::Unassigned(n) => n.clone(),
-            ValueSchema::Empty => N::zero()
+            ValueSchema::Empty => N::zero(),
         }
     }
 
-    pub fn constrain_equal_conditionally(
-        &self,
-        region: &mut Region<'_, N>,
-        new_cell: Cell,
-    ) -> Result<(), Error> {
+    pub fn constrain_equal_conditionally(&self, region: &mut Region<'_, N>, new_cell: Cell) -> Result<(), Error> {
         match self {
             ValueSchema::Assigned(c) => region.constrain_equal(c.cell.clone(), new_cell),
             _ => Ok(()),
