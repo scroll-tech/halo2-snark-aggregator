@@ -2,15 +2,57 @@
 //trace_macros!(true);
 // Context Arithment Group under Context C, Scalar Group S and Base Group B
 pub trait ContextGroup<C, S, B, Error> {
-   fn add(&self, cxt:&mut C, lhs: &B, rhs: &B) -> Result<B, Error>;
-   fn minus(&self, cxt:&mut C, lhs: &B, rhs: &B) -> B;
-   fn scalar_mul(&self, cxt:&mut C, lhs: &S, rhs: &B) -> Result<B, Error>;
+    fn add(&self, cxt:&mut C, lhs: &B, rhs: &B) -> Result<B, Error>;
+    fn minus(&self, cxt:&mut C, lhs: &B, rhs: &B) -> Result<B, Error>;
+    fn scalar_mul(&self, cxt:&mut C, lhs: &S, rhs: &B) -> Result<B, Error>;
+    fn one(&self) -> &B;
+    fn zero(&self) -> &B;
+    fn from_constant(&self, c: u32) -> Result<B, Error>;
+    fn ok(&self, v:B) -> Result<B, Error> {
+        Ok(v)
+    }
 }
 
 // Context Arithment Group under Context C, Scalar Group S and Base Group B
 pub trait ContextRing<C, S, B, Error> {
    fn mul(&self, cxt:&mut C, lhs: &B, rhs: &B) -> Result<B, Error>;
-   fn power(&self, cxt:&mut C, lhs: &B, rhs: &S) -> Result<B, Error>;
+   fn square(&self, cxt:&mut C, lhs: &B) -> Result<B, Error>;
+   fn generator(&self) -> &B;
+}
+
+pub trait PowConstant<C, S, G, Error> {
+    fn pow_constant(
+        &self,
+        ctx: &mut C,
+        base: &G,
+        exponent: u32,
+    ) -> Result<G, Error>;
+}
+
+impl<C, S, G:Clone, Error, T:ContextRing<C, S, G, Error>> PowConstant<C, S, G, Error> for T
+{
+    fn pow_constant(
+        &self,
+        ctx: &mut C,
+        base: &G,
+        exponent: u32,
+    ) -> Result<G, Error> {
+       assert!(exponent >= 1);
+        let mut acc = base.clone();
+        let mut second_bit = 1;
+        while second_bit <= exponent {
+            second_bit <<= 1;
+        }
+        second_bit >>= 2;
+        while second_bit > 0 {
+            acc = self.square(ctx, &acc)?;
+            if exponent & second_bit == 1 {
+                acc = self.mul(ctx, &acc, base)?;
+            }
+            second_bit >>= 1;
+        }
+        Ok(acc)
+    }
 }
 
 #[macro_export]
@@ -71,23 +113,18 @@ macro_rules! infix2postfix {
 macro_rules! arith_in_ctx {
   //arith_in_ctx! { @ pfx [h, r] (r,) () }`
   (@pfx [$s:tt, $c:tt] ($result:expr,) ()) => {
-      {
-      println!("(Cell {:?}", $result);
-      $result.clone()
-      }
+      {$s.ok($result.clone())}
   };
 //note: to `arith_in_ctx! (@ pfx [h, r] (a a) (+ a +))`
   (@pfx [$s:tt, $c:tt] ($a:expr, $b:expr, $($stack:tt,)*) (+ $($tail:tt)*)) => {
       {
-        let eval = $s.add($c, $a, $b)?;
-        let r = &eval?;
+        let r = &$s.add($c, $a, $b)?;
         arith_in_ctx! (@pfx [$s, $c] (r, $($stack,)*) ($($tail)*))
       }
   };
   (@pfx [$s:tt, $c:tt] ($a:expr, $b:expr, $($stack:tt,)*) (- $($tail:tt)*)) => {
       {
-        let eval = $s.minus($c, $b, $a)?;
-        let r = &eval?;
+        let r = &$s.minus($c, $b, $a)?;
         arith_in_ctx!(@pfx [$s, $c] (r, $($stack,)*) ($($tail)*))
       }
   };

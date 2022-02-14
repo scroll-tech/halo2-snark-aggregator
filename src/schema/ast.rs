@@ -53,36 +53,36 @@ pub struct CommitQuery<'a, S, P> {
     pub v: Option<&'a S>,
 }
 
-pub enum SchemeItem<'a, S, P> {
+pub enum SchemaItem<'a, S, P> {
     Commit(CommitQuery<'a, S, P>),
     Eval(CommitQuery<'a, S, P>),
     Scalar(S),
-    Add(Vec<SchemeItem<'a, S, P>>),
-    Mul(Vec<SchemeItem<'a, S, P>>),
+    Add(Vec<SchemaItem<'a, S, P>>),
+    Mul(Vec<SchemaItem<'a, S, P>>),
 }
 
-impl<S, P> std::ops::Add for SchemeItem<'_, S, P> {
+impl<S, P> std::ops::Add for SchemaItem<'_, S, P> {
     type Output = Self;
     fn add(self, other: Self) -> Self {
         match self {
-            SchemeItem::<S, P>::Add(mut ls) => {
+            SchemaItem::<S, P>::Add(mut ls) => {
                 ls.push(other);
-                SchemeItem::Add(ls)
+                SchemaItem::Add(ls)
             },
-            _ => SchemeItem::<S, P>::Add(vec![self, other]),
+            _ => SchemaItem::<S, P>::Add(vec![self, other]),
         }
     }
 }
 
-impl<S, P> std::ops::Mul for SchemeItem<'_, S, P> {
+impl<S, P> std::ops::Mul for SchemaItem<'_, S, P> {
     type Output = Self;
     fn mul(self, other: Self) -> Self {
         match self {
-            SchemeItem::<S, P>::Mul(mut ls) => {
+            SchemaItem::<S, P>::Mul(mut ls) => {
                 ls.push(other);
-                SchemeItem::Mul(ls)
+                SchemaItem::Mul(ls)
             },
-            _ => SchemeItem::<S, P>::Mul(vec![self, other]),
+            _ => SchemaItem::<S, P>::Mul(vec![self, other]),
         }
     }
 }
@@ -102,7 +102,7 @@ where
 
 
 impl<C, S:Clone, P:Clone, Error:Debug, SGate:ContextGroup<C, S, S, Error> + ContextRing<C, S, S, Error>, PGate:ContextGroup<C, S, P, Error>>
-    EvaluationAST<S, C, P, SGate, PGate, Error> for SchemeItem<'_, S, P>
+    EvaluationAST<S, C, P, SGate, PGate, Error> for SchemaItem<'_, S, P>
 {
     fn eval(
         &self,
@@ -111,17 +111,17 @@ impl<C, S:Clone, P:Clone, Error:Debug, SGate:ContextGroup<C, S, S, Error> + Cont
         context: &mut C,
     ) -> Result<(Option<P>, Option<S>), Error> {
         match self {
-            SchemeItem::Commit(cq) => {
+            SchemaItem::Commit(cq) => {
                 Ok((cq.c.map(|c| c.clone()), None))
             },
-            SchemeItem::Eval(cq) => {
+            SchemaItem::Eval(cq) => {
                 Ok((None, cq.v.map(|c| c.clone())))
             },
 
-            SchemeItem::Scalar(s) => {
+            SchemaItem::Scalar(s) => {
                 Ok((None, Some (s.clone())))
             },
-            SchemeItem::Add(ls) => {
+            SchemaItem::Add(ls) => {
                 let mut cs = Vec::new();
                 let mut vs = Vec::new();
                 ls.iter().for_each(|val| {
@@ -141,7 +141,7 @@ impl<C, S:Clone, P:Clone, Error:Debug, SGate:ContextGroup<C, S, S, Error> + Cont
                 };
                 Ok((c, v))
             }
-            SchemeItem::Mul(ls) => {
+            SchemaItem::Mul(ls) => {
                 let mut cs = Vec::new();
                 let mut vs = Vec::new();
                 ls.iter().for_each(|val| {
@@ -173,19 +173,19 @@ impl<C, S:Clone, P:Clone, Error:Debug, SGate:ContextGroup<C, S, S, Error> + Cont
 #[macro_export]
 macro_rules! commit {
     ($x:expr) => {
-        SchemeItem::<C>::Commit(($x.clone()))
+        SchemaItem::<C>::Commit(($x.clone()))
     };
 }
 #[macro_export]
 macro_rules! eval {
     ($x:expr) => {
-        SchemeItem::<C>::Eval(($x.clone()))
+        SchemaItem::<C>::Eval(($x.clone()))
     };
 }
 #[macro_export]
 macro_rules! scalar {
     ($x:expr) => {
-        SchemeItem::<C>::Scalar($x.clone())
+        SchemaItem::<C>::Scalar($x.clone())
     };
 }
 

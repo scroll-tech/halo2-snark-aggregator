@@ -1,12 +1,29 @@
+use std::fmt::Debug;
+use std::marker::PhantomData;
 
 use crate::schema::ast::{
-    SchemeItem,
+    SchemaItem,
     CommitQuery,
-    //SingleOpeningProof,
-    //MultiOpeningProof,
+};
+
+use crate::schema::utils::{
+    RingUtils,
+};
+
+
+use crate::arith::api::{
+    ContextGroup,
+    ContextRing,
+    PowConstant,
 };
 
 use crate::{eval, commit, scalar};
+use crate::schema::{
+    PointSchema,
+    SchemaGenerator,
+};
+
+use crate::{arith_in_ctx, infix2postfix};
 
 pub struct ParamsPreprocessed<'a, P> {
     q_m: &'a P,
@@ -44,242 +61,112 @@ pub struct VerifyEvals<'a, S> {
     pi_xi: Option<S>,
 }
 
-pub struct PlonkVerifierParams<'a, S, P> {
+pub struct PlonkCommonSetup<'a, S> {
     l: u32,
     n: u32,
+    k: Vec<&'a S>,
+    w: &'a S, //TODO the unit root of 2^n = 1
+    one: &'a S,
+    zero: &'a S,
+}
+
+
+pub struct PlonkVerifierParams <
+    'a, C, S, P, Error:Debug,
+    SGate: ContextGroup<C, S, S, Error> + ContextRing<C, S, S, Error>,
+    PGate: ContextGroup<C, S, P, Error>,
+> {
     //public_wit: Vec<C::ScalarExt>,
+    common: PlonkCommonSetup<'a, S>,
     params: ParamsPreprocessed<'a, P>,
     commits: VerifyCommitments<'a, P>,
     evals: VerifyEvals<'a, S>,
-    one: &'a S,
     beta: &'a S,
     gamma: &'a S,
     alpha: &'a S,
-    xi: &'a S,
-    xi_n: Option<S>,
     u: &'a S,
     v: &'a S,
-    k1: &'a S,
-    k2: &'a S,
-    w: &'a S, //TODO the unit root of 2^n = 1
+    xi: &'a S,
+    xi_n: &'a S,
+    sgate: &'a SGate,
+    pgate: &'a PGate,
+    _ctx: PhantomData<C>,
+    _error: PhantomData<Error>
 }
 
-/*
-
-impl<C: CurveAffine> PlonkVerifierParams<'_, S, P> {
-    fn pow_vec(
-        &self,
-        main_gate: &MainGate<C::ScalarExt>,
-        base: &S,
-        exponent: u32,
-        region: &mut Region<'_, C::ScalarExt>,
-        offset: &mut usize,
-    ) -> Result<Vec<S>, Error> {
-        let mut ret = vec![];
-        let mut curr = base.clone();
-
-        for _ in 0..exponent {
-            let next = main_gate.mul2(region, &curr, offset)?;
-            ret.push(curr);
-            curr = next;
-        }
-
-        ret.push(curr);
-        Ok(ret)
-    }
-
-    fn pow(
-        &self,
-        main_gate: &MainGate<C::ScalarExt>,
-        base: &S,
-        exponent: u32,
-        region: &mut Region<'_, C::ScalarExt>,
-        offset: &mut usize,
-    ) -> Result<S, Error> {
-        assert!(exponent >= 1);
-
-        let mut acc = base.clone();
-
-        let mut second_bit = 1;
-        while second_bit <= exponent {
-            second_bit <<= 1;
-        }
-        second_bit >>= 2;
-
-        while second_bit > 0 {
-            acc = main_gate.mul2(region, &acc, offset)?;
-            if exponent & second_bit == 1 {
-                acc = main_gate.mul(region, &acc, base, offset)?;
-            }
-            second_bit >>= 1;
-        }
-
-        Ok(acc)
-    }
+impl<'a, C, S:Clone, P:Clone, Error:Debug, SGate: ContextGroup<C, S, S, Error> + ContextRing<C, S, S, Error>, PGate:ContextGroup<C, S, P, Error>>
+    PlonkVerifierParams<'a, C, S, P, Error, SGate, PGate> {
 
     fn get_xi_n(
         &mut self,
-        main_gate: &MainGate<C::ScalarExt>,
-        region: &mut Region<'_, C::ScalarExt>,
-        offset: &mut usize,
-    ) -> Result<S, Error> {
-        match &self.xi_n {
-            None => {
-                let xi_n = self.pow(main_gate, &self.xi, self.n, region, offset)?;
-                self.xi_n = Some(xi_n.clone());
-                Ok(xi_n.clone())
+        ctx: &mut C,
+    ) -> Result<(S,S), Error> {
+        let sgate = self.sgate;
+        let xi_n = &self.sgate.pow_constant(ctx, self.xi, self.common.n)?;
+        let xi_2n = &self.sgate.pow_constant(ctx, xi_n, 2)?;
+        // zh_xi = xi ^ n - 1
+        let zh_xi = self.sgate.minus(ctx, xi_n, self.sgate.one())?;
+        // l1_xi = w * (xi ^ n - 1) / (n * (xi - w))
+        let n = &sgate.from_constant(self.common.n)?;
+        let one = self.sgate.one();
+        let l1_xi = {
+            let w = self.common.w;
+            let xi = self.xi;
+            //FIXME: following does not work
+            //arith_in_ctx!([sgate, ctx] w * (xi_n - one) / (n * (xi - w)))
+            arith_in_ctx!([sgate, ctx] w * (xi_n - one))
+        }?;
+
+        let pi_xi = {
+            let w_vec = sgate.pow_constant_vec(ctx, self.common.w, self.common.l)?;
+            let mut pi_vec = vec![];
+            for i in 0..self.common.l {
+                let wi = &w_vec[i as usize];
+                // li_xi = (w ^ i) * (xi ^ n - 1) / (n * (xi - w ^ i))
+                let xi = self.xi;
+                //FIXME: following does not work
+                //let li_xi = arith_in_ctx!([sgate, ctx] wi * (xi_n - one) / (n * (xi - wi))).unwrap();
+                let li_xi = arith_in_ctx!([sgate, ctx] wi * (xi_n - one)).unwrap();
+                pi_vec.push(li_xi);
             }
-            Some(xi_n) => Ok(xi_n.clone()),
-        }
-    }
 
-    fn get_xi_2n(
-        &mut self,
-        main_gate: &MainGate<C::ScalarExt>,
-        region: &mut Region<'_, C::ScalarExt>,
-        offset: &mut usize,
-    ) -> Result<S, Error> {
-        let xi_n = self.get_xi_n(main_gate, region, offset)?;
-
-        Ok(main_gate.mul(region, &xi_n, &xi_n, offset)?)
-    }
-
-    fn get_zh_xi(
-        &mut self,
-        main_gate: &MainGate<C::ScalarExt>,
-        region: &mut Region<'_, C::ScalarExt>,
-        offset: &mut usize,
-    ) -> Result<S, Error> {
-        match &self.evals.zh_xi {
-            None => {
-                // zh_xi = xi ^ n - 1
-                let xi_n = self.get_xi_n(main_gate, region, offset)?;
-                let zh_xi = main_gate.add_constant(region, &xi_n, -C::ScalarExt::one(), offset)?;
-                self.evals.zh_xi = Some(zh_xi.clone());
-                Ok(zh_xi)
+            let mut pi_xi = (&pi_vec)[0].clone();
+            for i in 1..self.common.l {
+                let next = &(pi_vec)[i as usize];
+                let curr = &pi_xi;
+                pi_xi = arith_in_ctx!([sgate, ctx] curr + next).unwrap()
             }
-            Some(zh_xi) => Ok(zh_xi.clone()),
-        }
+            pi_xi.clone()
+        };
+        unimplemented!("not ready")
     }
-
-    fn get_l1_xi(
-        &mut self,
-        main_gate: &MainGate<C::ScalarExt>,
-        region: &mut Region<'_, C::ScalarExt>,
-        offset: &mut usize,
-    ) -> Result<S, Error> {
-        match &self.evals.l1_xi {
-            None => {
-                let n = C::ScalarExt::from(self.n as u64);
-                let one = C::ScalarExt::one();
-                let zero = C::ScalarExt::zero();
-
-                // l1_xi = w * (xi ^ n - 1) / (n * (xi - w))
-                let n_xi_sub_w_value = self.xi.value.and_then(|xi| self.w.value.map(|w| (xi - w) * n));
-                let (_, _, n_xi_sub_w, _, _) = main_gate.combine(
-                    region,
-                    [
-                        Term::Assigned(self.xi, n),
-                        Term::Assigned(self.w, -n),
-                        Term::Unassigned(n_xi_sub_w_value, -one),
-                        Term::Zero,
-                        Term::Zero,
-                    ],
-                    zero,
-                    offset,
-                    CombinationOptionCommon::OneLinerAdd.into(),
-                )?;
-
-                let zh_xi = self.get_zh_xi(main_gate, region, offset)?;
-                let w_zh_xi = main_gate.mul(region, self.w, &zh_xi, offset)?;
-                let l1_xi = main_gate.div_unsafe(region, &w_zh_xi, &n_xi_sub_w, offset)?;
-
-                Ok(l1_xi)
-            }
-            Some(l1_xi) => Ok(l1_xi.clone()),
-        }
-    }
-
-    fn get_pi_xi(
-        &mut self,
-        main_gate: &MainGate<C::ScalarExt>,
-        region: &mut Region<'_, C::ScalarExt>,
-        offset: &mut usize,
-    ) -> Result<S, Error> {
-        match &self.evals.pi_xi {
-            None => {
-                let n = C::ScalarExt::from(self.n as u64);
-                let one = C::ScalarExt::one();
-                let zero = C::ScalarExt::zero();
-
-                let w_vec = self.pow_vec(main_gate, self.w, self.l, region, offset)?;
-
-                let mut pi_vec = vec![];
-                for i in 0..self.l {
-                    let wi = &w_vec[i as usize];
-                    // li_xi = (w ^ i) * (xi ^ n - 1) / (n * (xi - w ^ i))
-                    let n_xi_sub_w_i_value = self.xi.value.and_then(|xi| self.w.value.map(|wi| (xi - wi) * n));
-                    let (_, _, n_xi_sub_w, _, _) = main_gate.combine(
-                        region,
-                        [
-                            Term::Assigned(self.xi, n),
-                            Term::Assigned(wi, -n),
-                            Term::Unassigned(n_xi_sub_w_i_value, -one),
-                            Term::Zero,
-                            Term::Zero,
-                        ],
-                        zero,
-                        offset,
-                        CombinationOptionCommon::OneLinerAdd.into(),
-                    )?;
-
-                    let zh_xi = self.get_zh_xi(main_gate, region, offset)?;
-                    let wi_zh_xi = main_gate.mul(region, wi, &zh_xi, offset)?;
-                    let li_xi = main_gate.div_unsafe(region, &wi_zh_xi, &n_xi_sub_w, offset)?;
-
-                    pi_vec.push(li_xi);
-                }
-
-                let mut pi_xi = (&pi_vec)[0].clone();
-                for i in 1..self.l {
-                    pi_xi = main_gate.add(region, pi_xi, (&pi_vec)[i as usize].clone(), offset)?;
-                }
-                self.evals.pi_xi = Some(pi_xi.clone());
-                Ok(pi_xi)
-            }
-            Some(l1_xi) => Ok(l1_xi.clone()),
-        }
-    }
-
 
     fn get_r (
         &mut self,
-        main_gate: &MainGate<C::ScalarExt>,
-        region: &mut Region<'_, C::ScalarExt>,
-        offset: &mut usize,
-    ) -> Result<SchemeItem<C>, Error> {
+    ) -> Result<SchemaItem<S, P>, Error> {
         let a = CommitQuery{c: Some(self.commits.a), v: Some(self.evals.a_xi)};
         let b = CommitQuery{c: Some(self.commits.b), v: Some(self.evals.b_xi)};
         let c = CommitQuery{c: Some(self.commits.c), v: Some(self.evals.c_xi)};
-        let qm = CommitQuery{c: Some(self.params.q_m), v: None};
-        let ql = CommitQuery{c: Some(self.params.q_l), v: None};
-        let qr = CommitQuery{c: Some(self.params.q_r), v: None};
-        let qo = CommitQuery{c: Some(self.params.q_o), v: None};
-        let qc = CommitQuery{c: Some(self.params.q_c), v: None};
-        let z = CommitQuery{c: Some(self.commits.z), v: None};
-        let zxi = CommitQuery{c: Some(self.commits.z), v: None};
-        let sigma1 = CommitQuery{c: None, v: Some(self.evals.sigma1_xi)};
-        let sigma2 = CommitQuery{c: None, v: Some(self.evals.sigma2_xi)};
-        let sigma3 = CommitQuery{c: Some(self.params.sigma3), v: None};
-        let tl = CommitQuery{c: Some(self.commits.tl), v: None};
-        let tm = CommitQuery{c: Some(self.commits.tm), v: None};
-        let th = CommitQuery{c: Some(self.commits.th), v: None};
-        let pi_xi = self.get_pi_xi(main_gate, region, offset)?;
-        let l1_xi = self.get_l1_xi(main_gate, region, offset)?;
-        let xi_n = self.get_xi_n(main_gate, region, offset)?;
-        let xi_2n = self.get_xi_2n(main_gate, region, offset)?;
-        let zh_xi = self.get_zh_xi(main_gate, region, offset)?;
-        let neg_one = main_gate.neg_with_constant(region, self.one, C::ScalarExt::zero(), offset)?;
+        let qm = CommitQuery::<S, P> {c: Some(self.params.q_m), v: None};
+        let ql = CommitQuery::<S, P> {c: Some(self.params.q_l), v: None};
+        let qr = CommitQuery::<S, P> {c: Some(self.params.q_r), v: None};
+        let qo = CommitQuery::<S, P> {c: Some(self.params.q_o), v: None};
+        let qc = CommitQuery::<S, P> {c: Some(self.params.q_c), v: None};
+        let z = CommitQuery::<S, P> {c: Some(self.commits.z), v: None};
+        let zxi = CommitQuery::<S, P> {c: Some(self.commits.z), v: None};
+        let sigma1 = CommitQuery::<S, P> {c: None, v: Some(self.evals.sigma1_xi)};
+        let sigma2 = CommitQuery::<S, P> {c: None, v: Some(self.evals.sigma2_xi)};
+        let sigma3 = CommitQuery::<S, P> {c: Some(self.params.sigma3), v: None};
+        let tl = CommitQuery::<S, P> {c: Some(self.commits.tl), v: None};
+        let tm = CommitQuery::<S, P> {c: Some(self.commits.tm), v: None};
+        let th = CommitQuery::<S, P> {c: Some(self.commits.th), v: None};
+/*
+        let pi_xi = self.get_pi_xi(cgate, region, offset)?;
+        let l1_xi = self.get_l1_xi(cgate, region, offset)?;
+        let xi_n = self.get_xi_n(cgate, region, offset)?;
+        let xi_2n = self.get_xi_2n(cgate, region, offset)?;
+        let zh_xi = self.get_zh_xi(cgate, region, offset)?;
+        let neg_one = cgate.neg_with_constant(region, self.one, C::ScalarExt::zero(), offset)?;
         Ok(eval!(a) * eval!(b) * commit!(qm) + eval!(a) * commit!(ql)
             + eval!(b) * commit!(qr) + eval!(c) * commit!(qo) + scalar!(pi_xi) + commit!(qc)
             + scalar!(self.alpha) * (
@@ -299,15 +186,31 @@ impl<C: CurveAffine> PlonkVerifierParams<'_, S, P> {
                 + scalar!(xi_2n) * commit!(th)
             )
         )
+*/
+        unimplemented!("Not ready!")
     }
+
+}
+
+impl<'a, C:Clone, S:Clone, P, Error:Debug, SGate: ContextGroup<C, S, S, Error> + ContextRing<C, S, S, Error>, PGate:ContextGroup<C, S, P, Error>>
+    SchemaGenerator<'a, S, P> for
+    PlonkVerifierParams<'a, C, S, P, Error, SGate, PGate> {
+    fn getPointSchemas(&self) -> Vec<PointSchema<'a, S, P>> {
+      vec![]
+    }
+}
+/*
+
+
+impl<C: CurveAffine> PlonkVerifierParams<'_, S, P> {
 
     fn get_e1(
         &mut self,
-        main_gate: &MainGate<C::ScalarExt>,
+        cgate: &MainGate<C::ScalarExt>,
         region: &mut Region<'_, C::ScalarExt>,
         offset: &mut usize,
     ) -> Result<S, Error> {
-        let r0_xi = self.get_r0(main_gate, region, offset)?;
+        let r0_xi = self.get_r0(cgate, region, offset)?;
         let v0 = SPE(
             [
                 self.evals.sigma2_xi,
@@ -321,17 +224,17 @@ impl<C: CurveAffine> PlonkVerifierParams<'_, S, P> {
             self.v,
         );
         let v1 = SPE([self.evals.z_xiw].to_vec(), self.one);
-        MPE([&v0 as &dyn EvalAggregator<C>, &v1].to_vec(), self.u).aggregate(main_gate, region, self.one, offset)
+        MPE([&v0 as &dyn EvalAggregator<C>, &v1].to_vec(), self.u).aggregate(cgate, region, self.one, offset)
     }
 
     fn get_f1(
         &mut self,
-        main_gate: &MainGate<C::ScalarExt>,
+        cgate: &MainGate<C::ScalarExt>,
         ecc_gate: &BaseFieldEccChip<C>,
         region: &mut Region<'_, C::ScalarExt>,
         offset: &mut usize,
     ) -> Result<AssignedPoint<C::ScalarExt>, Error> {
-        let r1 = self.get_r1(main_gate, ecc_gate, region, offset)?;
+        let r1 = self.get_r1(cgate, ecc_gate, region, offset)?;
         let v0 = SPC(
             [self.params.sigma2, self.params.sigma1, self.commits.c, self.commits.b, self.commits.a, &r1].to_vec(),
             self.v,
@@ -342,14 +245,14 @@ impl<C: CurveAffine> PlonkVerifierParams<'_, S, P> {
 
     fn get_wx(
         &mut self,
-        main_gate: &MainGate<C::ScalarExt>,
+        cgate: &MainGate<C::ScalarExt>,
         ecc_gate: &BaseFieldEccChip<C>,
         ws: Vec<SingleOpeningProof<C>>,
         region: &mut Region<'_, C::ScalarExt>,
         offset: &mut usize,
     ) -> Result<MultiOpeningProof<C>, Error> {
-        let e1 = self.get_e1(main_gate, region, offset)?;
-        let f1 = self.get_f1(main_gate, ecc_gate, region, offset)?;
+        let e1 = self.get_e1(cgate, region, offset)?;
+        let f1 = self.get_f1(cgate, ecc_gate, region, offset)?;
         let mut wxs = Vec::new();
         ws.iter().for_each(|w| {
             wxs.push(w.w.clone());
