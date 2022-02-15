@@ -1,7 +1,5 @@
-use crate::base_gate::{
-    four::{FourBaseGate, FourBaseGateConfig},
-    BaseRegion,
-};
+use crate::base_gate::BaseRegion;
+use crate::four::{FourBaseGate, FourBaseGateConfig};
 use halo2_proofs::{
     arithmetic::FieldExt,
     circuit::{Layouter, SimpleFloorPlanner},
@@ -73,9 +71,7 @@ impl<N: FieldExt> Circuit<N> for TestFourBaseGateBopCircuit<N> {
 #[test]
 fn test_four_base_gate_bop() {
     const K: u32 = 8;
-    let circuit = TestFourBaseGateBopCircuit::<Fp> {
-        _marker: PhantomData,
-    };
+    let circuit = TestFourBaseGateBopCircuit::<Fp> { _marker: PhantomData };
     let prover = match MockProver::run(K, &circuit, vec![]) {
         Ok(prover) => prover,
         Err(e) => panic!("{:#?}", e),

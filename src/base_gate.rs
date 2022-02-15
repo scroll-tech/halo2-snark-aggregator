@@ -7,8 +7,6 @@ use halo2_proofs::{
     poly::Rotation,
 };
 
-pub mod five;
-pub mod four;
 pub mod ops;
 
 #[derive(Clone, Debug)]

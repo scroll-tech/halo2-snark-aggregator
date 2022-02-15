@@ -6,30 +6,38 @@ use crate::{
 };
 use halo2_proofs::{
     arithmetic::FieldExt,
-    circuit::{layouter::RegionLayouter, Layouter},
+    circuit::Layouter,
     plonk::{ConstraintSystem, Error, Selector, TableColumn},
     poly::Rotation,
 };
 
 #[derive(Clone, Debug)]
-pub struct RangeConfig<const VAR_COLUMNS: usize, const MUL_COLUMNS: usize> {
-    bits: usize,
+pub struct RangeGateConfig {
+    bits: u32,
     selector: Selector,
     table_column: TableColumn,
 }
 
 pub struct RangeGate<'a, N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize> {
-    config: RangeConfig<VAR_COLUMNS, MUL_COLUMNS>,
+    config: RangeGateConfig,
     base_gate: &'a BaseGate<N, VAR_COLUMNS, MUL_COLUMNS>,
     _phantom: PhantomData<N>,
 }
 
 impl<'a, N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize> RangeGate<'a, N, VAR_COLUMNS, MUL_COLUMNS> {
-    pub fn configuration(
+    pub fn new(config: RangeGateConfig, base_gate: &'a BaseGate<N, VAR_COLUMNS, MUL_COLUMNS>) -> Self {
+        RangeGate {
+            config,
+            base_gate,
+            _phantom: PhantomData,
+        }
+    }
+
+    pub fn configure(
         meta: &mut ConstraintSystem<N>,
         base_gate_config: &'a BaseGateConfig<VAR_COLUMNS, MUL_COLUMNS>,
-        bits: usize,
-    ) -> RangeConfig<VAR_COLUMNS, MUL_COLUMNS> {
+        bits: u32,
+    ) -> RangeGateConfig {
         let selector = meta.complex_selector();
         let table_column = meta.lookup_table_column();
 
@@ -41,14 +49,14 @@ impl<'a, N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize> RangeG
             });
         });
 
-        RangeConfig {
+        RangeGateConfig {
             bits,
             selector,
             table_column,
         }
     }
 
-    fn init_table(&self, layouter: &mut impl Layouter<N>) -> Result<(), Error> {
+    pub fn init_table(&self, layouter: &mut impl Layouter<N>) -> Result<(), Error> {
         layouter.assign_table(
             || "",
             |mut table| {
@@ -67,8 +75,8 @@ impl<'a, N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize> RangeG
         values: Vec<N>,
     ) -> Result<[AssignedValue<N>; VAR_COLUMNS], Error> {
         let zero = N::zero();
-        self.config.selector.enable(r.region, *r.offset)?;
 
+        self.config.selector.enable(r.region, *r.offset)?;
         let assigned_values = self.base_gate.one_line(
             r,
             values.into_iter().map(|v| pair!(v, zero)).collect(),

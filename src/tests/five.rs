@@ -1,7 +1,8 @@
-use crate::{base_gate::{
-    five::{FiveBaseGate, FiveBaseGateConfig, MUL_COLUMNS, VAR_COLUMNS},
-    BaseRegion, ValueSchema,
-}, pair_empty};
+use crate::five::{FiveBaseGate, FiveBaseGateConfig, MUL_COLUMNS, VAR_COLUMNS};
+use crate::{
+    base_gate::{BaseRegion, ValueSchema},
+    pair_empty,
+};
 use halo2_proofs::{
     arithmetic::FieldExt,
     circuit::{Layouter, SimpleFloorPlanner},

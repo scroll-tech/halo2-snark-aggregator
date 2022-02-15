@@ -1,8 +1,6 @@
-use crate::base_gate::four::{MUL_COLUMNS, VAR_COLUMNS};
-use crate::base_gate::{
-    four::{FourBaseGate, FourBaseGateConfig},
-    BaseRegion, ValueSchema,
-};
+use crate::base_gate::{BaseRegion, ValueSchema};
+use crate::four::{FourBaseGate, FourBaseGateConfig};
+use crate::four::{MUL_COLUMNS, VAR_COLUMNS};
 use crate::pair_empty;
 use halo2_proofs::{
     arithmetic::FieldExt,
@@ -14,7 +12,6 @@ use halo2_proofs::{
 use rand::SeedableRng;
 use rand_xorshift::XorShiftRng;
 use std::marker::PhantomData;
-
 
 #[derive(Clone)]
 struct TestFourBaseGateConfig {
