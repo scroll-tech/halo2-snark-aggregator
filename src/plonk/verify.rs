@@ -101,7 +101,7 @@ impl<'a, C, S:Clone, P:Clone, Error:Debug, SGate: ContextGroup<C, S, S, Error> +
     fn get_common_evals(
         &self,
         ctx: &mut C,
-    ) -> Result<[SchemaItem<S, P>; 6], Error> {
+    ) -> Result<[SchemaItem<'a, S, P>; 6], Error> {
         let sgate = self.sgate;
         let n = &sgate.from_constant(self.common.n)?;
         let one = self.sgate.one();
@@ -143,7 +143,7 @@ impl<'a, C, S:Clone, P:Clone, Error:Debug, SGate: ContextGroup<C, S, S, Error> +
     fn get_proof_xi (
         &self,
         ctx: &mut C,
-    ) -> Result<EvaluationProof<S, P>, Error> {
+    ) -> Result<EvaluationProof<'a, S, P>, Error> {
         let zero = self.sgate.zero();
         let one = self.sgate.one();
         let a = CommitQuery{c: Some(self.commits.a), v: Some(self.evals.a_xi)};
@@ -202,7 +202,7 @@ impl<'a, C, S:Clone, P:Clone, Error:Debug, SGate: ContextGroup<C, S, S, Error> +
     fn get_proof_wxi (
         &self,
         ctx: &mut C,
-    ) -> Result<EvaluationProof<S,P>, Error> {
+    ) -> Result<EvaluationProof<'a, S, P>, Error> {
         let sgate = self.sgate;
         let zxi = CommitQuery::<S, P> {c: Some(self.commits.z), v: Some(self.evals.z_xiw)};
         let s = commit!(zxi) + eval!(zxi);
@@ -219,73 +219,11 @@ impl<'a, C:Clone, S:Clone, P:Clone,
     Error:Debug,
     SGate: ContextGroup<C, S, S, Error> + ContextRing<C, S, S, Error>,
     PGate:ContextGroup<C, S, P, Error>>
-    SchemaGenerator<'a, S, P> for
+    SchemaGenerator<'a, C, S, P, Error> for
     PlonkVerifierParams<'a, C, S, P, Error, SGate, PGate> {
-    fn getPointSchemas(&self) -> Vec<EvaluationProof<'a, S, P>> {
-      vec![]
+    fn getPointSchemas(&self, ctx: &mut C) -> Result<Vec<EvaluationProof<'a, S, P>>, Error> {
+        let proof_xi = self.get_proof_xi(ctx)?;
+        let proof_wxi = self.get_proof_wxi(ctx)?;
+        Ok(vec![proof_xi, proof_wxi])
     }
 }
-/*
-
-
-impl<C: CurveAffine> PlonkVerifierParams<'_, S, P> {
-
-    fn get_e1(
-        &mut self,
-        cgate: &MainGate<C::ScalarExt>,
-        region: &mut Region<'_, C::ScalarExt>,
-        offset: &mut usize,
-    ) -> Result<S, Error> {
-        let r0_xi = self.get_r0(cgate, region, offset)?;
-        let v0 = SPE(
-            [
-                self.evals.sigma2_xi,
-                self.evals.sigma1_xi,
-                self.evals.c_xi,
-                self.evals.b_xi,
-                self.evals.a_xi,
-                &r0_xi,
-            ]
-            .to_vec(),
-            self.v,
-        );
-        let v1 = SPE([self.evals.z_xiw].to_vec(), self.one);
-        MPE([&v0 as &dyn EvalAggregator<C>, &v1].to_vec(), self.u).aggregate(cgate, region, self.one, offset)
-    }
-
-    fn get_f1(
-        &mut self,
-        cgate: &MainGate<C::ScalarExt>,
-        ecc_gate: &BaseFieldEccChip<C>,
-        region: &mut Region<'_, C::ScalarExt>,
-        offset: &mut usize,
-    ) -> Result<AssignedPoint<C::ScalarExt>, Error> {
-        let r1 = self.get_r1(cgate, ecc_gate, region, offset)?;
-        let v0 = SPC(
-            [self.params.sigma2, self.params.sigma1, self.commits.c, self.commits.b, self.commits.a, &r1].to_vec(),
-            self.v,
-        );
-        let v1 = SPC([self.commits.z].to_vec(), self.one);
-        MPC([&v0 as &dyn MSMAggregator<C>, &v1].to_vec(), self.u).aggregate(ecc_gate, region, self.one, offset)
-    }
-
-    fn get_wx(
-        &mut self,
-        cgate: &MainGate<C::ScalarExt>,
-        ecc_gate: &BaseFieldEccChip<C>,
-        ws: Vec<SingleOpeningProof<C>>,
-        region: &mut Region<'_, C::ScalarExt>,
-        offset: &mut usize,
-    ) -> Result<MultiOpeningProof<C>, Error> {
-        let e1 = self.get_e1(cgate, region, offset)?;
-        let f1 = self.get_f1(cgate, ecc_gate, region, offset)?;
-        let mut wxs = Vec::new();
-        ws.iter().for_each(|w| {
-            wxs.push(w.w.clone());
-        });
-        let wxs = SPC(wxs.iter().collect(), self.u).aggregate(ecc_gate, region, self.one, offset)?;
-        Ok(MultiOpeningProof{w_x: wxs.clone(), w_g: wxs, e: e1, f :f1})
-
-    }
-}
-*/
