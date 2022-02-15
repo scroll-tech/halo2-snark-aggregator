@@ -1,4 +1,7 @@
-use crate::{base_gate::{BaseGate, BaseGateConfig}, range_gate::RangeGate};
+use crate::{
+    base_gate::{BaseGate, BaseGateConfig},
+    range_gate::RangeGate,
+};
 
 pub const VAR_COLUMNS: usize = 4;
 pub const MUL_COLUMNS: usize = 1;

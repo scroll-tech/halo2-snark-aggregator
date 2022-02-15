@@ -10,8 +10,7 @@ use halo2_proofs::{
     pasta::Fp,
     plonk::{Circuit, ConstraintSystem, Error},
 };
-use rand::{random, SeedableRng};
-use rand_xorshift::XorShiftRng;
+use rand::random;
 use std::marker::PhantomData;
 
 #[derive(Clone)]
