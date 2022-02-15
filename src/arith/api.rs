@@ -1,5 +1,5 @@
 //#![feature(trace_macros)]
-//trace_macros!(true);
+// trace_macros!(true);
 // Context Arithment Group under Context C, Scalar Group S and Base Group B
 pub trait ContextGroup<C, S, B, Error> {
     fn add(&self, cxt:&mut C, lhs: &B, rhs: &B) -> Result<B, Error>;
@@ -16,6 +16,7 @@ pub trait ContextGroup<C, S, B, Error> {
 // Context Arithment Group under Context C, Scalar Group S and Base Group B
 pub trait ContextRing<C, S, B, Error> {
    fn mul(&self, cxt:&mut C, lhs: &B, rhs: &B) -> Result<B, Error>;
+   fn div(&self, cxt:&mut C, lhs: &B, rhs: &B) -> Result<B, Error>;
    fn square(&self, cxt:&mut C, lhs: &B) -> Result<B, Error>;
    fn generator(&self) -> &B;
 }
@@ -118,22 +119,29 @@ macro_rules! arith_in_ctx {
 //note: to `arith_in_ctx! (@ pfx [h, r] (a a) (+ a +))`
   (@pfx [$s:tt, $c:tt] ($a:expr, $b:expr, $($stack:tt,)*) (+ $($tail:tt)*)) => {
       {
-        let r = &$s.add($c, $a, $b)?;
+        let r = &$s.add($c, $a, $b).unwrap();
         arith_in_ctx! (@pfx [$s, $c] (r, $($stack,)*) ($($tail)*))
       }
   };
   (@pfx [$s:tt, $c:tt] ($a:expr, $b:expr, $($stack:tt,)*) (- $($tail:tt)*)) => {
       {
-        let r = &$s.minus($c, $b, $a)?;
+        let r = &$s.minus($c, $b, $a).unwrap();
         arith_in_ctx!(@pfx [$s, $c] (r, $($stack,)*) ($($tail)*))
       }
   };
   (@pfx [$s:tt, $c:tt] ($a:expr, $b:expr, $($stack:tt,)*) (* $($tail:tt)*)) => {
       {
-        let eval = &$s.mul($c, $b, $a)?;
+        let eval = &$s.mul($c, $b, $a).unwrap();
         arith_in_ctx!(@pfx [$s, $c] (eval, $($stack,)*) ($($tail)*))
       }
   };
+  (@pfx [$s:tt, $c:tt] ($a:expr, $b:expr, $($stack:tt,)*) (/ $($tail:tt)*)) => {
+      {
+        let eval = &$s.div($c, $b, $a).unwrap();
+        arith_in_ctx!(@pfx [$s, $c] (eval, $($stack,)*) ($($tail)*))
+      }
+  };
+
   (@pfx [$s:tt, $c:tt] ($($stack:tt,)*) ($head:tt $($tail:tt)*)) => {
       arith_in_ctx!(@pfx [$s, $c] ($head, $($stack,)*) ($($tail)*))
   };
@@ -146,46 +154,66 @@ macro_rules! arith_in_ctx {
 
 #[cfg(test)]
 mod test_marco {
-  use crate::carith::ContextGroup;
-  use crate::carith::ContextRing;
+  use crate::arith::api::ContextGroup;
+  use crate::arith::api::ContextRing;
 
   #[derive(Debug, Default, Clone)]
   struct W {
     pub t: i32,
   }
 
-  impl ContextGroup<W, W, W, ()> for W {
-    fn add(&self, _ctx:&mut W, lhs:&W, rhs:&W) -> W {
-      println!("(add {:?} {:?})", lhs, rhs);
+  struct Gate {
+    pub one: W,
+    pub zero: W,
+  }
+
+  impl ContextGroup<(), W, W, ()> for Gate {
+    fn add(&self, _ctx:&mut (), lhs:&W, rhs:&W) -> Result<W, ()> {
       let t = lhs.t + rhs.t;
       Ok(W {t})
     }
-    fn minus(&self, _ctx:&mut W, lhs:&W, rhs:&W) -> W {
+    fn minus(&self, _ctx:&mut (), lhs:&W, rhs:&W) -> Result<W, ()> {
       let t = lhs.t - rhs.t;
       Ok(W {t})
     }
-    fn scalar_mul(&self, _ctx:&mut W, lhs:&W, rhs:&W) -> W {
+    fn scalar_mul(&self, _ctx:&mut (), lhs:&W, rhs:&W) -> Result<W, ()> {
       let t = lhs.t * rhs.t;
       Ok(W {t})
     }
+    fn one(&self) -> &W {
+      &self.one
+    }
+    fn zero(&self) -> &W {
+      &self.zero
+    }
+    fn from_constant(&self, c: u32) -> Result<W, ()> {
+      Ok(W {t: c as i32})
+    }
+
   }
 
-  impl ContextRing <W, W, W> for W {
-    fn mul(&self, _ctx:&mut W, lhs:&W, rhs:&W) -> W {
+  impl ContextRing <(), W, W, ()> for Gate {
+    fn mul(&self, _ctx:&mut (), lhs:&W, rhs:&W) -> Result<W, ()> {
       let t = lhs.t * rhs.t;
       Ok(W {t})
     }
-    fn power (&self, _ctx:&mut W, lhs:&W, rhs:&W) -> W {
-      let t = lhs.t ^ rhs.t;
+    fn div(&self, _ctx:&mut (), lhs:&W, rhs:&W) -> Result<W, ()> {
+      let t = lhs.t / rhs.t;
+      Ok(W {t})
+    }
+    fn generator (&self) -> &W {
+      &self.one
+    }
+    fn square(&self, _ctx:&mut (), s:&W) -> Result<W, ()> {
+      let t = s.t * s.t;
       Ok(W {t})
     }
   }
 
   #[test]
   fn test_singleton() {
-    let mut i = W {t:1};
-    let h = W {t:1};
-    let r = &mut i;
+    let gate = Gate {one: W {t:1}, zero: W {t:0}};
+    let r = &mut ();
     let a = W {t:1};
     let a = &a;
     let b = W {t:2};
@@ -194,31 +222,23 @@ mod test_marco {
     let c = &c;
     let d = W {t:4};
     let d = &d;
-    let a1 = arith_in_ctx!([h, r] a);
+    let a1 = arith_in_ctx!([gate, r] a).unwrap();
     assert_eq!(a1.t, 1);
-    let a1 = arith_in_ctx!([h, r] a + a + a);
+    let a1 = arith_in_ctx!([gate, r] a + a + a).unwrap();
     assert_eq!(a1.t, 3);
-    let a1 = arith_in_ctx!([h, r] a - a);
+    let a1 = arith_in_ctx!([gate, r] a - a).unwrap();
     assert_eq!(a1.t, 0);
-    let a1 = arith_in_ctx!([h, r] b - (b * b));
+    let a1 = arith_in_ctx!([gate, r] b - (b * b)).unwrap();
     assert_eq!(a1.t, -2);
-    let a1 = arith_in_ctx!([h, r] b - b * b);
+    let a1 = arith_in_ctx!([gate, r] b - b * b).unwrap();
     assert_eq!(a1.t, -2);
-    let a1 = arith_in_ctx!([h, r] (b - b) * b);
+    let a1 = arith_in_ctx!([gate, r] (b - b) * b).unwrap();
     assert_eq!(a1.t, 0);
-    let a1 = arith_in_ctx!([h, r] (b - b * b + b) * b + b * b);
-    assert_eq!(a1.t, 4);
-/*
-    let a1 = under_context!([h, r] (a - a) * a);
-    assert_eq!(a1, 0);
-    let a2 = under_context!([h, r] 1 + 2 + 3);
-    assert_eq!(a2, 6);
-*/
-/*
-    let a3 = under_context!([()] 1 + (2 + 3) + b);
-    assert_eq!(a3, 9);
-    let a4 = under_context!([()] 1 * (2 + 3) * b);
-    assert_eq!(a4, 15);
-*/
+    let a1 = arith_in_ctx!([gate, r] (b - b * (b + b)) * b + b * b).unwrap();
+    assert_eq!(a1.t, (2-2*(2+2))*2+2*2);
+    let a1 = arith_in_ctx!([gate, r] (c - c * b) / c).unwrap();
+    assert_eq!(a1.t, -1);
+    let a1 = arith_in_ctx!([gate, r] (c * b * b) / (c + c)).unwrap();
+    assert_eq!(a1.t, 2);
   }
 }

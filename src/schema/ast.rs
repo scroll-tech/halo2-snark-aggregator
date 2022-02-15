@@ -48,12 +48,13 @@ impl<C, S, G:Clone, Error, T:ContextGroup<C, S, G, Error>> ArrayOpAdd<C, S, G, E
 }
 
 #[derive(Clone, Debug)]
-pub struct CommitQuery<'a, S, P> {
+pub struct CommitQuery<'a, S:Clone, P:Clone> {
     pub c: Option<&'a P>,
     pub v: Option<&'a S>,
 }
 
-pub enum SchemaItem<'a, S, P> {
+#[derive(Clone, Debug)]
+pub enum SchemaItem<'a, S:Clone, P:Clone> {
     Commit(CommitQuery<'a, S, P>),
     Eval(CommitQuery<'a, S, P>),
     Scalar(S),
@@ -61,7 +62,7 @@ pub enum SchemaItem<'a, S, P> {
     Mul(Vec<SchemaItem<'a, S, P>>),
 }
 
-impl<S, P> std::ops::Add for SchemaItem<'_, S, P> {
+impl<S:Clone, P:Clone> std::ops::Add for SchemaItem<'_, S, P> {
     type Output = Self;
     fn add(self, other: Self) -> Self {
         match self {
@@ -74,7 +75,7 @@ impl<S, P> std::ops::Add for SchemaItem<'_, S, P> {
     }
 }
 
-impl<S, P> std::ops::Mul for SchemaItem<'_, S, P> {
+impl<S:Clone, P:Clone> std::ops::Mul for SchemaItem<'_, S, P> {
     type Output = Self;
     fn mul(self, other: Self) -> Self {
         match self {
@@ -172,21 +173,21 @@ impl<C, S:Clone, P:Clone, Error:Debug, SGate:ContextGroup<C, S, S, Error> + Cont
 
 #[macro_export]
 macro_rules! commit {
-    ($x:expr) => {
-        SchemaItem::<C>::Commit(($x.clone()))
-    };
+    ($x:expr) => {SchemaItem::<S, P>::Commit($x.clone())}
 }
+
 #[macro_export]
-macro_rules! eval {
-    ($x:expr) => {
-        SchemaItem::<C>::Eval(($x.clone()))
-    };
+macro_rules! eval{
+   ($x:expr) => {
+       SchemaItem::<S, P>::Eval($x.clone())
+   }
 }
+
 #[macro_export]
 macro_rules! scalar {
-    ($x:expr) => {
-        SchemaItem::<C>::Scalar($x.clone())
-    };
+   ($x:expr) => {
+     SchemaItem::<S, P>::Scalar($x.clone())
+   }
 }
 
 /*

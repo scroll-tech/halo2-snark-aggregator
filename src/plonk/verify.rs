@@ -1,6 +1,8 @@
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
+use crate::{commit, scalar, eval};
+
 use crate::schema::ast::{
     SchemaItem,
     CommitQuery,
@@ -17,9 +19,8 @@ use crate::arith::api::{
     PowConstant,
 };
 
-use crate::{eval, commit, scalar};
 use crate::schema::{
-    PointSchema,
+    EvaluationProof,
     SchemaGenerator,
 };
 
@@ -97,36 +98,34 @@ pub struct PlonkVerifierParams <
 impl<'a, C, S:Clone, P:Clone, Error:Debug, SGate: ContextGroup<C, S, S, Error> + ContextRing<C, S, S, Error>, PGate:ContextGroup<C, S, P, Error>>
     PlonkVerifierParams<'a, C, S, P, Error, SGate, PGate> {
 
-    fn get_xi_n(
-        &mut self,
+    fn get_common_evals(
+        &self,
         ctx: &mut C,
-    ) -> Result<(S,S), Error> {
+    ) -> Result<[SchemaItem<S, P>; 6], Error> {
         let sgate = self.sgate;
-        let xi_n = &self.sgate.pow_constant(ctx, self.xi, self.common.n)?;
-        let xi_2n = &self.sgate.pow_constant(ctx, xi_n, 2)?;
-        // zh_xi = xi ^ n - 1
-        let zh_xi = self.sgate.minus(ctx, xi_n, self.sgate.one())?;
-        // l1_xi = w * (xi ^ n - 1) / (n * (xi - w))
         let n = &sgate.from_constant(self.common.n)?;
         let one = self.sgate.one();
-        let l1_xi = {
+        let xi = self.xi;
+
+        let xi_n = &self.sgate.pow_constant(ctx, self.xi, self.common.n)?;
+        let xi_2n = &self.sgate.pow_constant(ctx, xi_n, 2)?;
+
+        // zh_xi = xi ^ n - 1
+        let zh_xi = &self.sgate.minus(ctx, xi_n, self.sgate.one())?;
+
+        // l1_xi = w * (xi ^ n - 1) / (n * (xi - w))
+        let l1_xi = &{
             let w = self.common.w;
-            let xi = self.xi;
-            //FIXME: following does not work
-            //arith_in_ctx!([sgate, ctx] w * (xi_n - one) / (n * (xi - w)))
-            arith_in_ctx!([sgate, ctx] w * (xi_n - one))
+            arith_in_ctx!([sgate, ctx] w * (xi_n - one) / (n * (xi - w)))
         }?;
 
-        let pi_xi = {
+        let pi_xi = &{
             let w_vec = sgate.pow_constant_vec(ctx, self.common.w, self.common.l)?;
             let mut pi_vec = vec![];
             for i in 0..self.common.l {
                 let wi = &w_vec[i as usize];
                 // li_xi = (w ^ i) * (xi ^ n - 1) / (n * (xi - w ^ i))
-                let xi = self.xi;
-                //FIXME: following does not work
-                //let li_xi = arith_in_ctx!([sgate, ctx] wi * (xi_n - one) / (n * (xi - wi))).unwrap();
-                let li_xi = arith_in_ctx!([sgate, ctx] wi * (xi_n - one)).unwrap();
+                let li_xi = arith_in_ctx!([sgate, ctx] wi * (xi_n - one) / (n * (xi - wi))).unwrap();
                 pi_vec.push(li_xi);
             }
 
@@ -138,12 +137,15 @@ impl<'a, C, S:Clone, P:Clone, Error:Debug, SGate: ContextGroup<C, S, S, Error> +
             }
             pi_xi.clone()
         };
-        unimplemented!("not ready")
+        Ok([scalar!(xi), scalar!(xi_n), scalar!(xi_2n), scalar!(zh_xi), scalar!(l1_xi), scalar!(pi_xi)])
     }
 
-    fn get_r (
-        &mut self,
-    ) -> Result<SchemaItem<S, P>, Error> {
+    fn get_proof_xi (
+        &self,
+        ctx: &mut C,
+    ) -> Result<EvaluationProof<S, P>, Error> {
+        let zero = self.sgate.zero();
+        let one = self.sgate.one();
         let a = CommitQuery{c: Some(self.commits.a), v: Some(self.evals.a_xi)};
         let b = CommitQuery{c: Some(self.commits.b), v: Some(self.evals.b_xi)};
         let c = CommitQuery{c: Some(self.commits.c), v: Some(self.evals.c_xi)};
@@ -153,49 +155,73 @@ impl<'a, C, S:Clone, P:Clone, Error:Debug, SGate: ContextGroup<C, S, S, Error> +
         let qo = CommitQuery::<S, P> {c: Some(self.params.q_o), v: None};
         let qc = CommitQuery::<S, P> {c: Some(self.params.q_c), v: None};
         let z = CommitQuery::<S, P> {c: Some(self.commits.z), v: None};
-        let zxi = CommitQuery::<S, P> {c: Some(self.commits.z), v: None};
+        let zxi = CommitQuery::<S, P> {c: Some(self.commits.z), v: Some(self.evals.z_xiw)};
         let sigma1 = CommitQuery::<S, P> {c: None, v: Some(self.evals.sigma1_xi)};
         let sigma2 = CommitQuery::<S, P> {c: None, v: Some(self.evals.sigma2_xi)};
         let sigma3 = CommitQuery::<S, P> {c: Some(self.params.sigma3), v: None};
         let tl = CommitQuery::<S, P> {c: Some(self.commits.tl), v: None};
         let tm = CommitQuery::<S, P> {c: Some(self.commits.tm), v: None};
         let th = CommitQuery::<S, P> {c: Some(self.commits.th), v: None};
-/*
-        let pi_xi = self.get_pi_xi(cgate, region, offset)?;
-        let l1_xi = self.get_l1_xi(cgate, region, offset)?;
-        let xi_n = self.get_xi_n(cgate, region, offset)?;
-        let xi_2n = self.get_xi_2n(cgate, region, offset)?;
-        let zh_xi = self.get_zh_xi(cgate, region, offset)?;
-        let neg_one = cgate.neg_with_constant(region, self.one, C::ScalarExt::zero(), offset)?;
-        Ok(eval!(a) * eval!(b) * commit!(qm) + eval!(a) * commit!(ql)
-            + eval!(b) * commit!(qr) + eval!(c) * commit!(qo) + scalar!(pi_xi) + commit!(qc)
+        let [xi, xi_n, xi_2n, zh_xi, l1_xi, pi_xi] = self.get_common_evals(ctx)?;
+        let neg_one = &(self.sgate.minus(ctx, zero, one)?);
+        let r = eval!(a) * eval!(b) * commit!(qm) + eval!(a) * commit!(ql)
+            + eval!(b) * commit!(qr) + eval!(c) * commit!(qo) + pi_xi + commit!(qc)
             + scalar!(self.alpha) * (
-                  (eval!(a) + (scalar!(self.beta) * scalar!(self.xi)) + scalar!(self.gamma))
-                * (eval!(b) + (scalar!(self.beta) * scalar!(self.xi)) + scalar!(self.gamma))
-                * (eval!(c) + (scalar!(self.beta) * scalar!(self.xi)) + scalar!(self.gamma))
+                  (eval!(a) + (scalar!(self.beta) * xi.clone()) + scalar!(self.gamma))
+                * (eval!(b) + (scalar!(self.beta) * xi.clone()) + scalar!(self.gamma))
+                * (eval!(c) + (scalar!(self.beta) * xi) + scalar!(self.gamma))
                 * commit!(z)
                 + (eval!(a) + (scalar!(self.beta) * eval!(sigma1)) + scalar!(self.gamma))
                 * (eval!(b) + (scalar!(self.beta) * eval!(sigma2)) + scalar!(self.gamma))
                 * (eval!(c) + (scalar!(self.beta) * commit!(sigma3)) + scalar!(self.gamma))
                 * eval!(zxi)
               )
-            + scalar!(self.alpha) * scalar!(self.alpha) * scalar!(l1_xi) * (commit!(z) + scalar!(neg_one))
-            + scalar!(zh_xi) * (
-                  commit!(tl)
-                + scalar!(xi_n) * commit!(tm)
-                + scalar!(xi_2n) * commit!(th)
+            + scalar!(self.alpha) * scalar!(self.alpha) * l1_xi * (commit!(z) + scalar!(neg_one))
+            + zh_xi * (commit!(tl) + xi_n * commit!(tm) + xi_2n * commit!(th))
+            + scalar!(self.v) * (
+                commit!(a) + scalar!(self.v) * (
+                    commit!(b) + scalar!(self.v) * (
+                        commit!(c) + scalar!(self.v) * (
+                            commit!(sigma1) + scalar!(self.v) * commit!(sigma2)
+                        )
+                    )
+                )
             )
-        )
-*/
-        unimplemented!("Not ready!")
+            + scalar!(self.v) * (
+                eval!(a) + scalar!(self.v) * (
+                    eval!(b) + scalar!(self.v) * (
+                        eval!(c) + scalar!(self.v) * (
+                            eval!(sigma1) + scalar!(self.v) * eval!(sigma2)
+                        )
+                    )
+                )
+            );
+        Ok(EvaluationProof {s:r, point:self.xi.clone(), w: self.commits.w_z.clone()})
     }
 
+    fn get_proof_wxi (
+        &self,
+        ctx: &mut C,
+    ) -> Result<EvaluationProof<S,P>, Error> {
+        let sgate = self.sgate;
+        let zxi = CommitQuery::<S, P> {c: Some(self.commits.z), v: Some(self.evals.z_xiw)};
+        let s = commit!(zxi) + eval!(zxi);
+        let point = {
+            let xi = self.xi;
+            let w = self.common.w;
+            arith_in_ctx!([sgate, ctx] w * xi)?
+        };
+        Ok(EvaluationProof {s, point, w: self.commits.w_zw.clone()})
+    }
 }
 
-impl<'a, C:Clone, S:Clone, P, Error:Debug, SGate: ContextGroup<C, S, S, Error> + ContextRing<C, S, S, Error>, PGate:ContextGroup<C, S, P, Error>>
+impl<'a, C:Clone, S:Clone, P:Clone,
+    Error:Debug,
+    SGate: ContextGroup<C, S, S, Error> + ContextRing<C, S, S, Error>,
+    PGate:ContextGroup<C, S, P, Error>>
     SchemaGenerator<'a, S, P> for
     PlonkVerifierParams<'a, C, S, P, Error, SGate, PGate> {
-    fn getPointSchemas(&self) -> Vec<PointSchema<'a, S, P>> {
+    fn getPointSchemas(&self) -> Vec<EvaluationProof<'a, S, P>> {
       vec![]
     }
 }
