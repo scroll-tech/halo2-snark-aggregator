@@ -1,8 +1,7 @@
 use std::marker::PhantomData;
 
 use crate::{
-    base_gate::{AssignedValue, BaseGate, BaseGateConfig, BaseRegion},
-    pair,
+    base_gate::{AssignedValue, BaseGate, BaseGateConfig, BaseRegion, ValueSchema}
 };
 use halo2_proofs::{
     arithmetic::FieldExt,
@@ -13,18 +12,19 @@ use halo2_proofs::{
 
 #[derive(Clone, Debug)]
 pub struct RangeGateConfig {
-    bits: u32,
     selector: Selector,
     table_column: TableColumn,
 }
 
-pub struct RangeGate<'a, N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize> {
+pub struct RangeGate<'a, N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize, const RANGE_BITS: usize> {
     config: RangeGateConfig,
-    base_gate: &'a BaseGate<N, VAR_COLUMNS, MUL_COLUMNS>,
+    pub base_gate: &'a BaseGate<N, VAR_COLUMNS, MUL_COLUMNS>,
     _phantom: PhantomData<N>,
 }
 
-impl<'a, N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize> RangeGate<'a, N, VAR_COLUMNS, MUL_COLUMNS> {
+impl<'a, N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize, const RANGE_BITS: usize>
+    RangeGate<'a, N, VAR_COLUMNS, MUL_COLUMNS, RANGE_BITS>
+{
     pub fn new(config: RangeGateConfig, base_gate: &'a BaseGate<N, VAR_COLUMNS, MUL_COLUMNS>) -> Self {
         RangeGate {
             config,
@@ -36,7 +36,6 @@ impl<'a, N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize> RangeG
     pub fn configure(
         meta: &mut ConstraintSystem<N>,
         base_gate_config: &'a BaseGateConfig<VAR_COLUMNS, MUL_COLUMNS>,
-        bits: u32,
     ) -> RangeGateConfig {
         let selector = meta.complex_selector();
         let table_column = meta.lookup_table_column();
@@ -49,18 +48,14 @@ impl<'a, N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize> RangeG
             });
         });
 
-        RangeGateConfig {
-            bits,
-            selector,
-            table_column,
-        }
+        RangeGateConfig { selector, table_column }
     }
 
     pub fn init_table(&self, layouter: &mut impl Layouter<N>) -> Result<(), Error> {
         layouter.assign_table(
             || "",
             |mut table| {
-                for i in 0..1 << self.config.bits {
+                for i in 0..1 << RANGE_BITS {
                     table.assign_cell(|| "range table", self.config.table_column, i, || Ok(N::from(i as u64)))?;
                 }
                 Ok(())
@@ -69,20 +64,17 @@ impl<'a, N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize> RangeG
         Ok(())
     }
 
-    pub fn assign_ranged_values(
+    pub fn one_line_ranged(
         &self,
         r: &mut BaseRegion<'_, '_, N>,
-        values: Vec<N>,
+        base_coeff_pairs: Vec<(ValueSchema<N>, N)>,
+        constant: N,
+        mul_next_coeffs: (Vec<N>, N),
     ) -> Result<[AssignedValue<N>; VAR_COLUMNS], Error> {
-        let zero = N::zero();
-
         self.config.selector.enable(r.region, *r.offset)?;
-        let assigned_values = self.base_gate.one_line(
-            r,
-            values.into_iter().map(|v| pair!(v, zero)).collect(),
-            zero,
-            (vec![], zero),
-        )?;
+        let assigned_values = self
+            .base_gate
+            .one_line(r, base_coeff_pairs, constant, mul_next_coeffs)?;
 
         Ok(assigned_values)
     }

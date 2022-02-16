@@ -71,6 +71,21 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize> BaseGate<N
         Ok(cells.try_into().unwrap())
     }
 
+    pub fn one_line_with_last_base<'a>(
+        &self,
+        r: &mut BaseRegion<'_, '_, N>,
+        mut base_coeff_pairs: Vec<(ValueSchema<'a, N>, N)>,
+        last: (ValueSchema<'a, N>, N),
+        constant: N,
+        mul_next_coeffs: (Vec<N>, N),
+    ) -> Result<[AssignedValue<N>; VAR_COLUMNS], Error> {
+        let zero = N::zero();
+
+        base_coeff_pairs.resize_with(VAR_COLUMNS - 1, || (ValueSchema::Constant(zero), zero));
+        base_coeff_pairs.push(last);
+        self.one_line(r, base_coeff_pairs, constant, mul_next_coeffs)
+    }
+
     pub fn sum_with_constant(
         &self,
         r: &mut BaseRegion<'_, '_, N>,

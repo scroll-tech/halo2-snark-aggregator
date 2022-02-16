@@ -89,7 +89,7 @@ impl<'a, 'b, N: FieldExt> BaseRegion<'a, 'b, N> {
 #[derive(Clone, Copy, Debug)]
 pub struct AssignedValue<N: FieldExt> {
     cell: Cell,
-    value: N,
+    pub value: N,
 }
 
 #[derive(Debug)]
