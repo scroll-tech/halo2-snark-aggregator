@@ -88,7 +88,7 @@ impl<S:Clone, P:Clone> std::ops::Mul for SchemaItem<'_, S, P> {
     }
 }
 
-trait EvaluationAST <S, C, P, SGate, PGate, Error>
+pub trait EvaluationAST <S, C, P, SGate, PGate, Error>
 where
     SGate: ContextRing<C, S, S, Error> + ContextGroup<C, S, S, Error>,
     PGate: ContextGroup<C, S, P, Error>

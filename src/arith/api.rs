@@ -189,6 +189,9 @@ mod test_marco {
     fn from_constant(&self, c: u32) -> Result<W, ()> {
       Ok(W {t: c as i32})
     }
+    fn generator (&self) -> &W {
+      &self.one
+    }
 
   }
 
@@ -200,9 +203,6 @@ mod test_marco {
     fn div(&self, _ctx:&mut (), lhs:&W, rhs:&W) -> Result<W, ()> {
       let t = lhs.t / rhs.t;
       Ok(W {t})
-    }
-    fn generator (&self) -> &W {
-      &self.one
     }
     fn square(&self, _ctx:&mut (), s:&W) -> Result<W, ()> {
       let t = s.t * s.t;

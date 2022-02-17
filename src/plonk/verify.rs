@@ -27,26 +27,26 @@ use crate::schema::{
 use crate::{arith_in_ctx, infix2postfix};
 
 pub struct ParamsPreprocessed<'a, P> {
-    q_m: &'a P,
-    q_l: &'a P,
-    q_r: &'a P,
-    q_o: &'a P,
-    q_c: &'a P,
-    sigma1: &'a P,
-    sigma2: &'a P,
-    sigma3: &'a P,
+    pub q_m: &'a P,
+    pub q_l: &'a P,
+    pub q_r: &'a P,
+    pub q_o: &'a P,
+    pub q_c: &'a P,
+    pub sigma1: &'a P,
+    pub sigma2: &'a P,
+    pub sigma3: &'a P,
 }
 
 pub struct VerifyCommitments<'a, P> {
-    a: &'a P,
-    b: &'a P,
-    c: &'a P,
-    z: &'a P,
-    tl: &'a P,
-    tm: &'a P,
-    th: &'a P,
-    w_z: &'a P,
-    w_zw: &'a P,
+    pub a: &'a P,
+    pub b: &'a P,
+    pub c: &'a P,
+    pub z: &'a P,
+    pub tl: &'a P,
+    pub tm: &'a P,
+    pub th: &'a P,
+    pub w_z: &'a P,
+    pub w_zw: &'a P,
 
 }
 
@@ -75,21 +75,20 @@ pub struct PlonkVerifierParams <
     PGate: ContextGroup<C, S, P, Error>,
 > {
     //public_wit: Vec<C::ScalarExt>,
-    common: PlonkCommonSetup<'a, S>,
-    params: ParamsPreprocessed<'a, P>,
-    commits: VerifyCommitments<'a, P>,
-    evals: VerifyEvals<'a, S>,
-    beta: &'a S,
-    gamma: &'a S,
-    alpha: &'a S,
-    u: &'a S,
-    v: &'a S,
-    xi: &'a S,
-    xi_n: &'a S,
-    sgate: &'a SGate,
-    pgate: &'a PGate,
-    _ctx: PhantomData<C>,
-    _error: PhantomData<Error>
+    pub common: PlonkCommonSetup<'a, S>,
+    pub params: ParamsPreprocessed<'a, P>,
+    pub commits: VerifyCommitments<'a, P>,
+    pub evals: VerifyEvals<'a, S>,
+    pub beta: &'a S,
+    pub gamma: &'a S,
+    pub alpha: &'a S,
+    pub u: &'a S,
+    pub v: &'a S,
+    pub xi: &'a S,
+    pub sgate: &'a SGate,
+    pub pgate: &'a PGate,
+    pub _ctx: PhantomData<C>,
+    pub _error: PhantomData<Error>
 }
 
 impl<'a, C, S:Clone, P:Clone, Error:Debug, SGate: ContextGroup<C, S, S, Error> + ContextRing<C, S, S, Error>, PGate:ContextGroup<C, S, P, Error>>
