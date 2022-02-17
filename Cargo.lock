@@ -201,6 +201,7 @@ dependencies = [
  "num-bigint",
  "num-integer",
  "num-traits",
+ "pairing_bn256",
  "rand",
  "rand_core",
  "rand_xorshift",
@@ -276,6 +277,19 @@ checksum = "19e64526ebdee182341572e50e9ad03965aa510cd94427a4549448f285e957a1"
 dependencies = [
  "hermit-abi",
  "libc",
+]
+
+[[package]]
+name = "pairing_bn256"
+version = "0.1.0"
+source = "git+https://github.com/appliedzkp/pairing#230e2c6b84c44e446d97efadc3be233ea610ea00"
+dependencies = [
+ "ff",
+ "group",
+ "rand",
+ "rand_core",
+ "static_assertions",
+ "subtle",
 ]
 
 [[package]]

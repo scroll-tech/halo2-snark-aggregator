@@ -9,5 +9,5 @@ pub struct EvaluationProof<'a, S:Clone, P:Clone> {
 }
 
 pub trait SchemaGenerator<'a, C, S:Clone, P:Clone, E> {
-  fn getPointSchemas(&self, ctx: &mut C) -> Result<Vec<EvaluationProof<'a, S, P>>, E>;
+  fn get_point_schemas(&self, ctx: &mut C) -> Result<Vec<EvaluationProof<'a, S, P>>, E>;
 }

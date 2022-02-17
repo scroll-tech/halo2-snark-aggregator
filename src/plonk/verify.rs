@@ -51,24 +51,21 @@ pub struct VerifyCommitments<'a, P> {
 }
 
 pub struct VerifyEvals<'a, S> {
-    a_xi: &'a S,
-    b_xi: &'a S,
-    c_xi: &'a S,
-    sigma1_xi: &'a S,
-    sigma2_xi: &'a S,
-    z_xiw: &'a S,
-    zh_xi: Option<S>,
-    l1_xi: Option<S>,
-    pi_xi: Option<S>,
+    pub a_xi: &'a S,
+    pub b_xi: &'a S,
+    pub c_xi: &'a S,
+    pub sigma1_xi: &'a S,
+    pub sigma2_xi: &'a S,
+    pub z_xiw: &'a S,
 }
 
 pub struct PlonkCommonSetup<'a, S> {
-    l: u32,
-    n: u32,
-    k: Vec<&'a S>,
-    w: &'a S, //TODO the unit root of 2^n = 1
-    one: &'a S,
-    zero: &'a S,
+    pub l: u32,
+    pub n: u32,
+    pub k: Vec<&'a S>,
+    pub w: &'a S, //TODO the unit root of 2^n = 1
+    pub one: &'a S,
+    pub zero: &'a S,
 }
 
 
@@ -221,9 +218,11 @@ impl<'a, C:Clone, S:Clone, P:Clone,
     PGate:ContextGroup<C, S, P, Error>>
     SchemaGenerator<'a, C, S, P, Error> for
     PlonkVerifierParams<'a, C, S, P, Error, SGate, PGate> {
-    fn getPointSchemas(&self, ctx: &mut C) -> Result<Vec<EvaluationProof<'a, S, P>>, Error> {
+    fn get_point_schemas(&self, ctx: &mut C) -> Result<Vec<EvaluationProof<'a, S, P>>, Error> {
         let proof_xi = self.get_proof_xi(ctx)?;
         let proof_wxi = self.get_proof_wxi(ctx)?;
         Ok(vec![proof_xi, proof_wxi])
     }
 }
+
+

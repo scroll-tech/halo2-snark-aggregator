@@ -8,6 +8,7 @@ pub trait ContextGroup<C, S, B, Error> {
     fn one(&self) -> &B;
     fn zero(&self) -> &B;
     fn from_constant(&self, c: u32) -> Result<B, Error>;
+    fn generator(&self) -> &B;
     fn ok(&self, v:B) -> Result<B, Error> {
         Ok(v)
     }
@@ -18,7 +19,6 @@ pub trait ContextRing<C, S, B, Error> {
    fn mul(&self, cxt:&mut C, lhs: &B, rhs: &B) -> Result<B, Error>;
    fn div(&self, cxt:&mut C, lhs: &B, rhs: &B) -> Result<B, Error>;
    fn square(&self, cxt:&mut C, lhs: &B) -> Result<B, Error>;
-   fn generator(&self) -> &B;
 }
 
 pub trait PowConstant<C, S, G, Error> {
