@@ -16,6 +16,15 @@ macro_rules! pair_empty {
 }
 
 impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize> BaseGate<N, VAR_COLUMNS, MUL_COLUMNS> {
+    pub fn one_line_add(
+        &self,
+        r: &mut BaseRegion<'_, '_, N>,
+        mut base_coeff_pairs: Vec<(ValueSchema<N>, N)>,
+        constant: N,
+    ) -> Result<[AssignedValue<N>; VAR_COLUMNS], Error> {
+        self.one_line(r, base_coeff_pairs, constant, (vec![], N::zero()))
+    }
+
     pub fn one_line(
         &self,
         r: &mut BaseRegion<'_, '_, N>,

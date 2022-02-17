@@ -7,9 +7,12 @@ use crate::{
 };
 use halo2_proofs::{arithmetic::FieldExt, plonk::Error};
 use num_bigint::BigUint;
-use std::marker::PhantomData;
+use num_integer::Integer;
+use std::{marker::PhantomData, ops::Div};
 
 const LIMBS: usize = 4usize;
+const OVERFLOW_LIMIT: u32 = 32u32;
+const OVERFLOW_THRESHOLD: u32 = 16u32;
 
 pub struct AssignedInteger<W: FieldExt, N: FieldExt> {
     pub limbs_le: [AssignedValue<N>; LIMBS],
@@ -36,17 +39,11 @@ impl<W: FieldExt, N: FieldExt> AssignedInteger<W, N> {
 pub struct IntegerGateHelper<const LIMB_WIDTH: usize, W: FieldExt, N: FieldExt> {
     _phantom_w: PhantomData<W>,
     _phantom_n: PhantomData<N>,
-    limb_modulus: N,
-}
-
-impl<const LIMB_WIDTH: usize, W: FieldExt, N: FieldExt> IntegerGateHelper<LIMB_WIDTH, W, N> {
-    pub fn new() -> Self {
-        Self {
-            _phantom_w: PhantomData,
-            _phantom_n: PhantomData,
-            limb_modulus: N::from_u128(1u128 << LIMB_WIDTH),
-        }
-    }
+    limb_modulus: BigUint,
+    w_modulus: BigUint,
+    w_modulus_limbs_le: [BigUint; LIMBS],
+    n_modulus: BigUint,
+    w_native: N,
 }
 
 pub fn field_to_bn<F: FieldExt>(f: &F) -> BigUint {
@@ -60,12 +57,40 @@ pub fn bn_to_field<F: FieldExt>(bn: &BigUint) -> F {
 impl<const LIMB_WIDTH: usize, W: FieldExt, N: FieldExt> IntegerGateHelper<LIMB_WIDTH, W, N> {
     pub fn w_to_limb_n_le(&self, w: &W) -> [N; LIMBS] {
         let bn = field_to_bn(w);
-        let modulus = BigUint::from(1u64) << LIMB_WIDTH;
+        self.bn_to_limb_n_le(&bn)
+    }
+
+    fn _bn_to_limb_le(bn: &BigUint, limb_modulus: &BigUint) -> [BigUint; LIMBS] {
         (0..LIMBS)
-            .map(|i| bn_to_field(&((&bn >> (i * LIMB_WIDTH)) % &modulus)))
+            .map(|i| ((bn >> (i * LIMB_WIDTH)) % limb_modulus))
             .collect::<Vec<_>>()
             .try_into()
             .unwrap()
+    }
+
+    pub fn bn_to_limb_n_le(&self, bn: &BigUint) -> [N; LIMBS] {
+        Self::_bn_to_limb_le(bn, &self.limb_modulus).map(|v| bn_to_field(&v))
+    }
+
+    pub fn bn_to_limb_le(&self, bn: &BigUint) -> [BigUint; LIMBS] {
+        Self::_bn_to_limb_le(bn, &self.limb_modulus)
+    }
+
+    pub fn new() -> Self {
+        let limb_modulus = BigUint::from(1u64) << LIMB_WIDTH;
+        let w_modulus = field_to_bn(&-W::one()) + 1u64;
+        let n_modulus = field_to_bn(&-N::one()) + 1u64;
+        let w_native = bn_to_field(&(&w_modulus % &n_modulus));
+        let w_modulus_limbs_le = Self::_bn_to_limb_le(&w_modulus, &limb_modulus);
+        Self {
+            _phantom_w: PhantomData,
+            _phantom_n: PhantomData,
+            limb_modulus,
+            w_modulus,
+            n_modulus,
+            w_native,
+            w_modulus_limbs_le,
+        }
     }
 }
 
@@ -142,6 +167,92 @@ impl<
         Ok(AssignedInteger::new(limbs.try_into().unwrap(), w, 0u32))
     }
 
+    pub fn reduce(&self, r: &mut BaseRegion<N>, mut a: AssignedInteger<W, N>) -> Result<AssignedInteger<W, N>, Error> {
+        assert!(a.overflows < OVERFLOW_LIMIT);
+
+        // We will first find (d, rem) that a = d * w_modulus + rem and add following constraints
+        // 1. d is limited by RANGE_BITS, e.g. 1 << 16
+        // 2. rem is limited by LIMBS, e.g. 1 << 256
+        // 3. d * w_modulus + rem - a = 0 on native
+        // 4. d * w_modulus + rem - a = 0 on LIMB_MODULUS
+        // so d * w_modulus + rem - a = 0 on LCM(native, LIMB_MODULUS)
+
+        // assert for configurations
+        // 1. max d * w_modulus + rem < LCM(native, LIMB_MODULUS)
+        // 2. max a < LCM(native, LIMB_MODULUS)
+        let lcm = self.helper.n_modulus.lcm(&self.helper.limb_modulus);
+        assert!(lcm >= &self.helper.w_modulus * RANGE_BITS + (BigUint::from(1u64) << LIMBS * LIMB_WIDTH));
+        assert!(lcm >= &self.helper.w_modulus * OVERFLOW_LIMIT);
+
+        // To guarantee d * w_modulus + rem - a = 0 on LIMB_MODULUS
+        // we find limb_d, that d * w_modulus[0] + rem[0] - a[0] + OVERFLOW_LIMIT * LIMB_MODULUS = limb_d * LIMB_MODULUS:
+        // 1. limb_d is limited by RANGE_BITS, e.g. 1 << 16
+        // Guarantee max(d * w_modulus[0] + rem[0] - a[0] + OVERFLOW_LIMIT * LIMB_MODULUS) < MAX_RANGE * LIMB_MODULUS
+        let max_a = BigUint::from(OVERFLOW_LIMIT as u32) << (LIMB_WIDTH * LIMBS);
+        let max_d = max_a.div(&self.helper.w_modulus) + 1u64;
+        assert!(max_d + 1u64 + OVERFLOW_LIMIT < (BigUint::from(1u64) << RANGE_BITS));
+
+        let limb_modulus = self.helper.limb_modulus.clone();
+        let total = a.limbs_le.iter().rev().fold(BigUint::from(0u64), |acc, v| {
+            acc * &limb_modulus + field_to_bn(&v.value)
+        });
+
+        let (d, rem) = total.div_rem(&self.helper.w_modulus);
+        assert!(field_to_bn(&a.value) == rem);
+
+        let (limb_d, limb_rem) = (&d * &self.helper.w_modulus_limbs_le[0]
+            + &self.helper.bn_to_limb_le(&rem)[0]
+            + &self.helper.limb_modulus * OVERFLOW_LIMIT
+            - &self.helper.bn_to_limb_le(&total)[0])
+            .div_rem(&self.helper.limb_modulus);
+        assert!(limb_rem == BigUint::from(0u64));
+
+        let zero = N::zero();
+        let one = N::one();
+
+        let mut rem = self.assign_integer(r, bn_to_field(&rem))?;
+        let (d, limb_d) = {
+            let cells = self.range_gate.one_line_ranged(
+                r,
+                vec![
+                    pair!(bn_to_field::<N>(&d), zero),
+                    pair!(bn_to_field::<N>(&limb_d), zero),
+                ],
+                zero,
+                (vec![], zero),
+            )?;
+            (cells[0], cells[1])
+        };
+
+        // Add constrains on limb[0] and native for
+        // a = d * w_modulus + rem
+
+        let rem_native = self.native(r, &mut rem)?;
+        let a_native = self.native(r, &mut a)?;
+        self.base_gate.one_line_add(
+            r,
+            vec![
+                pair!(a_native, -one),
+                pair!(&d, self.helper.w_native),
+                pair!(rem_native, one),
+            ],
+            zero,
+        )?;
+
+        self.base_gate.one_line_add(
+            r,
+            vec![
+                pair!(&d, bn_to_field(&self.helper.w_modulus_limbs_le[0])),
+                pair!(&rem.limbs_le[0], one),
+                pair!(&a.limbs_le[0], -one),
+                pair!(&limb_d, bn_to_field(&self.helper.limb_modulus)),
+            ],
+            bn_to_field(&(&self.helper.limb_modulus * OVERFLOW_LIMIT)),
+        )?;
+
+        Ok(a)
+    }
+
     pub fn conditionally_reduce(
         &self,
         r: &mut BaseRegion<N>,
@@ -161,6 +272,7 @@ impl<
             None => {
                 let zero = N::zero();
                 let one = N::one();
+                let limb_modulus: N = bn_to_field(&self.helper.limb_modulus);
 
                 let mut schemas = vec![];
                 let mut coeff = one;
@@ -168,7 +280,7 @@ impl<
                 for i in 0..LIMBS {
                     v = v + a.limbs_le[i].value * coeff;
                     schemas.push(pair!(&a.limbs_le[i], coeff));
-                    coeff = coeff * self.helper.limb_modulus;
+                    coeff = coeff * limb_modulus;
                 }
 
                 self.base_gate.one_line(r, schemas, zero, (vec![], -one))?;
