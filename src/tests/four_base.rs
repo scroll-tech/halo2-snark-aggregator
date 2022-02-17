@@ -1,6 +1,6 @@
-use crate::base_gate::{BaseRegion, ValueSchema};
 use crate::four::{FourBaseGate, FourBaseGateConfig};
 use crate::four::{MUL_COLUMNS, VAR_COLUMNS};
+use crate::gates::base_gate::{BaseRegion, ValueSchema};
 use crate::pair_empty;
 use halo2_proofs::{
     arithmetic::FieldExt,

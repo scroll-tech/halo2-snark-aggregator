@@ -1,7 +1,9 @@
 use crate::{
-    base_gate::{AssignedValue, BaseGate, BaseRegion},
+    gates::{
+        base_gate::{AssignedValue, BaseGate, BaseRegion},
+        range_gate::RangeGate,
+    },
     pair,
-    range_gate::RangeGate,
 };
 use halo2_proofs::{arithmetic::FieldExt, plonk::Error};
 use num_bigint::BigUint;

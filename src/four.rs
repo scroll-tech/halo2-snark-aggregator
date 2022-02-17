@@ -1,7 +1,7 @@
 use crate::{
-    base_gate::{BaseGate, BaseGateConfig},
-    integer_gate::IntegerGate,
-    range_gate::RangeGate,
+    gates::base_gate::{BaseGate, BaseGateConfig},
+    gates::integer_gate::IntegerGate,
+    gates::range_gate::RangeGate,
 };
 
 pub const VAR_COLUMNS: usize = 4;

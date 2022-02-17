@@ -1,8 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::{
-    base_gate::{AssignedValue, BaseGate, BaseGateConfig, BaseRegion, ValueSchema}
-};
+use crate::gates::base_gate::{AssignedValue, BaseGate, BaseGateConfig, BaseRegion, ValueSchema};
 use halo2_proofs::{
     arithmetic::FieldExt,
     circuit::Layouter,

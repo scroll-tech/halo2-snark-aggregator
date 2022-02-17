@@ -1,4 +1,4 @@
-use crate::{
+use crate::gates::{
     base_gate::{BaseGate, BaseGateConfig},
     range_gate::RangeGate,
 };

@@ -1,7 +1,4 @@
-mod base_gate;
-mod range_gate;
-mod integer_gate;
-
+mod gates;
 mod four;
 mod five;
 

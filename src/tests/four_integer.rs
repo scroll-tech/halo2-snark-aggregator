@@ -1,6 +1,6 @@
-use crate::base_gate::BaseRegion;
 use crate::four::{FourBaseGate, FourBaseGateConfig, FourIntegerGate, FourRangeGate};
-use crate::range_gate::RangeGateConfig;
+use crate::gates::base_gate::BaseRegion;
+use crate::gates::range_gate::RangeGateConfig;
 use halo2_proofs::{
     arithmetic::FieldExt,
     circuit::{Layouter, SimpleFloorPlanner},
