@@ -167,7 +167,7 @@ impl<
         Ok(AssignedInteger::new(limbs.try_into().unwrap(), w, 0u32))
     }
 
-    pub fn reduce(&self, r: &mut BaseRegion<N>, mut a: AssignedInteger<W, N>) -> Result<AssignedInteger<W, N>, Error> {
+    pub fn reduce(&self, r: &mut BaseRegion<N>, a: &mut AssignedInteger<W, N>) -> Result<AssignedInteger<W, N>, Error> {
         assert!(a.overflows < OVERFLOW_LIMIT);
 
         // We will first find (d, rem) that a = d * w_modulus + rem and add following constraints
@@ -192,9 +192,8 @@ impl<
         let max_d = max_a.div(&self.helper.w_modulus) + 1u64;
         assert!(max_d + 1u64 + OVERFLOW_LIMIT < (BigUint::from(1u64) << RANGE_BITS));
 
-        let limb_modulus = self.helper.limb_modulus.clone();
         let total = a.limbs_le.iter().rev().fold(BigUint::from(0u64), |acc, v| {
-            acc * &limb_modulus + field_to_bn(&v.value)
+            acc * &self.helper.limb_modulus + field_to_bn(&v.value)
         });
 
         let (d, rem) = total.div_rem(&self.helper.w_modulus);
@@ -228,7 +227,7 @@ impl<
         // a = d * w_modulus + rem
 
         let rem_native = self.native(r, &mut rem)?;
-        let a_native = self.native(r, &mut a)?;
+        let a_native = self.native(r, a)?;
         self.base_gate.one_line_add(
             r,
             vec![
@@ -247,19 +246,22 @@ impl<
                 pair!(&a.limbs_le[0], -one),
                 pair!(&limb_d, bn_to_field(&self.helper.limb_modulus)),
             ],
-            bn_to_field(&(&self.helper.limb_modulus * OVERFLOW_LIMIT)),
+            -bn_to_field::<N>(&(&self.helper.limb_modulus * OVERFLOW_LIMIT)),
         )?;
 
-        Ok(a)
+        Ok(rem)
     }
 
     pub fn conditionally_reduce(
         &self,
         r: &mut BaseRegion<N>,
-        a: AssignedInteger<W, N>,
+        mut a: AssignedInteger<W, N>,
     ) -> Result<AssignedInteger<W, N>, Error> {
-        //unimplemented!()
-        Ok(a)
+        if a.overflows > OVERFLOW_THRESHOLD {
+            self.reduce(r, &mut a)
+        } else {
+            Ok(a)
+        }
     }
 
     pub fn native(

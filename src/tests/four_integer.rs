@@ -1,6 +1,7 @@
 use crate::four::{FourBaseGate, FourBaseGateConfig, FourIntegerGate, FourRangeGate};
 use crate::gates::base_gate::BaseRegion;
 use crate::gates::range_gate::RangeGateConfig;
+use crate::pair;
 use halo2_proofs::{
     arithmetic::FieldExt,
     circuit::{Layouter, SimpleFloorPlanner},
@@ -58,11 +59,15 @@ impl<N: FieldExt> Circuit<N> for TestFourIntegerGateCircuit<N> {
                 let mut region = BaseRegion::new(&mut region, &mut base_offset);
                 let r = &mut region;
 
+                let zero = N::zero();
+                let one = N::one();
+
                 let seed = chrono::offset::Utc::now().timestamp_nanos().try_into().unwrap();
                 let rng = XorShiftRng::seed_from_u64(seed);
                 let a = N::random(rng.clone());
                 let b = N::random(rng.clone());
                 let c = if self.success { a + b } else { a + b + N::one() };
+                let d = -a;
 
                 let a = integer_gate.assign_integer(r, a)?;
                 let b = integer_gate.assign_integer(r, b)?;
@@ -71,6 +76,11 @@ impl<N: FieldExt> Circuit<N> for TestFourIntegerGateCircuit<N> {
 
                 let c0n = integer_gate.native(r, &mut c0)?;
                 let c1n = integer_gate.native(r, &mut c1)?;
+
+                let d = integer_gate.assign_integer(r, d)?;
+                let mut ad = integer_gate.add(r, &a, &d)?;
+                let reduced_ad = integer_gate.reduce(r, &mut ad)?;
+                base_gate.one_line_add(r, reduced_ad.limbs_le.iter().map(|v| pair!(v, one)).collect(), zero)?;
 
                 base_gate.assert_equal(r, c0n, c1n)?;
 
