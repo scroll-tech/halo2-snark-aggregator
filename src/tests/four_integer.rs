@@ -68,21 +68,27 @@ impl<N: FieldExt> Circuit<N> for TestFourIntegerGateCircuit<N> {
                 let b = N::random(rng.clone());
                 let c = if self.success { a + b } else { a + b + N::one() };
                 let d = -a;
+                let e = a - b;
 
                 let a = integer_gate.assign_integer(r, a)?;
                 let b = integer_gate.assign_integer(r, b)?;
                 let mut c0 = integer_gate.assign_integer(r, c)?;
-                let mut c1 = integer_gate.add(r, &a, &b)?;
+                let d = integer_gate.assign_integer(r, d)?;
+                let mut e0 = integer_gate.assign_integer(r, e)?;
 
+                let mut c1 = integer_gate.add(r, &a, &b)?;
                 let c0n = integer_gate.native(r, &mut c0)?;
                 let c1n = integer_gate.native(r, &mut c1)?;
+                base_gate.assert_equal(r, c0n, c1n)?;
 
-                let d = integer_gate.assign_integer(r, d)?;
                 let mut ad = integer_gate.add(r, &a, &d)?;
                 let reduced_ad = integer_gate.reduce(r, &mut ad)?;
                 base_gate.one_line_add(r, reduced_ad.limbs_le.iter().map(|v| pair!(v, one)).collect(), zero)?;
 
-                base_gate.assert_equal(r, c0n, c1n)?;
+                let mut e1 = integer_gate.sub(r, &a, &b)?;
+                let e0n = integer_gate.native(r, &mut e0)?;
+                let e1n = integer_gate.native(r, &mut e1)?;
+                base_gate.assert_equal(r, e0n, e1n)?;
 
                 Ok(())
             },

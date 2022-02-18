@@ -8,7 +8,7 @@ use crate::{
 use halo2_proofs::{arithmetic::FieldExt, plonk::Error};
 use num_bigint::BigUint;
 use num_integer::Integer;
-use std::{marker::PhantomData, ops::Div};
+use std::{marker::PhantomData, ops::Div, vec};
 
 const LIMBS: usize = 4usize;
 const OVERFLOW_LIMIT: u32 = 32u32;
@@ -16,17 +16,17 @@ const OVERFLOW_THRESHOLD: u32 = 16u32;
 
 pub struct AssignedInteger<W: FieldExt, N: FieldExt> {
     pub limbs_le: [AssignedValue<N>; LIMBS],
-    pub value: W,
+    pub w_value: W,
     native: Option<AssignedValue<N>>,
     overflows: u32,
 }
 
 impl<W: FieldExt, N: FieldExt> AssignedInteger<W, N> {
-    pub fn new(limbs_le: [AssignedValue<N>; LIMBS], w: W, overflows: u32) -> Self {
+    pub fn new(limbs_le: [AssignedValue<N>; LIMBS], w_value: W, overflows: u32) -> Self {
         Self {
             limbs_le,
             native: None,
-            value: w,
+            w_value,
             overflows,
         }
     }
@@ -197,7 +197,7 @@ impl<
         });
 
         let (d, rem) = total.div_rem(&self.helper.w_modulus);
-        assert!(field_to_bn(&a.value) == rem);
+        assert!(field_to_bn(&a.w_value) == rem);
 
         let (limb_d, limb_rem) = (&d * &self.helper.w_modulus_limbs_le[0]
             + &self.helper.bn_to_limb_le(&rem)[0]
@@ -317,12 +317,68 @@ impl<
             limbs.push(value)
         }
 
-        let assigned_integer = AssignedInteger::new(
+        let res = AssignedInteger::new(
             limbs.try_into().unwrap(),
-            a.value + b.value,
+            a.w_value + b.w_value,
             a.overflows + b.overflows + 1,
         );
+        self.conditionally_reduce(r, res)
+    }
 
-        self.conditionally_reduce(r, assigned_integer)
+    fn find_w_modulus_ceil(&self, a: &AssignedInteger<W, N>) -> [BigUint; LIMBS] {
+        let max_a = (a.overflows + 1) * (&self.helper.limb_modulus << LIMBS);
+        let (n, rem) = max_a.div_rem(&self.helper.w_modulus);
+        let n = if rem.gt(&BigUint::from(0u64)) { n + 1u64 } else { n };
+        let mut upper = n * &self.helper.w_modulus;
+
+        let mut limbs = vec![];
+        for _ in 0..LIMBS - 1 {
+            let rem = upper.mod_floor(&self.helper.limb_modulus) + a.overflows * &self.helper.limb_modulus;
+            upper = (upper - &rem).div_floor(&self.helper.limb_modulus);
+            limbs.push(rem);
+        }
+        limbs.push(upper);
+        limbs.try_into().unwrap()
+    }
+
+    pub fn neg(&self, r: &mut BaseRegion<N>, a: &AssignedInteger<W, N>) -> Result<AssignedInteger<W, N>, Error> {
+        let one = N::one();
+        let upper_limbs = self.find_w_modulus_ceil(a);
+
+        let mut limbs = vec![];
+        for i in 0..LIMBS {
+            let cell =
+                self.base_gate
+                    .sum_with_constant(r, vec![(&a.limbs_le[i], -one)], bn_to_field(&upper_limbs[i]))?;
+            limbs.push(cell);
+        }
+
+        let overflow = a.overflows + 1;
+        let res = AssignedInteger::new(limbs.try_into().unwrap(), -a.w_value, overflow);
+        self.conditionally_reduce(r, res)
+    }
+
+    pub fn sub(
+        &self,
+        r: &mut BaseRegion<N>,
+        a: &AssignedInteger<W, N>,
+        b: &AssignedInteger<W, N>,
+    ) -> Result<AssignedInteger<W, N>, Error> {
+        let one = N::one();
+        let upper_limbs = self.find_w_modulus_ceil(b);
+
+        let mut limbs = vec![];
+        for i in 0..LIMBS {
+            let cell = self.base_gate.sum_with_constant(
+                r,
+                vec![(&a.limbs_le[i], one), (&b.limbs_le[i], -one)],
+                bn_to_field(&upper_limbs[i]),
+            )?;
+            limbs.push(cell);
+        }
+
+        let overflow = a.overflows + (b.overflows + 1) + 1;
+        let res = AssignedInteger::new(limbs.try_into().unwrap(), -a.w_value, overflow);
+        self.conditionally_reduce(r, res)
     }
 }
