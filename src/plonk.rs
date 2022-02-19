@@ -76,11 +76,13 @@ mod test_marco {
         };
 
         let w = BigUint::from_bytes_be(b"19540430494807482326159819597004422086093766032135589407132600596362845576832");
+        let k1 = fc.from_constant(2).unwrap();
+        let k2 = fc.from_constant(3).unwrap();
 
         let common_setup = PlonkCommonSetup::<<G1Affine as CurveAffine>::ScalarExt> {
             l: 1,
             n: 3,
-            k: vec![],
+            k: vec![&k2, &k1],
             one: fc.one(),
             zero: fc.zero(),
             w: &bn_to_field(&w),
@@ -189,9 +191,12 @@ mod test_marco {
             _error: PhantomData,
         };
 
-        let schemas = verify_params.get_point_schemas(&mut ()).unwrap();
-        let v = (schemas[0].s).eval(&fc, &pc, &mut ());
-        println!("v is {:?}", v);
+        let mp = verify_params.batch_multi_open_proofs(&mut ()).unwrap();
+        let wx = (mp.w_x).eval(&fc, &pc, &mut ());
+        let wg = (mp.w_g).eval(&fc, &pc, &mut ());
+        println!("wx is {:?}", wx);
+        println!("wg is {:?}", wg);
+        //TODO: Calculate and check the pairing  ...
     }
 
 }

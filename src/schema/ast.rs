@@ -190,19 +190,8 @@ macro_rules! scalar {
    }
 }
 
-/*
-pub struct SingleOpeningProof<C: CurveAffine> {
-    pub w: AssignedPoint<C::ScalarExt>,
-    pub z: AssignedValue<C::ScalarExt>,
-    pub f: AssignedPoint<C::ScalarExt>,
-    pub eval: AssignedValue<C::ScalarExt>,
-}
-
 // (g^e + w_g, [1]) and (w_x, [x])
-pub struct MultiOpeningProof<C: CurveAffine> {
-    pub w_x: AssignedPoint<C::ScalarExt>,
-    pub w_g: AssignedPoint<C::ScalarExt>,
-    pub f: AssignedPoint<C::ScalarExt>,
-    pub e: AssignedValue<C::ScalarExt>,
+pub struct MultiOpenProof<'a, S:Clone, P:Clone> {
+    pub w_x: SchemaItem<'a, S, P>,
+    pub w_g: SchemaItem<'a, S, P>,
 }
-*/

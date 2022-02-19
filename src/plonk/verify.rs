@@ -6,6 +6,8 @@ use crate::{commit, scalar, eval};
 use crate::schema::ast::{
     SchemaItem,
     CommitQuery,
+    MultiOpenProof,
+    EvaluationAST,
 };
 
 use crate::schema::utils::{
@@ -164,8 +166,8 @@ impl<'a, C, S:Clone, P:Clone, Error:Debug, SGate: ContextGroup<C, S, S, Error> +
             + eval!(b) * commit!(qr) + eval!(c) * commit!(qo) + pi_xi + commit!(qc)
             + scalar!(self.alpha) * (
                   (eval!(a) + (scalar!(self.beta) * xi.clone()) + scalar!(self.gamma))
-                * (eval!(b) + (scalar!(self.beta) * xi.clone()) + scalar!(self.gamma))
-                * (eval!(c) + (scalar!(self.beta) * xi) + scalar!(self.gamma))
+                * (eval!(b) + (scalar!(self.beta) * scalar!(self.common.k[0]) * xi.clone()) + scalar!(self.gamma))
+                * (eval!(c) + (scalar!(self.beta) * scalar!(self.common.k[1]) * xi) + scalar!(self.gamma))
                 * commit!(z)
                 + (eval!(a) + (scalar!(self.beta) * eval!(sigma1)) + scalar!(self.gamma))
                 * (eval!(b) + (scalar!(self.beta) * eval!(sigma2)) + scalar!(self.gamma))
@@ -192,7 +194,7 @@ impl<'a, C, S:Clone, P:Clone, Error:Debug, SGate: ContextGroup<C, S, S, Error> +
                     )
                 )
             );
-        Ok(EvaluationProof {s:r, point:self.xi.clone(), w: self.commits.w_z.clone()})
+        Ok(EvaluationProof {s:r, point:self.xi.clone(), w: self.commits.w_z})
     }
 
     fn get_proof_wxi (
@@ -207,7 +209,7 @@ impl<'a, C, S:Clone, P:Clone, Error:Debug, SGate: ContextGroup<C, S, S, Error> +
             let w = self.common.w;
             arith_in_ctx!([sgate, ctx] w * xi)?
         };
-        Ok(EvaluationProof {s, point, w: self.commits.w_zw.clone()})
+        Ok(EvaluationProof {s, point, w: self.commits.w_zw})
     }
 }
 
@@ -221,6 +223,22 @@ impl<'a, C:Clone, S:Clone, P:Clone,
         let proof_xi = self.get_proof_xi(ctx)?;
         let proof_wxi = self.get_proof_wxi(ctx)?;
         Ok(vec![proof_xi, proof_wxi])
+    }
+    fn batch_multi_open_proofs(&self, ctx: &mut C) -> Result<MultiOpenProof<'a, S, P>, Error> {
+        let mut proofs = self.get_point_schemas(ctx)?;
+        proofs.reverse();
+        let (mut w_x, mut w_g) = {
+            let s = &proofs[0].s;
+            let w = CommitQuery {c: Some(proofs[0].w), v:None};
+            (commit!(w), scalar!(proofs[0].point) * commit!(w) + s.clone())
+        };
+        let _ = proofs[1..].iter().map(|p| {
+            let s = &p.s;
+            let w = CommitQuery {c: Some(p.w), v:None};
+            w_x = scalar!(self.u) * w_x.clone() + commit!(w);
+            w_g = scalar!(self.u) * w_g.clone() + scalar!(p.point) * commit!(w) + s.clone();
+        });
+        Ok(MultiOpenProof {w_x, w_g})
     }
 }
 
