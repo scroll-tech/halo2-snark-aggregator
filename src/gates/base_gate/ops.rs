@@ -178,6 +178,68 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize> BaseGate<N
         Ok(cells[2])
     }
 
+    pub fn mul_add(
+        &self,
+        r: &mut BaseRegion<'_, '_, N>,
+        a: &AssignedValue<N>,
+        b: &AssignedValue<N>,
+        c: &AssignedValue<N>,
+        c_coeff: N,
+    ) -> Result<AssignedValue<N>, Error> {
+        assert!(VAR_COLUMNS > 3);
+        assert!(MUL_COLUMNS > 0);
+
+        let one = N::one();
+        let zero = N::zero();
+
+        let d = a.value * b.value + c.value * c_coeff;
+
+        let cells = self.one_line(
+            r,
+            vec![pair!(a, zero), pair!(b, zero), pair!(c, c_coeff), pair!(d, -one)],
+            zero,
+            (vec![one], zero),
+        )?;
+
+        Ok(cells[3])
+    }
+
+    pub fn mul_add_with_next_line(
+        &self,
+        r: &mut BaseRegion<'_, '_, N>,
+        ls: Vec<(&AssignedValue<N>, &AssignedValue<N>, &AssignedValue<N>, N)>,
+    ) -> Result<AssignedValue<N>, Error> {
+        assert!(VAR_COLUMNS >= 4);
+        assert!(MUL_COLUMNS >= 1);
+        assert!(ls.len() > 0);
+
+        if ls.len() == 1 {
+            let (a, b, c, c_coeff) = ls[0];
+            self.mul_add(r, a, b, c, c_coeff)
+        } else {
+            let one = N::one();
+            let zero = N::zero();
+
+            let mut t = zero;
+
+            for (a, b, c, c_coeff) in ls {
+                self.one_line_with_last_base(
+                    r,
+                    vec![pair!(a, zero), pair!(b, zero), pair!(c, c_coeff)],
+                    pair!(t, one),
+                    zero,
+                    (vec![one], -one),
+                )?;
+
+                t = a.value * b.value + c.value * c_coeff + t;
+            }
+
+            let cells = self.one_line_with_last_base(r, vec![], pair!(t, zero), zero, (vec![], zero))?;
+
+            Ok(cells[VAR_COLUMNS - 1])
+        }
+    }
+
     pub fn invert_unsafe(
         &self,
         r: &mut BaseRegion<'_, '_, N>,

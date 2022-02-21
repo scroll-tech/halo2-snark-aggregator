@@ -13,10 +13,8 @@ subtle = { version = "2.3", default-features = false }
 cfg-if = "0.1"
 halo2_proofs = { git = "https://github.com/zcash/halo2.git" }
 chrono = "0.4.19"
+rand_core = { version = "0.6", default-features = false }
+rand_xorshift = "0.3"
 
 [features]
 default = []
-
-[dev-dependencies]
-rand_core = { version = "0.6", default-features = false }
-rand_xorshift = "0.3"
