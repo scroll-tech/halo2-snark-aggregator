@@ -11,5 +11,5 @@ pub type FourBaseGateConfig = BaseGateConfig<VAR_COLUMNS, MUL_COLUMNS>;
 pub type FourBaseGate<N> = BaseGate<N, VAR_COLUMNS, MUL_COLUMNS>;
 
 pub type FourRangeGate<'a, N, const RANGE_BITS: usize> = RangeGate<'a, N, VAR_COLUMNS, MUL_COLUMNS, RANGE_BITS>;
-pub type FourIntegerGate<'a, 'b, W, N, const LIMB_WIDTH: usize, const RANGE_BITS: usize> =
-    IntegerGate<'a, 'b, W, N, VAR_COLUMNS, MUL_COLUMNS, LIMB_WIDTH, RANGE_BITS>;
+pub type FourIntegerGate<'a, 'b, W, N, const RANGE_BITS: usize> =
+    IntegerGate<'a, 'b, W, N, VAR_COLUMNS, MUL_COLUMNS, RANGE_BITS>;

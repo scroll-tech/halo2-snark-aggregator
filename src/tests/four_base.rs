@@ -1,6 +1,6 @@
 use crate::four::{FourBaseGate, FourBaseGateConfig};
 use crate::four::{MUL_COLUMNS, VAR_COLUMNS};
-use crate::gates::base_gate::{BaseRegion, ValueSchema};
+use crate::gates::base_gate::{RegionAux, ValueSchema};
 use crate::pair_empty;
 use halo2_proofs::{
     arithmetic::FieldExt,
@@ -44,7 +44,7 @@ impl<N: FieldExt> Circuit<N> for TestFourBaseGateCircuit<N> {
             || "base",
             |mut region| {
                 let mut base_offset = 0usize;
-                let mut r = BaseRegion::new(&mut region, &mut base_offset);
+                let mut r = RegionAux::new(&mut region, &mut base_offset);
 
                 let seed = chrono::offset::Utc::now().timestamp_nanos().try_into().unwrap();
                 let rng = XorShiftRng::seed_from_u64(seed);
@@ -151,7 +151,7 @@ impl<N: FieldExt> Circuit<N> for TestFourBaseGateBopCircuit<N> {
             || "base",
             |mut region| {
                 let mut base_offset = 0usize;
-                let mut r = BaseRegion::new(&mut region, &mut base_offset);
+                let mut r = RegionAux::new(&mut region, &mut base_offset);
 
                 let seed = chrono::offset::Utc::now().timestamp_nanos().try_into().unwrap();
                 let rng = XorShiftRng::seed_from_u64(seed);

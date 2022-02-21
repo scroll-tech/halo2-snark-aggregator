@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::{gates::base_gate::{AssignedValue, BaseGate, BaseGateConfig, BaseRegion, ValueSchema}, pair};
+use crate::{gates::base_gate::{AssignedValue, BaseGate, BaseGateConfig, RegionAux, ValueSchema}, pair};
 use halo2_proofs::{
     arithmetic::FieldExt,
     circuit::Layouter,
@@ -64,7 +64,7 @@ impl<'a, N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize, const 
 
     pub fn one_line_ranged(
         &self,
-        r: &mut BaseRegion<'_, '_, N>,
+        r: &mut RegionAux<'_, '_, N>,
         base_coeff_pairs: Vec<(ValueSchema<N>, N)>,
         constant: N,
         mul_next_coeffs: (Vec<N>, N),
@@ -78,7 +78,7 @@ impl<'a, N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize, const 
     }
 
     pub fn assign_value(&self,
-        r: &mut BaseRegion<'_, '_, N>,
+        r: &mut RegionAux<'_, '_, N>,
         v: N,
     ) -> Result<AssignedValue<N>, Error> {
         let zero = N::zero();

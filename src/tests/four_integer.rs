@@ -1,5 +1,5 @@
 use crate::four::{FourBaseGate, FourBaseGateConfig, FourIntegerGate, FourRangeGate};
-use crate::gates::base_gate::BaseRegion;
+use crate::gates::base_gate::RegionAux;
 use crate::gates::range_gate::RangeGateConfig;
 use crate::pair;
 use halo2_proofs::{
@@ -20,7 +20,6 @@ struct TestFourIntegerGateConfig {
 }
 
 const BITS: usize = 16usize;
-const LIMB_WIDTH: usize = 64usize;
 
 #[derive(Default)]
 struct TestFourIntegerGateCircuit<N: FieldExt> {
@@ -47,7 +46,7 @@ impl<N: FieldExt> Circuit<N> for TestFourIntegerGateCircuit<N> {
     fn synthesize(&self, config: Self::Config, mut layouter: impl Layouter<N>) -> Result<(), Error> {
         let base_gate = FourBaseGate::new(config.base_gate_config);
         let range_gate = FourRangeGate::<N, BITS>::new(config.range_gate_config, &base_gate);
-        let integer_gate = FourIntegerGate::<'_, '_, N, N, LIMB_WIDTH, BITS>::new(&range_gate);
+        let integer_gate = FourIntegerGate::<'_, '_, N, N, BITS>::new(&range_gate);
 
         range_gate.init_table(&mut layouter)?;
 
@@ -55,7 +54,7 @@ impl<N: FieldExt> Circuit<N> for TestFourIntegerGateCircuit<N> {
             || "base",
             |mut region| {
                 let mut base_offset = 0usize;
-                let mut region = BaseRegion::new(&mut region, &mut base_offset);
+                let mut region = RegionAux::new(&mut region, &mut base_offset);
                 let r = &mut region;
 
                 let zero = N::zero();
@@ -108,7 +107,6 @@ impl<N: FieldExt> Circuit<N> for TestFourIntegerGateCircuit<N> {
 fn test_four_integer_gate_ops_success() {
     const K: u32 = BITS as u32 + 1;
     let circuit = TestFourIntegerGateCircuit::<Fp> {
-        success: true,
         _marker: PhantomData,
     };
     let prover = match MockProver::run(K, &circuit, vec![]) {

@@ -1,6 +1,6 @@
 use crate::{
     gates::{
-        base_gate::{AssignedValue, BaseGate, BaseRegion},
+        base_gate::{AssignedValue, BaseGate, RegionAux},
         range_gate::RangeGate,
     },
     pair,
@@ -12,6 +12,7 @@ use num_traits::Pow;
 use std::{marker::PhantomData, ops::Div, vec};
 
 const LIMBS: usize = 4usize;
+const LIMB_WIDTH: usize = 64usize;
 const OVERFLOW_LIMIT: u32 = 32u32;
 const OVERFLOW_THRESHOLD: u32 = 16u32;
 
@@ -37,7 +38,7 @@ impl<W: FieldExt, N: FieldExt> AssignedInteger<W, N> {
     }
 }
 
-pub struct IntegerGateHelper<const LIMB_WIDTH: usize, W: FieldExt, N: FieldExt> {
+pub struct IntegerGateHelper<W: FieldExt, N: FieldExt> {
     _phantom_w: PhantomData<W>,
     _phantom_n: PhantomData<N>,
     limb_modulus: BigUint,
@@ -55,7 +56,7 @@ pub fn bn_to_field<F: FieldExt>(bn: &BigUint) -> F {
     F::from_str_vartime(&bn.to_str_radix(10)[..]).unwrap()
 }
 
-impl<const LIMB_WIDTH: usize, W: FieldExt, N: FieldExt> IntegerGateHelper<LIMB_WIDTH, W, N> {
+impl<W: FieldExt, N: FieldExt> IntegerGateHelper<W, N> {
     pub fn w_to_limb_n_le(&self, w: &W) -> [N; LIMBS] {
         let bn = field_to_bn(w);
         self.bn_to_limb_n_le(&bn)
@@ -106,12 +107,11 @@ pub struct IntegerGate<
     N: FieldExt,
     const VAR_COLUMNS: usize,
     const MUL_COLUMNS: usize,
-    const LIMB_WIDTH: usize,
     const RANGE_BITS: usize,
 > {
     base_gate: &'a BaseGate<N, VAR_COLUMNS, MUL_COLUMNS>,
     range_gate: &'b RangeGate<'a, N, VAR_COLUMNS, MUL_COLUMNS, RANGE_BITS>,
-    helper: IntegerGateHelper<LIMB_WIDTH, W, N>,
+    helper: IntegerGateHelper<W, N>,
     _phantom: PhantomData<W>,
 }
 
@@ -122,9 +122,8 @@ impl<
         N: FieldExt,
         const VAR_COLUMNS: usize,
         const MUL_COLUMNS: usize,
-        const LIMB_WIDTH: usize,
         const RANGE_BITS: usize,
-    > IntegerGate<'a, 'b, W, N, VAR_COLUMNS, MUL_COLUMNS, LIMB_WIDTH, RANGE_BITS>
+    > IntegerGate<'a, 'b, W, N, VAR_COLUMNS, MUL_COLUMNS, RANGE_BITS>
 {
     pub fn new(range_gate: &'b RangeGate<'a, N, VAR_COLUMNS, MUL_COLUMNS, RANGE_BITS>) -> Self {
         assert!(VAR_COLUMNS * RANGE_BITS >= LIMB_WIDTH);
@@ -136,7 +135,7 @@ impl<
         }
     }
 
-    fn assign_limb(&self, r: &mut BaseRegion<N>, n: N) -> Result<AssignedValue<N>, Error> {
+    fn assign_limb(&self, r: &mut RegionAux<N>, n: N) -> Result<AssignedValue<N>, Error> {
         let zero = N::zero();
         let one = N::one();
 
@@ -160,7 +159,7 @@ impl<
         Ok(cells[VAR_COLUMNS - 1])
     }
 
-    pub fn assign_integer(&self, r: &mut BaseRegion<N>, v: &W) -> Result<AssignedInteger<W, N>, Error> {
+    pub fn assign_integer(&self, r: &mut RegionAux<N>, v: &W) -> Result<AssignedInteger<W, N>, Error> {
         let limbs_value = self.helper.w_to_limb_n_le(v);
 
         let mut limbs = vec![];
@@ -172,7 +171,7 @@ impl<
         Ok(AssignedInteger::new(limbs.try_into().unwrap(), 0u32))
     }
 
-    pub fn assign_integer_bn(&self, r: &mut BaseRegion<N>, v: &BigUint) -> Result<AssignedInteger<W, N>, Error> {
+    pub fn assign_integer_bn(&self, r: &mut RegionAux<N>, v: &BigUint) -> Result<AssignedInteger<W, N>, Error> {
         let limbs_value = self.helper.bn_to_limb_n_le(v);
 
         let mut limbs = vec![];
@@ -184,7 +183,7 @@ impl<
         Ok(AssignedInteger::new(limbs.try_into().unwrap(), 0u32))
     }
 
-    pub fn reduce(&self, r: &mut BaseRegion<N>, a: &mut AssignedInteger<W, N>) -> Result<AssignedInteger<W, N>, Error> {
+    pub fn reduce(&self, r: &mut RegionAux<N>, a: &mut AssignedInteger<W, N>) -> Result<AssignedInteger<W, N>, Error> {
         assert!(a.overflows < OVERFLOW_LIMIT);
 
         // We will first find (d, rem) that a = d * w_modulus + rem and add following constraints
@@ -270,7 +269,7 @@ impl<
 
     pub fn conditionally_reduce(
         &self,
-        r: &mut BaseRegion<N>,
+        r: &mut RegionAux<N>,
         mut a: AssignedInteger<W, N>,
     ) -> Result<AssignedInteger<W, N>, Error> {
         if a.overflows > OVERFLOW_THRESHOLD {
@@ -282,7 +281,7 @@ impl<
 
     pub fn native(
         &self,
-        r: &mut BaseRegion<N>,
+        r: &mut RegionAux<N>,
         a: &'a mut AssignedInteger<W, N>,
     ) -> Result<&'a AssignedValue<N>, Error> {
         let new_native = match &mut a.native {
@@ -322,7 +321,7 @@ impl<
 
     pub fn add(
         &self,
-        r: &mut BaseRegion<N>,
+        r: &mut RegionAux<N>,
         a: &AssignedInteger<W, N>,
         b: &AssignedInteger<W, N>,
     ) -> Result<AssignedInteger<W, N>, Error> {
@@ -353,7 +352,7 @@ impl<
         limbs.try_into().unwrap()
     }
 
-    pub fn neg(&self, r: &mut BaseRegion<N>, a: &AssignedInteger<W, N>) -> Result<AssignedInteger<W, N>, Error> {
+    pub fn neg(&self, r: &mut RegionAux<N>, a: &AssignedInteger<W, N>) -> Result<AssignedInteger<W, N>, Error> {
         let one = N::one();
         let upper_limbs = self.find_w_modulus_ceil(a);
 
@@ -372,7 +371,7 @@ impl<
 
     pub fn sub(
         &self,
-        r: &mut BaseRegion<N>,
+        r: &mut RegionAux<N>,
         a: &AssignedInteger<W, N>,
         b: &AssignedInteger<W, N>,
     ) -> Result<AssignedInteger<W, N>, Error> {
@@ -394,7 +393,7 @@ impl<
         self.conditionally_reduce(r, res)
     }
 
-    pub fn assigned_constant(&self, r: &mut BaseRegion<N>, w: W) -> Result<AssignedInteger<W, N>, Error> {
+    pub fn assigned_constant(&self, r: &mut RegionAux<N>, w: W) -> Result<AssignedInteger<W, N>, Error> {
         let limbs_value = self.helper.w_to_limb_n_le(&w);
 
         let mut limbs = vec![];
@@ -408,7 +407,7 @@ impl<
 
     pub fn mul(
         &self,
-        r: &mut BaseRegion<N>,
+        r: &mut RegionAux<N>,
         a: &mut AssignedInteger<W, N>,
         b: &mut AssignedInteger<W, N>,
     ) -> Result<AssignedInteger<W, N>, Error> {
@@ -540,7 +539,7 @@ impl<
             let total = self.base_gate.sum_with_constant(r, elems, zero)?;
 
             let (t_d, t_rem) = field_to_bn(&total.value).div_rem(&limb_modulus_sqr);
-            println!("{:?}",t_rem);
+            println!("{:?}", t_rem);
             // sanity check
             assert!(t_rem.eq(&BigUint::from(0u64)));
 
@@ -607,7 +606,7 @@ impl<
 
     pub fn div(
         &self,
-        r: &mut BaseRegion<N>,
+        r: &mut RegionAux<N>,
         a: &AssignedInteger<W, N>,
         b: &AssignedInteger<W, N>,
     ) -> Result<AssignedInteger<W, N>, Error> {

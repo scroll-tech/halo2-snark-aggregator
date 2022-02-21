@@ -1,5 +1,5 @@
 use crate::four::{FourBaseGate, FourBaseGateConfig, FourRangeGate};
-use crate::gates::{base_gate::BaseRegion, range_gate::RangeGateConfig};
+use crate::gates::{base_gate::RegionAux, range_gate::RangeGateConfig};
 use crate::pair;
 use halo2_proofs::{
     arithmetic::FieldExt,
@@ -51,7 +51,7 @@ impl<N: FieldExt> Circuit<N> for TestFourRangeGateCircuit<N> {
             || "base",
             |mut region| {
                 let mut base_offset = 0usize;
-                let mut r = BaseRegion::new(&mut region, &mut base_offset);
+                let mut r = RegionAux::new(&mut region, &mut base_offset);
 
                 let zero = N::zero();
                 let n = 1u64 << BITS;
