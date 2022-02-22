@@ -1,6 +1,6 @@
 mod gates;
+mod utils;
 mod four;
-mod five;
 
 #[cfg(test)]
 mod tests;

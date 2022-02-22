@@ -4,6 +4,7 @@ use crate::{
         range_gate::RangeGate,
     },
     pair,
+    utils::{bn_to_field, field_to_bn},
 };
 use halo2_proofs::{arithmetic::FieldExt, plonk::Error};
 use num_bigint::BigUint;
@@ -11,20 +12,18 @@ use num_integer::Integer;
 use num_traits::Pow;
 use std::{marker::PhantomData, ops::Div, vec};
 
-const LIMBS: usize = 4usize;
-const LIMB_WIDTH: usize = 64usize;
-const OVERFLOW_LIMIT: u32 = 32u32;
-const OVERFLOW_THRESHOLD: u32 = 16u32;
+pub mod five;
 
-pub struct AssignedInteger<W: FieldExt, N: FieldExt> {
-    pub limbs_le: [AssignedValue<N>; LIMBS],
+pub struct AssignedInteger<W: FieldExt, N: FieldExt, const LIMBS: usize> {
+    limbs_le: [AssignedValue<N>; LIMBS],
     native: Option<AssignedValue<N>>,
-    overflows: u32,
+    overflows: usize,
+
     _phantom: PhantomData<W>,
 }
 
-impl<W: FieldExt, N: FieldExt> AssignedInteger<W, N> {
-    pub fn new(limbs_le: [AssignedValue<N>; LIMBS], overflows: u32) -> Self {
+impl<W: FieldExt, N: FieldExt, const LIMBS: usize> AssignedInteger<W, N, LIMBS> {
+    pub fn new(limbs_le: [AssignedValue<N>; LIMBS], overflows: usize) -> Self {
         Self {
             limbs_le,
             native: None,
@@ -36,27 +35,33 @@ impl<W: FieldExt, N: FieldExt> AssignedInteger<W, N> {
     pub fn set_native(&mut self, native: AssignedValue<N>) {
         self.native = Some(native);
     }
+
+    pub fn bn(&self, limb_modulus: &BigUint) -> BigUint {
+        self.limbs_le
+            .iter()
+            .rev()
+            .fold(BigUint::from(0u64), |acc, v| {
+                acc * limb_modulus + field_to_bn(&v.value)
+            })
+    }
 }
 
-pub struct IntegerGateHelper<W: FieldExt, N: FieldExt> {
-    _phantom_w: PhantomData<W>,
-    _phantom_n: PhantomData<N>,
+pub struct IntegerGateHelper<W: FieldExt, N: FieldExt, const LIMBS: usize, const LIMB_WIDTH: usize>
+{
     limb_modulus: BigUint,
+    limb_modulus_on_n: N,
+    limbs_le_modulus_list: [N; LIMBS],
     w_modulus: BigUint,
     w_modulus_limbs_le: [BigUint; LIMBS],
     n_modulus: BigUint,
     w_native: N,
+    w_bits: usize,
+    _phantom_w: PhantomData<W>,
 }
 
-pub fn field_to_bn<F: FieldExt>(f: &F) -> BigUint {
-    BigUint::from_bytes_le(f.to_repr().as_ref())
-}
-
-pub fn bn_to_field<F: FieldExt>(bn: &BigUint) -> F {
-    F::from_str_vartime(&bn.to_str_radix(10)[..]).unwrap()
-}
-
-impl<W: FieldExt, N: FieldExt> IntegerGateHelper<W, N> {
+impl<W: FieldExt, N: FieldExt, const LIMBS: usize, const LIMB_WIDTH: usize>
+    IntegerGateHelper<W, N, LIMBS, LIMB_WIDTH>
+{
     pub fn w_to_limb_n_le(&self, w: &W) -> [N; LIMBS] {
         let bn = field_to_bn(w);
         self.bn_to_limb_n_le(&bn)
@@ -84,18 +89,30 @@ impl<W: FieldExt, N: FieldExt> IntegerGateHelper<W, N> {
 
     pub fn new() -> Self {
         let limb_modulus = BigUint::from(1u64) << LIMB_WIDTH;
+        let limb_modulus_on_n: N = bn_to_field(&limb_modulus);
         let w_modulus = field_to_bn(&-W::one()) + 1u64;
         let n_modulus = field_to_bn(&-N::one()) + 1u64;
         let w_native = bn_to_field(&(&w_modulus % &n_modulus));
         let w_modulus_limbs_le = Self::_bn_to_limb_le(&w_modulus, &limb_modulus);
+        let w_bits = w_modulus.bits() as usize;
+
+        let mut limbs_le_modulus_list = vec![];
+        let mut acc = N::one();
+        for i in 0..LIMBS {
+            limbs_le_modulus_list.push(acc);
+            acc = acc * limb_modulus_on_n;
+        }
+
         Self {
             _phantom_w: PhantomData,
-            _phantom_n: PhantomData,
             limb_modulus,
+            limb_modulus_on_n,
+            limbs_le_modulus_list: limbs_le_modulus_list.try_into().unwrap(),
             w_modulus,
             n_modulus,
             w_native,
             w_modulus_limbs_le,
+            w_bits,
         }
     }
 }
@@ -107,12 +124,74 @@ pub struct IntegerGate<
     N: FieldExt,
     const VAR_COLUMNS: usize,
     const MUL_COLUMNS: usize,
-    const RANGE_BITS: usize,
+    const COMMON_RANGE_BITS: usize,
+    const LIMBS: usize,
+    const LIMB_WIDTH: usize,
 > {
     base_gate: &'a BaseGate<N, VAR_COLUMNS, MUL_COLUMNS>,
-    range_gate: &'b RangeGate<'a, N, VAR_COLUMNS, MUL_COLUMNS, RANGE_BITS>,
-    helper: IntegerGateHelper<W, N>,
-    _phantom: PhantomData<W>,
+    range_gate: &'b RangeGate<'a, W, N, VAR_COLUMNS, MUL_COLUMNS, COMMON_RANGE_BITS>,
+    helper: IntegerGateHelper<W, N, LIMBS, LIMB_WIDTH>,
+}
+
+pub trait IntegerGateOps<
+    W: FieldExt,
+    N: FieldExt,
+    const VAR_COLUMNS: usize,
+    const MUL_COLUMNS: usize,
+    const COMMON_RANGE_BITS: usize,
+    const LIMBS: usize,
+    const LIMB_WIDTH: usize,
+>
+{
+    fn assign_nonleading_limb(&self, r: &mut RegionAux<N>, n: N)
+        -> Result<AssignedValue<N>, Error>;
+    fn assign_leading_limb(&self, r: &mut RegionAux<N>, n: N) -> Result<AssignedValue<N>, Error>;
+    fn assign_w(&self, r: &mut RegionAux<N>, w: &W) -> Result<AssignedInteger<W, N, LIMBS>, Error>;
+
+    fn conditionally_reduce(
+        &self,
+        r: &mut RegionAux<N>,
+        a: AssignedInteger<W, N, LIMBS>,
+    ) -> Result<AssignedInteger<W, N, LIMBS>, Error>;
+    fn reduce(
+        &self,
+        r: &mut RegionAux<N>,
+        a: &mut AssignedInteger<W, N, LIMBS>,
+    ) -> Result<AssignedInteger<W, N, LIMBS>, Error>;
+
+    fn native<'a>(
+        &self,
+        r: &mut RegionAux<N>,
+        a: &'a mut AssignedInteger<W, N, LIMBS>,
+    ) -> Result<&'a AssignedValue<N>, Error>;
+    fn add(
+        &self,
+        r: &mut RegionAux<N>,
+        a: &AssignedInteger<W, N, LIMBS>,
+        b: &AssignedInteger<W, N, LIMBS>,
+    ) -> Result<AssignedInteger<W, N, LIMBS>, Error>;
+    fn sub(
+        &self,
+        r: &mut RegionAux<N>,
+        a: &AssignedInteger<W, N, LIMBS>,
+        b: &AssignedInteger<W, N, LIMBS>,
+    ) -> Result<AssignedInteger<W, N, LIMBS>, Error>;
+    fn neg(
+        &self,
+        r: &mut RegionAux<N>,
+        a: &AssignedInteger<W, N, LIMBS>,
+    ) -> Result<AssignedInteger<W, N, LIMBS>, Error>;
+    fn mul(
+        &self,
+        r: &mut RegionAux<N>,
+        a: &AssignedInteger<W, N, LIMBS>,
+        b: &AssignedInteger<W, N, LIMBS>,
+    ) -> Result<AssignedInteger<W, N, LIMBS>, Error>;
+    fn assigned_constant(
+        &self,
+        r: &mut RegionAux<N>,
+        w: W,
+    ) -> Result<AssignedInteger<W, N, LIMBS>, Error>;
 }
 
 impl<
@@ -122,19 +201,23 @@ impl<
         N: FieldExt,
         const VAR_COLUMNS: usize,
         const MUL_COLUMNS: usize,
-        const RANGE_BITS: usize,
-    > IntegerGate<'a, 'b, W, N, VAR_COLUMNS, MUL_COLUMNS, RANGE_BITS>
+        const COMMON_RANGE_BITS: usize,
+        const LIMBS: usize,
+        const LIMB_WIDTH: usize,
+    > IntegerGate<'a, 'b, W, N, VAR_COLUMNS, MUL_COLUMNS, COMMON_RANGE_BITS, LIMBS, LIMB_WIDTH>
 {
-    pub fn new(range_gate: &'b RangeGate<'a, N, VAR_COLUMNS, MUL_COLUMNS, RANGE_BITS>) -> Self {
-        assert!(VAR_COLUMNS * RANGE_BITS >= LIMB_WIDTH);
+    pub fn new(
+        range_gate: &'b RangeGate<'a, W, N, VAR_COLUMNS, MUL_COLUMNS, COMMON_RANGE_BITS>,
+    ) -> Self {
         Self {
             base_gate: range_gate.base_gate,
             range_gate,
             helper: IntegerGateHelper::new(),
-            _phantom: PhantomData,
         }
     }
+}
 
+/*
     fn assign_limb(&self, r: &mut RegionAux<N>, n: N) -> Result<AssignedValue<N>, Error> {
         let zero = N::zero();
         let one = N::one();
@@ -152,14 +235,23 @@ impl<
             coeff = coeff * bn_to_field::<N>(&modulus);
         }
 
-        self.range_gate.one_line_ranged(r, schemas, zero, (vec![], -one))?;
-        let cells = self
-            .base_gate
-            .one_line_with_last_base(r, vec![], pair!(n, zero), zero, (vec![], zero))?;
+        self.range_gate
+            .one_line_ranged(r, schemas, zero, (vec![], -one))?;
+        let cells = self.base_gate.one_line_with_last_base(
+            r,
+            vec![],
+            pair!(n, zero),
+            zero,
+            (vec![], zero),
+        )?;
         Ok(cells[VAR_COLUMNS - 1])
     }
 
-    pub fn assign_integer(&self, r: &mut RegionAux<N>, v: &W) -> Result<AssignedInteger<W, N>, Error> {
+    pub fn assign_integer(
+        &self,
+        r: &mut RegionAux<N>,
+        v: &W,
+    ) -> Result<AssignedInteger<W, N>, Error> {
         let limbs_value = self.helper.w_to_limb_n_le(v);
 
         let mut limbs = vec![];
@@ -171,7 +263,11 @@ impl<
         Ok(AssignedInteger::new(limbs.try_into().unwrap(), 0u32))
     }
 
-    pub fn assign_integer_bn(&self, r: &mut RegionAux<N>, v: &BigUint) -> Result<AssignedInteger<W, N>, Error> {
+    pub fn assign_integer_bn(
+        &self,
+        r: &mut RegionAux<N>,
+        v: &BigUint,
+    ) -> Result<AssignedInteger<W, N>, Error> {
         let limbs_value = self.helper.bn_to_limb_n_le(v);
 
         let mut limbs = vec![];
@@ -183,7 +279,11 @@ impl<
         Ok(AssignedInteger::new(limbs.try_into().unwrap(), 0u32))
     }
 
-    pub fn reduce(&self, r: &mut RegionAux<N>, a: &mut AssignedInteger<W, N>) -> Result<AssignedInteger<W, N>, Error> {
+    pub fn reduce(
+        &self,
+        r: &mut RegionAux<N>,
+        a: &mut AssignedInteger<W, N>,
+    ) -> Result<AssignedInteger<W, N>, Error> {
         assert!(a.overflows < OVERFLOW_LIMIT);
 
         // We will first find (d, rem) that a = d * w_modulus + rem and add following constraints
@@ -197,7 +297,10 @@ impl<
         // 1. max d * w_modulus + rem < LCM(native, LIMB_MODULUS)
         // 2. max a < LCM(native, LIMB_MODULUS)
         let lcm = self.helper.n_modulus.lcm(&self.helper.limb_modulus);
-        assert!(lcm >= &self.helper.w_modulus * RANGE_BITS + (BigUint::from(1u64) << LIMBS * LIMB_WIDTH));
+        assert!(
+            lcm >= &self.helper.w_modulus * RANGE_BITS
+                + (BigUint::from(1u64) << LIMBS * LIMB_WIDTH)
+        );
         assert!(lcm >= &self.helper.w_modulus * OVERFLOW_LIMIT);
 
         // To guarantee d * w_modulus + rem - a = 0 on LIMB_MODULUS
@@ -301,9 +404,13 @@ impl<
                 }
 
                 self.base_gate.one_line(r, schemas, zero, (vec![], -one))?;
-                let cells = self
-                    .base_gate
-                    .one_line_with_last_base(r, vec![], pair!(v, zero), zero, (vec![], zero))?;
+                let cells = self.base_gate.one_line_with_last_base(
+                    r,
+                    vec![],
+                    pair!(v, zero),
+                    zero,
+                    (vec![], zero),
+                )?;
                 Some(cells[VAR_COLUMNS - 1])
             }
         };
@@ -339,12 +446,17 @@ impl<
     fn find_w_modulus_ceil(&self, a: &AssignedInteger<W, N>) -> [BigUint; LIMBS] {
         let max_a = (a.overflows + 1) * (&self.helper.limb_modulus << LIMBS);
         let (n, rem) = max_a.div_rem(&self.helper.w_modulus);
-        let n = if rem.gt(&BigUint::from(0u64)) { n + 1u64 } else { n };
+        let n = if rem.gt(&BigUint::from(0u64)) {
+            n + 1u64
+        } else {
+            n
+        };
         let mut upper = n * &self.helper.w_modulus;
 
         let mut limbs = vec![];
         for _ in 0..LIMBS - 1 {
-            let rem = upper.mod_floor(&self.helper.limb_modulus) + a.overflows * &self.helper.limb_modulus;
+            let rem = upper.mod_floor(&self.helper.limb_modulus)
+                + a.overflows * &self.helper.limb_modulus;
             upper = (upper - &rem).div_floor(&self.helper.limb_modulus);
             limbs.push(rem);
         }
@@ -352,15 +464,21 @@ impl<
         limbs.try_into().unwrap()
     }
 
-    pub fn neg(&self, r: &mut RegionAux<N>, a: &AssignedInteger<W, N>) -> Result<AssignedInteger<W, N>, Error> {
+    pub fn neg(
+        &self,
+        r: &mut RegionAux<N>,
+        a: &AssignedInteger<W, N>,
+    ) -> Result<AssignedInteger<W, N>, Error> {
         let one = N::one();
         let upper_limbs = self.find_w_modulus_ceil(a);
 
         let mut limbs = vec![];
         for i in 0..LIMBS {
-            let cell =
-                self.base_gate
-                    .sum_with_constant(r, vec![(&a.limbs_le[i], -one)], bn_to_field(&upper_limbs[i]))?;
+            let cell = self.base_gate.sum_with_constant(
+                r,
+                vec![(&a.limbs_le[i], -one)],
+                bn_to_field(&upper_limbs[i]),
+            )?;
             limbs.push(cell);
         }
 
@@ -393,7 +511,11 @@ impl<
         self.conditionally_reduce(r, res)
     }
 
-    pub fn assigned_constant(&self, r: &mut RegionAux<N>, w: W) -> Result<AssignedInteger<W, N>, Error> {
+    pub fn assigned_constant(
+        &self,
+        r: &mut RegionAux<N>,
+        w: W,
+    ) -> Result<AssignedInteger<W, N>, Error> {
         let limbs_value = self.helper.w_to_limb_n_le(&w);
 
         let mut limbs = vec![];
@@ -430,8 +552,8 @@ impl<
         let lcm = t.lcm(&self.helper.n_modulus);
         let max_ab = (&bn_one << (LIMB_WIDTH * LIMBS * 2)) * OVERFLOW_LIMIT * OVERFLOW_LIMIT;
         assert!(max_ab <= lcm);
-        let max_d_w_r =
-            (&bn_one << (RANGE_BITS + LIMB_WIDTH * LIMBS)) * &self.helper.n_modulus + (&bn_one << (LIMB_WIDTH * LIMBS));
+        let max_d_w_r = (&bn_one << (RANGE_BITS + LIMB_WIDTH * LIMBS)) * &self.helper.n_modulus
+            + (&bn_one << (LIMB_WIDTH * LIMBS));
         assert!(max_d_w_r <= lcm);
         // Assert max_d_w_r >= max_ab, so we can always found such (d, rem)
         assert!(max_ab <= max_d_w_r);
@@ -475,9 +597,11 @@ impl<
             )?;
 
             // TODO: this can be merged into the last line of mul_add_with_next_line
-            let l = self
-                .base_gate
-                .sum_with_constant(r, vec![(&l, one), (&rem.limbs_le[pos], -one)], zero)?;
+            let l = self.base_gate.sum_with_constant(
+                r,
+                vec![(&l, one), (&rem.limbs_le[pos], -one)],
+                zero,
+            )?;
             limbs.push(l);
         }
 
@@ -518,14 +642,17 @@ impl<
         // thus the sum < (LIMBS * OVERFLOW_LIMIT ^ 2 + LIMBS + 1) * limb_modulus ^ 2
         // For convenience, we assert (LIMBS * OVERFLOW_LIMIT ^ 2 + LIMBS + 1) < 1 << RANGE_BIS
         assert!(
-            (LIMBS as u32) * OVERFLOW_LIMIT * (LIMBS as u32) * OVERFLOW_LIMIT + (LIMBS as u32) + 1 < 1 << RANGE_BITS
+            (LIMBS as u32) * OVERFLOW_LIMIT * (LIMBS as u32) * OVERFLOW_LIMIT + (LIMBS as u32) + 1
+                < 1 << RANGE_BITS
         );
 
         // To avoid overflow when combine two limbs, it requires (1 << RANGE_BIS)  * limb_modulus ^ 3 <= n_modulus
         // To avoid overflow when combine two limbs with overflow, it requires (1 << RANGE_BIS)  * (limb_modulus ^ 3 + limb_modulus ^ 2 + limb_modulus + 1) <= n_modulus
         // For convenience, we assert (1 << RANGE_BIS)  * (limb_modulus ^ 3) * 2 <= n_modulus
         assert!(
-            (&bn_one << RANGE_BITS) * self.helper.limb_modulus.clone().pow(3u32) * BigUint::from(2u64)
+            (&bn_one << RANGE_BITS)
+                * self.helper.limb_modulus.clone().pow(3u32)
+                * BigUint::from(2u64)
                 <= self.helper.n_modulus
         );
 
@@ -547,12 +674,15 @@ impl<
             let o = self.range_gate.assign_value(r, bn_to_field(&t_overflow))?;
             let d = self.assign_limb(r, bn_to_field(&t_d))?;
 
-            let _carry = self
-                .base_gate
-                .sum_with_constant(r, vec![(&o, limb_modulus), (&d, one)], zero)?;
+            let _carry =
+                self.base_gate
+                    .sum_with_constant(r, vec![(&o, limb_modulus), (&d, one)], zero)?;
             self.base_gate.one_line(
                 r,
-                vec![pair!(&_carry, limb_modulus * limb_modulus), pair!(&total, -one)],
+                vec![
+                    pair!(&_carry, limb_modulus * limb_modulus),
+                    pair!(&total, -one),
+                ],
                 zero,
                 (vec![], zero),
             )?;
@@ -572,9 +702,9 @@ impl<
             let o = self.range_gate.assign_value(r, bn_to_field(&t_overflow))?;
             let d = self.assign_limb(r, bn_to_field(&t_d))?;
 
-            let _carry = self
-                .base_gate
-                .sum_with_constant(r, vec![(&o, limb_modulus), (&d, one)], zero)?;
+            let _carry =
+                self.base_gate
+                    .sum_with_constant(r, vec![(&o, limb_modulus), (&d, one)], zero)?;
             self.base_gate.one_line(
                 r,
                 vec![pair!(&_carry, limb_modulus), pair!(&total, -one)],
@@ -625,3 +755,4 @@ impl<
         unimplemented!()
     }
 }
+*/

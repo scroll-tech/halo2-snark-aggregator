@@ -6,6 +6,8 @@ use halo2_proofs::{
 };
 use std::marker::PhantomData;
 
+pub mod five;
+
 #[derive(Clone, Copy, Debug)]
 pub struct AssignedValue<N: FieldExt> {
     cell: Cell,
@@ -38,7 +40,11 @@ impl<'a, N: FieldExt> ValueSchema<'a, N> {
         }
     }
 
-    pub fn constrain_equal_conditionally(&self, region: &mut Region<'_, N>, new_cell: Cell) -> Result<(), Error> {
+    pub fn constrain_equal_conditionally(
+        &self,
+        region: &mut Region<'_, N>,
+        new_cell: Cell,
+    ) -> Result<(), Error> {
         match self {
             ValueSchema::Assigned(c) => region.constrain_equal(c.cell.clone(), new_cell),
             _ => Ok(()),
@@ -99,8 +105,12 @@ pub struct BaseGate<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: us
     _phantom: PhantomData<N>,
 }
 
-impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize> BaseGate<N, VAR_COLUMNS, MUL_COLUMNS> {
-    pub fn new(config: BaseGateConfig<VAR_COLUMNS, MUL_COLUMNS>) -> BaseGate<N, VAR_COLUMNS, MUL_COLUMNS> {
+impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize>
+    BaseGate<N, VAR_COLUMNS, MUL_COLUMNS>
+{
+    pub fn new(
+        config: BaseGateConfig<VAR_COLUMNS, MUL_COLUMNS>,
+    ) -> BaseGate<N, VAR_COLUMNS, MUL_COLUMNS> {
         BaseGate {
             config,
             _phantom: PhantomData,
@@ -153,14 +163,21 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize> BaseGate<N
         constant: N,
         mul_next_coeffs: (Vec<N>, N),
     ) -> Result<[AssignedValue<N>; VAR_COLUMNS], Error> {
-        let mut cells = vec![];
+        assert!(base_coeff_pairs.len() <= VAR_COLUMNS);
+        assert!(mul_next_coeffs.0.len() <= MUL_COLUMNS);
 
         let zero = N::zero();
+        let mut cells = vec![];
 
         base_coeff_pairs.resize_with(VAR_COLUMNS, || pair_empty!(N));
         for (i, (base, coeff)) in base_coeff_pairs.into_iter().enumerate() {
             r.region
-                .assign_fixed(|| format!("coeff_{}", i), self.config.coeff[i], *r.offset, || Ok(coeff))?
+                .assign_fixed(
+                    || format!("coeff_{}", i),
+                    self.config.coeff[i],
+                    *r.offset,
+                    || Ok(coeff),
+                )?
                 .cell();
 
             let cell = r
@@ -191,10 +208,18 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize> BaseGate<N
             )?;
         }
 
-        r.region
-            .assign_fixed(|| "constant", self.config.constant, *r.offset, || Ok(constant))?;
-        r.region
-            .assign_fixed(|| "next_coeff", self.config.next_coeff, *r.offset, || Ok(next))?;
+        r.region.assign_fixed(
+            || "constant",
+            self.config.constant,
+            *r.offset,
+            || Ok(constant),
+        )?;
+        r.region.assign_fixed(
+            || "next_coeff",
+            self.config.next_coeff,
+            *r.offset,
+            || Ok(next),
+        )?;
 
         *r.offset += 1;
 
@@ -218,6 +243,8 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize> BaseGate<N
         constant: N,
         mul_next_coeffs: (Vec<N>, N),
     ) -> Result<[AssignedValue<N>; VAR_COLUMNS], Error> {
+        assert!(base_coeff_pairs.len() <= VAR_COLUMNS - 1);
+
         let zero = N::zero();
 
         base_coeff_pairs.resize_with(VAR_COLUMNS - 1, || pair_empty!(N));
@@ -231,14 +258,21 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize> BaseGate<N
         elems: Vec<(&AssignedValue<N>, N)>,
         constant: N,
     ) -> Result<AssignedValue<N>, Error> {
-        assert!(elems.len() < VAR_COLUMNS);
+        assert!(elems.len() <= VAR_COLUMNS - 1);
 
         let one = N::one();
         let zero = N::zero();
 
-        let sum = elems.iter().fold(constant, |acc, (v, coeff)| acc + v.value * coeff);
+        let sum = elems
+            .iter()
+            .fold(constant, |acc, (v, coeff)| acc + v.value * coeff);
         let mut schemas_pairs = vec![pair!(sum, -one)];
-        schemas_pairs.append(&mut elems.into_iter().map(|(v, coeff)| pair!(v, coeff)).collect());
+        schemas_pairs.append(
+            &mut elems
+                .into_iter()
+                .map(|(v, coeff)| pair!(v, coeff))
+                .collect(),
+        );
 
         let cells = self.one_line(r, schemas_pairs, constant, (vec![], zero))?;
 
@@ -300,7 +334,12 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize> BaseGate<N
 
         let cells = self.one_line(
             r,
-            vec![pair!(a, zero), pair!(b, zero), pair!(c, c_coeff), pair!(d, -one)],
+            vec![
+                pair!(a, zero),
+                pair!(b, zero),
+                pair!(c, c_coeff),
+                pair!(d, -one),
+            ],
             zero,
             (vec![one], zero),
         )?;
@@ -338,19 +377,29 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize> BaseGate<N
                 t = a.value * b.value + c.value * c_coeff + t;
             }
 
-            let cells = self.one_line_with_last_base(r, vec![], pair!(t, zero), zero, (vec![], zero))?;
+            let cells =
+                self.one_line_with_last_base(r, vec![], pair!(t, zero), zero, (vec![], zero))?;
 
             Ok(cells[VAR_COLUMNS - 1])
         }
     }
 
-    pub fn invert_unsafe(&self, r: &mut RegionAux<'_, '_, N>, a: &AssignedValue<N>) -> Result<AssignedValue<N>, Error> {
+    pub fn invert_unsafe(
+        &self,
+        r: &mut RegionAux<'_, '_, N>,
+        a: &AssignedValue<N>,
+    ) -> Result<AssignedValue<N>, Error> {
         let b = a.value.invert().unwrap();
 
         let one = N::one();
         let zero = N::zero();
 
-        let cells = self.one_line(r, vec![pair!(a, zero), pair!(b, zero)], -one, (vec![one], zero))?;
+        let cells = self.one_line(
+            r,
+            vec![pair!(a, zero), pair!(b, zero)],
+            -one,
+            (vec![one], zero),
+        )?;
 
         Ok(cells[1])
     }
@@ -376,7 +425,11 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize> BaseGate<N
         Ok(cells[1])
     }
 
-    pub fn assign_constant(&self, r: &mut RegionAux<'_, '_, N>, v: N) -> Result<AssignedValue<N>, Error> {
+    pub fn assign_constant(
+        &self,
+        r: &mut RegionAux<'_, '_, N>,
+        v: N,
+    ) -> Result<AssignedValue<N>, Error> {
         let one = N::one();
 
         let cells = self.one_line_add(r, vec![pair!(v, -one)], v)?;
