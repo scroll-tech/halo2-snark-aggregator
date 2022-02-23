@@ -1,4 +1,6 @@
-use crate::gates::base_gate::five::{FiveBaseGate, FiveBaseGateConfig, MUL_COLUMNS, VAR_COLUMNS};
+use crate::gates::base_gate::five::{
+    FiveColumnBaseGate, FiveColumnBaseGateConfig, MUL_COLUMNS, VAR_COLUMNS,
+};
 use crate::gates::base_gate::RegionAux;
 use crate::pair;
 use halo2_proofs::{
@@ -30,20 +32,20 @@ impl Default for TestCase {
 }
 
 #[derive(Clone)]
-struct TestFiveBaseGateConfig {
-    base_gate_config: FiveBaseGateConfig,
+struct TestFiveColumnBaseGateConfig {
+    base_gate_config: FiveColumnBaseGateConfig,
 }
 
 #[derive(Default)]
-struct TestFiveBaseGateCircuit<N: FieldExt> {
+struct TestFiveColumnBaseGateCircuit<N: FieldExt> {
     test_case: TestCase,
-    _marker: PhantomData<N>,
+    _phantom: PhantomData<N>,
 }
 
-impl<N: FieldExt> TestFiveBaseGateCircuit<N> {
+impl<N: FieldExt> TestFiveColumnBaseGateCircuit<N> {
     fn setup_test_one_line(
         &self,
-        base_gate: &FiveBaseGate<N>,
+        base_gate: &FiveColumnBaseGate<N>,
         r: &mut RegionAux<'_, '_, N>,
     ) -> Result<(), Error> {
         let seed = chrono::offset::Utc::now()
@@ -90,7 +92,7 @@ impl<N: FieldExt> TestFiveBaseGateCircuit<N> {
 
     fn setup_test_sum_with_constant(
         &self,
-        base_gate: &FiveBaseGate<N>,
+        base_gate: &FiveColumnBaseGate<N>,
         r: &mut RegionAux<'_, '_, N>,
     ) -> Result<(), Error> {
         let seed = chrono::offset::Utc::now()
@@ -129,7 +131,7 @@ impl<N: FieldExt> TestFiveBaseGateCircuit<N> {
 
     fn setup_test_add(
         &self,
-        base_gate: &FiveBaseGate<N>,
+        base_gate: &FiveColumnBaseGate<N>,
         r: &mut RegionAux<'_, '_, N>,
     ) -> Result<(), Error> {
         let seed = chrono::offset::Utc::now()
@@ -158,7 +160,7 @@ impl<N: FieldExt> TestFiveBaseGateCircuit<N> {
 
     fn setup_test_mul(
         &self,
-        base_gate: &FiveBaseGate<N>,
+        base_gate: &FiveColumnBaseGate<N>,
         r: &mut RegionAux<'_, '_, N>,
     ) -> Result<(), Error> {
         let seed = chrono::offset::Utc::now()
@@ -187,7 +189,7 @@ impl<N: FieldExt> TestFiveBaseGateCircuit<N> {
 
     fn setup_test_mul_add(
         &self,
-        base_gate: &FiveBaseGate<N>,
+        base_gate: &FiveColumnBaseGate<N>,
         r: &mut RegionAux<'_, '_, N>,
     ) -> Result<(), Error> {
         let seed = chrono::offset::Utc::now()
@@ -224,7 +226,7 @@ impl<N: FieldExt> TestFiveBaseGateCircuit<N> {
 
     fn setup_test_mul_add_with_next_line(
         &self,
-        base_gate: &FiveBaseGate<N>,
+        base_gate: &FiveColumnBaseGate<N>,
         r: &mut RegionAux<'_, '_, N>,
     ) -> Result<(), Error> {
         let seed = chrono::offset::Utc::now()
@@ -272,7 +274,7 @@ impl<N: FieldExt> TestFiveBaseGateCircuit<N> {
 
     fn setup_test_invert_unsafe(
         &self,
-        base_gate: &FiveBaseGate<N>,
+        base_gate: &FiveColumnBaseGate<N>,
         r: &mut RegionAux<'_, '_, N>,
     ) -> Result<(), Error> {
         let seed = chrono::offset::Utc::now()
@@ -308,7 +310,7 @@ impl<N: FieldExt> TestFiveBaseGateCircuit<N> {
 
     fn setup_test_div_unsafe(
         &self,
-        base_gate: &FiveBaseGate<N>,
+        base_gate: &FiveColumnBaseGate<N>,
         r: &mut RegionAux<'_, '_, N>,
     ) -> Result<(), Error> {
         let seed = chrono::offset::Utc::now()
@@ -343,8 +345,8 @@ impl<N: FieldExt> TestFiveBaseGateCircuit<N> {
     }
 }
 
-impl<N: FieldExt> Circuit<N> for TestFiveBaseGateCircuit<N> {
-    type Config = TestFiveBaseGateConfig;
+impl<N: FieldExt> Circuit<N> for TestFiveColumnBaseGateCircuit<N> {
+    type Config = TestFiveColumnBaseGateConfig;
     type FloorPlanner = SimpleFloorPlanner;
 
     fn without_witnesses(&self) -> Self {
@@ -352,8 +354,8 @@ impl<N: FieldExt> Circuit<N> for TestFiveBaseGateCircuit<N> {
     }
 
     fn configure(meta: &mut ConstraintSystem<N>) -> Self::Config {
-        let base_gate_config = FiveBaseGate::<N>::configure(meta);
-        TestFiveBaseGateConfig { base_gate_config }
+        let base_gate_config = FiveColumnBaseGate::<N>::configure(meta);
+        TestFiveColumnBaseGateConfig { base_gate_config }
     }
 
     fn synthesize(
@@ -361,7 +363,7 @@ impl<N: FieldExt> Circuit<N> for TestFiveBaseGateCircuit<N> {
         config: Self::Config,
         mut layouter: impl Layouter<N>,
     ) -> Result<(), Error> {
-        let base_gate = FiveBaseGate::new(config.base_gate_config);
+        let base_gate = FiveColumnBaseGate::new(config.base_gate_config);
 
         layouter.assign_region(
             || "base",
@@ -389,11 +391,11 @@ impl<N: FieldExt> Circuit<N> for TestFiveBaseGateCircuit<N> {
 }
 
 #[test]
-fn test_five_base_gate_one_line() {
+fn test_five_column_base_gate_one_line() {
     const K: u32 = 8;
-    let circuit = TestFiveBaseGateCircuit::<Fp> {
+    let circuit = TestFiveColumnBaseGateCircuit::<Fp> {
         test_case: TestCase::OneLine,
-        _marker: PhantomData,
+        _phantom: PhantomData,
     };
     let prover = match MockProver::run(K, &circuit, vec![]) {
         Ok(prover) => prover,
@@ -403,11 +405,11 @@ fn test_five_base_gate_one_line() {
 }
 
 #[test]
-fn test_five_base_gate_sum_with_constant() {
+fn test_five_column_base_gate_sum_with_constant() {
     const K: u32 = 8;
-    let circuit = TestFiveBaseGateCircuit::<Fp> {
+    let circuit = TestFiveColumnBaseGateCircuit::<Fp> {
         test_case: TestCase::SumWithConstant,
-        _marker: PhantomData,
+        _phantom: PhantomData,
     };
     let prover = match MockProver::run(K, &circuit, vec![]) {
         Ok(prover) => prover,
@@ -417,11 +419,11 @@ fn test_five_base_gate_sum_with_constant() {
 }
 
 #[test]
-fn test_five_base_gate_add() {
+fn test_five_column_base_gate_add() {
     const K: u32 = 8;
-    let circuit = TestFiveBaseGateCircuit::<Fp> {
+    let circuit = TestFiveColumnBaseGateCircuit::<Fp> {
         test_case: TestCase::Add,
-        _marker: PhantomData,
+        _phantom: PhantomData,
     };
     let prover = match MockProver::run(K, &circuit, vec![]) {
         Ok(prover) => prover,
@@ -431,11 +433,11 @@ fn test_five_base_gate_add() {
 }
 
 #[test]
-fn test_five_base_gate_mul() {
+fn test_five_column_base_gate_mul() {
     const K: u32 = 8;
-    let circuit = TestFiveBaseGateCircuit::<Fp> {
+    let circuit = TestFiveColumnBaseGateCircuit::<Fp> {
         test_case: TestCase::Mul,
-        _marker: PhantomData,
+        _phantom: PhantomData,
     };
     let prover = match MockProver::run(K, &circuit, vec![]) {
         Ok(prover) => prover,
@@ -445,11 +447,11 @@ fn test_five_base_gate_mul() {
 }
 
 #[test]
-fn test_five_base_gate_mul_add() {
+fn test_five_column_base_gate_mul_add() {
     const K: u32 = 8;
-    let circuit = TestFiveBaseGateCircuit::<Fp> {
+    let circuit = TestFiveColumnBaseGateCircuit::<Fp> {
         test_case: TestCase::MulAdd,
-        _marker: PhantomData,
+        _phantom: PhantomData,
     };
     let prover = match MockProver::run(K, &circuit, vec![]) {
         Ok(prover) => prover,
@@ -459,11 +461,11 @@ fn test_five_base_gate_mul_add() {
 }
 
 #[test]
-fn test_five_base_gate_mul_add_with_next_line() {
+fn test_five_column_base_gate_mul_add_with_next_line() {
     const K: u32 = 8;
-    let circuit = TestFiveBaseGateCircuit::<Fp> {
+    let circuit = TestFiveColumnBaseGateCircuit::<Fp> {
         test_case: TestCase::MulAddWithNextLine,
-        _marker: PhantomData,
+        _phantom: PhantomData,
     };
     let prover = match MockProver::run(K, &circuit, vec![]) {
         Ok(prover) => prover,
@@ -473,11 +475,11 @@ fn test_five_base_gate_mul_add_with_next_line() {
 }
 
 #[test]
-fn test_five_base_gate_mul_invert_unsafe() {
+fn test_five_column_base_gate_mul_invert_unsafe() {
     const K: u32 = 8;
-    let circuit = TestFiveBaseGateCircuit::<Fp> {
+    let circuit = TestFiveColumnBaseGateCircuit::<Fp> {
         test_case: TestCase::InvertUnsafe,
-        _marker: PhantomData,
+        _phantom: PhantomData,
     };
     let prover = match MockProver::run(K, &circuit, vec![]) {
         Ok(prover) => prover,
@@ -487,11 +489,11 @@ fn test_five_base_gate_mul_invert_unsafe() {
 }
 
 #[test]
-fn test_five_base_gate_mul_div_unsafe() {
+fn test_five_column_base_gate_mul_div_unsafe() {
     const K: u32 = 8;
-    let circuit = TestFiveBaseGateCircuit::<Fp> {
+    let circuit = TestFiveColumnBaseGateCircuit::<Fp> {
         test_case: TestCase::DivUnsafe,
-        _marker: PhantomData,
+        _phantom: PhantomData,
     };
     let prover = match MockProver::run(K, &circuit, vec![]) {
         Ok(prover) => prover,

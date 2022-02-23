@@ -450,4 +450,18 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize>
 
         Ok(())
     }
+
+    pub fn assert_constant(
+        &self,
+        r: &mut RegionAux<'_, '_, N>,
+        a: &AssignedValue<N>,
+        b: N,
+    ) -> Result<(), Error> {
+        let one = N::one();
+        let zero = N::zero();
+
+        self.one_line_add(r, vec![pair!(a, -one)], b)?;
+
+        Ok(())
+    }
 }

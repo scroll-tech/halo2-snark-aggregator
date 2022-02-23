@@ -3,17 +3,15 @@ use crate::{
         base_gate::{AssignedValue, BaseGate, RegionAux},
         range_gate::RangeGate,
     },
-    pair,
     utils::{bn_to_field, field_to_bn},
 };
 use halo2_proofs::{arithmetic::FieldExt, plonk::Error};
 use num_bigint::BigUint;
-use num_integer::Integer;
-use num_traits::Pow;
-use std::{marker::PhantomData, ops::Div, vec};
+use std::{marker::PhantomData, vec};
 
 pub mod five;
 
+#[derive(Clone)]
 pub struct AssignedInteger<W: FieldExt, N: FieldExt, const LIMBS: usize> {
     limbs_le: [AssignedValue<N>; LIMBS],
     native: Option<AssignedValue<N>>,
@@ -49,13 +47,15 @@ impl<W: FieldExt, N: FieldExt, const LIMBS: usize> AssignedInteger<W, N, LIMBS> 
 pub struct IntegerGateHelper<W: FieldExt, N: FieldExt, const LIMBS: usize, const LIMB_WIDTH: usize>
 {
     limb_modulus: BigUint,
+    integer_modulus: BigUint,
     limb_modulus_on_n: N,
-    limbs_le_modulus_list: [N; LIMBS],
+    limb_modulus_exps: [N; LIMBS],
     w_modulus: BigUint,
     w_modulus_limbs_le: [BigUint; LIMBS],
     n_modulus: BigUint,
     w_native: N,
-    w_bits: usize,
+    w_ceil_bits: usize,
+    n_floor_bits: usize,
     _phantom_w: PhantomData<W>,
 }
 
@@ -89,30 +89,34 @@ impl<W: FieldExt, N: FieldExt, const LIMBS: usize, const LIMB_WIDTH: usize>
 
     pub fn new() -> Self {
         let limb_modulus = BigUint::from(1u64) << LIMB_WIDTH;
+        let integer_modulus = BigUint::from(1u64) << (LIMB_WIDTH * LIMBS);
         let limb_modulus_on_n: N = bn_to_field(&limb_modulus);
         let w_modulus = field_to_bn(&-W::one()) + 1u64;
         let n_modulus = field_to_bn(&-N::one()) + 1u64;
         let w_native = bn_to_field(&(&w_modulus % &n_modulus));
         let w_modulus_limbs_le = Self::_bn_to_limb_le(&w_modulus, &limb_modulus);
-        let w_bits = w_modulus.bits() as usize;
+        let w_ceil_bits = w_modulus.bits() as usize + 1;
+        let n_floor_bits = n_modulus.bits() as usize;
 
-        let mut limbs_le_modulus_list = vec![];
+        let mut limb_modulus_exps = vec![];
         let mut acc = N::one();
         for i in 0..LIMBS {
-            limbs_le_modulus_list.push(acc);
+            limb_modulus_exps.push(acc);
             acc = acc * limb_modulus_on_n;
         }
 
         Self {
             _phantom_w: PhantomData,
             limb_modulus,
+            integer_modulus,
             limb_modulus_on_n,
-            limbs_le_modulus_list: limbs_le_modulus_list.try_into().unwrap(),
+            limb_modulus_exps: limb_modulus_exps.try_into().unwrap(),
             w_modulus,
             n_modulus,
             w_native,
             w_modulus_limbs_le,
-            w_bits,
+            w_ceil_bits,
+            n_floor_bits,
         }
     }
 }
@@ -128,8 +132,8 @@ pub struct IntegerGate<
     const LIMBS: usize,
     const LIMB_WIDTH: usize,
 > {
-    base_gate: &'a BaseGate<N, VAR_COLUMNS, MUL_COLUMNS>,
-    range_gate: &'b RangeGate<'a, W, N, VAR_COLUMNS, MUL_COLUMNS, COMMON_RANGE_BITS>,
+    pub base_gate: &'a BaseGate<N, VAR_COLUMNS, MUL_COLUMNS>,
+    pub range_gate: &'b RangeGate<'a, W, N, VAR_COLUMNS, MUL_COLUMNS, COMMON_RANGE_BITS>,
     helper: IntegerGateHelper<W, N, LIMBS, LIMB_WIDTH>,
 }
 
@@ -145,8 +149,22 @@ pub trait IntegerGateOps<
 {
     fn assign_nonleading_limb(&self, r: &mut RegionAux<N>, n: N)
         -> Result<AssignedValue<N>, Error>;
-    fn assign_leading_limb(&self, r: &mut RegionAux<N>, n: N) -> Result<AssignedValue<N>, Error>;
+    fn assign_w_ceil_leading_limb(
+        &self,
+        r: &mut RegionAux<N>,
+        n: N,
+    ) -> Result<AssignedValue<N>, Error>;
+    fn assign_n_floor_leading_limb(
+        &self,
+        r: &mut RegionAux<N>,
+        n: N,
+    ) -> Result<AssignedValue<N>, Error>;
     fn assign_w(&self, r: &mut RegionAux<N>, w: &W) -> Result<AssignedInteger<W, N, LIMBS>, Error>;
+    fn assign_integer(
+        &self,
+        r: &mut RegionAux<N>,
+        v: &BigUint,
+    ) -> Result<[AssignedValue<N>; LIMBS], Error>;
 
     fn conditionally_reduce(
         &self,
@@ -184,14 +202,20 @@ pub trait IntegerGateOps<
     fn mul(
         &self,
         r: &mut RegionAux<N>,
-        a: &AssignedInteger<W, N, LIMBS>,
-        b: &AssignedInteger<W, N, LIMBS>,
+        a: &mut AssignedInteger<W, N, LIMBS>,
+        b: &mut AssignedInteger<W, N, LIMBS>,
     ) -> Result<AssignedInteger<W, N, LIMBS>, Error>;
     fn assigned_constant(
         &self,
         r: &mut RegionAux<N>,
         w: W,
     ) -> Result<AssignedInteger<W, N, LIMBS>, Error>;
+    fn assert_equal(
+        &self,
+        r: &mut RegionAux<N>,
+        a: &AssignedInteger<W, N, LIMBS>,
+        b: &AssignedInteger<W, N, LIMBS>,
+    ) -> Result<(), Error>;
 }
 
 impl<
