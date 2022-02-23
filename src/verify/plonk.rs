@@ -1,6 +1,5 @@
 //use halo2_proofs::arithmetic::{CurveAffine, Field, FieldExt, CurveExt};
-use pairing_bn256::arithmetic::{CurveAffine, CurveExt, FieldExt};
-use crate::arith::api::{ ContextGroup, ContextRing};
+use pairing_bn256::arithmetic::{CurveAffine, FieldExt};
 use crate::arith::code::{ FieldCode, PointCode };
 use num_bigint::BigUint;
 
@@ -48,7 +47,7 @@ mod test_marco {
     use pairing_bn256::arithmetic::{CurveAffine, CurveExt, FieldExt};
     use pairing_bn256::group::{Group};
     use pairing_bn256::bn256::{G1Affine, G1};
-    use crate::plonk::bn_to_field;
+    use super::bn_to_field;
     use crate::arith::code::{ FieldCode, PointCode };
     use crate::arith::api::{ ContextGroup, ContextRing};
     use crate::schema::{ast::EvaluationAST, SchemaGenerator};

@@ -5,7 +5,7 @@ mod utils;
 
 mod arith;
 mod schema;
-mod plonk;
+mod verify;
 
 #[cfg(test)]
 mod tests;

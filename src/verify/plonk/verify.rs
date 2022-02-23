@@ -7,7 +7,6 @@ use crate::schema::ast::{
     SchemaItem,
     CommitQuery,
     MultiOpenProof,
-    EvaluationAST,
 };
 
 use crate::schema::utils::{

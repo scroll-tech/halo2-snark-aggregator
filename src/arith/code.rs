@@ -1,4 +1,4 @@
-use pairing_bn256::arithmetic::{CurveAffine, CurveExt, FieldExt};
+use pairing_bn256::arithmetic::{CurveAffine, FieldExt};
 
 
 use super::api::{
