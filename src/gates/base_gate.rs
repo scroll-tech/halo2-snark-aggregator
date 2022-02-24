@@ -50,20 +50,6 @@ impl<'a, N: FieldExt> ValueSchema<'a, N> {
             _ => Ok(()),
         }
     }
-
-    pub fn is_unassigned(&self) -> bool {
-        match self {
-            ValueSchema::Unassigned(_) => true,
-            ValueSchema::Assigned(_) => false,
-        }
-    }
-
-    pub fn to_assigned_value(&self) -> Option<&'a AssignedValue<N>> {
-        match self {
-            ValueSchema::Assigned(v) => Some(v),
-            ValueSchema::Unassigned(_) => None,
-        }
-    }
 }
 
 #[macro_export]
@@ -229,7 +215,7 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize>
     pub fn one_line_add(
         &self,
         r: &mut RegionAux<'_, '_, N>,
-        mut base_coeff_pairs: Vec<(ValueSchema<N>, N)>,
+        base_coeff_pairs: Vec<(ValueSchema<N>, N)>,
         constant: N,
     ) -> Result<[AssignedValue<N>; VAR_COLUMNS], Error> {
         self.one_line(r, base_coeff_pairs, constant, (vec![], N::zero()))
@@ -244,8 +230,6 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize>
         mul_next_coeffs: (Vec<N>, N),
     ) -> Result<[AssignedValue<N>; VAR_COLUMNS], Error> {
         assert!(base_coeff_pairs.len() <= VAR_COLUMNS - 1);
-
-        let zero = N::zero();
 
         base_coeff_pairs.resize_with(VAR_COLUMNS - 1, || pair_empty!(N));
         base_coeff_pairs.push(last);
@@ -458,7 +442,6 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize>
         b: N,
     ) -> Result<(), Error> {
         let one = N::one();
-        let zero = N::zero();
 
         self.one_line_add(r, vec![pair!(a, -one)], b)?;
 

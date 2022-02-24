@@ -3,7 +3,7 @@ use crate::{
         base_gate::{AssignedValue, BaseGate, RegionAux},
         range_gate::RangeGate,
     },
-    utils::{bn_to_field, field_to_bn},
+    utils::{bn_to_field, field_to_bn, get_d_range_bits_in_mul},
 };
 use halo2_proofs::{arithmetic::FieldExt, plonk::Error};
 use num_bigint::BigUint;
@@ -46,17 +46,18 @@ impl<W: FieldExt, N: FieldExt, const LIMBS: usize> AssignedInteger<W, N, LIMBS> 
 
 pub struct IntegerGateHelper<W: FieldExt, N: FieldExt, const LIMBS: usize, const LIMB_WIDTH: usize>
 {
-    limb_modulus: BigUint,
-    integer_modulus: BigUint,
-    limb_modulus_on_n: N,
-    limb_modulus_exps: [N; LIMBS],
-    w_modulus: BigUint,
-    w_modulus_limbs_le: [BigUint; LIMBS],
-    n_modulus: BigUint,
-    w_native: N,
-    w_ceil_bits: usize,
-    n_floor_bits: usize,
-    _phantom_w: PhantomData<W>,
+    pub limb_modulus: BigUint,
+    pub integer_modulus: BigUint,
+    pub limb_modulus_on_n: N,
+    pub limb_modulus_exps: [N; LIMBS],
+    pub w_modulus: BigUint,
+    pub w_modulus_limbs_le: [BigUint; LIMBS],
+    pub n_modulus: BigUint,
+    pub w_native: N,
+    pub w_ceil_bits: usize,
+    pub n_floor_bits: usize,
+    pub d_bits: usize,
+    pub _phantom_w: PhantomData<W>,
 }
 
 impl<W: FieldExt, N: FieldExt, const LIMBS: usize, const LIMB_WIDTH: usize>
@@ -100,10 +101,12 @@ impl<W: FieldExt, N: FieldExt, const LIMBS: usize, const LIMB_WIDTH: usize>
 
         let mut limb_modulus_exps = vec![];
         let mut acc = N::one();
-        for i in 0..LIMBS {
+        for _ in 0..LIMBS {
             limb_modulus_exps.push(acc);
             acc = acc * limb_modulus_on_n;
         }
+
+        let d_bits = get_d_range_bits_in_mul::<W, N>(&integer_modulus);
 
         Self {
             _phantom_w: PhantomData,
@@ -117,6 +120,7 @@ impl<W: FieldExt, N: FieldExt, const LIMBS: usize, const LIMB_WIDTH: usize>
             w_modulus_limbs_le,
             w_ceil_bits,
             n_floor_bits,
+            d_bits,
         }
     }
 }
@@ -134,7 +138,7 @@ pub struct IntegerGate<
 > {
     pub base_gate: &'a BaseGate<N, VAR_COLUMNS, MUL_COLUMNS>,
     pub range_gate: &'b RangeGate<'a, W, N, VAR_COLUMNS, MUL_COLUMNS, COMMON_RANGE_BITS>,
-    helper: IntegerGateHelper<W, N, LIMBS, LIMB_WIDTH>,
+    pub helper: IntegerGateHelper<W, N, LIMBS, LIMB_WIDTH>,
 }
 
 pub trait IntegerGateOps<
@@ -159,7 +163,13 @@ pub trait IntegerGateOps<
         r: &mut RegionAux<N>,
         n: N,
     ) -> Result<AssignedValue<N>, Error>;
+    fn assign_d_leading_limb(&self, r: &mut RegionAux<N>, n: N) -> Result<AssignedValue<N>, Error>;
     fn assign_w(&self, r: &mut RegionAux<N>, w: &W) -> Result<AssignedInteger<W, N, LIMBS>, Error>;
+    fn assign_d(
+        &self,
+        r: &mut RegionAux<N>,
+        v: &BigUint,
+    ) -> Result<[AssignedValue<N>; LIMBS], Error>;
     fn assign_integer(
         &self,
         r: &mut RegionAux<N>,

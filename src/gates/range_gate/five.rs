@@ -71,6 +71,15 @@ impl<'a, W: FieldExt, N: FieldExt, const COMMON_RANGE_BITS: usize>
             vec![(exp * s, n_floor_leading_limb_range_table_column)]
         });
 
+        let d_leading_limb_range_selector = meta.complex_selector();
+        let d_leading_limb_range_table_column = meta.lookup_table_column();
+
+        meta.lookup(|meta| {
+            let exp = meta.query_advice(base_gate_config.base[0].clone(), Rotation::cur());
+            let s = meta.query_selector(d_leading_limb_range_selector);
+            vec![(exp * s, d_leading_limb_range_table_column)]
+        });
+
         RangeGateConfig {
             common_range_selector,
             common_range_table_column,
@@ -78,6 +87,8 @@ impl<'a, W: FieldExt, N: FieldExt, const COMMON_RANGE_BITS: usize>
             w_ceil_leading_limb_range_table_column,
             n_floor_leading_limb_range_selector,
             n_floor_leading_limb_range_table_column,
+            d_leading_limb_range_selector,
+            d_leading_limb_range_table_column,
         }
     }
 }
