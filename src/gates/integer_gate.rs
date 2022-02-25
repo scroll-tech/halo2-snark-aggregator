@@ -9,6 +9,8 @@ use halo2_proofs::{arithmetic::FieldExt, plonk::Error};
 use num_bigint::BigUint;
 use std::{marker::PhantomData, vec};
 
+use super::base_gate::AssignedCondition;
+
 pub mod five;
 
 #[derive(Clone)]
@@ -215,6 +217,11 @@ pub trait IntegerGateOps<
         a: &mut AssignedInteger<W, N, LIMBS>,
         b: &mut AssignedInteger<W, N, LIMBS>,
     ) -> Result<AssignedInteger<W, N, LIMBS>, Error>;
+    fn is_zero(
+        &self,
+        r: &mut RegionAux<N>,
+        a: &mut AssignedInteger<W, N, LIMBS>,
+    ) -> Result<AssignedCondition<N>, Error>;
     fn assigned_constant(
         &self,
         r: &mut RegionAux<N>,

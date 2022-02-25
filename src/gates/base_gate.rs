@@ -9,9 +9,34 @@ use std::marker::PhantomData;
 pub mod five;
 
 #[derive(Clone, Copy, Debug)]
+
+pub struct AssignedCondition<N: FieldExt> {
+    cell: Cell,
+    pub value: N,
+}
+
+#[derive(Clone, Copy, Debug)]
 pub struct AssignedValue<N: FieldExt> {
     cell: Cell,
     pub value: N,
+}
+
+impl<N: FieldExt> From<&AssignedCondition<N>> for AssignedValue<N> {
+    fn from(v: &AssignedCondition<N>) -> Self {
+        AssignedValue {
+            cell: v.cell,
+            value: v.value,
+        }
+    }
+}
+
+impl<N: FieldExt> From<&AssignedValue<N>> for AssignedCondition<N> {
+    fn from(v: &AssignedValue<N>) -> Self {
+        AssignedCondition {
+            cell: v.cell,
+            value: v.value,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -388,6 +413,44 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize>
         Ok(cells[1])
     }
 
+    pub fn invert(
+        &self,
+        r: &mut RegionAux<'_, '_, N>,
+        a: &AssignedValue<N>,
+    ) -> Result<(AssignedCondition<N>, AssignedValue<N>), Error> {
+        let zero = N::zero();
+        let one = N::one();
+        let b = a.value.invert().unwrap_or(zero);
+        let c = one - a.value * b;
+
+        // a * c = 0, one of them must be zero
+        self.one_line(
+            r,
+            vec![pair!(a, zero), pair!(c, zero)],
+            zero,
+            (vec![one], zero),
+        )?;
+
+        // a * b + c = 1
+        let cells = self.one_line(
+            r,
+            vec![pair!(a, zero), pair!(b, zero), pair!(c, one)],
+            -one,
+            (vec![one], zero),
+        )?;
+
+        Ok(((&cells[2]).into(), cells[1]))
+    }
+
+    pub fn is_zero(
+        &self,
+        r: &mut RegionAux<'_, '_, N>,
+        a: &AssignedValue<N>,
+    ) -> Result<AssignedCondition<N>, Error> {
+        let (res, _) = self.invert(r, a)?;
+        Ok(res)
+    }
+
     pub fn div_unsafe(
         &self,
         r: &mut RegionAux<'_, '_, N>,
@@ -446,5 +509,37 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize>
         self.one_line_add(r, vec![pair!(a, -one)], b)?;
 
         Ok(())
+    }
+
+    pub fn and(
+        &self,
+        r: &mut RegionAux<'_, '_, N>,
+        a: &AssignedCondition<N>,
+        b: &AssignedCondition<N>,
+    ) -> Result<AssignedCondition<N>, Error> {
+        let res = self.mul(r, &a.into(), &b.into())?;
+
+        Ok((&res).into())
+    }
+
+    pub fn or(
+        &self,
+        r: &mut RegionAux<'_, '_, N>,
+        a: &AssignedCondition<N>,
+        b: &AssignedCondition<N>,
+    ) -> Result<AssignedCondition<N>, Error> {
+        let zero = N::zero();
+        let one = N::one();
+        let c = a.value + b.value - a.value * b.value;
+        let a: AssignedValue<N> = a.into();
+        let b: AssignedValue<N> = b.into();
+        let cells = self.one_line(
+            r,
+            vec![pair!(&a, one), pair!(&b, one), pair!(c, -one)],
+            zero,
+            (vec![-one], zero),
+        )?;
+
+        Ok((&cells[2]).into())
     }
 }

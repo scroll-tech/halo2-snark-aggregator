@@ -2,7 +2,7 @@ use super::{AssignedInteger, IntegerGate, IntegerGateOps};
 use crate::{
     gates::base_gate::{
         five::{MUL_COLUMNS, VAR_COLUMNS},
-        AssignedValue, RegionAux,
+        AssignedCondition, AssignedValue, RegionAux,
     },
     pair, pair_empty,
     utils::{bn_to_field, decompose_bn, field_to_bn},
@@ -56,6 +56,55 @@ impl<'a, 'b, W: FieldExt, N: FieldExt> FiveColumnIntegerGate<'a, 'b, W, N> {
         }
         limbs.push(upper);
         limbs.try_into().unwrap()
+    }
+
+    fn is_pure_zero(
+        &self,
+        r: &mut RegionAux<N>,
+        a: &AssignedInteger<W, N, LIMBS>,
+    ) -> Result<AssignedCondition<N>, Error> {
+        let zero = N::zero();
+        let one = N::one();
+        let sum = self.base_gate.sum_with_constant(
+            r,
+            a.limbs_le.iter().map(|v| (v, one)).collect(),
+            zero,
+        )?;
+        let is_zero = self.base_gate.is_zero(r, &sum)?;
+        Ok(is_zero)
+    }
+
+    fn is_pure_w_modulus(
+        &self,
+        r: &mut RegionAux<N>,
+        a: &mut AssignedInteger<W, N, LIMBS>,
+    ) -> Result<AssignedCondition<N>, Error> {
+        let one = N::one();
+        let native_a = self.native(r, a)?;
+
+        if PREREQUISITE_CHECK {
+            let bn_one = BigUint::from(1u64);
+            let limb_modulus = &bn_one << LIMB_COMMON_WIDTH;
+            let lcm = self.helper.n_modulus.lcm(&limb_modulus);
+            let w_ceil_modulus = &bn_one << self.helper.w_ceil_bits;
+            assert!(lcm >= w_ceil_modulus);
+        }
+
+        // TO OPTIMIZE: the two can be merged.
+        let native_diff =
+            self.base_gate
+                .sum_with_constant(r, vec![(&native_a, one)], -self.helper.w_native)?;
+        let is_native_eq = self.base_gate.is_zero(r, &native_diff)?;
+
+        // TO OPTIMIZE: the two can be merged.
+        let limb0_diff = self.base_gate.sum_with_constant(
+            r,
+            vec![(&a.limbs_le[0], one)],
+            -bn_to_field::<N>(&self.helper.w_modulus_limbs_le[0]),
+        )?;
+        let is_limb0_eq = self.base_gate.is_zero(r, &limb0_diff)?;
+
+        self.base_gate.and(r, &is_native_eq, &is_limb0_eq)
     }
 }
 
@@ -635,5 +684,17 @@ impl<'a, 'b, W: FieldExt, N: FieldExt>
         }
 
         Ok(AssignedInteger::new(limbs.try_into().unwrap(), 0usize))
+    }
+
+    fn is_zero(
+        &self,
+        r: &mut RegionAux<N>,
+        a: &mut AssignedInteger<W, N, LIMBS>,
+    ) -> Result<AssignedCondition<N>, Error> {
+        let mut a = self.reduce(r, a)?;
+        let is_zero = self.is_pure_zero(r, &a)?;
+        let is_w_modulus = self.is_pure_w_modulus(r, &mut a)?;
+
+        self.base_gate.or(r, &is_zero, &is_w_modulus)
     }
 }

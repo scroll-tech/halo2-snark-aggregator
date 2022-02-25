@@ -1,6 +1,4 @@
-use crate::gates::base_gate::five::{
-    FiveColumnBaseGate, FiveColumnBaseGateConfig,
-};
+use crate::gates::base_gate::five::{FiveColumnBaseGate, FiveColumnBaseGateConfig};
 use crate::gates::base_gate::RegionAux;
 use crate::gates::integer_gate::five::FiveColumnIntegerGate;
 use crate::gates::integer_gate::IntegerGateOps;
@@ -23,6 +21,7 @@ enum TestCase {
     Neg,
     Sub,
     Mul,
+    IsZero,
 }
 
 impl Default for TestCase {
@@ -135,6 +134,41 @@ impl<W: FieldExt, N: FieldExt> TestFiveColumnIntegerGateCircuit<W, N> {
         integer_gate.assert_equal(r, &assigned_c, &res)?;
         Ok(())
     }
+
+    fn setup_test_is_zero(
+        &self,
+        integer_gate: &FiveColumnIntegerGate<'_, '_, W, N>,
+        r: &mut RegionAux<'_, '_, N>,
+    ) -> Result<(), Error> {
+        let seed = chrono::offset::Utc::now()
+            .timestamp_nanos()
+            .try_into()
+            .unwrap();
+        let rng = XorShiftRng::seed_from_u64(seed);
+        let a = W::random(rng.clone());
+        let b = W::random(rng.clone());
+        let b = if b == a { a + W::one() } else { b };
+
+        let assigned_a = integer_gate.assigned_constant(r, a)?;
+        let assigned_b = integer_gate.assigned_constant(r, b)?;
+
+        let zero = N::zero();
+        let one = N::one();
+
+        let mut vzero = integer_gate.sub(r, &assigned_a, &assigned_a)?;
+        let vtrue = integer_gate.is_zero(r, &mut vzero)?;
+        integer_gate
+            .base_gate
+            .assert_constant(r, &(&vtrue).into(), one)?;
+
+        let mut vnzero = integer_gate.sub(r, &assigned_a, &assigned_b)?;
+        let vfalse = integer_gate.is_zero(r, &mut vnzero)?;
+        integer_gate
+            .base_gate
+            .assert_constant(r, &(&vfalse).into(), zero)?;
+
+        Ok(())
+    }
 }
 
 const COMMON_RANGE_BITS: usize = 17usize;
@@ -183,6 +217,7 @@ impl<W: FieldExt, N: FieldExt> Circuit<N> for TestFiveColumnIntegerGateCircuit<W
                         TestCase::Sub => self.setup_test_sub(&integer_gate, r),
                         TestCase::Neg => self.setup_test_neg(&integer_gate, r),
                         TestCase::Mul => self.setup_test_mul(&integer_gate, r),
+                        TestCase::IsZero => self.setup_test_is_zero(&integer_gate, r),
                     }?;
                 }
 
@@ -244,6 +279,21 @@ fn test_five_column_integer_gate_mul() {
     const K: u32 = (COMMON_RANGE_BITS + 1) as u32;
     let circuit = TestFiveColumnIntegerGateCircuit::<Fq, Fp> {
         test_case: TestCase::Mul,
+        _phantom_w: PhantomData,
+        _phantom_n: PhantomData,
+    };
+    let prover = match MockProver::run(K, &circuit, vec![]) {
+        Ok(prover) => prover,
+        Err(e) => panic!("{:#?}", e),
+    };
+    assert_eq!(prover.verify(), Ok(()));
+}
+
+#[test]
+fn test_five_column_integer_gate_is_zero() {
+    const K: u32 = (COMMON_RANGE_BITS + 1) as u32;
+    let circuit = TestFiveColumnIntegerGateCircuit::<Fq, Fp> {
+        test_case: TestCase::IsZero,
         _phantom_w: PhantomData,
         _phantom_n: PhantomData,
     };
