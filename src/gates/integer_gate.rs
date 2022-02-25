@@ -7,6 +7,7 @@ use crate::{
 };
 use halo2_proofs::{arithmetic::FieldExt, plonk::Error};
 use num_bigint::BigUint;
+use num_integer::Integer;
 use std::{marker::PhantomData, vec};
 
 use super::base_gate::AssignedCondition;
@@ -43,6 +44,12 @@ impl<W: FieldExt, N: FieldExt, const LIMBS: usize> AssignedInteger<W, N, LIMBS> 
             .fold(BigUint::from(0u64), |acc, v| {
                 acc * limb_modulus + field_to_bn(&v.value)
             })
+    }
+
+    pub fn w(&self, limb_modulus: &BigUint, w_modulus: &BigUint) -> W {
+        let v = self.bn(limb_modulus);
+        let (_, rem) = v.div_rem(w_modulus);
+        bn_to_field(&rem)
     }
 }
 
@@ -181,13 +188,13 @@ pub trait IntegerGateOps<
     fn conditionally_reduce(
         &self,
         r: &mut RegionAux<N>,
-        a: AssignedInteger<W, N, LIMBS>,
-    ) -> Result<AssignedInteger<W, N, LIMBS>, Error>;
+        a: &mut AssignedInteger<W, N, LIMBS>,
+    ) -> Result<(), Error>;
     fn reduce(
         &self,
         r: &mut RegionAux<N>,
         a: &mut AssignedInteger<W, N, LIMBS>,
-    ) -> Result<AssignedInteger<W, N, LIMBS>, Error>;
+    ) -> Result<(), Error>;
 
     fn native<'a>(
         &self,
@@ -217,6 +224,12 @@ pub trait IntegerGateOps<
         a: &mut AssignedInteger<W, N, LIMBS>,
         b: &mut AssignedInteger<W, N, LIMBS>,
     ) -> Result<AssignedInteger<W, N, LIMBS>, Error>;
+    fn div(
+        &self,
+        r: &mut RegionAux<N>,
+        a: &mut AssignedInteger<W, N, LIMBS>,
+        b: &mut AssignedInteger<W, N, LIMBS>,
+    ) -> Result<(AssignedCondition<N>, AssignedInteger<W, N, LIMBS>), Error>;
     fn is_zero(
         &self,
         r: &mut RegionAux<N>,

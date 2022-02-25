@@ -8,6 +8,7 @@ use crate::{
     utils::{bn_to_field, decompose_bn, field_to_bn},
     PREREQUISITE_CHECK,
 };
+use group::ff::Field;
 use halo2_proofs::{arithmetic::FieldExt, plonk::Error};
 use num_bigint::BigUint;
 use num_integer::Integer;
@@ -105,6 +106,178 @@ impl<'a, 'b, W: FieldExt, N: FieldExt> FiveColumnIntegerGate<'a, 'b, W, N> {
         let is_limb0_eq = self.base_gate.is_zero(r, &limb0_diff)?;
 
         self.base_gate.and(r, &is_native_eq, &is_limb0_eq)
+    }
+
+    fn add_constraints_for_mul_equation(
+        &self,
+        r: &mut RegionAux<N>,
+        a: &mut AssignedInteger<W, N, LIMBS>,
+        b: &mut AssignedInteger<W, N, LIMBS>,
+        d: [AssignedValue<N>; LIMBS],
+        rem: &mut AssignedInteger<W, N, LIMBS>,
+    ) -> Result<(), Error> {
+        let zero = N::zero();
+        let one = N::one();
+        let bn_one = BigUint::from(1u64);
+
+        assert!(a.overflows < OVERFLOW_LIMIT);
+        assert!(b.overflows < OVERFLOW_LIMIT);
+        assert!(rem.overflows < OVERFLOW_LIMIT);
+
+        if PREREQUISITE_CHECK {
+            // Find (d, rem), that a * b = d * w_modulus + r
+            // We add constraints to ensure the equation on native, and 1 << LIMBS * LIMB_COMMON_WIDTH
+            // To guarantee no overflow:
+
+            let lcm = self.helper.integer_modulus.lcm(&self.helper.n_modulus);
+            let max_a = (&bn_one << self.helper.w_ceil_bits) * OVERFLOW_LIMIT;
+            let max_b = (&bn_one << self.helper.w_ceil_bits) * OVERFLOW_LIMIT;
+            let max_l = max_a * max_b;
+
+            let max_d = &bn_one << &self.helper.d_bits;
+            let max_w = &self.helper.w_modulus;
+            let max_rem = (&bn_one << self.helper.w_ceil_bits) * OVERFLOW_LIMIT;
+            let max_r = max_d * max_w + max_rem;
+
+            assert!(max_l <= lcm);
+            assert!(max_r <= lcm);
+            assert!(max_l <= max_r);
+        }
+
+        // 1. Add contraints on integer modulus
+        let neg_w = &self.helper.integer_modulus - &self.helper.w_modulus;
+        let neg_w_limbs_le = self
+            .helper
+            .bn_to_limb_le(&neg_w)
+            .map(|v| bn_to_field::<N>(&v));
+
+        let mut limbs = vec![];
+        for pos in 0..LIMBS {
+            // e.g. l0 = a0 * b0 - d0 * w0
+            // e.g. l1 = a1 * b0 + a0 * b1 - d1 * w0 - d0 * w1
+            // ...
+            let l = self.base_gate.mul_add_with_next_line(
+                r,
+                (0..pos + 1)
+                    .map(|i| {
+                        (
+                            &a.limbs_le[i],
+                            &b.limbs_le[pos - i],
+                            &d[i],
+                            neg_w_limbs_le[pos - i].clone(),
+                        )
+                    })
+                    .collect(),
+            )?;
+
+            limbs.push(l);
+        }
+
+        if PREREQUISITE_CHECK {
+            // each limbs[i] = sum(a[j] * b[i - j] + d[i] * neg_w[i - j]), 0 <= j <= i, 0 <= i < LIMBS
+            // -> limbs[i] < LIMBS * max(a[j] * b[i - j] + d[i] * neg_w[i - j])
+            // -> limbs[i] < LIMBS * (OVERFLOW_LIMIT * OVERFLOW_LIMIT + 1) * LIMB_MODULUS^2
+
+            // To avoid minus overflow,
+            // let u0 = limb0 - rem0 + (limb1 - rem1) * limb_modulus + limb_modulus * limb_modulus
+            // -> u < limb0 + limb1 * LIMB_MODULUS + LIMB_MODULUS * LIMB_MODULUS
+            // -> u < LIMBS * (OVERFLOW_LIMIT * OVERFLOW_LIMIT + 1) * LIMB_MODULUS^3
+            //      + LIMBS * (OVERFLOW_LIMIT * OVERFLOW_LIMIT + 1) * LIMB_MODULUS^2
+            //      + LIMB_MODULUS ^ 2
+            // let v = u / LIMB_MODULUS^2
+            // -> v < LIMBS * (OVERFLOW_LIMIT * OVERFLOW_LIMIT + 1) * LIMB_MODULUS
+            //      + LIMBS * (OVERFLOW_LIMIT * OVERFLOW_LIMIT + 1) + 1
+            let max_v = &self.helper.limb_modulus * (OVERFLOW_LIMIT * OVERFLOW_LIMIT + 1) * LIMBS
+                + LIMBS * (OVERFLOW_LIMIT * OVERFLOW_LIMIT + 1)
+                + 1usize;
+
+            // Ensure we can v in with a n_floor_leading limb and a common limb
+            assert!(max_v < &bn_one << (self.helper.n_floor_bits - LIMB_COMMON_WIDTH * 2));
+        }
+
+        let u0 = (limbs[1].value - rem.limbs_le[1].value) * self.helper.limb_modulus_on_n
+            + limbs[0].value
+            - rem.limbs_le[0].value
+            + self.helper.limb_modulus_exps[2];
+        let v0 = u0 * self.helper.limb_modulus_exps[2].invert().unwrap();
+        let (v0_h, v0_l) = field_to_bn(&v0).div_rem(&self.helper.limb_modulus);
+
+        let u1 = v0 - one + limbs[2].value - rem.limbs_le[2].value
+            + (limbs[3].value - rem.limbs_le[3].value) * self.helper.limb_modulus_on_n;
+        let v1 = u1 * self.helper.limb_modulus_exps[2].invert().unwrap();
+        let (v1_h, v1_l) = field_to_bn(&v1).div_rem(&self.helper.limb_modulus);
+
+        let v0_h = self.assign_n_floor_leading_limb(r, bn_to_field(&v0_h))?;
+        let v0_l = self.assign_nonleading_limb(r, bn_to_field(&v0_l))?;
+        let v1_h = self.assign_n_floor_leading_limb(r, bn_to_field(&v1_h))?;
+        let v1_l = self.assign_nonleading_limb(r, bn_to_field(&v1_l))?;
+
+        let u0 = self.base_gate.sum_with_constant(
+            r,
+            vec![
+                (&limbs[0], one),
+                (&limbs[1], self.helper.limb_modulus_on_n.clone()),
+                (&rem.limbs_le[0], -one),
+                (&rem.limbs_le[1], -self.helper.limb_modulus_on_n.clone()),
+            ],
+            self.helper.limb_modulus_exps[2],
+        )?;
+
+        self.base_gate.one_line_add(
+            r,
+            vec![
+                pair!(&u0, -one),
+                pair!(&v0_l, self.helper.limb_modulus_exps[2]),
+                pair!(&v0_h, self.helper.limb_modulus_exps[3]),
+            ],
+            zero,
+        )?;
+
+        let u1 = self.base_gate.sum_with_constant(
+            r,
+            vec![
+                (&limbs[2], one),
+                (&limbs[3], self.helper.limb_modulus_on_n.clone()),
+                (&rem.limbs_le[2], -one),
+                (&rem.limbs_le[3], -self.helper.limb_modulus_on_n.clone()),
+            ],
+            zero,
+        )?;
+        self.base_gate.one_line_add(
+            r,
+            vec![
+                pair!(&u1, one),
+                pair!(&v0_l, self.helper.limb_modulus_exps[0]),
+                pair!(&v0_h, self.helper.limb_modulus_exps[1]),
+                pair!(&v1_l, -self.helper.limb_modulus_exps[2]),
+                pair!(&v1_h, -self.helper.limb_modulus_exps[3]),
+            ],
+            -one,
+        )?;
+
+        // Add constrains on native modulus
+        let a_native = self.native(r, a)?;
+        let b_native = self.native(r, b)?;
+        let d_native = self.base_gate.sum_with_constant(
+            r,
+            d.iter().zip(self.helper.limb_modulus_exps).collect(),
+            zero,
+        )?;
+        let rem_native = self.native(r, rem)?;
+
+        self.base_gate.one_line(
+            r,
+            vec![
+                pair!(a_native, zero),
+                pair!(b_native, zero),
+                pair!(&d_native, -self.helper.w_native),
+                pair!(rem_native, -one),
+            ],
+            zero,
+            (vec![one], zero),
+        )?;
+
+        Ok(())
     }
 }
 
@@ -279,9 +452,9 @@ impl<'a, 'b, W: FieldExt, N: FieldExt>
         &self,
         r: &mut RegionAux<N>,
         a: &mut AssignedInteger<W, N, LIMBS>,
-    ) -> Result<AssignedInteger<W, N, LIMBS>, Error> {
+    ) -> Result<(), Error> {
         if a.overflows == 0 {
-            return Ok(a.clone());
+            return Ok(());
         }
 
         assert!(a.overflows < OVERFLOW_LIMIT);
@@ -372,18 +545,22 @@ impl<'a, 'b, W: FieldExt, N: FieldExt>
             bn_to_field(&(&self.helper.limb_modulus * OVERFLOW_LIMIT)),
         )?;
 
-        Ok(rem)
+        a.limbs_le = rem.limbs_le;
+        a.overflows = rem.overflows;
+        a.native = rem.native;
+
+        Ok(())
     }
 
     fn conditionally_reduce(
         &self,
         r: &mut RegionAux<N>,
-        mut a: AssignedInteger<W, N, LIMBS>,
-    ) -> Result<AssignedInteger<W, N, LIMBS>, Error> {
+        a: &mut AssignedInteger<W, N, LIMBS>,
+    ) -> Result<(), Error> {
         if a.overflows >= OVERFLOW_THRESHOLD {
-            self.reduce(r, &mut a)
+            self.reduce(r, a)
         } else {
-            Ok(a)
+            Ok(())
         }
     }
 
@@ -424,7 +601,7 @@ impl<'a, 'b, W: FieldExt, N: FieldExt>
         // TODO: can be optimized.
         let zero = N::zero();
         let mut diff = self.sub(r, a, b)?;
-        let mut diff = self.reduce(r, &mut diff)?;
+        self.reduce(r, &mut diff)?;
 
         let diff_native = self.native(r, &mut diff)?;
         self.base_gate.assert_constant(r, diff_native, zero)?;
@@ -445,8 +622,10 @@ impl<'a, 'b, W: FieldExt, N: FieldExt>
             limbs.push(value)
         }
 
-        let res = AssignedInteger::new(limbs.try_into().unwrap(), a.overflows + b.overflows + 1);
-        self.conditionally_reduce(r, res)
+        let mut res =
+            AssignedInteger::new(limbs.try_into().unwrap(), a.overflows + b.overflows + 1);
+        self.conditionally_reduce(r, &mut res)?;
+        Ok(res)
     }
 
     fn sub(
@@ -469,8 +648,9 @@ impl<'a, 'b, W: FieldExt, N: FieldExt>
         }
 
         let overflow = a.overflows + (b.overflows + 1) + 1;
-        let res = AssignedInteger::new(limbs.try_into().unwrap(), overflow);
-        self.conditionally_reduce(r, res)
+        let mut res = AssignedInteger::new(limbs.try_into().unwrap(), overflow);
+        self.conditionally_reduce(r, &mut res)?;
+        Ok(res)
     }
 
     fn neg(
@@ -492,8 +672,9 @@ impl<'a, 'b, W: FieldExt, N: FieldExt>
         }
 
         let overflow = a.overflows + 1;
-        let res = AssignedInteger::new(limbs.try_into().unwrap(), overflow);
-        self.conditionally_reduce(r, res)
+        let mut res = AssignedInteger::new(limbs.try_into().unwrap(), overflow);
+        self.conditionally_reduce(r, &mut res)?;
+        Ok(res)
     }
 
     fn mul(
@@ -506,27 +687,6 @@ impl<'a, 'b, W: FieldExt, N: FieldExt>
         let one = N::one();
         let bn_one = BigUint::from(1u64);
 
-        if PREREQUISITE_CHECK {
-            // Find (d, rem), that a * b = d * w_modulus + r
-            // 1. limit r in [0..1 << w_ceil_bits), e.g. 248
-            // 2. limit d in [0..1 << LIMBS * LIMB_COMMON_WIDTH], e.g. 4 * 68 = 272
-            // 3. Add constraints to ensure the equation on native, and 1 << LIMBS * LIMB_COMMON_WIDTH
-
-            let lcm = self.helper.integer_modulus.lcm(&self.helper.n_modulus);
-            let max_a = (&bn_one << self.helper.w_ceil_bits) * OVERFLOW_LIMIT;
-            let max_b = (&bn_one << self.helper.w_ceil_bits) * OVERFLOW_LIMIT;
-            let max_l = max_a * max_b;
-
-            let max_d = &bn_one << &self.helper.d_bits;
-            let max_w = &self.helper.w_modulus;
-            let max_rem = &bn_one << self.helper.w_ceil_bits;
-            let max_r = max_d * max_w + max_rem;
-
-            assert!(max_l <= lcm);
-            assert!(max_r <= lcm);
-            assert!(max_l <= max_r);
-        }
-
         let a_bn = a.bn(&self.helper.limb_modulus);
         let b_bn = b.bn(&self.helper.limb_modulus);
         let (d, rem) = (a_bn * b_bn).div_rem(&self.helper.w_modulus);
@@ -534,140 +694,47 @@ impl<'a, 'b, W: FieldExt, N: FieldExt>
         let mut rem = self.assign_w(r, &bn_to_field(&rem))?;
         let d = self.assign_d(r, &d)?;
 
-        // 1. Add contraints on integer modulus
-        let neg_w = &self.helper.integer_modulus - &self.helper.w_modulus;
-        let neg_w_limbs_le = self
-            .helper
-            .bn_to_limb_le(&neg_w)
-            .map(|v| bn_to_field::<N>(&v));
-
-        let mut limbs = vec![];
-        for pos in 0..LIMBS {
-            // e.g. l0 = a0 * b0 - d0 * w0
-            // e.g. l1 = a1 * b0 + a0 * b1 - d1 * w0 - d0 * w1
-            // ...
-            let l = self.base_gate.mul_add_with_next_line(
-                r,
-                (0..pos + 1)
-                    .map(|i| {
-                        (
-                            &a.limbs_le[i],
-                            &b.limbs_le[pos - i],
-                            &d[i],
-                            neg_w_limbs_le[pos - i].clone(),
-                        )
-                    })
-                    .collect(),
-            )?;
-
-            limbs.push(l);
-        }
-
-        if PREREQUISITE_CHECK {
-            // each limbs[i] = sum(a[j] * b[i - j] + d[i] * neg_w[i - j]), 0 <= j <= i, 0 <= i < LIMBS
-            // -> limbs[i] < LIMBS * max(a[j] * b[i - j] + d[i] * neg_w[i - j])
-            // -> limbs[i] < LIMBS * (OVERFLOW_LIMIT * OVERFLOW_LIMIT + 1) * LIMB_MODULUS^2
-
-            // To avoid minus overflow,
-            // let u0 = limb0 - rem0 + (limb1 - rem1) * limb_modulus + limb_modulus * limb_modulus
-            // -> u < limb0 + limb1 * LIMB_MODULUS + LIMB_MODULUS * LIMB_MODULUS
-            // -> u < LIMBS * (OVERFLOW_LIMIT * OVERFLOW_LIMIT + 1) * LIMB_MODULUS^3
-            //      + LIMBS * (OVERFLOW_LIMIT * OVERFLOW_LIMIT + 1) * LIMB_MODULUS^2
-            //      + LIMB_MODULUS ^ 2
-            // let v = u / LIMB_MODULUS^2
-            // -> v < LIMBS * (OVERFLOW_LIMIT * OVERFLOW_LIMIT + 1) * LIMB_MODULUS
-            //      + LIMBS * (OVERFLOW_LIMIT * OVERFLOW_LIMIT + 1) + 1
-            let max_v = &self.helper.limb_modulus * (OVERFLOW_LIMIT * OVERFLOW_LIMIT + 1) * LIMBS
-                + LIMBS * (OVERFLOW_LIMIT * OVERFLOW_LIMIT + 1)
-                + 1usize;
-
-            // Ensure we can v in with a n_floor_leading limb and a common limb
-            assert!(max_v < &bn_one << (self.helper.n_floor_bits - LIMB_COMMON_WIDTH * 2));
-        }
-
-        let u0 = (limbs[1].value - rem.limbs_le[1].value) * self.helper.limb_modulus_on_n
-            + limbs[0].value
-            - rem.limbs_le[0].value
-            + self.helper.limb_modulus_exps[2];
-        let v0 = u0 * self.helper.limb_modulus_exps[2].invert().unwrap();
-        let (v0_h, v0_l) = field_to_bn(&v0).div_rem(&self.helper.limb_modulus);
-
-        let u1 = v0 - one + limbs[2].value - rem.limbs_le[2].value
-            + (limbs[3].value - rem.limbs_le[3].value) * self.helper.limb_modulus_on_n;
-        let v1 = u1 * self.helper.limb_modulus_exps[2].invert().unwrap();
-        let (v1_h, v1_l) = field_to_bn(&v1).div_rem(&self.helper.limb_modulus);
-
-        let v0_h = self.assign_n_floor_leading_limb(r, bn_to_field(&v0_h))?;
-        let v0_l = self.assign_nonleading_limb(r, bn_to_field(&v0_l))?;
-        let v1_h = self.assign_n_floor_leading_limb(r, bn_to_field(&v1_h))?;
-        let v1_l = self.assign_nonleading_limb(r, bn_to_field(&v1_l))?;
-
-        let u0 = self.base_gate.sum_with_constant(
-            r,
-            vec![
-                (&limbs[0], one),
-                (&limbs[1], self.helper.limb_modulus_on_n.clone()),
-                (&rem.limbs_le[0], -one),
-                (&rem.limbs_le[1], -self.helper.limb_modulus_on_n.clone()),
-            ],
-            self.helper.limb_modulus_exps[2],
-        )?;
-
-        self.base_gate.one_line_add(
-            r,
-            vec![
-                pair!(&u0, -one),
-                pair!(&v0_l, self.helper.limb_modulus_exps[2]),
-                pair!(&v0_h, self.helper.limb_modulus_exps[3]),
-            ],
-            zero,
-        )?;
-
-        let u1 = self.base_gate.sum_with_constant(
-            r,
-            vec![
-                (&limbs[2], one),
-                (&limbs[3], self.helper.limb_modulus_on_n.clone()),
-                (&rem.limbs_le[2], -one),
-                (&rem.limbs_le[3], -self.helper.limb_modulus_on_n.clone()),
-            ],
-            zero,
-        )?;
-        self.base_gate.one_line_add(
-            r,
-            vec![
-                pair!(&u1, one),
-                pair!(&v0_l, self.helper.limb_modulus_exps[0]),
-                pair!(&v0_h, self.helper.limb_modulus_exps[1]),
-                pair!(&v1_l, -self.helper.limb_modulus_exps[2]),
-                pair!(&v1_h, -self.helper.limb_modulus_exps[3]),
-            ],
-            -one,
-        )?;
-
-        // Add constrains on native modulus
-        let a_native = self.native(r, a)?;
-        let b_native = self.native(r, b)?;
-        let d_native = self.base_gate.sum_with_constant(
-            r,
-            d.iter().zip(self.helper.limb_modulus_exps).collect(),
-            zero,
-        )?;
-        let rem_native = self.native(r, &mut rem)?;
-
-        self.base_gate.one_line(
-            r,
-            vec![
-                pair!(a_native, zero),
-                pair!(b_native, zero),
-                pair!(&d_native, -self.helper.w_native),
-                pair!(rem_native, -one),
-            ],
-            zero,
-            (vec![one], zero),
-        )?;
+        self.add_constraints_for_mul_equation(r, a, b, d, &mut rem)?;
 
         Ok(rem)
+    }
+
+    fn div(
+        &self,
+        r: &mut RegionAux<N>,
+        a: &mut AssignedInteger<W, N, LIMBS>,
+        b: &mut AssignedInteger<W, N, LIMBS>,
+    ) -> Result<(AssignedCondition<N>, AssignedInteger<W, N, LIMBS>), Error> {
+        let is_b_zero = self.is_zero(r, b)?;
+        let a_coeff = self.base_gate.not(r, &is_b_zero)?;
+
+        // Find (c, d) that b * c = d * w + reduce_a,
+        // Call reduce on `a` because if b = 1, we cannot find such (c, d), c < w_ceil and d >= 0
+        // This can be optimized in the future.
+        self.reduce(r, a)?;
+        let mut limbs_le = vec![];
+        for i in 0..LIMBS {
+            let cell = self.base_gate.mul(r, &a.limbs_le[i], &a_coeff.into())?;
+            limbs_le.push(cell);
+        }
+        let mut a = AssignedInteger::new(limbs_le.try_into().unwrap(), a.overflows);
+
+        let w_modulus = &self.helper.w_modulus;
+        let limb_modulus = &self.helper.limb_modulus;
+        let a_bn = a.bn(&limb_modulus);
+        let b_bn = b.bn(&limb_modulus);
+        let a_w = a.w(limb_modulus, w_modulus);
+        let b_w = b.w(limb_modulus, w_modulus);
+        let c = b_w.invert().unwrap_or(W::zero()) * a_w;
+        let c_bn = field_to_bn(&c);
+
+        let (d, _) = (c_bn * b_bn - a_bn).div_rem(w_modulus);
+
+        let mut c = self.assign_w(r, &c)?;
+        let d = self.assign_d(r, &d)?;
+
+        self.add_constraints_for_mul_equation(r, b, &mut c, d, &mut a)?;
+        Ok((is_b_zero, c))
     }
 
     fn assigned_constant(
@@ -691,9 +758,9 @@ impl<'a, 'b, W: FieldExt, N: FieldExt>
         r: &mut RegionAux<N>,
         a: &mut AssignedInteger<W, N, LIMBS>,
     ) -> Result<AssignedCondition<N>, Error> {
-        let mut a = self.reduce(r, a)?;
+        self.reduce(r, a)?;
         let is_zero = self.is_pure_zero(r, &a)?;
-        let is_w_modulus = self.is_pure_w_modulus(r, &mut a)?;
+        let is_w_modulus = self.is_pure_w_modulus(r, a)?;
 
         self.base_gate.or(r, &is_zero, &is_w_modulus)
     }

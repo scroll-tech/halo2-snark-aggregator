@@ -39,6 +39,24 @@ impl<N: FieldExt> From<&AssignedValue<N>> for AssignedCondition<N> {
     }
 }
 
+impl<N: FieldExt> From<AssignedCondition<N>> for AssignedValue<N> {
+    fn from(v: AssignedCondition<N>) -> Self {
+        AssignedValue {
+            cell: v.cell,
+            value: v.value,
+        }
+    }
+}
+
+impl<N: FieldExt> From<AssignedValue<N>> for AssignedCondition<N> {
+    fn from(v: AssignedValue<N>) -> Self {
+        AssignedCondition {
+            cell: v.cell,
+            value: v.value,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum ValueSchema<'a, N: FieldExt> {
     Assigned(&'a AssignedValue<N>),
@@ -518,6 +536,17 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize>
         b: &AssignedCondition<N>,
     ) -> Result<AssignedCondition<N>, Error> {
         let res = self.mul(r, &a.into(), &b.into())?;
+
+        Ok((&res).into())
+    }
+
+    pub fn not(
+        &self,
+        r: &mut RegionAux<'_, '_, N>,
+        a: &AssignedCondition<N>,
+    ) -> Result<AssignedCondition<N>, Error> {
+        let one = N::one();
+        let res = self.sum_with_constant(r, vec![(&a.into(), -one)], one)?;
 
         Ok((&res).into())
     }

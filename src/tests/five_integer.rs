@@ -22,6 +22,7 @@ enum TestCase {
     Sub,
     Mul,
     IsZero,
+    Div,
 }
 
 impl Default for TestCase {
@@ -58,7 +59,6 @@ impl<W: FieldExt, N: FieldExt> TestFiveColumnIntegerGateCircuit<W, N> {
         let a = W::random(rng.clone());
         let b = W::random(rng.clone());
         let c = a + b;
-
         let assigned_a = integer_gate.assigned_constant(r, a)?;
         let assigned_b = integer_gate.assigned_constant(r, b)?;
         let assigned_c = integer_gate.assigned_constant(r, c)?;
@@ -132,6 +132,40 @@ impl<W: FieldExt, N: FieldExt> TestFiveColumnIntegerGateCircuit<W, N> {
 
         let res = integer_gate.mul(r, &mut assigned_a, &mut assigned_b)?;
         integer_gate.assert_equal(r, &assigned_c, &res)?;
+        Ok(())
+    }
+
+    fn setup_test_div(
+        &self,
+        integer_gate: &FiveColumnIntegerGate<'_, '_, W, N>,
+        r: &mut RegionAux<'_, '_, N>,
+    ) -> Result<(), Error> {
+        let seed = chrono::offset::Utc::now()
+            .timestamp_nanos()
+            .try_into()
+            .unwrap();
+        let rng = XorShiftRng::seed_from_u64(seed);
+        let a = W::random(rng.clone());
+        let b = W::random(rng.clone());
+        let b = b.invert().unwrap_or(W::one());
+        let c = a * b.invert().unwrap();
+
+        let mut assigned_a = integer_gate.assigned_constant(r, a)?;
+        let mut assigned_b = integer_gate.assigned_constant(r, b)?;
+        let assigned_c = integer_gate.assigned_constant(r, c)?;
+        let mut assigned_zero = integer_gate.assigned_constant(r, W::zero())?;
+
+        let (cond, res) = integer_gate.div(r, &mut assigned_a, &mut assigned_b)?;
+        integer_gate.assert_equal(r, &assigned_c, &res)?;
+        integer_gate
+            .base_gate
+            .assert_constant(r, &cond.into(), N::zero())?;
+
+        let (cond, res) = integer_gate.div(r, &mut assigned_a, &mut assigned_zero)?;
+        integer_gate.assert_equal(r, &assigned_zero, &res)?;
+        integer_gate
+            .base_gate
+            .assert_constant(r, &cond.into(), N::one())?;
         Ok(())
     }
 
@@ -218,6 +252,7 @@ impl<W: FieldExt, N: FieldExt> Circuit<N> for TestFiveColumnIntegerGateCircuit<W
                         TestCase::Neg => self.setup_test_neg(&integer_gate, r),
                         TestCase::Mul => self.setup_test_mul(&integer_gate, r),
                         TestCase::IsZero => self.setup_test_is_zero(&integer_gate, r),
+                        TestCase::Div => self.setup_test_div(&integer_gate, r),
                     }?;
                 }
 
@@ -294,6 +329,21 @@ fn test_five_column_integer_gate_is_zero() {
     const K: u32 = (COMMON_RANGE_BITS + 1) as u32;
     let circuit = TestFiveColumnIntegerGateCircuit::<Fq, Fp> {
         test_case: TestCase::IsZero,
+        _phantom_w: PhantomData,
+        _phantom_n: PhantomData,
+    };
+    let prover = match MockProver::run(K, &circuit, vec![]) {
+        Ok(prover) => prover,
+        Err(e) => panic!("{:#?}", e),
+    };
+    assert_eq!(prover.verify(), Ok(()));
+}
+
+#[test]
+fn test_five_column_integer_gate_div() {
+    const K: u32 = (COMMON_RANGE_BITS + 1) as u32;
+    let circuit = TestFiveColumnIntegerGateCircuit::<Fq, Fp> {
+        test_case: TestCase::Div,
         _phantom_w: PhantomData,
         _phantom_n: PhantomData,
     };
