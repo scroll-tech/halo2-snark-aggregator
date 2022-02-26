@@ -11,3 +11,5 @@ mod verify;
 mod tests;
 
 pub const PREREQUISITE_CHECK: bool = true;
+
+pub trait FieldExt = halo2_proofs::arithmetic::FieldExt;

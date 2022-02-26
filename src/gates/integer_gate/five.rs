@@ -1,4 +1,5 @@
 use super::{AssignedInteger, IntegerGate, IntegerGateOps};
+use crate::FieldExt;
 use crate::{
     gates::base_gate::{
         five::{MUL_COLUMNS, VAR_COLUMNS},
@@ -8,8 +9,7 @@ use crate::{
     utils::{bn_to_field, decompose_bn, field_to_bn},
     PREREQUISITE_CHECK,
 };
-use group::ff::Field;
-use halo2_proofs::{arithmetic::FieldExt, plonk::Error};
+use halo2_proofs::plonk::Error;
 use num_bigint::BigUint;
 use num_integer::Integer;
 

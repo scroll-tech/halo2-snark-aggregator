@@ -1,5 +1,5 @@
+use crate::FieldExt;
 use halo2_proofs::{
-    arithmetic::FieldExt,
     circuit::{Cell, Region},
     plonk::{Advice, Column, ConstraintSystem, Error, Fixed},
     poly::Rotation,

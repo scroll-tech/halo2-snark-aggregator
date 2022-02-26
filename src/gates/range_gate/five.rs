@@ -4,8 +4,9 @@ use super::{RangeGate, RangeGateConfig};
 use crate::gates::base_gate::five::{
     FiveColumnBaseGate, FiveColumnBaseGateConfig, MUL_COLUMNS, VAR_COLUMNS,
 };
+use crate::FieldExt;
+use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::poly::Rotation;
-use halo2_proofs::{arithmetic::FieldExt, plonk::ConstraintSystem};
 
 // In each line of five base gate,
 // when enable common range selector, a0 a1 a2 a3 is limited by common range.

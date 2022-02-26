@@ -1,9 +1,9 @@
+use crate::FieldExt;
 use crate::{
     gates::base_gate::{AssignedValue, BaseGate, RegionAux, ValueSchema},
-    utils::{get_d_range_bits_in_mul, field_to_bn},
+    utils::{field_to_bn, get_d_range_bits_in_mul},
 };
 use halo2_proofs::{
-    arithmetic::FieldExt,
     circuit::Layouter,
     plonk::{Error, Selector, TableColumn},
 };

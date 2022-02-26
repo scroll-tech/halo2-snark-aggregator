@@ -3,8 +3,8 @@ use crate::gates::base_gate::five::{
 };
 use crate::gates::base_gate::RegionAux;
 use crate::pair;
+use crate::FieldExt;
 use halo2_proofs::{
-    arithmetic::FieldExt,
     circuit::{Layouter, SimpleFloorPlanner},
     dev::MockProver,
     pasta::Fp,

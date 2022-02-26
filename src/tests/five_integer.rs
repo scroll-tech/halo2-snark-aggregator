@@ -4,12 +4,11 @@ use crate::gates::integer_gate::five::FiveColumnIntegerGate;
 use crate::gates::integer_gate::IntegerGateOps;
 use crate::gates::range_gate::five::FiveColumnRangeGate;
 use crate::gates::range_gate::RangeGateConfig;
+use crate::FieldExt;
+use halo2_proofs::pasta::{Fq, Fp};
 use halo2_proofs::{
-    arithmetic::FieldExt,
     circuit::{Layouter, SimpleFloorPlanner},
     dev::MockProver,
-    pasta::Fp,
-    pasta::Fq,
     plonk::{Circuit, ConstraintSystem, Error},
 };
 use rand::SeedableRng;

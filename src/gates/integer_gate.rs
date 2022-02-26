@@ -1,3 +1,4 @@
+use crate::FieldExt;
 use crate::{
     gates::{
         base_gate::{AssignedValue, BaseGate, RegionAux},
@@ -5,7 +6,7 @@ use crate::{
     },
     utils::{bn_to_field, field_to_bn, get_d_range_bits_in_mul},
 };
-use halo2_proofs::{arithmetic::FieldExt, plonk::Error};
+use halo2_proofs::plonk::Error;
 use num_bigint::BigUint;
 use num_integer::Integer;
 use std::{marker::PhantomData, vec};

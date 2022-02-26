@@ -1,4 +1,4 @@
-use halo2_proofs::arithmetic::FieldExt;
+use crate::FieldExt;
 use num_bigint::BigUint;
 use num_integer::Integer;
 
