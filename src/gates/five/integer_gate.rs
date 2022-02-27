@@ -842,4 +842,27 @@ impl<'a, W: FieldExt, N: FieldExt> IntegerGateOps<W, N> for FiveColumnIntegerGat
     fn range_gate(&self) -> &dyn RangeGateOps<W, N> {
         self.range_gate
     }
+
+    fn bisec(
+        &self,
+        r: &mut RegionAux<N>,
+        cond: &AssignedCondition<N>,
+        a: &AssignedInteger<W, N>,
+        b: &AssignedInteger<W, N>,
+    ) -> Result<AssignedInteger<W, N>, Error> {
+        let base_gate = self.base_gate();
+        let mut limbs = vec![];
+        for i in 0..LIMBS {
+            let cell = base_gate.bisec(r, cond, &a.limbs_le[i], &b.limbs_le[i])?;
+            limbs.push(cell);
+        }
+        Ok(AssignedInteger::new(
+            limbs,
+            if a.overflows > b.overflows {
+                a.overflows
+            } else {
+                b.overflows
+            },
+        ))
+    }
 }

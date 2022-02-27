@@ -455,6 +455,25 @@ pub trait BaseGateOps<N: FieldExt> {
 
         Ok((&cells[2]).into())
     }
+
+    fn bisec(&self, 
+        r: &mut RegionAux<'_, '_, N>,
+        cond: &AssignedCondition<N>,
+        a: &AssignedValue<N>,
+        b: &AssignedValue<N>
+    ) -> Result<AssignedValue<N>, Error>;
+
+    fn bisec_cond(&self, 
+        r: &mut RegionAux<'_, '_, N>,
+        cond: &AssignedCondition<N>,
+        a: &AssignedCondition<N>,
+        b: &AssignedCondition<N>
+    ) -> Result<AssignedCondition<N>, Error> {
+        let a = a.into();
+        let b = b.into();
+        let c = self.bisec(r, cond, &a, &b)?;
+        Ok(c.into())
+    }
 }
 
 pub struct BaseGate<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize> {
@@ -512,20 +531,16 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize>
             next_coeff,
         }
     }
-}
 
-impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize> BaseGateOps<N>
-    for BaseGate<N, VAR_COLUMNS, MUL_COLUMNS>
-{
-    fn var_columns(&self) -> usize {
+    pub fn _var_columns(&self) -> usize {
         VAR_COLUMNS
     }
 
-    fn mul_columns(&self) -> usize {
+    pub fn _mul_columns(&self) -> usize {
         MUL_COLUMNS
     }
 
-    fn one_line(
+    pub fn _one_line(
         &self,
         r: &mut RegionAux<'_, '_, N>,
         mut base_coeff_pairs: Vec<(ValueSchema<N>, N)>,

@@ -217,6 +217,13 @@ pub trait IntegerGateOps<W: FieldExt, N: FieldExt> {
         a: &mut AssignedInteger<W, N>,
         b: usize,
     ) -> Result<AssignedInteger<W, N>, Error>;
+    fn bisec(
+        &self,
+        r: &mut RegionAux<N>,
+        cond: &AssignedCondition<N>,
+        a: &AssignedInteger<W, N>,
+        b: &AssignedInteger<W, N>,
+    ) -> Result<AssignedInteger<W, N>, Error>;
 }
 
 pub struct IntegerGate<'a, W: FieldExt, N: FieldExt, const LIMBS: usize, const LIMB_WIDTH: usize> {
