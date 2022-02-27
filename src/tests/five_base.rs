@@ -1,7 +1,7 @@
 use crate::gates::five::base_gate::{
     FiveColumnBaseGate, FiveColumnBaseGateConfig, MUL_COLUMNS, VAR_COLUMNS,
 };
-use crate::gates::base_gate::RegionAux;
+use crate::gates::base_gate::{RegionAux, BaseGateOps};
 use crate::pair;
 use crate::FieldExt;
 use halo2_proofs::{

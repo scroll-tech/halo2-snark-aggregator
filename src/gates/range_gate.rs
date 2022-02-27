@@ -1,6 +1,6 @@
 use crate::FieldExt;
 use crate::{
-    gates::base_gate::{AssignedValue, BaseGate, RegionAux, ValueSchema},
+    gates::base_gate::{AssignedValue, RegionAux, ValueSchema},
     utils::{field_to_bn, get_d_range_bits_in_mul},
 };
 use halo2_proofs::{
@@ -9,6 +9,8 @@ use halo2_proofs::{
 };
 use num_bigint::BigUint;
 use std::marker::PhantomData;
+
+use super::base_gate::BaseGateOps;
 
 #[derive(Clone, Debug)]
 pub struct RangeGateConfig {
@@ -34,7 +36,7 @@ pub struct RangeGate<
     const COMMON_RANGE_BITS: usize,
 > {
     pub config: RangeGateConfig,
-    pub base_gate: &'a BaseGate<N, VAR_COLUMNS, MUL_COLUMNS>,
+    pub base_gate: &'a dyn BaseGateOps<N>,
     pub _phantom: PhantomData<W>,
 }
 
@@ -145,7 +147,7 @@ impl<
         base_coeff_pairs: Vec<(ValueSchema<N>, N)>,
         constant: N,
         mul_next_coeffs: (Vec<N>, N),
-    ) -> Result<[AssignedValue<N>; VAR_COLUMNS], Error> {
+    ) -> Result<Vec<AssignedValue<N>>, Error> {
         self.config
             .common_range_selector
             .enable(r.region, *r.offset)?;
@@ -162,7 +164,7 @@ impl<
         base_coeff_pairs: Vec<(ValueSchema<N>, N)>,
         constant: N,
         mul_next_coeffs: (Vec<N>, N),
-    ) -> Result<[AssignedValue<N>; VAR_COLUMNS], Error> {
+    ) -> Result<Vec<AssignedValue<N>>, Error> {
         self.config
             .common_range_selector
             .enable(r.region, *r.offset)?;
@@ -182,7 +184,7 @@ impl<
         base_coeff_pairs: Vec<(ValueSchema<N>, N)>,
         constant: N,
         mul_next_coeffs: (Vec<N>, N),
-    ) -> Result<[AssignedValue<N>; VAR_COLUMNS], Error> {
+    ) -> Result<Vec<AssignedValue<N>>, Error> {
         self.config
             .common_range_selector
             .enable(r.region, *r.offset)?;
@@ -202,7 +204,7 @@ impl<
         base_coeff_pairs: Vec<(ValueSchema<N>, N)>,
         constant: N,
         mul_next_coeffs: (Vec<N>, N),
-    ) -> Result<[AssignedValue<N>; VAR_COLUMNS], Error> {
+    ) -> Result<Vec<AssignedValue<N>>, Error> {
         self.config
             .common_range_selector
             .enable(r.region, *r.offset)?;

@@ -1,5 +1,5 @@
 use super::{
-    base_gate::{AssignedCondition, BaseGate, RegionAux},
+    base_gate::{AssignedCondition, BaseGate, RegionAux, BaseGateOps},
     integer_gate::{AssignedInteger, IntegerGate},
     range_gate::RangeGate,
 };
@@ -52,7 +52,7 @@ pub struct EccGate<
     const LIMBS: usize,
     const LIMB_WIDTH: usize,
 > {
-    pub base_gate: &'a BaseGate<N, VAR_COLUMNS, MUL_COLUMNS>,
+    pub base_gate: &'a dyn BaseGateOps<N>,
     pub range_gate: &'b RangeGate<'a, W, N, VAR_COLUMNS, MUL_COLUMNS, COMMON_RANGE_BITS>,
     pub integer_gate: &'c IntegerGate<
         'a,

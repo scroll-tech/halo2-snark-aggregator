@@ -127,6 +127,336 @@ pub struct BaseGateConfig<const VAR_COLUMNS: usize, const MUL_COLUMNS: usize> {
     pub constant: Column<Fixed>,
 }
 
+pub trait BaseGateOps<N: FieldExt> {
+    fn var_columns(&self) -> usize;
+    fn mul_columns(&self) -> usize;
+
+    fn one_line(
+        &self,
+        r: &mut RegionAux<'_, '_, N>,
+        base_coeff_pairs: Vec<(ValueSchema<N>, N)>,
+        constant: N,
+        mul_next_coeffs: (Vec<N>, N),
+    ) -> Result<Vec<AssignedValue<N>>, Error>;
+
+    fn one_line_add(
+        &self,
+        r: &mut RegionAux<'_, '_, N>,
+        base_coeff_pairs: Vec<(ValueSchema<N>, N)>,
+        constant: N,
+    ) -> Result<Vec<AssignedValue<N>>, Error> {
+        self.one_line(r, base_coeff_pairs, constant, (vec![], N::zero()))
+    }
+
+    fn one_line_with_last_base<'a>(
+        &self,
+        r: &mut RegionAux<'_, '_, N>,
+        mut base_coeff_pairs: Vec<(ValueSchema<'a, N>, N)>,
+        last: (ValueSchema<'a, N>, N),
+        constant: N,
+        mul_next_coeffs: (Vec<N>, N),
+    ) -> Result<Vec<AssignedValue<N>>, Error> {
+        assert!(base_coeff_pairs.len() <= self.var_columns() - 1);
+
+        base_coeff_pairs.resize_with(self.var_columns() - 1, || pair_empty!(N));
+        base_coeff_pairs.push(last);
+        self.one_line(r, base_coeff_pairs, constant, mul_next_coeffs)
+    }
+
+    fn sum_with_constant(
+        &self,
+        r: &mut RegionAux<'_, '_, N>,
+        elems: Vec<(&AssignedValue<N>, N)>,
+        constant: N,
+    ) -> Result<AssignedValue<N>, Error> {
+        assert!(elems.len() <= self.var_columns() - 1);
+
+        let one = N::one();
+        let zero = N::zero();
+
+        let sum = elems
+            .iter()
+            .fold(constant, |acc, (v, coeff)| acc + v.value * coeff);
+        let mut schemas_pairs = vec![pair!(sum, -one)];
+        schemas_pairs.append(
+            &mut elems
+                .into_iter()
+                .map(|(v, coeff)| pair!(v, coeff))
+                .collect(),
+        );
+
+        let cells = self.one_line(r, schemas_pairs, constant, (vec![], zero))?;
+
+        Ok(cells[0])
+    }
+
+    fn add(
+        &self,
+        r: &mut RegionAux<'_, '_, N>,
+        a: &AssignedValue<N>,
+        b: &AssignedValue<N>,
+    ) -> Result<AssignedValue<N>, Error> {
+        assert!(self.var_columns() >= 3);
+
+        let zero = N::zero();
+        let one = N::one();
+        self.sum_with_constant(r, vec![(a, one), (b, one)], zero)
+    }
+
+    fn mul(
+        &self,
+        r: &mut RegionAux<'_, '_, N>,
+        a: &AssignedValue<N>,
+        b: &AssignedValue<N>,
+    ) -> Result<AssignedValue<N>, Error> {
+        assert!(self.var_columns() >= 3);
+        assert!(self.mul_columns() >= 1);
+
+        let one = N::one();
+        let zero = N::zero();
+
+        let c = a.value * b.value;
+
+        let cells = self.one_line(
+            r,
+            vec![pair!(a, zero), pair!(b, zero), pair!(c, -one)],
+            zero,
+            (vec![one], zero),
+        )?;
+
+        Ok(cells[2])
+    }
+
+    fn mul_add(
+        &self,
+        r: &mut RegionAux<'_, '_, N>,
+        a: &AssignedValue<N>,
+        b: &AssignedValue<N>,
+        c: &AssignedValue<N>,
+        c_coeff: N,
+    ) -> Result<AssignedValue<N>, Error> {
+        assert!(self.var_columns() >= 4);
+        assert!(self.mul_columns() >= 1);
+
+        let one = N::one();
+        let zero = N::zero();
+
+        let d = a.value * b.value + c.value * c_coeff;
+
+        let cells = self.one_line(
+            r,
+            vec![
+                pair!(a, zero),
+                pair!(b, zero),
+                pair!(c, c_coeff),
+                pair!(d, -one),
+            ],
+            zero,
+            (vec![one], zero),
+        )?;
+
+        Ok(cells[3])
+    }
+
+    fn mul_add_with_next_line(
+        &self,
+        r: &mut RegionAux<'_, '_, N>,
+        ls: Vec<(&AssignedValue<N>, &AssignedValue<N>, &AssignedValue<N>, N)>,
+    ) -> Result<AssignedValue<N>, Error> {
+        assert!(self.var_columns() >= 4);
+        assert!(self.mul_columns() >= 1);
+        assert!(ls.len() > 0);
+
+        if ls.len() == 1 {
+            let (a, b, c, c_coeff) = ls[0];
+            self.mul_add(r, a, b, c, c_coeff)
+        } else {
+            let one = N::one();
+            let zero = N::zero();
+
+            let mut t = zero;
+
+            for (a, b, c, c_coeff) in ls {
+                self.one_line_with_last_base(
+                    r,
+                    vec![pair!(a, zero), pair!(b, zero), pair!(c, c_coeff)],
+                    pair!(t, one),
+                    zero,
+                    (vec![one], -one),
+                )?;
+
+                t = a.value * b.value + c.value * c_coeff + t;
+            }
+
+            let cells =
+                self.one_line_with_last_base(r, vec![], pair!(t, zero), zero, (vec![], zero))?;
+
+            Ok(cells[self.var_columns() - 1])
+        }
+    }
+
+    fn invert_unsafe(
+        &self,
+        r: &mut RegionAux<'_, '_, N>,
+        a: &AssignedValue<N>,
+    ) -> Result<AssignedValue<N>, Error> {
+        let b = a.value.invert().unwrap();
+
+        let one = N::one();
+        let zero = N::zero();
+
+        let cells = self.one_line(
+            r,
+            vec![pair!(a, zero), pair!(b, zero)],
+            -one,
+            (vec![one], zero),
+        )?;
+
+        Ok(cells[1])
+    }
+
+    fn invert(
+        &self,
+        r: &mut RegionAux<'_, '_, N>,
+        a: &AssignedValue<N>,
+    ) -> Result<(AssignedCondition<N>, AssignedValue<N>), Error> {
+        let zero = N::zero();
+        let one = N::one();
+        let b = a.value.invert().unwrap_or(zero);
+        let c = one - a.value * b;
+
+        // a * c = 0, one of them must be zero
+        self.one_line(
+            r,
+            vec![pair!(a, zero), pair!(c, zero)],
+            zero,
+            (vec![one], zero),
+        )?;
+
+        // a * b + c = 1
+        let cells = self.one_line(
+            r,
+            vec![pair!(a, zero), pair!(b, zero), pair!(c, one)],
+            -one,
+            (vec![one], zero),
+        )?;
+
+        Ok(((&cells[2]).into(), cells[1]))
+    }
+
+    fn is_zero(
+        &self,
+        r: &mut RegionAux<'_, '_, N>,
+        a: &AssignedValue<N>,
+    ) -> Result<AssignedCondition<N>, Error> {
+        let (res, _) = self.invert(r, a)?;
+        Ok(res)
+    }
+
+    fn div_unsafe(
+        &self,
+        r: &mut RegionAux<'_, '_, N>,
+        a: &AssignedValue<N>,
+        b: &AssignedValue<N>,
+    ) -> Result<AssignedValue<N>, Error> {
+        let c = b.value.invert().unwrap() * a.value;
+
+        let one = N::one();
+        let zero = N::zero();
+
+        let cells = self.one_line(
+            r,
+            vec![pair!(b, zero), pair!(c, zero), pair!(a, -one)],
+            zero,
+            (vec![one], zero),
+        )?;
+
+        Ok(cells[1])
+    }
+
+    fn assign_constant(
+        &self,
+        r: &mut RegionAux<'_, '_, N>,
+        v: N,
+    ) -> Result<AssignedValue<N>, Error> {
+        let one = N::one();
+
+        let cells = self.one_line_add(r, vec![pair!(v, -one)], v)?;
+
+        Ok(cells[0])
+    }
+
+    fn assert_equal(
+        &self,
+        r: &mut RegionAux<'_, '_, N>,
+        a: &AssignedValue<N>,
+        b: &AssignedValue<N>,
+    ) -> Result<(), Error> {
+        let one = N::one();
+        let zero = N::zero();
+
+        self.one_line_add(r, vec![pair!(a, -one), pair!(b, one)], zero)?;
+
+        Ok(())
+    }
+
+    fn assert_constant(
+        &self,
+        r: &mut RegionAux<'_, '_, N>,
+        a: &AssignedValue<N>,
+        b: N,
+    ) -> Result<(), Error> {
+        let one = N::one();
+
+        self.one_line_add(r, vec![pair!(a, -one)], b)?;
+
+        Ok(())
+    }
+
+    fn and(
+        &self,
+        r: &mut RegionAux<'_, '_, N>,
+        a: &AssignedCondition<N>,
+        b: &AssignedCondition<N>,
+    ) -> Result<AssignedCondition<N>, Error> {
+        let res = self.mul(r, &a.into(), &b.into())?;
+
+        Ok((&res).into())
+    }
+
+    fn not(
+        &self,
+        r: &mut RegionAux<'_, '_, N>,
+        a: &AssignedCondition<N>,
+    ) -> Result<AssignedCondition<N>, Error> {
+        let one = N::one();
+        let res = self.sum_with_constant(r, vec![(&a.into(), -one)], one)?;
+
+        Ok((&res).into())
+    }
+
+    fn or(
+        &self,
+        r: &mut RegionAux<'_, '_, N>,
+        a: &AssignedCondition<N>,
+        b: &AssignedCondition<N>,
+    ) -> Result<AssignedCondition<N>, Error> {
+        let zero = N::zero();
+        let one = N::one();
+        let c = a.value + b.value - a.value * b.value;
+        let a: AssignedValue<N> = a.into();
+        let b: AssignedValue<N> = b.into();
+        let cells = self.one_line(
+            r,
+            vec![pair!(&a, one), pair!(&b, one), pair!(c, -one)],
+            zero,
+            (vec![-one], zero),
+        )?;
+
+        Ok((&cells[2]).into())
+    }
+}
+
 pub struct BaseGate<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize> {
     config: BaseGateConfig<VAR_COLUMNS, MUL_COLUMNS>,
     _phantom: PhantomData<N>,
@@ -182,14 +512,26 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize>
             next_coeff,
         }
     }
+}
 
-    pub fn one_line(
+impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize> BaseGateOps<N>
+    for BaseGate<N, VAR_COLUMNS, MUL_COLUMNS>
+{
+    fn var_columns(&self) -> usize {
+        VAR_COLUMNS
+    }
+
+    fn mul_columns(&self) -> usize {
+        MUL_COLUMNS
+    }
+
+    fn one_line(
         &self,
         r: &mut RegionAux<'_, '_, N>,
         mut base_coeff_pairs: Vec<(ValueSchema<N>, N)>,
         constant: N,
         mul_next_coeffs: (Vec<N>, N),
-    ) -> Result<[AssignedValue<N>; VAR_COLUMNS], Error> {
+    ) -> Result<Vec<AssignedValue<N>>, Error> {
         assert!(base_coeff_pairs.len() <= VAR_COLUMNS);
         assert!(mul_next_coeffs.0.len() <= MUL_COLUMNS);
 
@@ -251,322 +593,5 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize>
         *r.offset += 1;
 
         Ok(cells.try_into().unwrap())
-    }
-
-    pub fn one_line_add(
-        &self,
-        r: &mut RegionAux<'_, '_, N>,
-        base_coeff_pairs: Vec<(ValueSchema<N>, N)>,
-        constant: N,
-    ) -> Result<[AssignedValue<N>; VAR_COLUMNS], Error> {
-        self.one_line(r, base_coeff_pairs, constant, (vec![], N::zero()))
-    }
-
-    pub fn one_line_with_last_base<'a>(
-        &self,
-        r: &mut RegionAux<'_, '_, N>,
-        mut base_coeff_pairs: Vec<(ValueSchema<'a, N>, N)>,
-        last: (ValueSchema<'a, N>, N),
-        constant: N,
-        mul_next_coeffs: (Vec<N>, N),
-    ) -> Result<[AssignedValue<N>; VAR_COLUMNS], Error> {
-        assert!(base_coeff_pairs.len() <= VAR_COLUMNS - 1);
-
-        base_coeff_pairs.resize_with(VAR_COLUMNS - 1, || pair_empty!(N));
-        base_coeff_pairs.push(last);
-        self.one_line(r, base_coeff_pairs, constant, mul_next_coeffs)
-    }
-
-    pub fn sum_with_constant(
-        &self,
-        r: &mut RegionAux<'_, '_, N>,
-        elems: Vec<(&AssignedValue<N>, N)>,
-        constant: N,
-    ) -> Result<AssignedValue<N>, Error> {
-        assert!(elems.len() <= VAR_COLUMNS - 1);
-
-        let one = N::one();
-        let zero = N::zero();
-
-        let sum = elems
-            .iter()
-            .fold(constant, |acc, (v, coeff)| acc + v.value * coeff);
-        let mut schemas_pairs = vec![pair!(sum, -one)];
-        schemas_pairs.append(
-            &mut elems
-                .into_iter()
-                .map(|(v, coeff)| pair!(v, coeff))
-                .collect(),
-        );
-
-        let cells = self.one_line(r, schemas_pairs, constant, (vec![], zero))?;
-
-        Ok(cells[0])
-    }
-
-    pub fn add(
-        &self,
-        r: &mut RegionAux<'_, '_, N>,
-        a: &AssignedValue<N>,
-        b: &AssignedValue<N>,
-    ) -> Result<AssignedValue<N>, Error> {
-        assert!(VAR_COLUMNS >= 3);
-
-        let zero = N::zero();
-        let one = N::one();
-        self.sum_with_constant(r, vec![(a, one), (b, one)], zero)
-    }
-
-    pub fn mul(
-        &self,
-        r: &mut RegionAux<'_, '_, N>,
-        a: &AssignedValue<N>,
-        b: &AssignedValue<N>,
-    ) -> Result<AssignedValue<N>, Error> {
-        assert!(VAR_COLUMNS >= 3);
-        assert!(MUL_COLUMNS >= 1);
-
-        let one = N::one();
-        let zero = N::zero();
-
-        let c = a.value * b.value;
-
-        let cells = self.one_line(
-            r,
-            vec![pair!(a, zero), pair!(b, zero), pair!(c, -one)],
-            zero,
-            (vec![one], zero),
-        )?;
-
-        Ok(cells[2])
-    }
-
-    pub fn mul_add(
-        &self,
-        r: &mut RegionAux<'_, '_, N>,
-        a: &AssignedValue<N>,
-        b: &AssignedValue<N>,
-        c: &AssignedValue<N>,
-        c_coeff: N,
-    ) -> Result<AssignedValue<N>, Error> {
-        assert!(VAR_COLUMNS >= 4);
-        assert!(MUL_COLUMNS >= 1);
-
-        let one = N::one();
-        let zero = N::zero();
-
-        let d = a.value * b.value + c.value * c_coeff;
-
-        let cells = self.one_line(
-            r,
-            vec![
-                pair!(a, zero),
-                pair!(b, zero),
-                pair!(c, c_coeff),
-                pair!(d, -one),
-            ],
-            zero,
-            (vec![one], zero),
-        )?;
-
-        Ok(cells[3])
-    }
-
-    pub fn mul_add_with_next_line(
-        &self,
-        r: &mut RegionAux<'_, '_, N>,
-        ls: Vec<(&AssignedValue<N>, &AssignedValue<N>, &AssignedValue<N>, N)>,
-    ) -> Result<AssignedValue<N>, Error> {
-        assert!(VAR_COLUMNS >= 4);
-        assert!(MUL_COLUMNS >= 1);
-        assert!(ls.len() > 0);
-
-        if ls.len() == 1 {
-            let (a, b, c, c_coeff) = ls[0];
-            self.mul_add(r, a, b, c, c_coeff)
-        } else {
-            let one = N::one();
-            let zero = N::zero();
-
-            let mut t = zero;
-
-            for (a, b, c, c_coeff) in ls {
-                self.one_line_with_last_base(
-                    r,
-                    vec![pair!(a, zero), pair!(b, zero), pair!(c, c_coeff)],
-                    pair!(t, one),
-                    zero,
-                    (vec![one], -one),
-                )?;
-
-                t = a.value * b.value + c.value * c_coeff + t;
-            }
-
-            let cells =
-                self.one_line_with_last_base(r, vec![], pair!(t, zero), zero, (vec![], zero))?;
-
-            Ok(cells[VAR_COLUMNS - 1])
-        }
-    }
-
-    pub fn invert_unsafe(
-        &self,
-        r: &mut RegionAux<'_, '_, N>,
-        a: &AssignedValue<N>,
-    ) -> Result<AssignedValue<N>, Error> {
-        let b = a.value.invert().unwrap();
-
-        let one = N::one();
-        let zero = N::zero();
-
-        let cells = self.one_line(
-            r,
-            vec![pair!(a, zero), pair!(b, zero)],
-            -one,
-            (vec![one], zero),
-        )?;
-
-        Ok(cells[1])
-    }
-
-    pub fn invert(
-        &self,
-        r: &mut RegionAux<'_, '_, N>,
-        a: &AssignedValue<N>,
-    ) -> Result<(AssignedCondition<N>, AssignedValue<N>), Error> {
-        let zero = N::zero();
-        let one = N::one();
-        let b = a.value.invert().unwrap_or(zero);
-        let c = one - a.value * b;
-
-        // a * c = 0, one of them must be zero
-        self.one_line(
-            r,
-            vec![pair!(a, zero), pair!(c, zero)],
-            zero,
-            (vec![one], zero),
-        )?;
-
-        // a * b + c = 1
-        let cells = self.one_line(
-            r,
-            vec![pair!(a, zero), pair!(b, zero), pair!(c, one)],
-            -one,
-            (vec![one], zero),
-        )?;
-
-        Ok(((&cells[2]).into(), cells[1]))
-    }
-
-    pub fn is_zero(
-        &self,
-        r: &mut RegionAux<'_, '_, N>,
-        a: &AssignedValue<N>,
-    ) -> Result<AssignedCondition<N>, Error> {
-        let (res, _) = self.invert(r, a)?;
-        Ok(res)
-    }
-
-    pub fn div_unsafe(
-        &self,
-        r: &mut RegionAux<'_, '_, N>,
-        a: &AssignedValue<N>,
-        b: &AssignedValue<N>,
-    ) -> Result<AssignedValue<N>, Error> {
-        let c = b.value.invert().unwrap() * a.value;
-
-        let one = N::one();
-        let zero = N::zero();
-
-        let cells = self.one_line(
-            r,
-            vec![pair!(b, zero), pair!(c, zero), pair!(a, -one)],
-            zero,
-            (vec![one], zero),
-        )?;
-
-        Ok(cells[1])
-    }
-
-    pub fn assign_constant(
-        &self,
-        r: &mut RegionAux<'_, '_, N>,
-        v: N,
-    ) -> Result<AssignedValue<N>, Error> {
-        let one = N::one();
-
-        let cells = self.one_line_add(r, vec![pair!(v, -one)], v)?;
-
-        Ok(cells[0])
-    }
-
-    pub fn assert_equal(
-        &self,
-        r: &mut RegionAux<'_, '_, N>,
-        a: &AssignedValue<N>,
-        b: &AssignedValue<N>,
-    ) -> Result<(), Error> {
-        let one = N::one();
-        let zero = N::zero();
-
-        self.one_line_add(r, vec![pair!(a, -one), pair!(b, one)], zero)?;
-
-        Ok(())
-    }
-
-    pub fn assert_constant(
-        &self,
-        r: &mut RegionAux<'_, '_, N>,
-        a: &AssignedValue<N>,
-        b: N,
-    ) -> Result<(), Error> {
-        let one = N::one();
-
-        self.one_line_add(r, vec![pair!(a, -one)], b)?;
-
-        Ok(())
-    }
-
-    pub fn and(
-        &self,
-        r: &mut RegionAux<'_, '_, N>,
-        a: &AssignedCondition<N>,
-        b: &AssignedCondition<N>,
-    ) -> Result<AssignedCondition<N>, Error> {
-        let res = self.mul(r, &a.into(), &b.into())?;
-
-        Ok((&res).into())
-    }
-
-    pub fn not(
-        &self,
-        r: &mut RegionAux<'_, '_, N>,
-        a: &AssignedCondition<N>,
-    ) -> Result<AssignedCondition<N>, Error> {
-        let one = N::one();
-        let res = self.sum_with_constant(r, vec![(&a.into(), -one)], one)?;
-
-        Ok((&res).into())
-    }
-
-    pub fn or(
-        &self,
-        r: &mut RegionAux<'_, '_, N>,
-        a: &AssignedCondition<N>,
-        b: &AssignedCondition<N>,
-    ) -> Result<AssignedCondition<N>, Error> {
-        let zero = N::zero();
-        let one = N::one();
-        let c = a.value + b.value - a.value * b.value;
-        let a: AssignedValue<N> = a.into();
-        let b: AssignedValue<N> = b.into();
-        let cells = self.one_line(
-            r,
-            vec![pair!(&a, one), pair!(&b, one), pair!(c, -one)],
-            zero,
-            (vec![-one], zero),
-        )?;
-
-        Ok((&cells[2]).into())
     }
 }

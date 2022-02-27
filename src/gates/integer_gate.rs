@@ -1,8 +1,8 @@
-use super::base_gate::AssignedCondition;
+use super::base_gate::{AssignedCondition, BaseGateOps};
 use crate::FieldExt;
 use crate::{
     gates::{
-        base_gate::{AssignedValue, BaseGate, RegionAux},
+        base_gate::{AssignedValue, RegionAux},
         range_gate::RangeGate,
     },
     utils::{bn_to_field, field_to_bn, get_d_range_bits_in_mul},
@@ -143,7 +143,7 @@ pub struct IntegerGate<
     const LIMBS: usize,
     const LIMB_WIDTH: usize,
 > {
-    pub base_gate: &'a BaseGate<N, VAR_COLUMNS, MUL_COLUMNS>,
+    pub base_gate: &'a dyn BaseGateOps<N>,
     pub range_gate: &'b RangeGate<'a, W, N, VAR_COLUMNS, MUL_COLUMNS, COMMON_RANGE_BITS>,
     pub helper: IntegerGateHelper<W, N, LIMBS, LIMB_WIDTH>,
 }
@@ -188,11 +188,7 @@ pub trait IntegerGateOps<
         r: &mut RegionAux<N>,
         a: &mut AssignedInteger<W, N>,
     ) -> Result<(), Error>;
-    fn reduce(
-        &self,
-        r: &mut RegionAux<N>,
-        a: &mut AssignedInteger<W, N>,
-    ) -> Result<(), Error>;
+    fn reduce(&self, r: &mut RegionAux<N>, a: &mut AssignedInteger<W, N>) -> Result<(), Error>;
 
     fn native<'a>(
         &self,
@@ -233,11 +229,8 @@ pub trait IntegerGateOps<
         r: &mut RegionAux<N>,
         a: &mut AssignedInteger<W, N>,
     ) -> Result<AssignedCondition<N>, Error>;
-    fn assigned_constant(
-        &self,
-        r: &mut RegionAux<N>,
-        w: W,
-    ) -> Result<AssignedInteger<W, N>, Error>;
+    fn assigned_constant(&self, r: &mut RegionAux<N>, w: W)
+        -> Result<AssignedInteger<W, N>, Error>;
     fn assert_equal(
         &self,
         r: &mut RegionAux<N>,
