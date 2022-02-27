@@ -247,6 +247,17 @@ pub trait IntegerGateOps<
         a: &AssignedInteger<W, N, LIMBS>,
         b: &AssignedInteger<W, N, LIMBS>,
     ) -> Result<(), Error>;
+    fn square(
+        &self,
+        r: &mut RegionAux<N>,
+        a: &mut AssignedInteger<W, N, LIMBS>,
+    ) -> Result<AssignedInteger<W, N, LIMBS>, Error>;
+    fn mul_small_constant(
+        &self,
+        r: &mut RegionAux<N>,
+        a: &mut AssignedInteger<W, N, LIMBS>,
+        b: usize,
+    ) -> Result<AssignedInteger<W, N, LIMBS>, Error>;
 }
 
 impl<
