@@ -1,9 +1,10 @@
 use crate::schema::ast::{CommitQuery, MultiOpenProof, EvaluationAST, SchemaItem};
-use crate::schema::{SchemaGenerator, EvaluationProof};
+use crate::schema::{SchemaGenerator, EvaluationProof, EvaluationQuery};
 use crate::arith::api::{ContextRing, ContextGroup};
 use std::fmt::Debug;
 use std::marker::PhantomData;
-use crate::{commit, eval, scalar};
+use std::iter;
+use crate::{commit, scalar};
 use super::{lookup, permutation};
 
 pub struct VerifierParams <
@@ -14,10 +15,15 @@ pub struct VerifierParams <
     //public_wit: Vec<C::ScalarExt>,
     pub lookup_evaluated: Vec<lookup::Evaluated<S, P>>,
     pub permutation_evaluated: Vec<permutation::Evaluated<S, P>>,
-    pub instances_commits: Vec<&'a P>,
-    pub instances_evals: Vec<&'a S>,
-    pub advice_commits: Vec<&'a P>,
-    pub advice_evals: Vec<&'a S>,
+    pub instance_commitments: Vec<Vec<&'a P>>,
+    pub instance_evals: Vec<Vec<&'a S>>,
+    pub instance_queries: Vec<(usize, usize)>,
+    pub advice_commitments: Vec<Vec<&'a P>>,
+    pub advice_evals: Vec<Vec<&'a S>>,
+    pub advice_queries: Vec<(usize, usize)>,
+    pub fixed_commitments: Vec<&'a P>,
+    pub fixed_evals: Vec<&'a S>,
+    pub fixed_queries: Vec<(usize, usize)>,
     pub permutation_common: Vec<&'a P>,
     pub beta: &'a S,
     pub gamma: &'a S,
@@ -37,14 +43,16 @@ impl<'a, C:Clone, S:Clone, P:Clone,
     SGate: ContextGroup<C, S, S, Error> + ContextRing<C, S, S, Error>,
     PGate:ContextGroup<C, S, P, Error>>
     VerifierParams<'a, C, S, P, Error, SGate, PGate> {
+    fn rotate_omega(&self, at: usize) -> S {
+        unimplemented!("rotate omega")
+    }
     fn queries(&self, ctx: &mut C) -> Result<Vec<EvaluationProof<'a, S, P>>, Error> {
-/*
-        let queries = instance_commitments.iter()
-        .zip(instance_evals.iter())
-        .zip(advice_commitments.iter())
-        .zip(advice_evals.iter())
-        .zip(permutations_evaluated.iter())
-        .zip(lookups_evaluated.iter())
+        let queries = self.instance_commitments.iter()
+        .zip(self.instance_evals.iter())
+        .zip(self.advice_commitments.iter())
+        .zip(self.advice_evals.iter())
+        .zip(self.permutation_evaluated.iter())
+        .zip(self.lookup_evaluated.iter())
         .flat_map(
             |(
                 (
@@ -54,24 +62,25 @@ impl<'a, C:Clone, S:Clone, P:Clone,
                 lookups,
             )| {
                 iter::empty()
-                    .chain(vk.cs.instance_queries.iter().enumerate().map(
+                    .chain(self.instance_queries.iter().enumerate().map(
                         move |(query_index, &(column, at))| {
-                            VerifierQuery::new_commitment(
-                                &instance_commitments[column.index()],
-                                vk.domain.rotate_omega(*x, at),
+                            EvaluationQuery::new(
+                                self.rotate_omega(at),
+                                instance_commitments[column],
                                 instance_evals[query_index],
                             )
                         },
                     ))
-                    .chain(vk.cs.advice_queries.iter().enumerate().map(
+                    .chain(self.advice_queries.iter().enumerate().map(
                         move |(query_index, &(column, at))| {
-                            VerifierQuery::new_commitment(
-                                &advice_commitments[column.index()],
-                                vk.domain.rotate_omega(*x, at),
+                            EvaluationQuery::new(
+                                self.rotate_omega(at),
+                                advice_commitments[column],
                                 advice_evals[query_index],
                             )
                         },
                     ))
+                    /*
                     .chain(permutation.queries(vk, x))
                     .chain(
                         lookups
@@ -79,9 +88,22 @@ impl<'a, C:Clone, S:Clone, P:Clone,
                             .flat_map(move |p| p.queries(vk, x))
                             .into_iter(),
                     )
+                    */
             },
         )
-*/
+        .chain(
+                self.fixed_queries.iter().enumerate().map(
+                    |(query_index, &(column, at))| {
+                    EvaluationQuery::<'a, S, P>::new(
+                        self.rotate_omega(at),
+                        &self.fixed_commitments[column],
+                        &self.fixed_evals[query_index],
+                    )
+                }),
+        )
+        //.chain(self.permutations_common.queries(&vk.permutation, x))
+        //.chain(vanishing.queries(x))
+        ;
         unimplemented!("get point schemas not implemented")
     }
 }

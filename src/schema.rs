@@ -1,13 +1,26 @@
 pub mod ast;
 pub mod utils;
-use ast::{SchemaItem, MultiOpenProof};
+use ast::{SchemaItem, MultiOpenProof, CommitQuery};
 use crate::arith::api:: {ContextGroup, ContextRing};
 use std::fmt::Debug;
+use crate::{commit, eval};
 
 pub struct EvaluationProof<'a, S:Clone, P:Clone> {
   pub point: S,
   pub s: SchemaItem<'a, S, P>, // f, e pair
   pub w: &'a P,
+}
+
+pub struct EvaluationQuery<'a, S:Clone, P:Clone> {
+  pub point: S,
+  pub s: SchemaItem<'a, S, P>, // f, e pair
+}
+
+impl<'a, S:Clone, P:Clone> EvaluationQuery<'a, S, P> {
+    pub fn new(point:S, c: &'a P, v:&'a S) -> Self {
+        let s = CommitQuery {c:Some(c), v:Some(v)};
+        EvaluationQuery {point: point, s: commit!(s) + eval!(s)}
+    }
 }
 
 pub trait CurveArith<C, S:Clone, P:Clone, Error:Debug> {
@@ -21,6 +34,3 @@ pub trait SchemaGenerator<'a, C, S:Clone, P:Clone, E> {
   fn get_point_schemas(&self, ctx: &mut C) -> Result<Vec<EvaluationProof<'a, S, P>>, E>;
   fn batch_multi_open_proofs(&self, ctx: &mut C) -> Result<MultiOpenProof<'a, S, P>, E>;
 }
-
-
-
