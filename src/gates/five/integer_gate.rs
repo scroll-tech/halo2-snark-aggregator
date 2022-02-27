@@ -1,4 +1,6 @@
+use crate::gates::base_gate::BaseGateOps;
 use crate::gates::integer_gate::{AssignedInteger, IntegerGate, IntegerGateOps};
+use crate::gates::range_gate::RangeGateOps;
 use crate::FieldExt;
 use crate::{
     gates::base_gate::{AssignedCondition, AssignedValue, RegionAux},
@@ -10,7 +12,7 @@ use halo2_proofs::plonk::Error;
 use num_bigint::BigUint;
 use num_integer::Integer;
 
-use super::base_gate::{MUL_COLUMNS, VAR_COLUMNS};
+use super::base_gate::VAR_COLUMNS;
 
 const LIMBS: usize = 4usize;
 const LIMB_COMMON_WIDTH_OF_COMMON_RANGE: usize = 4usize;
@@ -23,19 +25,9 @@ const OVERFLOW_LIMIT: usize = 1usize << OVERFLOW_LIMIT_SHIFT;
 const OVERFLOW_THRESHOLD_SHIFT: usize = OVERFLOW_LIMIT_SHIFT - 1;
 const OVERFLOW_THRESHOLD: usize = 1usize << OVERFLOW_THRESHOLD_SHIFT;
 
-pub type FiveColumnIntegerGate<'a, 'b, W, N> = IntegerGate<
-    'a,
-    'b,
-    W,
-    N,
-    VAR_COLUMNS,
-    MUL_COLUMNS,
-    COMMON_RANGE_BITS,
-    LIMBS,
-    LIMB_COMMON_WIDTH,
->;
+pub type FiveColumnIntegerGate<'a, W, N> = IntegerGate<'a, W, N, LIMBS, LIMB_COMMON_WIDTH>;
 
-impl<'a, 'b, W: FieldExt, N: FieldExt> FiveColumnIntegerGate<'a, 'b, W, N> {
+impl<'a, W: FieldExt, N: FieldExt> FiveColumnIntegerGate<'a, W, N> {
     fn find_w_modulus_ceil(&self, a: &AssignedInteger<W, N>) -> [BigUint; LIMBS] {
         let max_a = (a.overflows + 1) * (BigUint::from(1u64) << self.helper.w_ceil_bits);
         let (n, rem) = max_a.div_rem(&self.helper.w_modulus);
@@ -65,12 +57,12 @@ impl<'a, 'b, W: FieldExt, N: FieldExt> FiveColumnIntegerGate<'a, 'b, W, N> {
     ) -> Result<AssignedCondition<N>, Error> {
         let zero = N::zero();
         let one = N::one();
-        let sum = self.base_gate.sum_with_constant(
+        let sum = self.base_gate().sum_with_constant(
             r,
             a.limbs_le.iter().map(|v| (v, one)).collect(),
             zero,
         )?;
-        let is_zero = self.base_gate.is_zero(r, &sum)?;
+        let is_zero = self.base_gate().is_zero(r, &sum)?;
         Ok(is_zero)
     }
 
@@ -92,19 +84,19 @@ impl<'a, 'b, W: FieldExt, N: FieldExt> FiveColumnIntegerGate<'a, 'b, W, N> {
 
         // TO OPTIMIZE: the two can be merged.
         let native_diff =
-            self.base_gate
+            self.base_gate()
                 .sum_with_constant(r, vec![(&native_a, one)], -self.helper.w_native)?;
-        let is_native_eq = self.base_gate.is_zero(r, &native_diff)?;
+        let is_native_eq = self.base_gate().is_zero(r, &native_diff)?;
 
         // TO OPTIMIZE: the two can be merged.
-        let limb0_diff = self.base_gate.sum_with_constant(
+        let limb0_diff = self.base_gate().sum_with_constant(
             r,
             vec![(&a.limbs_le[0], one)],
             -bn_to_field::<N>(&self.helper.w_modulus_limbs_le[0]),
         )?;
-        let is_limb0_eq = self.base_gate.is_zero(r, &limb0_diff)?;
+        let is_limb0_eq = self.base_gate().is_zero(r, &limb0_diff)?;
 
-        self.base_gate.and(r, &is_native_eq, &is_limb0_eq)
+        self.base_gate().and(r, &is_native_eq, &is_limb0_eq)
     }
 
     fn add_constraints_for_mul_equation_on_limb0(
@@ -112,7 +104,7 @@ impl<'a, 'b, W: FieldExt, N: FieldExt> FiveColumnIntegerGate<'a, 'b, W, N> {
         r: &mut RegionAux<N>,
         a: &AssignedInteger<W, N>,
         b: &AssignedInteger<W, N>,
-        d: [AssignedValue<N>; LIMBS],
+        d: &Vec<AssignedValue<N>>,
         rem: &AssignedInteger<W, N>,
     ) -> Result<(), Error> {
         let zero = N::zero();
@@ -154,7 +146,7 @@ impl<'a, 'b, W: FieldExt, N: FieldExt> FiveColumnIntegerGate<'a, 'b, W, N> {
             // e.g. l0 = a0 * b0 - d0 * w0
             // e.g. l1 = a1 * b0 + a0 * b1 - d1 * w0 - d0 * w1
             // ...
-            let l = self.base_gate.mul_add_with_next_line(
+            let l = self.base_gate().mul_add_with_next_line(
                 r,
                 (0..pos + 1)
                     .map(|i| {
@@ -210,7 +202,7 @@ impl<'a, 'b, W: FieldExt, N: FieldExt> FiveColumnIntegerGate<'a, 'b, W, N> {
         let v1_h = self.assign_n_floor_leading_limb(r, bn_to_field(&v1_h))?;
         let v1_l = self.assign_nonleading_limb(r, bn_to_field(&v1_l))?;
 
-        let u0 = self.base_gate.sum_with_constant(
+        let u0 = self.base_gate().sum_with_constant(
             r,
             vec![
                 (&limbs[0], one),
@@ -221,7 +213,7 @@ impl<'a, 'b, W: FieldExt, N: FieldExt> FiveColumnIntegerGate<'a, 'b, W, N> {
             self.helper.limb_modulus_exps[2],
         )?;
 
-        self.base_gate.one_line_add(
+        self.base_gate().one_line_add(
             r,
             vec![
                 pair!(&u0, -one),
@@ -231,7 +223,7 @@ impl<'a, 'b, W: FieldExt, N: FieldExt> FiveColumnIntegerGate<'a, 'b, W, N> {
             zero,
         )?;
 
-        let u1 = self.base_gate.sum_with_constant(
+        let u1 = self.base_gate().sum_with_constant(
             r,
             vec![
                 (&limbs[2], one),
@@ -241,7 +233,7 @@ impl<'a, 'b, W: FieldExt, N: FieldExt> FiveColumnIntegerGate<'a, 'b, W, N> {
             ],
             zero,
         )?;
-        self.base_gate.one_line_add(
+        self.base_gate().one_line_add(
             r,
             vec![
                 pair!(&u1, one),
@@ -261,7 +253,7 @@ impl<'a, 'b, W: FieldExt, N: FieldExt> FiveColumnIntegerGate<'a, 'b, W, N> {
         r: &mut RegionAux<N>,
         a: &mut AssignedInteger<W, N>,
         b: &mut AssignedInteger<W, N>,
-        d: [AssignedValue<N>; LIMBS],
+        d: &Vec<AssignedValue<N>>,
         rem: &mut AssignedInteger<W, N>,
     ) -> Result<(), Error> {
         let zero = N::zero();
@@ -269,14 +261,14 @@ impl<'a, 'b, W: FieldExt, N: FieldExt> FiveColumnIntegerGate<'a, 'b, W, N> {
 
         let a_native = self.native(r, a)?;
         let b_native = self.native(r, b)?;
-        let d_native = self.base_gate.sum_with_constant(
+        let d_native = self.base_gate().sum_with_constant(
             r,
             d.iter().zip(self.helper.limb_modulus_exps).collect(),
             zero,
         )?;
         let rem_native = self.native(r, rem)?;
 
-        self.base_gate.one_line(
+        self.base_gate().one_line(
             r,
             vec![
                 pair!(a_native, zero),
@@ -295,21 +287,21 @@ impl<'a, 'b, W: FieldExt, N: FieldExt> FiveColumnIntegerGate<'a, 'b, W, N> {
         &self,
         r: &mut RegionAux<N>,
         a: &mut AssignedInteger<W, N>,
-        d: [AssignedValue<N>; LIMBS],
+        d: &Vec<AssignedValue<N>>,
         rem: &mut AssignedInteger<W, N>,
     ) -> Result<(), Error> {
         let zero = N::zero();
         let one = N::one();
 
         let a_native = self.native(r, a)?;
-        let d_native = self.base_gate.sum_with_constant(
+        let d_native = self.base_gate().sum_with_constant(
             r,
             d.iter().zip(self.helper.limb_modulus_exps).collect(),
             zero,
         )?;
         let rem_native = self.native(r, rem)?;
 
-        self.base_gate.one_line(
+        self.base_gate().one_line(
             r,
             vec![
                 pair!(a_native, zero),
@@ -325,10 +317,7 @@ impl<'a, 'b, W: FieldExt, N: FieldExt> FiveColumnIntegerGate<'a, 'b, W, N> {
     }
 }
 
-impl<'a, 'b, W: FieldExt, N: FieldExt>
-    IntegerGateOps<W, N, VAR_COLUMNS, MUL_COLUMNS, COMMON_RANGE_BITS, LIMBS, LIMB_COMMON_WIDTH>
-    for FiveColumnIntegerGate<'a, 'b, W, N>
-{
+impl<'a, W: FieldExt, N: FieldExt> IntegerGateOps<W, N> for FiveColumnIntegerGate<'a, W, N> {
     fn assign_nonleading_limb(
         &self,
         r: &mut RegionAux<N>,
@@ -433,11 +422,7 @@ impl<'a, 'b, W: FieldExt, N: FieldExt>
         }
     }
 
-    fn assign_d(
-        &self,
-        r: &mut RegionAux<N>,
-        v: &BigUint,
-    ) -> Result<[AssignedValue<N>; LIMBS], Error> {
+    fn assign_d(&self, r: &mut RegionAux<N>, v: &BigUint) -> Result<Vec<AssignedValue<N>>, Error> {
         let limbs_value_le = self.helper.bn_to_limb_n_le(v);
 
         let mut limbs = vec![];
@@ -479,7 +464,7 @@ impl<'a, 'b, W: FieldExt, N: FieldExt>
         &self,
         r: &mut RegionAux<N>,
         v: &BigUint,
-    ) -> Result<[AssignedValue<N>; LIMBS], Error> {
+    ) -> Result<Vec<AssignedValue<N>>, Error> {
         let limbs_value_le = self.helper.bn_to_limb_n_le(v);
 
         let mut limbs = vec![];
@@ -492,11 +477,7 @@ impl<'a, 'b, W: FieldExt, N: FieldExt>
         Ok(limbs.try_into().unwrap())
     }
 
-    fn reduce(
-        &self,
-        r: &mut RegionAux<N>,
-        a: &mut AssignedInteger<W, N>,
-    ) -> Result<(), Error> {
+    fn reduce(&self, r: &mut RegionAux<N>, a: &mut AssignedInteger<W, N>) -> Result<(), Error> {
         if a.overflows == 0 {
             return Ok(());
         }
@@ -567,7 +548,7 @@ impl<'a, 'b, W: FieldExt, N: FieldExt>
         // 2. Add constrains native.
         let rem_native = self.native(r, &mut rem)?;
         let a_native = self.native(r, a)?;
-        self.base_gate.one_line_add(
+        self.base_gate().one_line_add(
             r,
             vec![
                 pair!(a_native, -one),
@@ -578,7 +559,7 @@ impl<'a, 'b, W: FieldExt, N: FieldExt>
         )?;
 
         // 3. Add constrains on limb[0].
-        self.base_gate.one_line_add(
+        self.base_gate().one_line_add(
             r,
             vec![
                 pair!(&d, bn_to_field(&self.helper.w_modulus_limbs_le[0])),
@@ -619,7 +600,7 @@ impl<'a, 'b, W: FieldExt, N: FieldExt>
                 let zero = N::zero();
                 let schemas = a.limbs_le.iter().zip(self.helper.limb_modulus_exps);
                 let cell = self
-                    .base_gate
+                    .base_gate()
                     .sum_with_constant(r, schemas.collect(), zero)?;
                 Some(cell)
             }
@@ -648,8 +629,9 @@ impl<'a, 'b, W: FieldExt, N: FieldExt>
         self.reduce(r, &mut diff)?;
 
         let diff_native = self.native(r, &mut diff)?;
-        self.base_gate.assert_constant(r, diff_native, zero)?;
-        self.base_gate.assert_constant(r, &diff.limbs_le[0], zero)?;
+        self.base_gate().assert_constant(r, diff_native, zero)?;
+        self.base_gate()
+            .assert_constant(r, &diff.limbs_le[0], zero)?;
         Ok(())
     }
 
@@ -662,7 +644,7 @@ impl<'a, 'b, W: FieldExt, N: FieldExt>
         let mut limbs = vec![];
 
         for i in 0..LIMBS {
-            let value = self.base_gate.add(r, &a.limbs_le[i], &b.limbs_le[i])?;
+            let value = self.base_gate().add(r, &a.limbs_le[i], &b.limbs_le[i])?;
             limbs.push(value)
         }
 
@@ -683,7 +665,7 @@ impl<'a, 'b, W: FieldExt, N: FieldExt>
 
         let mut limbs = vec![];
         for i in 0..LIMBS {
-            let cell = self.base_gate.sum_with_constant(
+            let cell = self.base_gate().sum_with_constant(
                 r,
                 vec![(&a.limbs_le[i], one), (&b.limbs_le[i], -one)],
                 bn_to_field(&upper_limbs[i]),
@@ -707,7 +689,7 @@ impl<'a, 'b, W: FieldExt, N: FieldExt>
 
         let mut limbs = vec![];
         for i in 0..LIMBS {
-            let cell = self.base_gate.sum_with_constant(
+            let cell = self.base_gate().sum_with_constant(
                 r,
                 vec![(&a.limbs_le[i], -one)],
                 bn_to_field(&upper_limbs[i]),
@@ -734,8 +716,8 @@ impl<'a, 'b, W: FieldExt, N: FieldExt>
         let mut rem = self.assign_w(r, &bn_to_field(&rem))?;
         let d = self.assign_d(r, &d)?;
 
-        self.add_constraints_for_mul_equation_on_limb0(r, a, b, d, &mut rem)?;
-        self.add_constraints_for_mul_equation_on_native(r, a, b, d, &mut rem)?;
+        self.add_constraints_for_mul_equation_on_limb0(r, a, b, &d, &mut rem)?;
+        self.add_constraints_for_mul_equation_on_native(r, a, b, &d, &mut rem)?;
 
         Ok(rem)
     }
@@ -751,8 +733,8 @@ impl<'a, 'b, W: FieldExt, N: FieldExt>
         let mut rem = self.assign_w(r, &bn_to_field(&rem))?;
         let d = self.assign_d(r, &d)?;
 
-        self.add_constraints_for_mul_equation_on_limb0(r, a, a, d, &mut rem)?;
-        self.add_constraints_for_square_equation_on_native(r, a, d, &mut rem)?;
+        self.add_constraints_for_mul_equation_on_limb0(r, a, a, &d, &mut rem)?;
+        self.add_constraints_for_square_equation_on_native(r, a, &d, &mut rem)?;
 
         Ok(rem)
     }
@@ -764,7 +746,7 @@ impl<'a, 'b, W: FieldExt, N: FieldExt>
         b: &mut AssignedInteger<W, N>,
     ) -> Result<(AssignedCondition<N>, AssignedInteger<W, N>), Error> {
         let is_b_zero = self.is_zero(r, b)?;
-        let a_coeff = self.base_gate.not(r, &is_b_zero)?;
+        let a_coeff = self.base_gate().not(r, &is_b_zero)?;
 
         // Find (c, d) that b * c = d * w + reduce_a,
         // Call reduce on `a` because if b = 1, we cannot find such (c, d), c < w_ceil and d >= 0
@@ -772,7 +754,7 @@ impl<'a, 'b, W: FieldExt, N: FieldExt>
         self.reduce(r, a)?;
         let mut limbs_le = vec![];
         for i in 0..LIMBS {
-            let cell = self.base_gate.mul(r, &a.limbs_le[i], &a_coeff.into())?;
+            let cell = self.base_gate().mul(r, &a.limbs_le[i], &a_coeff.into())?;
             limbs_le.push(cell);
         }
         let mut a = AssignedInteger::new(limbs_le.try_into().unwrap(), a.overflows);
@@ -791,8 +773,8 @@ impl<'a, 'b, W: FieldExt, N: FieldExt>
         let mut c = self.assign_w(r, &c)?;
         let d = self.assign_d(r, &d)?;
 
-        self.add_constraints_for_mul_equation_on_limb0(r, b, &mut c, d, &mut a)?;
-        self.add_constraints_for_mul_equation_on_native(r, b, &mut c, d, &mut a)?;
+        self.add_constraints_for_mul_equation_on_limb0(r, b, &mut c, &d, &mut a)?;
+        self.add_constraints_for_mul_equation_on_native(r, b, &mut c, &d, &mut a)?;
         Ok((is_b_zero, c))
     }
 
@@ -805,7 +787,7 @@ impl<'a, 'b, W: FieldExt, N: FieldExt>
 
         let mut limbs = vec![];
         for limb in limbs_value {
-            let cell = self.base_gate.assign_constant(r, limb)?;
+            let cell = self.base_gate().assign_constant(r, limb)?;
             limbs.push(cell);
         }
 
@@ -821,7 +803,7 @@ impl<'a, 'b, W: FieldExt, N: FieldExt>
         let is_zero = self.is_pure_zero(r, &a)?;
         let is_w_modulus = self.is_pure_w_modulus(r, a)?;
 
-        self.base_gate.or(r, &is_zero, &is_w_modulus)
+        self.base_gate().or(r, &is_zero, &is_w_modulus)
     }
 
     fn mul_small_constant(
@@ -840,7 +822,7 @@ impl<'a, 'b, W: FieldExt, N: FieldExt>
 
         let mut limbs = vec![];
         for i in 0..LIMBS {
-            let cell = self.base_gate.sum_with_constant(
+            let cell = self.base_gate().sum_with_constant(
                 r,
                 vec![(&a.limbs_le[i], N::from(b as u64))],
                 zero,
@@ -851,5 +833,13 @@ impl<'a, 'b, W: FieldExt, N: FieldExt>
         let mut res = AssignedInteger::new(limbs.try_into().unwrap(), a.overflows * b);
         self.conditionally_reduce(r, &mut res)?;
         Ok(res)
+    }
+
+    fn base_gate(&self) -> &dyn BaseGateOps<N> {
+        self.range_gate().base_gate()
+    }
+
+    fn range_gate(&self) -> &dyn RangeGateOps<W, N> {
+        self.range_gate
     }
 }

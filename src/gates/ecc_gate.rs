@@ -1,7 +1,7 @@
 use super::{
-    base_gate::{AssignedCondition, BaseGate, RegionAux, BaseGateOps},
-    integer_gate::{AssignedInteger, IntegerGate},
-    range_gate::RangeGate,
+    base_gate::{AssignedCondition, BaseGateOps, RegionAux},
+    integer_gate::{AssignedInteger, IntegerGateOps},
+    range_gate::RangeGateOps,
 };
 use crate::FieldExt;
 use halo2_proofs::plonk::Error;
@@ -40,68 +40,20 @@ impl<W: FieldExt, N: FieldExt> AssignedPoint<W, N> {
     }
 }
 
-pub struct EccGate<
-    'a,
-    'b,
-    'c,
-    W: FieldExt,
-    N: FieldExt,
-    const VAR_COLUMNS: usize,
-    const MUL_COLUMNS: usize,
-    const COMMON_RANGE_BITS: usize,
-    const LIMBS: usize,
-    const LIMB_WIDTH: usize,
-> {
-    pub base_gate: &'a dyn BaseGateOps<N>,
-    pub range_gate: &'b RangeGate<'a, W, N, VAR_COLUMNS, MUL_COLUMNS, COMMON_RANGE_BITS>,
-    pub integer_gate: &'c IntegerGate<
-        'a,
-        'b,
-        W,
-        N,
-        VAR_COLUMNS,
-        MUL_COLUMNS,
-        COMMON_RANGE_BITS,
-        LIMBS,
-        LIMB_WIDTH,
-    >,
+pub struct EccGate<'a, W: FieldExt, N: FieldExt> {
+    pub integer_gate: &'a dyn IntegerGateOps<W, N>,
 }
 
-impl<
-        'a,
-        'b,
-        'c,
-        W: FieldExt,
-        N: FieldExt,
-        const VAR_COLUMNS: usize,
-        const MUL_COLUMNS: usize,
-        const COMMON_RANGE_BITS: usize,
-        const LIMBS: usize,
-        const LIMB_WIDTH: usize,
-    > EccGate<'a, 'b, 'c, W, N, VAR_COLUMNS, MUL_COLUMNS, COMMON_RANGE_BITS, LIMBS, LIMB_WIDTH>
-{
-    pub fn new(
-        integer_gate: &'c IntegerGate<
-            'a,
-            'b,
-            W,
-            N,
-            VAR_COLUMNS,
-            MUL_COLUMNS,
-            COMMON_RANGE_BITS,
-            LIMBS,
-            LIMB_WIDTH,
-        >,
-    ) -> Self {
-        Self {
-            base_gate: integer_gate.base_gate,
-            range_gate: integer_gate.range_gate,
-            integer_gate,
-        }
+impl<'a, W: FieldExt, N: FieldExt> EccGate<'a, W, N> {
+    pub fn new(integer_gate: &'a dyn IntegerGateOps<W, N>) -> Self {
+        Self { integer_gate }
     }
 }
 
 pub trait EccGateOps<'c, W: FieldExt, N: FieldExt, const LIMBS: usize> {
+    fn base_gate(&self) -> &dyn BaseGateOps<N>;
+    fn range_gate(&self) -> &dyn RangeGateOps<W, N>;
+    fn integer_gate(&self) -> &dyn IntegerGateOps<W, N>;
     fn curvature(
         &self,
         r: &mut RegionAux<N>,

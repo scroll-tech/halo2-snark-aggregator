@@ -40,6 +40,132 @@ pub struct RangeGate<
     pub _phantom: PhantomData<W>,
 }
 
+pub trait RangeGateOps<W: FieldExt, N: FieldExt> {
+    fn base_gate(&self) -> &dyn BaseGateOps<N>;
+    fn one_line_in_common_range(
+        &self,
+        r: &mut RegionAux<'_, '_, N>,
+        base_coeff_pairs: Vec<(ValueSchema<N>, N)>,
+        constant: N,
+        mul_next_coeffs: (Vec<N>, N),
+    ) -> Result<Vec<AssignedValue<N>>, Error>;
+
+    fn one_line_in_w_ceil_leading_range(
+        &self,
+        r: &mut RegionAux<'_, '_, N>,
+        base_coeff_pairs: Vec<(ValueSchema<N>, N)>,
+        constant: N,
+        mul_next_coeffs: (Vec<N>, N),
+    ) -> Result<Vec<AssignedValue<N>>, Error>;
+
+    fn one_line_in_n_floor_leading_range(
+        &self,
+        r: &mut RegionAux<'_, '_, N>,
+        base_coeff_pairs: Vec<(ValueSchema<N>, N)>,
+        constant: N,
+        mul_next_coeffs: (Vec<N>, N),
+    ) -> Result<Vec<AssignedValue<N>>, Error>;
+
+    fn one_line_in_d_leading_range(
+        &self,
+        r: &mut RegionAux<'_, '_, N>,
+        base_coeff_pairs: Vec<(ValueSchema<N>, N)>,
+        constant: N,
+        mul_next_coeffs: (Vec<N>, N),
+    ) -> Result<Vec<AssignedValue<N>>, Error>;
+}
+
+impl<
+        'a,
+        W: FieldExt,
+        N: FieldExt,
+        const VAR_COLUMNS: usize,
+        const MUL_COLUMNS: usize,
+        const COMMON_RANGE_BITS: usize,
+    > RangeGateOps<W, N> for RangeGate<'a, W, N, VAR_COLUMNS, MUL_COLUMNS, COMMON_RANGE_BITS>
+{
+    fn one_line_in_common_range(
+        &self,
+        r: &mut RegionAux<'_, '_, N>,
+        base_coeff_pairs: Vec<(ValueSchema<N>, N)>,
+        constant: N,
+        mul_next_coeffs: (Vec<N>, N),
+    ) -> Result<Vec<AssignedValue<N>>, Error> {
+        self.config
+            .common_range_selector
+            .enable(r.region, *r.offset)?;
+        let assigned_values =
+            self.base_gate
+                .one_line(r, base_coeff_pairs, constant, mul_next_coeffs)?;
+
+        Ok(assigned_values)
+    }
+
+    fn one_line_in_w_ceil_leading_range(
+        &self,
+        r: &mut RegionAux<'_, '_, N>,
+        base_coeff_pairs: Vec<(ValueSchema<N>, N)>,
+        constant: N,
+        mul_next_coeffs: (Vec<N>, N),
+    ) -> Result<Vec<AssignedValue<N>>, Error> {
+        self.config
+            .common_range_selector
+            .enable(r.region, *r.offset)?;
+        self.config
+            .w_ceil_leading_limb_range_selector
+            .enable(r.region, *r.offset)?;
+        let assigned_values =
+            self.base_gate
+                .one_line(r, base_coeff_pairs, constant, mul_next_coeffs)?;
+
+        Ok(assigned_values)
+    }
+
+    fn one_line_in_n_floor_leading_range(
+        &self,
+        r: &mut RegionAux<'_, '_, N>,
+        base_coeff_pairs: Vec<(ValueSchema<N>, N)>,
+        constant: N,
+        mul_next_coeffs: (Vec<N>, N),
+    ) -> Result<Vec<AssignedValue<N>>, Error> {
+        self.config
+            .common_range_selector
+            .enable(r.region, *r.offset)?;
+        self.config
+            .n_floor_leading_limb_range_selector
+            .enable(r.region, *r.offset)?;
+        let assigned_values =
+            self.base_gate
+                .one_line(r, base_coeff_pairs, constant, mul_next_coeffs)?;
+
+        Ok(assigned_values)
+    }
+
+    fn one_line_in_d_leading_range(
+        &self,
+        r: &mut RegionAux<'_, '_, N>,
+        base_coeff_pairs: Vec<(ValueSchema<N>, N)>,
+        constant: N,
+        mul_next_coeffs: (Vec<N>, N),
+    ) -> Result<Vec<AssignedValue<N>>, Error> {
+        self.config
+            .common_range_selector
+            .enable(r.region, *r.offset)?;
+        self.config
+            .d_leading_limb_range_selector
+            .enable(r.region, *r.offset)?;
+        let assigned_values =
+            self.base_gate
+                .one_line(r, base_coeff_pairs, constant, mul_next_coeffs)?;
+
+        Ok(assigned_values)
+    }
+
+    fn base_gate(&self) -> &'a dyn BaseGateOps<N> {
+        self.base_gate
+    }
+}
+
 impl<
         'a,
         W: FieldExt,
@@ -139,82 +265,5 @@ impl<
         )?;
 
         Ok(())
-    }
-
-    pub fn one_line_in_common_range(
-        &self,
-        r: &mut RegionAux<'_, '_, N>,
-        base_coeff_pairs: Vec<(ValueSchema<N>, N)>,
-        constant: N,
-        mul_next_coeffs: (Vec<N>, N),
-    ) -> Result<Vec<AssignedValue<N>>, Error> {
-        self.config
-            .common_range_selector
-            .enable(r.region, *r.offset)?;
-        let assigned_values =
-            self.base_gate
-                .one_line(r, base_coeff_pairs, constant, mul_next_coeffs)?;
-
-        Ok(assigned_values)
-    }
-
-    pub fn one_line_in_w_ceil_leading_range(
-        &self,
-        r: &mut RegionAux<'_, '_, N>,
-        base_coeff_pairs: Vec<(ValueSchema<N>, N)>,
-        constant: N,
-        mul_next_coeffs: (Vec<N>, N),
-    ) -> Result<Vec<AssignedValue<N>>, Error> {
-        self.config
-            .common_range_selector
-            .enable(r.region, *r.offset)?;
-        self.config
-            .w_ceil_leading_limb_range_selector
-            .enable(r.region, *r.offset)?;
-        let assigned_values =
-            self.base_gate
-                .one_line(r, base_coeff_pairs, constant, mul_next_coeffs)?;
-
-        Ok(assigned_values)
-    }
-
-    pub fn one_line_in_n_floor_leading_range(
-        &self,
-        r: &mut RegionAux<'_, '_, N>,
-        base_coeff_pairs: Vec<(ValueSchema<N>, N)>,
-        constant: N,
-        mul_next_coeffs: (Vec<N>, N),
-    ) -> Result<Vec<AssignedValue<N>>, Error> {
-        self.config
-            .common_range_selector
-            .enable(r.region, *r.offset)?;
-        self.config
-            .n_floor_leading_limb_range_selector
-            .enable(r.region, *r.offset)?;
-        let assigned_values =
-            self.base_gate
-                .one_line(r, base_coeff_pairs, constant, mul_next_coeffs)?;
-
-        Ok(assigned_values)
-    }
-
-    pub fn one_line_in_d_leading_range(
-        &self,
-        r: &mut RegionAux<'_, '_, N>,
-        base_coeff_pairs: Vec<(ValueSchema<N>, N)>,
-        constant: N,
-        mul_next_coeffs: (Vec<N>, N),
-    ) -> Result<Vec<AssignedValue<N>>, Error> {
-        self.config
-            .common_range_selector
-            .enable(r.region, *r.offset)?;
-        self.config
-            .d_leading_limb_range_selector
-            .enable(r.region, *r.offset)?;
-        let assigned_values =
-            self.base_gate
-                .one_line(r, base_coeff_pairs, constant, mul_next_coeffs)?;
-
-        Ok(assigned_values)
     }
 }

@@ -46,7 +46,7 @@ struct TestFiveColumnIntegerGateCircuit<W: FieldExt, N: FieldExt> {
 impl<W: FieldExt, N: FieldExt> TestFiveColumnIntegerGateCircuit<W, N> {
     fn setup_test_add(
         &self,
-        integer_gate: &FiveColumnIntegerGate<'_, '_, W, N>,
+        integer_gate: &FiveColumnIntegerGate<'_, W, N>,
         r: &mut RegionAux<'_, '_, N>,
     ) -> Result<(), Error> {
         let seed = chrono::offset::Utc::now()
@@ -69,7 +69,7 @@ impl<W: FieldExt, N: FieldExt> TestFiveColumnIntegerGateCircuit<W, N> {
 
     fn setup_test_sub(
         &self,
-        integer_gate: &FiveColumnIntegerGate<'_, '_, W, N>,
+        integer_gate: &FiveColumnIntegerGate<'_, W, N>,
         r: &mut RegionAux<'_, '_, N>,
     ) -> Result<(), Error> {
         let seed = chrono::offset::Utc::now()
@@ -92,7 +92,7 @@ impl<W: FieldExt, N: FieldExt> TestFiveColumnIntegerGateCircuit<W, N> {
 
     fn setup_test_neg(
         &self,
-        integer_gate: &FiveColumnIntegerGate<'_, '_, W, N>,
+        integer_gate: &FiveColumnIntegerGate<'_, W, N>,
         r: &mut RegionAux<'_, '_, N>,
     ) -> Result<(), Error> {
         let seed = chrono::offset::Utc::now()
@@ -113,7 +113,7 @@ impl<W: FieldExt, N: FieldExt> TestFiveColumnIntegerGateCircuit<W, N> {
 
     fn setup_test_mul(
         &self,
-        integer_gate: &FiveColumnIntegerGate<'_, '_, W, N>,
+        integer_gate: &FiveColumnIntegerGate<'_, W, N>,
         r: &mut RegionAux<'_, '_, N>,
     ) -> Result<(), Error> {
         let seed = chrono::offset::Utc::now()
@@ -136,7 +136,7 @@ impl<W: FieldExt, N: FieldExt> TestFiveColumnIntegerGateCircuit<W, N> {
 
     fn setup_test_div(
         &self,
-        integer_gate: &FiveColumnIntegerGate<'_, '_, W, N>,
+        integer_gate: &FiveColumnIntegerGate<'_, W, N>,
         r: &mut RegionAux<'_, '_, N>,
     ) -> Result<(), Error> {
         let seed = chrono::offset::Utc::now()
@@ -157,20 +157,20 @@ impl<W: FieldExt, N: FieldExt> TestFiveColumnIntegerGateCircuit<W, N> {
         let (cond, res) = integer_gate.div(r, &mut assigned_a, &mut assigned_b)?;
         integer_gate.assert_equal(r, &assigned_c, &res)?;
         integer_gate
-            .base_gate
+            .base_gate()
             .assert_constant(r, &cond.into(), N::zero())?;
 
         let (cond, res) = integer_gate.div(r, &mut assigned_a, &mut assigned_zero)?;
         integer_gate.assert_equal(r, &assigned_zero, &res)?;
         integer_gate
-            .base_gate
+            .base_gate()
             .assert_constant(r, &cond.into(), N::one())?;
         Ok(())
     }
 
     fn setup_test_is_zero(
         &self,
-        integer_gate: &FiveColumnIntegerGate<'_, '_, W, N>,
+        integer_gate: &FiveColumnIntegerGate<'_, W, N>,
         r: &mut RegionAux<'_, '_, N>,
     ) -> Result<(), Error> {
         let seed = chrono::offset::Utc::now()
@@ -191,13 +191,13 @@ impl<W: FieldExt, N: FieldExt> TestFiveColumnIntegerGateCircuit<W, N> {
         let mut vzero = integer_gate.sub(r, &assigned_a, &assigned_a)?;
         let vtrue = integer_gate.is_zero(r, &mut vzero)?;
         integer_gate
-            .base_gate
+            .base_gate()
             .assert_constant(r, &(&vtrue).into(), one)?;
 
         let mut vnzero = integer_gate.sub(r, &assigned_a, &assigned_b)?;
         let vfalse = integer_gate.is_zero(r, &mut vnzero)?;
         integer_gate
-            .base_gate
+            .base_gate()
             .assert_constant(r, &(&vfalse).into(), zero)?;
 
         Ok(())
@@ -230,7 +230,10 @@ impl<W: FieldExt, N: FieldExt> Circuit<N> for TestFiveColumnIntegerGateCircuit<W
         mut layouter: impl Layouter<N>,
     ) -> Result<(), Error> {
         let base_gate = FiveColumnBaseGate::new(config.base_gate_config);
-        let range_gate = FiveColumnRangeGate::new(config.range_gate_config, &base_gate);
+        let range_gate = FiveColumnRangeGate::<'_, W, N, COMMON_RANGE_BITS>::new(
+            config.range_gate_config,
+            &base_gate,
+        );
         let integer_gate = FiveColumnIntegerGate::new(&range_gate);
 
         range_gate

@@ -1,10 +1,8 @@
 use super::base_gate::{AssignedCondition, BaseGateOps};
+use super::range_gate::RangeGateOps;
 use crate::FieldExt;
 use crate::{
-    gates::{
-        base_gate::{AssignedValue, RegionAux},
-        range_gate::RangeGate,
-    },
+    gates::base_gate::{AssignedValue, RegionAux},
     utils::{bn_to_field, field_to_bn, get_d_range_bits_in_mul},
 };
 use halo2_proofs::plonk::Error;
@@ -132,32 +130,9 @@ impl<W: FieldExt, N: FieldExt, const LIMBS: usize, const LIMB_WIDTH: usize>
     }
 }
 
-pub struct IntegerGate<
-    'a,
-    'b,
-    W: FieldExt,
-    N: FieldExt,
-    const VAR_COLUMNS: usize,
-    const MUL_COLUMNS: usize,
-    const COMMON_RANGE_BITS: usize,
-    const LIMBS: usize,
-    const LIMB_WIDTH: usize,
-> {
-    pub base_gate: &'a dyn BaseGateOps<N>,
-    pub range_gate: &'b RangeGate<'a, W, N, VAR_COLUMNS, MUL_COLUMNS, COMMON_RANGE_BITS>,
-    pub helper: IntegerGateHelper<W, N, LIMBS, LIMB_WIDTH>,
-}
-
-pub trait IntegerGateOps<
-    W: FieldExt,
-    N: FieldExt,
-    const VAR_COLUMNS: usize,
-    const MUL_COLUMNS: usize,
-    const COMMON_RANGE_BITS: usize,
-    const LIMBS: usize,
-    const LIMB_WIDTH: usize,
->
-{
+pub trait IntegerGateOps<W: FieldExt, N: FieldExt> {
+    fn base_gate(&self) -> &dyn BaseGateOps<N>;
+    fn range_gate(&self) -> &dyn RangeGateOps<W, N>;
     fn assign_nonleading_limb(&self, r: &mut RegionAux<N>, n: N)
         -> Result<AssignedValue<N>, Error>;
     fn assign_w_ceil_leading_limb(
@@ -172,24 +147,18 @@ pub trait IntegerGateOps<
     ) -> Result<AssignedValue<N>, Error>;
     fn assign_d_leading_limb(&self, r: &mut RegionAux<N>, n: N) -> Result<AssignedValue<N>, Error>;
     fn assign_w(&self, r: &mut RegionAux<N>, w: &W) -> Result<AssignedInteger<W, N>, Error>;
-    fn assign_d(
-        &self,
-        r: &mut RegionAux<N>,
-        v: &BigUint,
-    ) -> Result<[AssignedValue<N>; LIMBS], Error>;
+    fn assign_d(&self, r: &mut RegionAux<N>, v: &BigUint) -> Result<Vec<AssignedValue<N>>, Error>;
     fn assign_integer(
         &self,
         r: &mut RegionAux<N>,
         v: &BigUint,
-    ) -> Result<[AssignedValue<N>; LIMBS], Error>;
-
+    ) -> Result<Vec<AssignedValue<N>>, Error>;
     fn conditionally_reduce(
         &self,
         r: &mut RegionAux<N>,
         a: &mut AssignedInteger<W, N>,
     ) -> Result<(), Error>;
     fn reduce(&self, r: &mut RegionAux<N>, a: &mut AssignedInteger<W, N>) -> Result<(), Error>;
-
     fn native<'a>(
         &self,
         r: &mut RegionAux<N>,
@@ -250,23 +219,16 @@ pub trait IntegerGateOps<
     ) -> Result<AssignedInteger<W, N>, Error>;
 }
 
-impl<
-        'a,
-        'b,
-        W: FieldExt,
-        N: FieldExt,
-        const VAR_COLUMNS: usize,
-        const MUL_COLUMNS: usize,
-        const COMMON_RANGE_BITS: usize,
-        const LIMBS: usize,
-        const LIMB_WIDTH: usize,
-    > IntegerGate<'a, 'b, W, N, VAR_COLUMNS, MUL_COLUMNS, COMMON_RANGE_BITS, LIMBS, LIMB_WIDTH>
+pub struct IntegerGate<'a, W: FieldExt, N: FieldExt, const LIMBS: usize, const LIMB_WIDTH: usize> {
+    pub range_gate: &'a dyn RangeGateOps<W, N>,
+    pub helper: IntegerGateHelper<W, N, LIMBS, LIMB_WIDTH>,
+}
+
+impl<'a, W: FieldExt, N: FieldExt, const LIMBS: usize, const LIMB_WIDTH: usize>
+    IntegerGate<'a, W, N, LIMBS, LIMB_WIDTH>
 {
-    pub fn new(
-        range_gate: &'b RangeGate<'a, W, N, VAR_COLUMNS, MUL_COLUMNS, COMMON_RANGE_BITS>,
-    ) -> Self {
+    pub fn new(range_gate: &'a dyn RangeGateOps<W, N>) -> Self {
         Self {
-            base_gate: range_gate.base_gate,
             range_gate,
             helper: IntegerGateHelper::new(),
         }
