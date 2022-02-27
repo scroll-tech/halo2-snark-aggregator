@@ -13,16 +13,16 @@ use num_integer::Integer;
 use std::{marker::PhantomData, vec};
 
 #[derive(Clone)]
-pub struct AssignedInteger<W: FieldExt, N: FieldExt, const LIMBS: usize> {
-    pub limbs_le: [AssignedValue<N>; LIMBS],
+pub struct AssignedInteger<W: FieldExt, N: FieldExt> {
+    pub limbs_le: Vec<AssignedValue<N>>,
     pub native: Option<AssignedValue<N>>,
     pub overflows: usize,
 
     _phantom: PhantomData<W>,
 }
 
-impl<W: FieldExt, N: FieldExt, const LIMBS: usize> AssignedInteger<W, N, LIMBS> {
-    pub fn new(limbs_le: [AssignedValue<N>; LIMBS], overflows: usize) -> Self {
+impl<W: FieldExt, N: FieldExt> AssignedInteger<W, N> {
+    pub fn new(limbs_le: Vec<AssignedValue<N>>, overflows: usize) -> Self {
         Self {
             limbs_le,
             native: None,
@@ -171,7 +171,7 @@ pub trait IntegerGateOps<
         n: N,
     ) -> Result<AssignedValue<N>, Error>;
     fn assign_d_leading_limb(&self, r: &mut RegionAux<N>, n: N) -> Result<AssignedValue<N>, Error>;
-    fn assign_w(&self, r: &mut RegionAux<N>, w: &W) -> Result<AssignedInteger<W, N, LIMBS>, Error>;
+    fn assign_w(&self, r: &mut RegionAux<N>, w: &W) -> Result<AssignedInteger<W, N>, Error>;
     fn assign_d(
         &self,
         r: &mut RegionAux<N>,
@@ -186,75 +186,75 @@ pub trait IntegerGateOps<
     fn conditionally_reduce(
         &self,
         r: &mut RegionAux<N>,
-        a: &mut AssignedInteger<W, N, LIMBS>,
+        a: &mut AssignedInteger<W, N>,
     ) -> Result<(), Error>;
     fn reduce(
         &self,
         r: &mut RegionAux<N>,
-        a: &mut AssignedInteger<W, N, LIMBS>,
+        a: &mut AssignedInteger<W, N>,
     ) -> Result<(), Error>;
 
     fn native<'a>(
         &self,
         r: &mut RegionAux<N>,
-        a: &'a mut AssignedInteger<W, N, LIMBS>,
+        a: &'a mut AssignedInteger<W, N>,
     ) -> Result<&'a AssignedValue<N>, Error>;
     fn add(
         &self,
         r: &mut RegionAux<N>,
-        a: &AssignedInteger<W, N, LIMBS>,
-        b: &AssignedInteger<W, N, LIMBS>,
-    ) -> Result<AssignedInteger<W, N, LIMBS>, Error>;
+        a: &AssignedInteger<W, N>,
+        b: &AssignedInteger<W, N>,
+    ) -> Result<AssignedInteger<W, N>, Error>;
     fn sub(
         &self,
         r: &mut RegionAux<N>,
-        a: &AssignedInteger<W, N, LIMBS>,
-        b: &AssignedInteger<W, N, LIMBS>,
-    ) -> Result<AssignedInteger<W, N, LIMBS>, Error>;
+        a: &AssignedInteger<W, N>,
+        b: &AssignedInteger<W, N>,
+    ) -> Result<AssignedInteger<W, N>, Error>;
     fn neg(
         &self,
         r: &mut RegionAux<N>,
-        a: &AssignedInteger<W, N, LIMBS>,
-    ) -> Result<AssignedInteger<W, N, LIMBS>, Error>;
+        a: &AssignedInteger<W, N>,
+    ) -> Result<AssignedInteger<W, N>, Error>;
     fn mul(
         &self,
         r: &mut RegionAux<N>,
-        a: &mut AssignedInteger<W, N, LIMBS>,
-        b: &mut AssignedInteger<W, N, LIMBS>,
-    ) -> Result<AssignedInteger<W, N, LIMBS>, Error>;
+        a: &mut AssignedInteger<W, N>,
+        b: &mut AssignedInteger<W, N>,
+    ) -> Result<AssignedInteger<W, N>, Error>;
     fn div(
         &self,
         r: &mut RegionAux<N>,
-        a: &mut AssignedInteger<W, N, LIMBS>,
-        b: &mut AssignedInteger<W, N, LIMBS>,
-    ) -> Result<(AssignedCondition<N>, AssignedInteger<W, N, LIMBS>), Error>;
+        a: &mut AssignedInteger<W, N>,
+        b: &mut AssignedInteger<W, N>,
+    ) -> Result<(AssignedCondition<N>, AssignedInteger<W, N>), Error>;
     fn is_zero(
         &self,
         r: &mut RegionAux<N>,
-        a: &mut AssignedInteger<W, N, LIMBS>,
+        a: &mut AssignedInteger<W, N>,
     ) -> Result<AssignedCondition<N>, Error>;
     fn assigned_constant(
         &self,
         r: &mut RegionAux<N>,
         w: W,
-    ) -> Result<AssignedInteger<W, N, LIMBS>, Error>;
+    ) -> Result<AssignedInteger<W, N>, Error>;
     fn assert_equal(
         &self,
         r: &mut RegionAux<N>,
-        a: &AssignedInteger<W, N, LIMBS>,
-        b: &AssignedInteger<W, N, LIMBS>,
+        a: &AssignedInteger<W, N>,
+        b: &AssignedInteger<W, N>,
     ) -> Result<(), Error>;
     fn square(
         &self,
         r: &mut RegionAux<N>,
-        a: &mut AssignedInteger<W, N, LIMBS>,
-    ) -> Result<AssignedInteger<W, N, LIMBS>, Error>;
+        a: &mut AssignedInteger<W, N>,
+    ) -> Result<AssignedInteger<W, N>, Error>;
     fn mul_small_constant(
         &self,
         r: &mut RegionAux<N>,
-        a: &mut AssignedInteger<W, N, LIMBS>,
+        a: &mut AssignedInteger<W, N>,
         b: usize,
-    ) -> Result<AssignedInteger<W, N, LIMBS>, Error>;
+    ) -> Result<AssignedInteger<W, N>, Error>;
 }
 
 impl<

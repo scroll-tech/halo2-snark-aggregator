@@ -36,7 +36,7 @@ pub type FiveColumnIntegerGate<'a, 'b, W, N> = IntegerGate<
 >;
 
 impl<'a, 'b, W: FieldExt, N: FieldExt> FiveColumnIntegerGate<'a, 'b, W, N> {
-    fn find_w_modulus_ceil(&self, a: &AssignedInteger<W, N, LIMBS>) -> [BigUint; LIMBS] {
+    fn find_w_modulus_ceil(&self, a: &AssignedInteger<W, N>) -> [BigUint; LIMBS] {
         let max_a = (a.overflows + 1) * (BigUint::from(1u64) << self.helper.w_ceil_bits);
         let (n, rem) = max_a.div_rem(&self.helper.w_modulus);
         let n = if rem.gt(&BigUint::from(0u64)) {
@@ -61,7 +61,7 @@ impl<'a, 'b, W: FieldExt, N: FieldExt> FiveColumnIntegerGate<'a, 'b, W, N> {
     fn is_pure_zero(
         &self,
         r: &mut RegionAux<N>,
-        a: &AssignedInteger<W, N, LIMBS>,
+        a: &AssignedInteger<W, N>,
     ) -> Result<AssignedCondition<N>, Error> {
         let zero = N::zero();
         let one = N::one();
@@ -77,7 +77,7 @@ impl<'a, 'b, W: FieldExt, N: FieldExt> FiveColumnIntegerGate<'a, 'b, W, N> {
     fn is_pure_w_modulus(
         &self,
         r: &mut RegionAux<N>,
-        a: &mut AssignedInteger<W, N, LIMBS>,
+        a: &mut AssignedInteger<W, N>,
     ) -> Result<AssignedCondition<N>, Error> {
         let one = N::one();
         let native_a = self.native(r, a)?;
@@ -110,10 +110,10 @@ impl<'a, 'b, W: FieldExt, N: FieldExt> FiveColumnIntegerGate<'a, 'b, W, N> {
     fn add_constraints_for_mul_equation_on_limb0(
         &self,
         r: &mut RegionAux<N>,
-        a: &AssignedInteger<W, N, LIMBS>,
-        b: &AssignedInteger<W, N, LIMBS>,
+        a: &AssignedInteger<W, N>,
+        b: &AssignedInteger<W, N>,
         d: [AssignedValue<N>; LIMBS],
-        rem: &AssignedInteger<W, N, LIMBS>,
+        rem: &AssignedInteger<W, N>,
     ) -> Result<(), Error> {
         let zero = N::zero();
         let one = N::one();
@@ -259,10 +259,10 @@ impl<'a, 'b, W: FieldExt, N: FieldExt> FiveColumnIntegerGate<'a, 'b, W, N> {
     fn add_constraints_for_mul_equation_on_native(
         &self,
         r: &mut RegionAux<N>,
-        a: &mut AssignedInteger<W, N, LIMBS>,
-        b: &mut AssignedInteger<W, N, LIMBS>,
+        a: &mut AssignedInteger<W, N>,
+        b: &mut AssignedInteger<W, N>,
         d: [AssignedValue<N>; LIMBS],
-        rem: &mut AssignedInteger<W, N, LIMBS>,
+        rem: &mut AssignedInteger<W, N>,
     ) -> Result<(), Error> {
         let zero = N::zero();
         let one = N::one();
@@ -294,9 +294,9 @@ impl<'a, 'b, W: FieldExt, N: FieldExt> FiveColumnIntegerGate<'a, 'b, W, N> {
     fn add_constraints_for_square_equation_on_native(
         &self,
         r: &mut RegionAux<N>,
-        a: &mut AssignedInteger<W, N, LIMBS>,
+        a: &mut AssignedInteger<W, N>,
         d: [AssignedValue<N>; LIMBS],
-        rem: &mut AssignedInteger<W, N, LIMBS>,
+        rem: &mut AssignedInteger<W, N>,
     ) -> Result<(), Error> {
         let zero = N::zero();
         let one = N::one();
@@ -456,7 +456,7 @@ impl<'a, 'b, W: FieldExt, N: FieldExt>
         Ok(limbs.try_into().unwrap())
     }
 
-    fn assign_w(&self, r: &mut RegionAux<N>, v: &W) -> Result<AssignedInteger<W, N, LIMBS>, Error> {
+    fn assign_w(&self, r: &mut RegionAux<N>, v: &W) -> Result<AssignedInteger<W, N>, Error> {
         let limbs_value_le = self.helper.w_to_limb_n_le(v);
 
         let mut limbs = vec![];
@@ -495,7 +495,7 @@ impl<'a, 'b, W: FieldExt, N: FieldExt>
     fn reduce(
         &self,
         r: &mut RegionAux<N>,
-        a: &mut AssignedInteger<W, N, LIMBS>,
+        a: &mut AssignedInteger<W, N>,
     ) -> Result<(), Error> {
         if a.overflows == 0 {
             return Ok(());
@@ -599,7 +599,7 @@ impl<'a, 'b, W: FieldExt, N: FieldExt>
     fn conditionally_reduce(
         &self,
         r: &mut RegionAux<N>,
-        a: &mut AssignedInteger<W, N, LIMBS>,
+        a: &mut AssignedInteger<W, N>,
     ) -> Result<(), Error> {
         if a.overflows >= OVERFLOW_THRESHOLD {
             self.reduce(r, a)
@@ -611,7 +611,7 @@ impl<'a, 'b, W: FieldExt, N: FieldExt>
     fn native<'c>(
         &self,
         r: &mut RegionAux<N>,
-        a: &'c mut AssignedInteger<W, N, LIMBS>,
+        a: &'c mut AssignedInteger<W, N>,
     ) -> Result<&'c AssignedValue<N>, Error> {
         let new_native = match &mut a.native {
             Some(_) => None,
@@ -639,8 +639,8 @@ impl<'a, 'b, W: FieldExt, N: FieldExt>
     fn assert_equal(
         &self,
         r: &mut RegionAux<N>,
-        a: &AssignedInteger<W, N, LIMBS>,
-        b: &AssignedInteger<W, N, LIMBS>,
+        a: &AssignedInteger<W, N>,
+        b: &AssignedInteger<W, N>,
     ) -> Result<(), Error> {
         // TODO: can be optimized.
         let zero = N::zero();
@@ -656,9 +656,9 @@ impl<'a, 'b, W: FieldExt, N: FieldExt>
     fn add(
         &self,
         r: &mut RegionAux<N>,
-        a: &AssignedInteger<W, N, LIMBS>,
-        b: &AssignedInteger<W, N, LIMBS>,
-    ) -> Result<AssignedInteger<W, N, LIMBS>, Error> {
+        a: &AssignedInteger<W, N>,
+        b: &AssignedInteger<W, N>,
+    ) -> Result<AssignedInteger<W, N>, Error> {
         let mut limbs = vec![];
 
         for i in 0..LIMBS {
@@ -675,9 +675,9 @@ impl<'a, 'b, W: FieldExt, N: FieldExt>
     fn sub(
         &self,
         r: &mut RegionAux<N>,
-        a: &AssignedInteger<W, N, LIMBS>,
-        b: &AssignedInteger<W, N, LIMBS>,
-    ) -> Result<AssignedInteger<W, N, LIMBS>, Error> {
+        a: &AssignedInteger<W, N>,
+        b: &AssignedInteger<W, N>,
+    ) -> Result<AssignedInteger<W, N>, Error> {
         let one = N::one();
         let upper_limbs = self.find_w_modulus_ceil(b);
 
@@ -700,8 +700,8 @@ impl<'a, 'b, W: FieldExt, N: FieldExt>
     fn neg(
         &self,
         r: &mut RegionAux<N>,
-        a: &AssignedInteger<W, N, LIMBS>,
-    ) -> Result<AssignedInteger<W, N, LIMBS>, Error> {
+        a: &AssignedInteger<W, N>,
+    ) -> Result<AssignedInteger<W, N>, Error> {
         let one = N::one();
         let upper_limbs = self.find_w_modulus_ceil(a);
 
@@ -724,9 +724,9 @@ impl<'a, 'b, W: FieldExt, N: FieldExt>
     fn mul(
         &self,
         r: &mut RegionAux<N>,
-        a: &mut AssignedInteger<W, N, LIMBS>,
-        b: &mut AssignedInteger<W, N, LIMBS>,
-    ) -> Result<AssignedInteger<W, N, LIMBS>, Error> {
+        a: &mut AssignedInteger<W, N>,
+        b: &mut AssignedInteger<W, N>,
+    ) -> Result<AssignedInteger<W, N>, Error> {
         let a_bn = a.bn(&self.helper.limb_modulus);
         let b_bn = b.bn(&self.helper.limb_modulus);
         let (d, rem) = (a_bn * b_bn).div_rem(&self.helper.w_modulus);
@@ -743,8 +743,8 @@ impl<'a, 'b, W: FieldExt, N: FieldExt>
     fn square(
         &self,
         r: &mut RegionAux<N>,
-        a: &mut AssignedInteger<W, N, LIMBS>,
-    ) -> Result<AssignedInteger<W, N, LIMBS>, Error> {
+        a: &mut AssignedInteger<W, N>,
+    ) -> Result<AssignedInteger<W, N>, Error> {
         let a_bn = a.bn(&self.helper.limb_modulus);
         let (d, rem) = (&a_bn * &a_bn).div_rem(&self.helper.w_modulus);
 
@@ -760,9 +760,9 @@ impl<'a, 'b, W: FieldExt, N: FieldExt>
     fn div(
         &self,
         r: &mut RegionAux<N>,
-        a: &mut AssignedInteger<W, N, LIMBS>,
-        b: &mut AssignedInteger<W, N, LIMBS>,
-    ) -> Result<(AssignedCondition<N>, AssignedInteger<W, N, LIMBS>), Error> {
+        a: &mut AssignedInteger<W, N>,
+        b: &mut AssignedInteger<W, N>,
+    ) -> Result<(AssignedCondition<N>, AssignedInteger<W, N>), Error> {
         let is_b_zero = self.is_zero(r, b)?;
         let a_coeff = self.base_gate.not(r, &is_b_zero)?;
 
@@ -800,7 +800,7 @@ impl<'a, 'b, W: FieldExt, N: FieldExt>
         &self,
         r: &mut RegionAux<N>,
         w: W,
-    ) -> Result<AssignedInteger<W, N, LIMBS>, Error> {
+    ) -> Result<AssignedInteger<W, N>, Error> {
         let limbs_value = self.helper.w_to_limb_n_le(&w);
 
         let mut limbs = vec![];
@@ -815,7 +815,7 @@ impl<'a, 'b, W: FieldExt, N: FieldExt>
     fn is_zero(
         &self,
         r: &mut RegionAux<N>,
-        a: &mut AssignedInteger<W, N, LIMBS>,
+        a: &mut AssignedInteger<W, N>,
     ) -> Result<AssignedCondition<N>, Error> {
         self.reduce(r, a)?;
         let is_zero = self.is_pure_zero(r, &a)?;
@@ -827,9 +827,9 @@ impl<'a, 'b, W: FieldExt, N: FieldExt>
     fn mul_small_constant(
         &self,
         r: &mut RegionAux<N>,
-        a: &mut AssignedInteger<W, N, LIMBS>,
+        a: &mut AssignedInteger<W, N>,
         b: usize,
-    ) -> Result<AssignedInteger<W, N, LIMBS>, Error> {
+    ) -> Result<AssignedInteger<W, N>, Error> {
         assert!(b < OVERFLOW_LIMIT);
 
         let zero = N::zero();

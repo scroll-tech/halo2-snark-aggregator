@@ -7,24 +7,24 @@ use crate::FieldExt;
 use halo2_proofs::plonk::Error;
 
 #[derive(Clone)]
-pub struct AssignedCurvature<W: FieldExt, N: FieldExt, const LIMBS: usize> {
-    v: AssignedInteger<W, N, LIMBS>,
+pub struct AssignedCurvature<W: FieldExt, N: FieldExt> {
+    v: AssignedInteger<W, N>,
     z: AssignedCondition<N>,
 }
 
 #[derive(Clone)]
-pub struct AssignedPoint<W: FieldExt, N: FieldExt, const LIMBS: usize> {
-    x: AssignedInteger<W, N, LIMBS>,
-    y: AssignedInteger<W, N, LIMBS>,
+pub struct AssignedPoint<W: FieldExt, N: FieldExt> {
+    x: AssignedInteger<W, N>,
+    y: AssignedInteger<W, N>,
     z: AssignedCondition<N>,
 
-    curvature: Option<AssignedCurvature<W, N, LIMBS>>,
+    curvature: Option<AssignedCurvature<W, N>>,
 }
 
-impl<W: FieldExt, N: FieldExt, const LIMBS: usize> AssignedPoint<W, N, LIMBS> {
+impl<W: FieldExt, N: FieldExt> AssignedPoint<W, N> {
     pub fn new(
-        x: AssignedInteger<W, N, LIMBS>,
-        y: AssignedInteger<W, N, LIMBS>,
+        x: AssignedInteger<W, N>,
+        y: AssignedInteger<W, N>,
         z: AssignedCondition<N>,
     ) -> Self {
         Self {
@@ -35,7 +35,7 @@ impl<W: FieldExt, N: FieldExt, const LIMBS: usize> AssignedPoint<W, N, LIMBS> {
         }
     }
 
-    pub fn set_curvature(&mut self, curvature: AssignedCurvature<W, N, LIMBS>) {
+    pub fn set_curvature(&mut self, curvature: AssignedCurvature<W, N>) {
         self.curvature = Some(curvature);
     }
 }
@@ -105,17 +105,17 @@ pub trait EccGateOps<'c, W: FieldExt, N: FieldExt, const LIMBS: usize> {
     fn curvature(
         &self,
         r: &mut RegionAux<N>,
-        a: &mut AssignedPoint<W, N, LIMBS>,
-    ) -> Result<AssignedCurvature<W, N, LIMBS>, Error>;
+        a: &mut AssignedPoint<W, N>,
+    ) -> Result<AssignedCurvature<W, N>, Error>;
     fn add(
         &self,
         r: &mut RegionAux<N>,
-        a: &AssignedPoint<W, N, LIMBS>,
-        b: &AssignedPoint<W, N, LIMBS>,
-    ) -> Result<AssignedPoint<W, N, LIMBS>, Error>;
+        a: &AssignedPoint<W, N>,
+        b: &AssignedPoint<W, N>,
+    ) -> Result<AssignedPoint<W, N>, Error>;
     fn double(
         &self,
         r: &mut RegionAux<N>,
-        a: &AssignedPoint<W, N, LIMBS>,
-    ) -> Result<AssignedPoint<W, N, LIMBS>, Error>;
+        a: &AssignedPoint<W, N>,
+    ) -> Result<AssignedPoint<W, N>, Error>;
 }
