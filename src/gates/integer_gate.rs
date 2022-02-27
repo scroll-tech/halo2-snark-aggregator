@@ -1,3 +1,4 @@
+use super::base_gate::AssignedCondition;
 use crate::FieldExt;
 use crate::{
     gates::{
@@ -11,15 +12,11 @@ use num_bigint::BigUint;
 use num_integer::Integer;
 use std::{marker::PhantomData, vec};
 
-use super::base_gate::AssignedCondition;
-
-pub mod five;
-
 #[derive(Clone)]
 pub struct AssignedInteger<W: FieldExt, N: FieldExt, const LIMBS: usize> {
-    limbs_le: [AssignedValue<N>; LIMBS],
-    native: Option<AssignedValue<N>>,
-    overflows: usize,
+    pub limbs_le: [AssignedValue<N>; LIMBS],
+    pub native: Option<AssignedValue<N>>,
+    pub overflows: usize,
 
     _phantom: PhantomData<W>,
 }

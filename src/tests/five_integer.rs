@@ -1,11 +1,11 @@
-use crate::gates::base_gate::five::{FiveColumnBaseGate, FiveColumnBaseGateConfig};
 use crate::gates::base_gate::RegionAux;
-use crate::gates::integer_gate::five::FiveColumnIntegerGate;
+use crate::gates::five::base_gate::{FiveColumnBaseGate, FiveColumnBaseGateConfig};
+use crate::gates::five::integer_gate::FiveColumnIntegerGate;
+use crate::gates::five::range_gate::FiveColumnRangeGate;
 use crate::gates::integer_gate::IntegerGateOps;
-use crate::gates::range_gate::five::FiveColumnRangeGate;
 use crate::gates::range_gate::RangeGateConfig;
 use crate::FieldExt;
-use halo2_proofs::pasta::{Fq, Fp};
+use halo2_proofs::pasta::{Fp, Fq};
 use halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner},
     dev::MockProver,

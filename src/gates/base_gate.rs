@@ -6,8 +6,6 @@ use halo2_proofs::{
 };
 use std::marker::PhantomData;
 
-pub mod five;
-
 #[derive(Clone, Copy, Debug)]
 
 pub struct AssignedCondition<N: FieldExt> {

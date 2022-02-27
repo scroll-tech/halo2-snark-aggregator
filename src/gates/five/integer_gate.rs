@@ -1,10 +1,7 @@
-use super::{AssignedInteger, IntegerGate, IntegerGateOps};
+use crate::gates::integer_gate::{AssignedInteger, IntegerGate, IntegerGateOps};
 use crate::FieldExt;
 use crate::{
-    gates::base_gate::{
-        five::{MUL_COLUMNS, VAR_COLUMNS},
-        AssignedCondition, AssignedValue, RegionAux,
-    },
+    gates::base_gate::{AssignedCondition, AssignedValue, RegionAux},
     pair, pair_empty,
     utils::{bn_to_field, decompose_bn, field_to_bn},
     PREREQUISITE_CHECK,
@@ -12,6 +9,8 @@ use crate::{
 use halo2_proofs::plonk::Error;
 use num_bigint::BigUint;
 use num_integer::Integer;
+
+use super::base_gate::{MUL_COLUMNS, VAR_COLUMNS};
 
 const LIMBS: usize = 4usize;
 const LIMB_COMMON_WIDTH_OF_COMMON_RANGE: usize = 4usize;
@@ -362,7 +361,7 @@ impl<'a, 'b, W: FieldExt, N: FieldExt>
             let one = N::one();
 
             let bn = field_to_bn(&n);
-            let nchunks = leading_limb_bits.div_ceil(&COMMON_RANGE_BITS);
+            let nchunks = (leading_limb_bits + COMMON_RANGE_BITS - 1) / &COMMON_RANGE_BITS;
             assert!(nchunks < VAR_COLUMNS);
             let chunks = decompose_bn::<N>(&bn, COMMON_RANGE_BITS, nchunks);
 
@@ -393,7 +392,7 @@ impl<'a, 'b, W: FieldExt, N: FieldExt>
             let one = N::one();
 
             let bn = field_to_bn(&n);
-            let nchunks = leading_limb_bits.div_ceil(&COMMON_RANGE_BITS);
+            let nchunks = (leading_limb_bits + COMMON_RANGE_BITS - 1) / &COMMON_RANGE_BITS;
             assert!(nchunks < VAR_COLUMNS);
             let chunks = decompose_bn::<N>(&bn, COMMON_RANGE_BITS, nchunks);
             let mut schema: Vec<_> = chunks.into_iter().rev().map(|(a, b)| pair!(a, b)).collect();

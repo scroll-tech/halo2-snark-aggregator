@@ -1,4 +1,4 @@
-use crate::gates::base_gate::five::{
+use crate::gates::five::base_gate::{
     FiveColumnBaseGate, FiveColumnBaseGateConfig, MUL_COLUMNS, VAR_COLUMNS,
 };
 use crate::gates::base_gate::RegionAux;

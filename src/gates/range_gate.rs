@@ -10,21 +10,19 @@ use halo2_proofs::{
 use num_bigint::BigUint;
 use std::marker::PhantomData;
 
-pub mod five;
-
 #[derive(Clone, Debug)]
 pub struct RangeGateConfig {
-    w_ceil_leading_limb_range_selector: Selector,
-    w_ceil_leading_limb_range_table_column: TableColumn,
+    pub(crate) w_ceil_leading_limb_range_selector: Selector,
+    pub(crate) w_ceil_leading_limb_range_table_column: TableColumn,
 
-    n_floor_leading_limb_range_selector: Selector,
-    n_floor_leading_limb_range_table_column: TableColumn,
+    pub(crate) n_floor_leading_limb_range_selector: Selector,
+    pub(crate) n_floor_leading_limb_range_table_column: TableColumn,
 
-    d_leading_limb_range_selector: Selector, // range check for d, d * w + w_ceil <= lcm(integer_modulus, n)
-    d_leading_limb_range_table_column: TableColumn,
+    pub(crate) d_leading_limb_range_selector: Selector, // range check for d, d * w + w_ceil <= lcm(integer_modulus, n)
+    pub(crate) d_leading_limb_range_table_column: TableColumn,
 
-    common_range_selector: Selector,
-    common_range_table_column: TableColumn,
+    pub(crate) common_range_selector: Selector,
+    pub(crate) common_range_table_column: TableColumn,
 }
 
 pub struct RangeGate<
@@ -35,9 +33,9 @@ pub struct RangeGate<
     const MUL_COLUMNS: usize,
     const COMMON_RANGE_BITS: usize,
 > {
-    config: RangeGateConfig,
+    pub config: RangeGateConfig,
     pub base_gate: &'a BaseGate<N, VAR_COLUMNS, MUL_COLUMNS>,
-    _phantom: PhantomData<W>,
+    pub _phantom: PhantomData<W>,
 }
 
 impl<

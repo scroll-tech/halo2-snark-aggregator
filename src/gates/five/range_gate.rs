@@ -1,12 +1,11 @@
-use std::marker::PhantomData;
-
-use super::{RangeGate, RangeGateConfig};
-use crate::gates::base_gate::five::{
+use crate::gates::five::base_gate::{
     FiveColumnBaseGate, FiveColumnBaseGateConfig, MUL_COLUMNS, VAR_COLUMNS,
 };
+use crate::gates::range_gate::{RangeGate, RangeGateConfig};
 use crate::FieldExt;
 use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::poly::Rotation;
+use std::marker::PhantomData;
 
 // In each line of five base gate,
 // when enable common range selector, a0 a1 a2 a3 is limited by common range.
