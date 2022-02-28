@@ -1,4 +1,5 @@
 use crate::schema::ast::{CommitQuery, MultiOpenProof, EvaluationAST, SchemaItem};
+use crate::schema::utils::{RingUtils};
 use crate::schema::{SchemaGenerator, EvaluationProof, EvaluationQuery};
 use crate::arith::api::{ContextRing, ContextGroup};
 use std::fmt::Debug;
@@ -6,13 +7,121 @@ use std::marker::PhantomData;
 use std::iter;
 use crate::{commit, scalar};
 use super::{lookup, permutation};
+use halo2_proofs::plonk::Expression;
+use halo2_proofs::arithmetic::Field;
+use crate::{arith_in_ctx, infix2postfix};
+
+pub struct PlonkCommonSetup {
+    pub l: u32,
+    pub n: u32,
+}
+
+trait Evaluable<C, S, Error:Debug, SGate:ContextGroup<C, S, S, Error> + ContextRing<C, S, S, Error>> {
+    fn ctx_evaluate(
+        &self,
+        sgate: &SGate,
+        ctx: &mut C,
+        fixed: &impl Fn(usize) -> S,
+        advice: &impl Fn(usize) -> S,
+        instance: &impl Fn(usize) -> S,
+    ) -> S;
+}
+
+impl<C, S:Field, Error:Debug, SGate:ContextGroup<C, S, S, Error> + ContextRing<C, S, S, Error>>
+    Evaluable<C, S, Error, SGate> for Expression<S> {
+    fn ctx_evaluate(
+        &self,
+        sgate: &SGate,
+        ctx: &mut C,
+        fixed: &impl Fn(usize) -> S,
+        advice: &impl Fn(usize) -> S,
+        instance: &impl Fn(usize) -> S,
+        ) -> S {
+        match self {
+            Expression::Constant(scalar) => *scalar,
+            Expression::Selector(selector) => panic!("virtual selectors are removed during optimization"),
+            Expression::Fixed {
+                query_index,
+                column_index,
+                rotation,
+            } => fixed(*query_index),
+            Expression::Advice {
+                query_index,
+                column_index,
+                rotation,
+            } => advice(*query_index),
+            Expression::Instance {
+                query_index,
+                column_index,
+                rotation,
+            } => instance(*query_index),
+            Expression::Negated(a) => {
+                let a = &a.ctx_evaluate(
+                    sgate,
+                    ctx,
+                    fixed,
+                    advice,
+                    instance,
+                );
+                let zero = sgate.zero();
+                arith_in_ctx!([sgate, ctx] zero - a).unwrap()
+            }
+            Expression::Sum(a, b) => {
+                let a = &a.ctx_evaluate(
+                    sgate,
+                    ctx,
+                    fixed,
+                    advice,
+                    instance,
+                );
+                let b = &b.ctx_evaluate(
+                    sgate,
+                    ctx,
+                    fixed,
+                    advice,
+                    instance,
+                );
+                arith_in_ctx!([sgate, ctx] a + b).unwrap()
+            }
+            Expression::Product(a, b) => {
+                let a = &a.ctx_evaluate(
+                    sgate,
+                    ctx,
+                    fixed,
+                    advice,
+                    instance,
+                );
+                let b = &b.ctx_evaluate(
+                    sgate,
+                    ctx,
+                    fixed,
+                    advice,
+                    instance,
+                );
+                arith_in_ctx!([sgate, ctx] a * b).unwrap()
+            }
+            Expression::Scaled(a, f) => {
+                let a = &a.ctx_evaluate(
+                    sgate,
+                    ctx,
+                    fixed,
+                    advice,
+                    instance,
+                );
+                arith_in_ctx!([sgate, ctx] f * a).unwrap()
+            },
+        }
+    }
+}
 
 pub struct VerifierParams <
-    'a, C, S:Clone, P:Clone, Error:Debug,
+    'a, C, S:Field, P:Clone, Error:Debug,
     SGate: ContextGroup<C, S, S, Error> + ContextRing<C, S, S, Error>,
     PGate: ContextGroup<C, S, P, Error>,
 > {
     //public_wit: Vec<C::ScalarExt>,
+    pub gates: Vec<Vec<Expression<S>>>,
+    pub common: PlonkCommonSetup,
     pub lookup_evaluated: Vec<Vec<lookup::Evaluated<C, S, P, Error>>>,
     pub permutation_evaluated: Vec<permutation::Evaluated<'a, C, S, P, Error>>,
     pub instance_commitments: Vec<Vec<&'a P>>,
@@ -38,7 +147,7 @@ pub struct VerifierParams <
     pub _error: PhantomData<Error>
 }
 
-impl<'a, C:Clone, S:Clone, P:Clone,
+impl<'a, C:Clone, S:Field, P:Clone,
     Error:Debug,
     SGate: ContextGroup<C, S, S, Error> + ContextRing<C, S, S, Error>,
     PGate:ContextGroup<C, S, P, Error>>
@@ -48,11 +157,75 @@ impl<'a, C:Clone, S:Clone, P:Clone,
     }
     fn queries(
         &self,
-        ctx: &mut C,
+        sgate: &'a SGate,
+        ctx: &'a mut C,
         x: &'a S,
         x_inv: &'a S,
         x_next: &'a S,
     ) -> Result<Vec<EvaluationProof<'a, S, P>>, Error> {
+        let xns = sgate.pow_constant_vec(ctx, x, self.common.n);
+        let l_0 = x; //sgate.get_laguerre_commits
+        let l_last = x; //TODO
+        let l_blind = x; //TODO
+
+        let mut r = vec![];
+
+        /* All calculation relies on ctx thus FnMut for map does not work anymore */
+        for k in 0 .. self.advice_evals.len(){
+            let advice_evals = &self.advice_evals[k];
+            let instance_evals = &self.instance_evals[k];
+            let permutation = &self.permutation_evaluated[k];
+            let lookups = &self.lookup_evaluated[k];
+            for i in 0..self.gates.len() {
+                for j in 0..self.gates[i].len() {
+                    let poly = &self.gates[i][j];
+                    r.push(poly.ctx_evaluate(
+                            sgate,
+                            ctx,
+                            &|n| self.fixed_evals[n].clone(),
+                            &|n| advice_evals[n].clone(),
+                            &|n| instance_evals[n].clone(),
+                    ));
+                }
+            }
+            let p = permutation.expressions(
+                   //vk,
+                   //&vk.cs.permutation,
+                   //&permutations_common,
+                   //advice_evals,
+                   //fixed_evals,
+                   //instance_evals,
+                   sgate,
+                   ctx,
+                   l_0,
+                   l_last,
+                   l_blind,
+                   self.beta,
+                   self.gamma,
+                   //x,
+                ).unwrap();
+            r.extend(p);
+            for i in 0..lookups.len() {
+                let l = lookups[i].expressions(
+                    sgate,
+                    ctx,
+                    l_0,
+                    l_last,
+                    l_blind,
+                    //argument,
+                    //self.theta,
+                    self.beta,
+                    self.gamma,
+                    //advice_evals,
+                    //fixed_evals,
+                    //instance_evals,
+                ).unwrap();
+                r.extend(l);
+            }
+        }
+
+        //vanishing.verify(expressions, y, xn)
+
         let queries = self.instance_commitments.iter()
         .zip(self.instance_evals.iter())
         .zip(self.advice_commitments.iter())
@@ -112,7 +285,7 @@ impl<'a, C:Clone, S:Clone, P:Clone,
     }
 }
 
-impl<'a, C:Clone, S:Clone, P:Clone,
+impl<'a, C:Clone, S:Field, P:Clone,
     Error:Debug,
     SGate: ContextGroup<C, S, S, Error> + ContextRing<C, S, S, Error>,
     PGate:ContextGroup<C, S, P, Error>>
