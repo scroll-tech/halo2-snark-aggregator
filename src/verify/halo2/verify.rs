@@ -13,8 +13,8 @@ pub struct VerifierParams <
     PGate: ContextGroup<C, S, P, Error>,
 > {
     //public_wit: Vec<C::ScalarExt>,
-    pub lookup_evaluated: Vec<lookup::Evaluated<S, P>>,
-    pub permutation_evaluated: Vec<permutation::Evaluated<S, P>>,
+    pub lookup_evaluated: Vec<Vec<lookup::Evaluated<C, S, P, Error>>>,
+    pub permutation_evaluated: Vec<permutation::Evaluated<'a, C, S, P, Error>>,
     pub instance_commitments: Vec<Vec<&'a P>>,
     pub instance_evals: Vec<Vec<&'a S>>,
     pub instance_queries: Vec<(usize, usize)>,
@@ -46,7 +46,13 @@ impl<'a, C:Clone, S:Clone, P:Clone,
     fn rotate_omega(&self, at: usize) -> S {
         unimplemented!("rotate omega")
     }
-    fn queries(&self, ctx: &mut C) -> Result<Vec<EvaluationProof<'a, S, P>>, Error> {
+    fn queries(
+        &self,
+        ctx: &mut C,
+        x: &'a S,
+        x_inv: &'a S,
+        x_next: &'a S,
+    ) -> Result<Vec<EvaluationProof<'a, S, P>>, Error> {
         let queries = self.instance_commitments.iter()
         .zip(self.instance_evals.iter())
         .zip(self.advice_commitments.iter())
@@ -80,15 +86,13 @@ impl<'a, C:Clone, S:Clone, P:Clone,
                             )
                         },
                     ))
-                    /*
-                    .chain(permutation.queries(vk, x))
+                    .chain(permutation.queries())
                     .chain(
                         lookups
                             .iter()
-                            .flat_map(move |p| p.queries(vk, x))
+                            .flat_map(move |p| p.queries(x, x_inv, x_next))
                             .into_iter(),
                     )
-                    */
             },
         )
         .chain(

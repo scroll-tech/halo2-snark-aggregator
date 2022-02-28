@@ -1,5 +1,5 @@
 use crate::arith::api::{ContextGroup, ContextRing};
-use crate::schema::CurveArith;
+use crate::schema::{EvaluationQuery};
 
 use crate::{arith_in_ctx, infix2postfix};
 use std::fmt::Debug;
@@ -16,51 +16,36 @@ pub struct Committed<P> {
     product_commitment: P,
 }
 
-pub struct Evaluated<S, P> {
+pub struct Evaluated<C, S, P, Error> {
     committed: Committed<P>,
     product_eval: S,      // X
     product_next_eval: S, // ωX
     permuted_input_eval: S,
     permuted_input_inv_eval: S,
     permuted_table_eval: S,
+    _m: PhantomData<(C, Error)>,
 }
 
-struct LookupSchema<'a, C, S: Clone, P: Clone, Error: Debug, Curve: CurveArith<C, S, P, Error>> {
-    advice_evals: &'a [S],
-    fixed_evals: &'a [S],
-    instance_evals: &'a [S],
-    l_0: S,
-    l_last: S,
-    l_blind: S,
-    beta: S,
-    gamma: S,
-    _m: PhantomData<(C, P, Error, Curve)>,
-}
-
-impl<'a, C, S: Clone, P: Clone, Error: Debug, Curve: CurveArith<C, S, P, Error>>
-    LookupSchema<'a, C, S, P, Error, Curve>
-{
+impl<C, S:Clone, P:Clone, Error:Debug> Evaluated<C, S, P, Error> {
     pub(in crate::verify::halo2) fn expressions(
-        &'a self,
-        evaluated: Evaluated<S, P>,
-        sgate: &Curve::ScalarGate,
+        &self,
+        sgate: &(impl ContextGroup<C, S, S, Error> + ContextRing<C, S, S, Error>),
         ctx: &mut C,
-    ) -> Result<impl Iterator<Item = S> + 'a, Error> {
+        l_0: &S,
+        l_last: &S,
+        l_blind: &S,
+        beta: &S,
+        gamma: &S,
+    ) -> Result<impl Iterator<Item = S>, Error> {
         let _zero = sgate.zero(ctx)?;
         let _one = sgate.one(ctx)?;
         let zero = &_zero;
         let one = &_one;
-        let beta = &self.beta;
-        let gamma = &self.gamma;
-        let z_wx = &evaluated.product_next_eval;
-
-        let z_x = &evaluated.product_eval;
-        let l_0 = &self.l_0;
-        let l_last = &self.l_last;
-        let l_blind = &self.l_blind;
-        let a_x = &evaluated.permuted_input_eval;
-        let s_x = &evaluated.permuted_table_eval;
-        let a_invwx = &evaluated.permuted_input_inv_eval;
+        let z_wx = &self.product_next_eval;
+        let z_x = &self.product_eval;
+        let a_x = &self.permuted_input_eval;
+        let s_x = &self.permuted_table_eval;
+        let a_invwx = &self.permuted_input_inv_eval;
 
         let left = arith_in_ctx!([sgate, ctx] z_wx * (a_x + beta) * (s_x + gamma));
 
@@ -93,4 +78,44 @@ impl<'a, C, S: Clone, P: Clone, Error: Debug, Curve: CurveArith<C, S, P, Error>>
                 ),
             ))
     }
+
+    pub(in crate::verify::halo2) fn queries<'a>(
+        &'a self,
+        x: &'a S,
+        x_inv: &'a S,
+        x_next: &'a S,
+    ) -> impl Iterator<Item = EvaluationQuery<'a, S, P>> {
+        iter::empty()
+            // Open lookup product commitment at x
+            .chain(Some(EvaluationQuery::new(
+                x.clone(),
+                &self.committed.product_commitment,
+                &self.product_eval,
+            )))
+            // Open lookup input commitments at x
+            .chain(Some(EvaluationQuery::new(
+                x.clone(),
+                &self.committed.permuted.permuted_input_commitment,
+                &self.permuted_input_eval,
+            )))
+            // Open lookup table commitments at x
+            .chain(Some(EvaluationQuery::new(
+                x.clone(),
+                &self.committed.permuted.permuted_table_commitment,
+                &self.permuted_table_eval,
+            )))
+            // Open lookup input commitments at \omega^{-1} x
+            .chain(Some(EvaluationQuery::new(
+                x_inv.clone(),
+                &self.committed.permuted.permuted_input_commitment,
+                &self.permuted_input_inv_eval,
+            )))
+            // Open lookup product commitment at \omega x
+            .chain(Some(EvaluationQuery::new(
+                x_next.clone(),
+                &self.committed.product_commitment,
+                &self.product_next_eval,
+            )))
+    }
+
 }

@@ -11,6 +11,7 @@ pub fn bn_to_field<F: FieldExt>(bn: &BigUint) -> F {
     F::from_str_vartime(&bn.to_str_radix(10)[..]).unwrap()
 }
 
+#[macro_export]
 macro_rules! parse_point {
     ($x:tt, $y:tt, $z:tt) => {{
         let x = BigUint::from_bytes_be($x);
