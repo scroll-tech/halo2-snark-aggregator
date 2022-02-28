@@ -2,7 +2,7 @@ use crate::gates::five::base_gate::{
     FiveColumnBaseGate, FiveColumnBaseGateConfig, MUL_COLUMNS, VAR_COLUMNS,
 };
 use crate::gates::range_gate::{RangeGate, RangeGateConfig};
-use crate::FieldExt;
+use halo2_proofs::arithmetic::{BaseExt, FieldExt};
 use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::poly::Rotation;
 use std::marker::PhantomData;
@@ -25,7 +25,7 @@ use std::marker::PhantomData;
 pub type FiveColumnRangeGate<'a, W, N, const COMMON_RANGE_BITS: usize> =
     RangeGate<'a, W, N, VAR_COLUMNS, MUL_COLUMNS, COMMON_RANGE_BITS>;
 
-impl<'a, W: FieldExt, N: FieldExt, const COMMON_RANGE_BITS: usize>
+impl<'a, W: BaseExt, N: FieldExt, const COMMON_RANGE_BITS: usize>
     FiveColumnRangeGate<'a, W, N, COMMON_RANGE_BITS>
 {
     pub fn new(config: RangeGateConfig, base_gate: &'a FiveColumnBaseGate<N>) -> Self {
@@ -46,7 +46,7 @@ impl<'a, W: FieldExt, N: FieldExt, const COMMON_RANGE_BITS: usize>
         base_gate_config.base[0..VAR_COLUMNS - 1]
             .iter()
             .for_each(|column| {
-                meta.lookup(|meta| {
+                meta.lookup("common range", |meta| {
                     let exp = meta.query_advice(column.clone(), Rotation::cur());
                     let s = meta.query_selector(common_range_selector);
                     vec![(exp * s, common_range_table_column)]
@@ -56,7 +56,7 @@ impl<'a, W: FieldExt, N: FieldExt, const COMMON_RANGE_BITS: usize>
         let w_ceil_leading_limb_range_selector = meta.complex_selector();
         let w_ceil_leading_limb_range_table_column = meta.lookup_table_column();
 
-        meta.lookup(|meta| {
+        meta.lookup("w ceil leading limb range", |meta| {
             let exp = meta.query_advice(base_gate_config.base[0].clone(), Rotation::cur());
             let s = meta.query_selector(w_ceil_leading_limb_range_selector);
             vec![(exp * s, w_ceil_leading_limb_range_table_column)]
@@ -65,7 +65,7 @@ impl<'a, W: FieldExt, N: FieldExt, const COMMON_RANGE_BITS: usize>
         let n_floor_leading_limb_range_selector = meta.complex_selector();
         let n_floor_leading_limb_range_table_column = meta.lookup_table_column();
 
-        meta.lookup(|meta| {
+        meta.lookup("n floor leading limb range", |meta| {
             let exp = meta.query_advice(base_gate_config.base[0].clone(), Rotation::cur());
             let s = meta.query_selector(n_floor_leading_limb_range_selector);
             vec![(exp * s, n_floor_leading_limb_range_table_column)]
@@ -74,7 +74,7 @@ impl<'a, W: FieldExt, N: FieldExt, const COMMON_RANGE_BITS: usize>
         let d_leading_limb_range_selector = meta.complex_selector();
         let d_leading_limb_range_table_column = meta.lookup_table_column();
 
-        meta.lookup(|meta| {
+        meta.lookup("d leading limb range", |meta| {
             let exp = meta.query_advice(base_gate_config.base[0].clone(), Rotation::cur());
             let s = meta.query_selector(d_leading_limb_range_selector);
             vec![(exp * s, d_leading_limb_range_table_column)]

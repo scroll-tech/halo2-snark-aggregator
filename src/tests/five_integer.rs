@@ -4,13 +4,13 @@ use crate::gates::five::integer_gate::FiveColumnIntegerGate;
 use crate::gates::five::range_gate::FiveColumnRangeGate;
 use crate::gates::integer_gate::IntegerGateOps;
 use crate::gates::range_gate::RangeGateConfig;
-use crate::FieldExt;
-use halo2_proofs::pasta::{Fp, Fq};
+use halo2_proofs::arithmetic::{BaseExt, FieldExt};
 use halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner},
     dev::MockProver,
     plonk::{Circuit, ConstraintSystem, Error},
 };
+use pairing_bn256::bn256::{Fq, Fr};
 use rand::SeedableRng;
 use rand_xorshift::XorShiftRng;
 use std::marker::PhantomData;
@@ -37,13 +37,13 @@ struct TestFiveColumnIntegerGateConfig {
 }
 
 #[derive(Default)]
-struct TestFiveColumnIntegerGateCircuit<W: FieldExt, N: FieldExt> {
+struct TestFiveColumnIntegerGateCircuit<W: BaseExt, N: FieldExt> {
     test_case: TestCase,
     _phantom_w: PhantomData<W>,
     _phantom_n: PhantomData<N>,
 }
 
-impl<W: FieldExt, N: FieldExt> TestFiveColumnIntegerGateCircuit<W, N> {
+impl<W: BaseExt, N: FieldExt> TestFiveColumnIntegerGateCircuit<W, N> {
     fn setup_test_add(
         &self,
         integer_gate: &FiveColumnIntegerGate<'_, W, N>,
@@ -58,9 +58,9 @@ impl<W: FieldExt, N: FieldExt> TestFiveColumnIntegerGateCircuit<W, N> {
         let a = W::random(rng.clone());
         let b = W::random(rng.clone());
         let c = a + b;
-        let assigned_a = integer_gate.assigned_constant(r, a)?;
-        let assigned_b = integer_gate.assigned_constant(r, b)?;
-        let assigned_c = integer_gate.assigned_constant(r, c)?;
+        let assigned_a = integer_gate.assign_constant(r, a)?;
+        let assigned_b = integer_gate.assign_constant(r, b)?;
+        let assigned_c = integer_gate.assign_constant(r, c)?;
 
         let res = integer_gate.add(r, &assigned_a, &assigned_b)?;
         integer_gate.assert_equal(r, &assigned_c, &res)?;
@@ -81,9 +81,9 @@ impl<W: FieldExt, N: FieldExt> TestFiveColumnIntegerGateCircuit<W, N> {
         let b = W::random(rng.clone());
         let c = a - b;
 
-        let assigned_a = integer_gate.assigned_constant(r, a)?;
-        let assigned_b = integer_gate.assigned_constant(r, b)?;
-        let assigned_c = integer_gate.assigned_constant(r, c)?;
+        let assigned_a = integer_gate.assign_constant(r, a)?;
+        let assigned_b = integer_gate.assign_constant(r, b)?;
+        let assigned_c = integer_gate.assign_constant(r, c)?;
 
         let res = integer_gate.sub(r, &assigned_a, &assigned_b)?;
         integer_gate.assert_equal(r, &assigned_c, &res)?;
@@ -103,8 +103,8 @@ impl<W: FieldExt, N: FieldExt> TestFiveColumnIntegerGateCircuit<W, N> {
         let a = W::random(rng.clone());
         let c = -a;
 
-        let assigned_a = integer_gate.assigned_constant(r, a)?;
-        let assigned_c = integer_gate.assigned_constant(r, c)?;
+        let assigned_a = integer_gate.assign_constant(r, a)?;
+        let assigned_c = integer_gate.assign_constant(r, c)?;
 
         let res = integer_gate.neg(r, &assigned_a)?;
         integer_gate.assert_equal(r, &assigned_c, &res)?;
@@ -125,9 +125,9 @@ impl<W: FieldExt, N: FieldExt> TestFiveColumnIntegerGateCircuit<W, N> {
         let b = W::random(rng.clone());
         let c = a * b;
 
-        let mut assigned_a = integer_gate.assigned_constant(r, a)?;
-        let mut assigned_b = integer_gate.assigned_constant(r, b)?;
-        let assigned_c = integer_gate.assigned_constant(r, c)?;
+        let mut assigned_a = integer_gate.assign_constant(r, a)?;
+        let mut assigned_b = integer_gate.assign_constant(r, b)?;
+        let assigned_c = integer_gate.assign_constant(r, c)?;
 
         let res = integer_gate.mul(r, &mut assigned_a, &mut assigned_b)?;
         integer_gate.assert_equal(r, &assigned_c, &res)?;
@@ -149,10 +149,10 @@ impl<W: FieldExt, N: FieldExt> TestFiveColumnIntegerGateCircuit<W, N> {
         let b = b.invert().unwrap_or(W::one());
         let c = a * b.invert().unwrap();
 
-        let mut assigned_a = integer_gate.assigned_constant(r, a)?;
-        let mut assigned_b = integer_gate.assigned_constant(r, b)?;
-        let assigned_c = integer_gate.assigned_constant(r, c)?;
-        let mut assigned_zero = integer_gate.assigned_constant(r, W::zero())?;
+        let mut assigned_a = integer_gate.assign_constant(r, a)?;
+        let mut assigned_b = integer_gate.assign_constant(r, b)?;
+        let assigned_c = integer_gate.assign_constant(r, c)?;
+        let mut assigned_zero = integer_gate.assign_constant(r, W::zero())?;
 
         let (cond, res) = integer_gate.div(r, &mut assigned_a, &mut assigned_b)?;
         integer_gate.assert_equal(r, &assigned_c, &res)?;
@@ -182,8 +182,8 @@ impl<W: FieldExt, N: FieldExt> TestFiveColumnIntegerGateCircuit<W, N> {
         let b = W::random(rng.clone());
         let b = if b == a { a + W::one() } else { b };
 
-        let assigned_a = integer_gate.assigned_constant(r, a)?;
-        let assigned_b = integer_gate.assigned_constant(r, b)?;
+        let assigned_a = integer_gate.assign_constant(r, a)?;
+        let assigned_b = integer_gate.assign_constant(r, b)?;
 
         let zero = N::zero();
         let one = N::one();
@@ -206,7 +206,7 @@ impl<W: FieldExt, N: FieldExt> TestFiveColumnIntegerGateCircuit<W, N> {
 
 const COMMON_RANGE_BITS: usize = 17usize;
 
-impl<W: FieldExt, N: FieldExt> Circuit<N> for TestFiveColumnIntegerGateCircuit<W, N> {
+impl<W: BaseExt, N: FieldExt> Circuit<N> for TestFiveColumnIntegerGateCircuit<W, N> {
     type Config = TestFiveColumnIntegerGateConfig;
     type FloorPlanner = SimpleFloorPlanner;
 
@@ -269,7 +269,7 @@ impl<W: FieldExt, N: FieldExt> Circuit<N> for TestFiveColumnIntegerGateCircuit<W
 #[test]
 fn test_five_column_integer_gate_add() {
     const K: u32 = (COMMON_RANGE_BITS + 1) as u32;
-    let circuit = TestFiveColumnIntegerGateCircuit::<Fq, Fp> {
+    let circuit = TestFiveColumnIntegerGateCircuit::<Fq, Fr> {
         test_case: TestCase::Add,
         _phantom_w: PhantomData,
         _phantom_n: PhantomData,
@@ -284,7 +284,7 @@ fn test_five_column_integer_gate_add() {
 #[test]
 fn test_five_column_integer_gate_sub() {
     const K: u32 = (COMMON_RANGE_BITS + 1) as u32;
-    let circuit = TestFiveColumnIntegerGateCircuit::<Fq, Fp> {
+    let circuit = TestFiveColumnIntegerGateCircuit::<Fq, Fr> {
         test_case: TestCase::Sub,
         _phantom_w: PhantomData,
         _phantom_n: PhantomData,
@@ -299,7 +299,7 @@ fn test_five_column_integer_gate_sub() {
 #[test]
 fn test_five_column_integer_gate_neg() {
     const K: u32 = (COMMON_RANGE_BITS + 1) as u32;
-    let circuit = TestFiveColumnIntegerGateCircuit::<Fq, Fp> {
+    let circuit = TestFiveColumnIntegerGateCircuit::<Fq, Fr> {
         test_case: TestCase::Neg,
         _phantom_w: PhantomData,
         _phantom_n: PhantomData,
@@ -314,7 +314,7 @@ fn test_five_column_integer_gate_neg() {
 #[test]
 fn test_five_column_integer_gate_mul() {
     const K: u32 = (COMMON_RANGE_BITS + 1) as u32;
-    let circuit = TestFiveColumnIntegerGateCircuit::<Fq, Fp> {
+    let circuit = TestFiveColumnIntegerGateCircuit::<Fq, Fr> {
         test_case: TestCase::Mul,
         _phantom_w: PhantomData,
         _phantom_n: PhantomData,
@@ -329,7 +329,7 @@ fn test_five_column_integer_gate_mul() {
 #[test]
 fn test_five_column_integer_gate_is_zero() {
     const K: u32 = (COMMON_RANGE_BITS + 1) as u32;
-    let circuit = TestFiveColumnIntegerGateCircuit::<Fq, Fp> {
+    let circuit = TestFiveColumnIntegerGateCircuit::<Fq, Fr> {
         test_case: TestCase::IsZero,
         _phantom_w: PhantomData,
         _phantom_n: PhantomData,
@@ -344,7 +344,7 @@ fn test_five_column_integer_gate_is_zero() {
 #[test]
 fn test_five_column_integer_gate_div() {
     const K: u32 = (COMMON_RANGE_BITS + 1) as u32;
-    let circuit = TestFiveColumnIntegerGateCircuit::<Fq, Fp> {
+    let circuit = TestFiveColumnIntegerGateCircuit::<Fq, Fr> {
         test_case: TestCase::Div,
         _phantom_w: PhantomData,
         _phantom_n: PhantomData,

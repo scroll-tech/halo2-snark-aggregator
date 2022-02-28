@@ -179,15 +179,18 @@ dependencies = [
 [[package]]
 name = "halo2_proofs"
 version = "0.1.0-beta.1"
-source = "git+https://github.com/zcash/halo2.git#b45180273e1fc0019ff9a333372a9bbbe89e7338"
+source = "git+https://github.com/appliedzkp/halo2.git#d0938ea675a41a61696fb8d4959eb7bff023813e"
 dependencies = [
  "blake2b_simd",
  "bumpalo",
+ "cfg-if 0.1.10",
  "ff",
  "group",
- "pasta_curves",
+ "pairing_bn256",
+ "rand",
  "rand_core",
  "rayon",
+ "subtle",
 ]
 
 [[package]]
@@ -288,21 +291,6 @@ dependencies = [
  "group",
  "rand",
  "rand_core",
- "static_assertions",
- "subtle",
-]
-
-[[package]]
-name = "pasta_curves"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "82b6fc4f73033f6aa52fdde0c38f1f570e7f2c244f22e441f62a144556891b8c"
-dependencies = [
- "blake2b_simd",
- "ff",
- "group",
- "lazy_static",
- "rand",
  "static_assertions",
  "subtle",
 ]

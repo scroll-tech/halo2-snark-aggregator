@@ -1,5 +1,5 @@
-use crate::FieldExt;
 use halo2_proofs::{
+    arithmetic::FieldExt,
     circuit::{Cell, Region},
     plonk::{Advice, Column, ConstraintSystem, Error, Fixed},
     poly::Rotation,
@@ -96,14 +96,17 @@ impl<'a, N: FieldExt> ValueSchema<'a, N> {
 #[macro_export]
 macro_rules! pair {
     ($x: expr, $y: expr) => {
-        (($x).into(), ($y))
+        (crate::gates::base_gate::ValueSchema::from($x), ($y))
     };
 }
 
 #[macro_export]
 macro_rules! pair_empty {
     ($N: tt) => {
-        ($N::zero().into(), $N::zero())
+        (
+            crate::gates::base_gate::ValueSchema::from($N::zero()),
+            $N::zero(),
+        )
     };
 }
 
@@ -456,18 +459,64 @@ pub trait BaseGateOps<N: FieldExt> {
         Ok((&cells[2]).into())
     }
 
-    fn bisec(&self, 
+    fn xor(
+        &self,
+        r: &mut RegionAux<'_, '_, N>,
+        a: &AssignedCondition<N>,
+        b: &AssignedCondition<N>,
+    ) -> Result<AssignedCondition<N>, Error> {
+        let zero = N::zero();
+        let one = N::one();
+        let two = one + one;
+        let c = a.value + b.value - two * a.value * b.value;
+        let a: AssignedValue<N> = a.into();
+        let b: AssignedValue<N> = b.into();
+        let cells = self.one_line(
+            r,
+            vec![pair!(&a, one), pair!(&b, one), pair!(c, -one)],
+            zero,
+            (vec![-two], zero),
+        )?;
+
+        Ok((&cells[2]).into())
+    }
+
+    fn xnor(
+        &self,
+        r: &mut RegionAux<'_, '_, N>,
+        a: &AssignedCondition<N>,
+        b: &AssignedCondition<N>,
+    ) -> Result<AssignedCondition<N>, Error> {
+        let zero = N::zero();
+        let one = N::one();
+        let two = one + one;
+        let c = one - a.value - b.value + two * a.value * b.value;
+        let a: AssignedValue<N> = a.into();
+        let b: AssignedValue<N> = b.into();
+        let cells = self.one_line(
+            r,
+            vec![pair!(&a, -one), pair!(&b, -one), pair!(c, -one)],
+            one,
+            (vec![two], zero),
+        )?;
+
+        Ok((&cells[2]).into())
+    }
+
+    fn bisec(
+        &self,
         r: &mut RegionAux<'_, '_, N>,
         cond: &AssignedCondition<N>,
         a: &AssignedValue<N>,
-        b: &AssignedValue<N>
+        b: &AssignedValue<N>,
     ) -> Result<AssignedValue<N>, Error>;
 
-    fn bisec_cond(&self, 
+    fn bisec_cond(
+        &self,
         r: &mut RegionAux<'_, '_, N>,
         cond: &AssignedCondition<N>,
         a: &AssignedCondition<N>,
-        b: &AssignedCondition<N>
+        b: &AssignedCondition<N>,
     ) -> Result<AssignedCondition<N>, Error> {
         let a = a.into();
         let b = b.into();

@@ -1,17 +1,15 @@
 use super::base_gate::{AssignedCondition, BaseGateOps};
 use super::range_gate::RangeGateOps;
-use crate::FieldExt;
-use crate::{
-    gates::base_gate::{AssignedValue, RegionAux},
-    utils::{bn_to_field, field_to_bn, get_d_range_bits_in_mul},
-};
+use crate::field::{bn_to_field, field_to_bn, get_d_range_bits_in_mul};
+use crate::gates::base_gate::{AssignedValue, RegionAux};
+use halo2_proofs::arithmetic::{BaseExt, FieldExt};
 use halo2_proofs::plonk::Error;
 use num_bigint::BigUint;
 use num_integer::Integer;
 use std::{marker::PhantomData, vec};
 
 #[derive(Clone)]
-pub struct AssignedInteger<W: FieldExt, N: FieldExt> {
+pub struct AssignedInteger<W: BaseExt, N: FieldExt> {
     pub limbs_le: Vec<AssignedValue<N>>,
     pub native: Option<AssignedValue<N>>,
     pub overflows: usize,
@@ -19,7 +17,7 @@ pub struct AssignedInteger<W: FieldExt, N: FieldExt> {
     _phantom: PhantomData<W>,
 }
 
-impl<W: FieldExt, N: FieldExt> AssignedInteger<W, N> {
+impl<W: BaseExt, N: FieldExt> AssignedInteger<W, N> {
     pub fn new(limbs_le: Vec<AssignedValue<N>>, overflows: usize) -> Self {
         Self {
             limbs_le,
@@ -49,8 +47,7 @@ impl<W: FieldExt, N: FieldExt> AssignedInteger<W, N> {
     }
 }
 
-pub struct IntegerGateHelper<W: FieldExt, N: FieldExt, const LIMBS: usize, const LIMB_WIDTH: usize>
-{
+pub struct IntegerGateHelper<W: BaseExt, N: FieldExt, const LIMBS: usize, const LIMB_WIDTH: usize> {
     pub limb_modulus: BigUint,
     pub integer_modulus: BigUint,
     pub limb_modulus_on_n: N,
@@ -65,7 +62,7 @@ pub struct IntegerGateHelper<W: FieldExt, N: FieldExt, const LIMBS: usize, const
     pub _phantom_w: PhantomData<W>,
 }
 
-impl<W: FieldExt, N: FieldExt, const LIMBS: usize, const LIMB_WIDTH: usize>
+impl<W: BaseExt, N: FieldExt, const LIMBS: usize, const LIMB_WIDTH: usize>
     IntegerGateHelper<W, N, LIMBS, LIMB_WIDTH>
 {
     pub fn w_to_limb_n_le(&self, w: &W) -> [N; LIMBS] {
@@ -130,7 +127,7 @@ impl<W: FieldExt, N: FieldExt, const LIMBS: usize, const LIMB_WIDTH: usize>
     }
 }
 
-pub trait IntegerGateOps<W: FieldExt, N: FieldExt> {
+pub trait IntegerGateOps<W: BaseExt, N: FieldExt> {
     fn base_gate(&self) -> &dyn BaseGateOps<N>;
     fn range_gate(&self) -> &dyn RangeGateOps<W, N>;
     fn assign_nonleading_limb(&self, r: &mut RegionAux<N>, n: N)
@@ -198,7 +195,16 @@ pub trait IntegerGateOps<W: FieldExt, N: FieldExt> {
         r: &mut RegionAux<N>,
         a: &mut AssignedInteger<W, N>,
     ) -> Result<AssignedCondition<N>, Error>;
-    fn assigned_constant(&self, r: &mut RegionAux<N>, w: W)
+    fn is_equal(
+        &self,
+        r: &mut RegionAux<N>,
+        a: &mut AssignedInteger<W, N>,
+        b: &mut AssignedInteger<W, N>,
+    ) -> Result<AssignedCondition<N>, Error> {
+        let mut diff = self.sub(r, a, b)?;
+        self.is_zero(r, &mut diff)
+    }
+    fn assign_constant(&self, r: &mut RegionAux<N>, w: W)
         -> Result<AssignedInteger<W, N>, Error>;
     fn assert_equal(
         &self,
@@ -226,12 +232,12 @@ pub trait IntegerGateOps<W: FieldExt, N: FieldExt> {
     ) -> Result<AssignedInteger<W, N>, Error>;
 }
 
-pub struct IntegerGate<'a, W: FieldExt, N: FieldExt, const LIMBS: usize, const LIMB_WIDTH: usize> {
+pub struct IntegerGate<'a, W: BaseExt, N: FieldExt, const LIMBS: usize, const LIMB_WIDTH: usize> {
     pub range_gate: &'a dyn RangeGateOps<W, N>,
     pub helper: IntegerGateHelper<W, N, LIMBS, LIMB_WIDTH>,
 }
 
-impl<'a, W: FieldExt, N: FieldExt, const LIMBS: usize, const LIMB_WIDTH: usize>
+impl<'a, W: BaseExt, N: FieldExt, const LIMBS: usize, const LIMB_WIDTH: usize>
     IntegerGate<'a, W, N, LIMBS, LIMB_WIDTH>
 {
     pub fn new(range_gate: &'a dyn RangeGateOps<W, N>) -> Self {

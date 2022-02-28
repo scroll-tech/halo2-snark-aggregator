@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 #![feature(trait_alias)]
+mod field;
 mod gates;
-mod utils;
 
 mod arith;
 mod schema;
@@ -11,5 +11,3 @@ mod verify;
 mod tests;
 
 pub const PREREQUISITE_CHECK: bool = true;
-
-pub trait FieldExt = halo2_proofs::arithmetic::FieldExt;

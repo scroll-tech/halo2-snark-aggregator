@@ -1,11 +1,11 @@
-use halo2_proofs::plonk::Error;
+use halo2_proofs::{plonk::Error, arithmetic::FieldExt};
 
 use crate::{
     gates::base_gate::{
-        AssignedCondition, AssignedValue, BaseGate, BaseGateConfig, BaseGateOps,
-        RegionAux, ValueSchema,
+        AssignedCondition, AssignedValue, BaseGate, BaseGateConfig, BaseGateOps, RegionAux,
+        ValueSchema,
     },
-    pair, FieldExt,
+    pair,
 };
 
 pub const VAR_COLUMNS: usize = 5;

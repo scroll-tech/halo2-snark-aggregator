@@ -1,9 +1,9 @@
-use crate::FieldExt;
 use crate::{
+    field::{field_to_bn, get_d_range_bits_in_mul},
     gates::base_gate::{AssignedValue, RegionAux, ValueSchema},
-    utils::{field_to_bn, get_d_range_bits_in_mul},
 };
 use halo2_proofs::{
+    arithmetic::{BaseExt, FieldExt},
     circuit::Layouter,
     plonk::{Error, Selector, TableColumn},
 };
@@ -29,7 +29,7 @@ pub struct RangeGateConfig {
 
 pub struct RangeGate<
     'a,
-    W: FieldExt,
+    W: BaseExt,
     N: FieldExt,
     const VAR_COLUMNS: usize,
     const MUL_COLUMNS: usize,
@@ -40,7 +40,7 @@ pub struct RangeGate<
     pub _phantom: PhantomData<W>,
 }
 
-pub trait RangeGateOps<W: FieldExt, N: FieldExt> {
+pub trait RangeGateOps<W: BaseExt, N: FieldExt> {
     fn base_gate(&self) -> &dyn BaseGateOps<N>;
     fn one_line_in_common_range(
         &self,
@@ -77,7 +77,7 @@ pub trait RangeGateOps<W: FieldExt, N: FieldExt> {
 
 impl<
         'a,
-        W: FieldExt,
+        W: BaseExt,
         N: FieldExt,
         const VAR_COLUMNS: usize,
         const MUL_COLUMNS: usize,
@@ -168,7 +168,7 @@ impl<
 
 impl<
         'a,
-        W: FieldExt,
+        W: BaseExt,
         N: FieldExt,
         const VAR_COLUMNS: usize,
         const MUL_COLUMNS: usize,

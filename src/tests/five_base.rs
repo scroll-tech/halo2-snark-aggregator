@@ -1,15 +1,15 @@
+use crate::gates::base_gate::{BaseGateOps, RegionAux};
 use crate::gates::five::base_gate::{
     FiveColumnBaseGate, FiveColumnBaseGateConfig, MUL_COLUMNS, VAR_COLUMNS,
 };
-use crate::gates::base_gate::{RegionAux, BaseGateOps};
 use crate::pair;
-use crate::FieldExt;
+use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner},
     dev::MockProver,
-    pasta::Fp,
     plonk::{Circuit, ConstraintSystem, Error},
 };
+use pairing_bn256::bn256::Fr;
 use rand::SeedableRng;
 use rand_xorshift::XorShiftRng;
 use std::marker::PhantomData;
@@ -393,7 +393,7 @@ impl<N: FieldExt> Circuit<N> for TestFiveColumnBaseGateCircuit<N> {
 #[test]
 fn test_five_column_base_gate_one_line() {
     const K: u32 = 8;
-    let circuit = TestFiveColumnBaseGateCircuit::<Fp> {
+    let circuit = TestFiveColumnBaseGateCircuit::<Fr> {
         test_case: TestCase::OneLine,
         _phantom: PhantomData,
     };
@@ -407,7 +407,7 @@ fn test_five_column_base_gate_one_line() {
 #[test]
 fn test_five_column_base_gate_sum_with_constant() {
     const K: u32 = 8;
-    let circuit = TestFiveColumnBaseGateCircuit::<Fp> {
+    let circuit = TestFiveColumnBaseGateCircuit::<Fr> {
         test_case: TestCase::SumWithConstant,
         _phantom: PhantomData,
     };
@@ -421,7 +421,7 @@ fn test_five_column_base_gate_sum_with_constant() {
 #[test]
 fn test_five_column_base_gate_add() {
     const K: u32 = 8;
-    let circuit = TestFiveColumnBaseGateCircuit::<Fp> {
+    let circuit = TestFiveColumnBaseGateCircuit::<Fr> {
         test_case: TestCase::Add,
         _phantom: PhantomData,
     };
@@ -435,7 +435,7 @@ fn test_five_column_base_gate_add() {
 #[test]
 fn test_five_column_base_gate_mul() {
     const K: u32 = 8;
-    let circuit = TestFiveColumnBaseGateCircuit::<Fp> {
+    let circuit = TestFiveColumnBaseGateCircuit::<Fr> {
         test_case: TestCase::Mul,
         _phantom: PhantomData,
     };
@@ -449,7 +449,7 @@ fn test_five_column_base_gate_mul() {
 #[test]
 fn test_five_column_base_gate_mul_add() {
     const K: u32 = 8;
-    let circuit = TestFiveColumnBaseGateCircuit::<Fp> {
+    let circuit = TestFiveColumnBaseGateCircuit::<Fr> {
         test_case: TestCase::MulAdd,
         _phantom: PhantomData,
     };
@@ -463,7 +463,7 @@ fn test_five_column_base_gate_mul_add() {
 #[test]
 fn test_five_column_base_gate_mul_add_with_next_line() {
     const K: u32 = 8;
-    let circuit = TestFiveColumnBaseGateCircuit::<Fp> {
+    let circuit = TestFiveColumnBaseGateCircuit::<Fr> {
         test_case: TestCase::MulAddWithNextLine,
         _phantom: PhantomData,
     };
@@ -477,7 +477,7 @@ fn test_five_column_base_gate_mul_add_with_next_line() {
 #[test]
 fn test_five_column_base_gate_mul_invert_unsafe() {
     const K: u32 = 8;
-    let circuit = TestFiveColumnBaseGateCircuit::<Fp> {
+    let circuit = TestFiveColumnBaseGateCircuit::<Fr> {
         test_case: TestCase::InvertUnsafe,
         _phantom: PhantomData,
     };
@@ -491,7 +491,7 @@ fn test_five_column_base_gate_mul_invert_unsafe() {
 #[test]
 fn test_five_column_base_gate_mul_div_unsafe() {
     const K: u32 = 8;
-    let circuit = TestFiveColumnBaseGateCircuit::<Fp> {
+    let circuit = TestFiveColumnBaseGateCircuit::<Fr> {
         test_case: TestCase::DivUnsafe,
         _phantom: PhantomData,
     };

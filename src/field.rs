@@ -1,13 +1,19 @@
-use crate::FieldExt;
+use group::ff::Field;
+use halo2_proofs::arithmetic::{BaseExt, FieldExt};
 use num_bigint::BigUint;
 use num_integer::Integer;
 
-pub fn field_to_bn<F: FieldExt>(f: &F) -> BigUint {
-    BigUint::from_bytes_le(f.to_repr().as_ref())
+pub fn field_to_bn<F: BaseExt>(f: &F) -> BigUint {
+    let mut bytes: Vec<u8> = Vec::new();
+    f.write(&mut bytes).unwrap();
+    BigUint::from_bytes_le(&bytes[..])
 }
 
-pub fn bn_to_field<F: FieldExt>(bn: &BigUint) -> F {
-    F::from_str_vartime(&bn.to_str_radix(10)[..]).unwrap()
+pub fn bn_to_field<F: BaseExt>(bn: &BigUint) -> F {
+    let mut bytes = bn.to_bytes_le();
+    bytes.resize(32, 0);
+    let mut bytes = &bytes[..];
+    F::read(&mut bytes).unwrap()
 }
 
 pub fn decompose_bn<F: FieldExt>(v: &BigUint, modulus_shift: usize, chunks: usize) -> Vec<(F, F)> {
@@ -26,7 +32,7 @@ pub fn decompose_bn<F: FieldExt>(v: &BigUint, modulus_shift: usize, chunks: usiz
         .collect()
 }
 
-pub fn get_d_range_bits_in_mul<W: FieldExt, N: FieldExt>(integer_modulus: &BigUint) -> usize {
+pub fn get_d_range_bits_in_mul<W: BaseExt, N: FieldExt>(integer_modulus: &BigUint) -> usize {
     let w_ceil_bits = field_to_bn(&-W::one()).bits() as usize + 1;
     let n_modulus = field_to_bn(&-N::one()) + 1usize;
     let lcm = integer_modulus.lcm(&n_modulus);

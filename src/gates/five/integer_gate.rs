@@ -1,13 +1,13 @@
 use crate::gates::base_gate::BaseGateOps;
 use crate::gates::integer_gate::{AssignedInteger, IntegerGate, IntegerGateOps};
 use crate::gates::range_gate::RangeGateOps;
-use crate::FieldExt;
 use crate::{
+    field::{bn_to_field, decompose_bn, field_to_bn},
     gates::base_gate::{AssignedCondition, AssignedValue, RegionAux},
-    pair, pair_empty,
-    utils::{bn_to_field, decompose_bn, field_to_bn},
-    PREREQUISITE_CHECK,
+    pair, pair_empty, PREREQUISITE_CHECK,
 };
+use group::ff::Field;
+use halo2_proofs::arithmetic::{BaseExt, FieldExt};
 use halo2_proofs::plonk::Error;
 use num_bigint::BigUint;
 use num_integer::Integer;
@@ -27,7 +27,7 @@ const OVERFLOW_THRESHOLD: usize = 1usize << OVERFLOW_THRESHOLD_SHIFT;
 
 pub type FiveColumnIntegerGate<'a, W, N> = IntegerGate<'a, W, N, LIMBS, LIMB_COMMON_WIDTH>;
 
-impl<'a, W: FieldExt, N: FieldExt> FiveColumnIntegerGate<'a, W, N> {
+impl<'a, W: BaseExt, N: FieldExt> FiveColumnIntegerGate<'a, W, N> {
     fn find_w_modulus_ceil(&self, a: &AssignedInteger<W, N>) -> [BigUint; LIMBS] {
         let max_a = (a.overflows + 1) * (BigUint::from(1u64) << self.helper.w_ceil_bits);
         let (n, rem) = max_a.div_rem(&self.helper.w_modulus);
@@ -317,7 +317,7 @@ impl<'a, W: FieldExt, N: FieldExt> FiveColumnIntegerGate<'a, W, N> {
     }
 }
 
-impl<'a, W: FieldExt, N: FieldExt> IntegerGateOps<W, N> for FiveColumnIntegerGate<'a, W, N> {
+impl<'a, W: BaseExt, N: FieldExt> IntegerGateOps<W, N> for FiveColumnIntegerGate<'a, W, N> {
     fn assign_nonleading_limb(
         &self,
         r: &mut RegionAux<N>,
@@ -778,7 +778,7 @@ impl<'a, W: FieldExt, N: FieldExt> IntegerGateOps<W, N> for FiveColumnIntegerGat
         Ok((is_b_zero, c))
     }
 
-    fn assigned_constant(
+    fn assign_constant(
         &self,
         r: &mut RegionAux<N>,
         w: W,
