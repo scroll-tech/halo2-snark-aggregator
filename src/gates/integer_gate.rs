@@ -8,7 +8,7 @@ use num_bigint::BigUint;
 use num_integer::Integer;
 use std::{marker::PhantomData, vec};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct AssignedInteger<W: BaseExt, N: FieldExt> {
     pub limbs_le: Vec<AssignedValue<N>>,
     pub native: Option<AssignedValue<N>>,

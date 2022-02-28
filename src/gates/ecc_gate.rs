@@ -5,14 +5,15 @@ use super::{
     integer_gate::{AssignedInteger, IntegerGateOps},
     range_gate::RangeGateOps,
 };
-use group::ff::Field;
 use group::Curve;
+use group::{ff::Field, prime::PrimeCurveAffine};
 use halo2_proofs::{
     arithmetic::{CurveAffine, FieldExt},
     plonk::Error,
 };
+use num_traits::Zero;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct AssignedCurvature<C: CurveAffine, N: FieldExt> {
     v: AssignedInteger<C::Base, N>,
     z: AssignedCondition<N>,
@@ -24,11 +25,11 @@ impl<C: CurveAffine, N: FieldExt> AssignedCurvature<C, N> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct AssignedPoint<C: CurveAffine, N: FieldExt> {
-    x: AssignedInteger<C::Base, N>,
-    y: AssignedInteger<C::Base, N>,
-    z: AssignedCondition<N>,
+    pub x: AssignedInteger<C::Base, N>,
+    pub y: AssignedInteger<C::Base, N>,
+    pub z: AssignedCondition<N>,
 
     curvature: Option<AssignedCurvature<C, N>>,
 }
@@ -138,7 +139,6 @@ pub trait EccGateOps<C: CurveAffine, N: FieldExt> {
             let t = integer_gate.sub(r, &t, &a.y)?;
             t
         };
-
         Ok(AssignedPoint::new(cx, cy, lambda.z))
     }
     fn add(
@@ -153,6 +153,7 @@ pub trait EccGateOps<C: CurveAffine, N: FieldExt> {
         let mut diff_x = integer_gate.sub(r, &a.x, &b.x)?;
         let mut diff_y = integer_gate.sub(r, &a.y, &b.y)?;
         let (x_eq, tangent) = integer_gate.div(r, &mut diff_y, &mut diff_x)?;
+
         let y_eq = integer_gate.is_zero(r, &mut diff_y)?;
         let eq = base_gate.and(r, &x_eq, &y_eq)?;
 
@@ -188,9 +189,9 @@ pub trait EccGateOps<C: CurveAffine, N: FieldExt> {
             .map(|v| v.x().clone())
             .unwrap_or(C::Base::zero());
         let y = coordinates
-            .map(|v| v.x().clone())
+            .map(|v| v.y().clone())
             .unwrap_or(C::Base::zero());
-        let z = coordinates.map(|v| N::zero()).unwrap_or(N::one());
+        let z = N::conditional_select(&N::zero(), &N::one(), p.to_affine().is_identity());
 
         let base_gate = self.base_gate();
         let integer_gate = self.integer_gate();
@@ -204,7 +205,7 @@ pub trait EccGateOps<C: CurveAffine, N: FieldExt> {
         &self,
         r: &mut RegionAux<N>,
         a: &mut AssignedPoint<C, N>,
-        b: &mut AssignedPoint<C, N>
+        b: &mut AssignedPoint<C, N>,
     ) -> Result<(), Error> {
         let one = N::one();
 
@@ -214,7 +215,7 @@ pub trait EccGateOps<C: CurveAffine, N: FieldExt> {
         let eq_y = integer_gate.is_equal(r, &mut a.y, &mut b.y)?;
         let eq_z = base_gate.xnor(r, &eq_x, &eq_y)?;
         let eq_xy = base_gate.and(r, &eq_x, &eq_y)?;
-        let eq_xyz =  base_gate.and(r, &eq_xy, &eq_z)?;
+        let eq_xyz = base_gate.and(r, &eq_xy, &eq_z)?;
 
         let is_both_identity = base_gate.and(r, &a.z, &b.z)?;
         let eq = base_gate.or(r, &eq_xyz, &is_both_identity)?;

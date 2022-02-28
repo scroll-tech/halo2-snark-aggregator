@@ -43,22 +43,26 @@ struct TestFiveColumnBaseGateCircuit<N: FieldExt> {
 }
 
 impl<N: FieldExt> TestFiveColumnBaseGateCircuit<N> {
-    fn setup_test_one_line(
-        &self,
-        base_gate: &FiveColumnBaseGate<N>,
-        r: &mut RegionAux<'_, '_, N>,
-    ) -> Result<(), Error> {
+    fn random() -> N {
         let seed = chrono::offset::Utc::now()
             .timestamp_nanos()
             .try_into()
             .unwrap();
         let rng = XorShiftRng::seed_from_u64(seed);
+        N::random(rng)
+    }
+    
+    fn setup_test_one_line(
+        &self,
+        base_gate: &FiveColumnBaseGate<N>,
+        r: &mut RegionAux<'_, '_, N>,
+    ) -> Result<(), Error> {
 
-        let vars = [(); VAR_COLUMNS].map(|_| N::random(rng.clone()));
-        let coeffs = [(); VAR_COLUMNS].map(|_| N::random(rng.clone()));
-        let muls_coeffs = [(); MUL_COLUMNS].map(|_| N::random(rng.clone()));
-        let next_var = N::random(rng.clone());
-        let next_coeff = N::random(rng.clone());
+        let vars = [(); VAR_COLUMNS].map(|_| Self::random());
+        let coeffs = [(); VAR_COLUMNS].map(|_| Self::random());
+        let muls_coeffs = [(); MUL_COLUMNS].map(|_| Self::random());
+        let next_var = Self::random();
+        let next_coeff = Self::random();
 
         let result = {
             let mut result = N::zero();
@@ -95,17 +99,11 @@ impl<N: FieldExt> TestFiveColumnBaseGateCircuit<N> {
         base_gate: &FiveColumnBaseGate<N>,
         r: &mut RegionAux<'_, '_, N>,
     ) -> Result<(), Error> {
-        let seed = chrono::offset::Utc::now()
-            .timestamp_nanos()
-            .try_into()
-            .unwrap();
-        let rng = XorShiftRng::seed_from_u64(seed);
-
         const NVARS: usize = VAR_COLUMNS - 1usize;
         const NCOEFFS: usize = VAR_COLUMNS - 1usize;
-        let vars = [(); NVARS].map(|_| N::random(rng.clone()));
-        let coeffs = [(); NCOEFFS].map(|_| N::random(rng.clone()));
-        let constant = N::random(rng.clone());
+        let vars = [(); NVARS].map(|_| Self::random());
+        let coeffs = [(); NCOEFFS].map(|_| Self::random());
+        let constant = Self::random();
         let result = {
             let mut result = N::zero();
             for i in 0..VAR_COLUMNS - 1 {
@@ -134,14 +132,8 @@ impl<N: FieldExt> TestFiveColumnBaseGateCircuit<N> {
         base_gate: &FiveColumnBaseGate<N>,
         r: &mut RegionAux<'_, '_, N>,
     ) -> Result<(), Error> {
-        let seed = chrono::offset::Utc::now()
-            .timestamp_nanos()
-            .try_into()
-            .unwrap();
-        let rng = XorShiftRng::seed_from_u64(seed);
-
         const NVARS: usize = 2usize;
-        let vars = [(); NVARS].map(|_| N::random(rng.clone()));
+        let vars = [(); NVARS].map(|_| Self::random());
         let result = vars[0] + vars[1];
 
         let mut assigned_vars = vec![];
@@ -163,14 +155,8 @@ impl<N: FieldExt> TestFiveColumnBaseGateCircuit<N> {
         base_gate: &FiveColumnBaseGate<N>,
         r: &mut RegionAux<'_, '_, N>,
     ) -> Result<(), Error> {
-        let seed = chrono::offset::Utc::now()
-            .timestamp_nanos()
-            .try_into()
-            .unwrap();
-        let rng = XorShiftRng::seed_from_u64(seed);
-
         const NVARS: usize = 2usize;
-        let vars = [(); NVARS].map(|_| N::random(rng.clone()));
+        let vars = [(); NVARS].map(|_| Self::random());
         let result = vars[0] * vars[1];
 
         let mut assigned_vars = vec![];
@@ -192,16 +178,10 @@ impl<N: FieldExt> TestFiveColumnBaseGateCircuit<N> {
         base_gate: &FiveColumnBaseGate<N>,
         r: &mut RegionAux<'_, '_, N>,
     ) -> Result<(), Error> {
-        let seed = chrono::offset::Utc::now()
-            .timestamp_nanos()
-            .try_into()
-            .unwrap();
-        let rng = XorShiftRng::seed_from_u64(seed);
-
         const NVARS: usize = 3usize;
         const NCOEFFS: usize = 1usize;
-        let vars = [(); NVARS].map(|_| N::random(rng.clone()));
-        let coeffs = [(); NCOEFFS].map(|_| N::random(rng.clone()));
+        let vars = [(); NVARS].map(|_| Self::random());
+        let coeffs = [(); NCOEFFS].map(|_| Self::random());
         let result = vars[0] * vars[1] + vars[2] * coeffs[0];
 
         let mut assigned_vars = vec![];
@@ -229,16 +209,10 @@ impl<N: FieldExt> TestFiveColumnBaseGateCircuit<N> {
         base_gate: &FiveColumnBaseGate<N>,
         r: &mut RegionAux<'_, '_, N>,
     ) -> Result<(), Error> {
-        let seed = chrono::offset::Utc::now()
-            .timestamp_nanos()
-            .try_into()
-            .unwrap();
-        let rng = XorShiftRng::seed_from_u64(seed);
-
         const NVARS: usize = 6usize;
         const NCOEFFS: usize = 2usize;
-        let vars = [(); NVARS].map(|_| N::random(rng.clone()));
-        let coeffs = [(); NCOEFFS].map(|_| N::random(rng.clone()));
+        let vars = [(); NVARS].map(|_| Self::random());
+        let coeffs = [(); NCOEFFS].map(|_| Self::random());
         let result =
             vars[0] * vars[1] + vars[2] * coeffs[0] + vars[3] * vars[4] + vars[5] * coeffs[1];
 
@@ -277,15 +251,9 @@ impl<N: FieldExt> TestFiveColumnBaseGateCircuit<N> {
         base_gate: &FiveColumnBaseGate<N>,
         r: &mut RegionAux<'_, '_, N>,
     ) -> Result<(), Error> {
-        let seed = chrono::offset::Utc::now()
-            .timestamp_nanos()
-            .try_into()
-            .unwrap();
-        let rng = XorShiftRng::seed_from_u64(seed);
-
         const NVARS: usize = 1usize;
         let vars = [(); NVARS].map(|_| {
-            let v = N::random(rng.clone());
+            let v = Self::random();
             if v.is_zero().into() {
                 N::one()
             } else {
@@ -313,15 +281,9 @@ impl<N: FieldExt> TestFiveColumnBaseGateCircuit<N> {
         base_gate: &FiveColumnBaseGate<N>,
         r: &mut RegionAux<'_, '_, N>,
     ) -> Result<(), Error> {
-        let seed = chrono::offset::Utc::now()
-            .timestamp_nanos()
-            .try_into()
-            .unwrap();
-        let rng = XorShiftRng::seed_from_u64(seed);
-
         const NVARS: usize = 2usize;
         let vars = [(); NVARS].map(|_| {
-            let v = N::random(rng.clone());
+            let v = Self::random();
             if v.is_zero().into() {
                 v + N::one()
             } else {
