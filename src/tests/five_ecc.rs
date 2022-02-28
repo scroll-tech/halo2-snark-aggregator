@@ -18,6 +18,7 @@ use std::marker::PhantomData;
 
 enum TestCase {
     Add,
+    Double,
 }
 
 impl Default for TestCase {
@@ -77,6 +78,27 @@ impl<C: CurveAffine, N: FieldExt> TestFiveColumnEccGateCircuit<C, N> {
 
         Ok(())
     }
+    fn setup_test_double(
+        &self,
+        ecc_gate: &EccGate<'_, C, N>,
+        r: &mut RegionAux<'_, '_, N>,
+    ) -> Result<(), Error> {
+        let s1 = Self::random();
+        let s2 = s1 + s1;
+        let identity = C::ScalarExt::zero();
+
+        let mut pi = ecc_gate.from_constant_scalar(r, identity)?;
+        let mut p1 = ecc_gate.from_constant_scalar(r, s1)?;
+        let mut p2 = ecc_gate.from_constant_scalar(r, s2)?;
+
+        let mut p2_ = ecc_gate.double(r, &mut p1)?;
+        ecc_gate.assert_equal(r, &mut p2, &mut p2_)?;
+
+        let mut pi_ = ecc_gate.double(r, &mut pi)?;
+        ecc_gate.assert_equal(r, &mut pi, &mut pi_)?;
+
+        Ok(())
+    }
 }
 
 const COMMON_RANGE_BITS: usize = 17usize;
@@ -128,6 +150,7 @@ impl<C: CurveAffine, N: FieldExt> Circuit<N> for TestFiveColumnEccGateCircuit<C,
                 for _ in 0..round {
                     match self.test_case {
                         TestCase::Add => self.setup_test_add(&ecc_gate, r),
+                        TestCase::Double => self.setup_test_double(&ecc_gate, r),
                     }?;
                 }
 
@@ -144,6 +167,21 @@ fn test_five_column_ecc_gate_add() {
     const K: u32 = (COMMON_RANGE_BITS + 1) as u32;
     let circuit = TestFiveColumnEccGateCircuit::<G1Affine, Fr> {
         test_case: TestCase::Add,
+        _phantom_w: PhantomData,
+        _phantom_n: PhantomData,
+    };
+    let prover = match MockProver::run(K, &circuit, vec![]) {
+        Ok(prover) => prover,
+        Err(e) => panic!("{:#?}", e),
+    };
+    assert_eq!(prover.verify(), Ok(()));
+}
+
+#[test]
+fn test_five_column_ecc_gate_double() {
+    const K: u32 = (COMMON_RANGE_BITS + 1) as u32;
+    let circuit = TestFiveColumnEccGateCircuit::<G1Affine, Fr> {
+        test_case: TestCase::Double,
         _phantom_w: PhantomData,
         _phantom_n: PhantomData,
     };
