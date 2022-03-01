@@ -416,6 +416,20 @@ pub trait BaseGateOps<N: FieldExt> {
         Ok(())
     }
 
+    fn assert_bit(&self, r: &mut RegionAux<'_, '_, N>, a: &AssignedValue<N>) -> Result<(), Error> {
+        let zero = N::zero();
+        let one = N::one();
+
+        self.one_line(
+            r,
+            vec![pair!(a, one), pair!(a, zero)],
+            zero,
+            (vec![-one], zero),
+        )?;
+
+        Ok(())
+    }
+
     fn and(
         &self,
         r: &mut RegionAux<'_, '_, N>,

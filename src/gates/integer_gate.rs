@@ -204,8 +204,7 @@ pub trait IntegerGateOps<W: BaseExt, N: FieldExt> {
         let mut diff = self.sub(r, a, b)?;
         self.is_zero(r, &mut diff)
     }
-    fn assign_constant(&self, r: &mut RegionAux<N>, w: W)
-        -> Result<AssignedInteger<W, N>, Error>;
+    fn assign_constant(&self, r: &mut RegionAux<N>, w: W) -> Result<AssignedInteger<W, N>, Error>;
     fn assert_equal(
         &self,
         r: &mut RegionAux<N>,
