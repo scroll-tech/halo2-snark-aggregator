@@ -1,7 +1,7 @@
-use super::base_gate::{AssignedCondition, BaseGateOps};
-use super::range_gate::RangeGateOps;
 use crate::field::{bn_to_field, field_to_bn, get_d_range_bits_in_mul};
+use crate::gates::base_gate::{AssignedCondition, BaseGateOps};
 use crate::gates::base_gate::{AssignedValue, RegionAux};
+use crate::gates::range_gate::RangeGateOps;
 use halo2_proofs::arithmetic::{BaseExt, FieldExt};
 use halo2_proofs::plonk::Error;
 use num_bigint::BigUint;

@@ -1,7 +1,8 @@
+use crate::circuits::ecc_circuit::EccGateOps;
+use crate::circuits::five::integer_circuit::FiveColumnIntegerGate;
+use crate::circuits::native_ecc_circuit::NativeEccGate;
 use crate::gates::base_gate::RegionAux;
-use crate::gates::ecc_gate::{EccGateOps, NativeEccGate};
-use crate::gates::five::base_gate::{FiveColumnBaseGateConfig, FiveColumnBaseGate};
-use crate::gates::five::integer_gate::FiveColumnIntegerGate;
+use crate::gates::five::base_gate::{FiveColumnBaseGate, FiveColumnBaseGateConfig};
 use crate::gates::five::range_gate::FiveColumnRangeGate;
 use crate::gates::range_gate::RangeGateConfig;
 use group::ff::Field;

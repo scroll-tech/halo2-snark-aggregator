@@ -2,6 +2,7 @@
 #![feature(trait_alias)]
 mod field;
 mod gates;
+mod circuits;
 
 mod arith;
 mod schema;

@@ -1,8 +1,8 @@
+use crate::circuits::five::integer_circuit::FiveColumnIntegerGate;
+use crate::circuits::integer_circuit::IntegerGateOps;
 use crate::gates::base_gate::RegionAux;
 use crate::gates::five::base_gate::{FiveColumnBaseGate, FiveColumnBaseGateConfig};
-use crate::gates::five::integer_gate::FiveColumnIntegerGate;
 use crate::gates::five::range_gate::FiveColumnRangeGate;
-use crate::gates::integer_gate::IntegerGateOps;
 use crate::gates::range_gate::RangeGateConfig;
 use halo2_proofs::arithmetic::{BaseExt, FieldExt};
 use halo2_proofs::{
@@ -58,8 +58,8 @@ impl<W: BaseExt, N: FieldExt> TestFiveColumnIntegerGateCircuit<W, N> {
         integer_gate: &FiveColumnIntegerGate<'_, W, N>,
         r: &mut RegionAux<'_, '_, N>,
     ) -> Result<(), Error> {
-        let a =Self::random();
-        let b =Self::random();
+        let a = Self::random();
+        let b = Self::random();
         let c = a + b;
         let assigned_a = integer_gate.assign_constant(r, a)?;
         let assigned_b = integer_gate.assign_constant(r, b)?;
@@ -75,8 +75,8 @@ impl<W: BaseExt, N: FieldExt> TestFiveColumnIntegerGateCircuit<W, N> {
         integer_gate: &FiveColumnIntegerGate<'_, W, N>,
         r: &mut RegionAux<'_, '_, N>,
     ) -> Result<(), Error> {
-        let a =Self::random();
-        let b =Self::random();
+        let a = Self::random();
+        let b = Self::random();
         let c = a - b;
 
         let assigned_a = integer_gate.assign_constant(r, a)?;
@@ -93,7 +93,7 @@ impl<W: BaseExt, N: FieldExt> TestFiveColumnIntegerGateCircuit<W, N> {
         integer_gate: &FiveColumnIntegerGate<'_, W, N>,
         r: &mut RegionAux<'_, '_, N>,
     ) -> Result<(), Error> {
-        let a =Self::random();
+        let a = Self::random();
         let c = -a;
 
         let assigned_a = integer_gate.assign_constant(r, a)?;
@@ -109,8 +109,8 @@ impl<W: BaseExt, N: FieldExt> TestFiveColumnIntegerGateCircuit<W, N> {
         integer_gate: &FiveColumnIntegerGate<'_, W, N>,
         r: &mut RegionAux<'_, '_, N>,
     ) -> Result<(), Error> {
-        let a =Self::random();
-        let b =Self::random();
+        let a = Self::random();
+        let b = Self::random();
         let c = a * b;
 
         let mut assigned_a = integer_gate.assign_constant(r, a)?;
@@ -122,13 +122,12 @@ impl<W: BaseExt, N: FieldExt> TestFiveColumnIntegerGateCircuit<W, N> {
         Ok(())
     }
 
-    
     fn setup_test_square(
         &self,
         integer_gate: &FiveColumnIntegerGate<'_, W, N>,
         r: &mut RegionAux<'_, '_, N>,
     ) -> Result<(), Error> {
-        let a =Self::random();
+        let a = Self::random();
         let c = a * a;
 
         let mut assigned_a = integer_gate.assign_constant(r, a)?;
@@ -144,8 +143,8 @@ impl<W: BaseExt, N: FieldExt> TestFiveColumnIntegerGateCircuit<W, N> {
         integer_gate: &FiveColumnIntegerGate<'_, W, N>,
         r: &mut RegionAux<'_, '_, N>,
     ) -> Result<(), Error> {
-        let a =Self::random();
-        let b =Self::random();
+        let a = Self::random();
+        let b = Self::random();
         let b = b.invert().unwrap_or(W::one());
         let c = a * b.invert().unwrap();
 
@@ -173,8 +172,8 @@ impl<W: BaseExt, N: FieldExt> TestFiveColumnIntegerGateCircuit<W, N> {
         integer_gate: &FiveColumnIntegerGate<'_, W, N>,
         r: &mut RegionAux<'_, '_, N>,
     ) -> Result<(), Error> {
-        let a =Self::random();
-        let b =Self::random();
+        let a = Self::random();
+        let b = Self::random();
         let b = if b == a { a + W::one() } else { b };
 
         let assigned_a = integer_gate.assign_constant(r, a)?;

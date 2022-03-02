@@ -26,7 +26,7 @@ impl<N: FieldExt> BaseGateOps<N> for FiveColumnBaseGate<N> {
     fn one_line(
         &self,
         r: &mut RegionAux<'_, '_, N>,
-        mut base_coeff_pairs: Vec<(ValueSchema<N>, N)>,
+        base_coeff_pairs: Vec<(ValueSchema<N>, N)>,
         constant: N,
         mul_next_coeffs: (Vec<N>, N),
     ) -> Result<Vec<AssignedValue<N>>, Error> {

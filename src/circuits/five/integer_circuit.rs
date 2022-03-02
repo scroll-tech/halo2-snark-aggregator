@@ -1,18 +1,16 @@
+use crate::circuits::integer_circuit::{AssignedInteger, IntegerGate, IntegerGateOps};
 use crate::gates::base_gate::BaseGateOps;
-use crate::gates::integer_gate::{AssignedInteger, IntegerGate, IntegerGateOps};
+use crate::gates::five::base_gate::VAR_COLUMNS;
 use crate::gates::range_gate::RangeGateOps;
 use crate::{
     field::{bn_to_field, decompose_bn, field_to_bn},
     gates::base_gate::{AssignedCondition, AssignedValue, RegionAux},
     pair, pair_empty, PREREQUISITE_CHECK,
 };
-use group::ff::Field;
 use halo2_proofs::arithmetic::{BaseExt, FieldExt};
 use halo2_proofs::plonk::Error;
 use num_bigint::BigUint;
 use num_integer::Integer;
-
-use super::base_gate::VAR_COLUMNS;
 
 const LIMBS: usize = 4usize;
 const LIMB_COMMON_WIDTH_OF_COMMON_RANGE: usize = 4usize;
@@ -778,11 +776,7 @@ impl<'a, W: BaseExt, N: FieldExt> IntegerGateOps<W, N> for FiveColumnIntegerGate
         Ok((is_b_zero, c))
     }
 
-    fn assign_constant(
-        &self,
-        r: &mut RegionAux<N>,
-        w: W,
-    ) -> Result<AssignedInteger<W, N>, Error> {
+    fn assign_constant(&self, r: &mut RegionAux<N>, w: W) -> Result<AssignedInteger<W, N>, Error> {
         let limbs_value = self.helper.w_to_limb_n_le(&w);
 
         let mut limbs = vec![];
