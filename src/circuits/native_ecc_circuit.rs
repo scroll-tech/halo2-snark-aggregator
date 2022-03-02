@@ -8,21 +8,16 @@ use crate::{
     pair,
 };
 use group::ff::{Field, PrimeField};
-use halo2_proofs::{
-    arithmetic::{CurveAffine, FieldExt},
-    plonk::Error,
-};
+use halo2_proofs::{arithmetic::CurveAffine, plonk::Error};
 use num_bigint::BigUint;
 
-pub struct NativeEccCircuit<'a, C: CurveAffine, N: FieldExt>(EccCircuit<'a, C, N>);
+pub struct NativeEccCircuit<'a, C: CurveAffine>(EccCircuit<'a, C, C::ScalarExt>);
 
-impl<'a, C: CurveAffine, N: FieldExt> NativeEccCircuit<'a, C, N> {
+impl<'a, C: CurveAffine> NativeEccCircuit<'a, C> {
     pub fn new(integer_gate: &'a dyn IntegerCircuitOps<C::Base, N>) -> Self {
         NativeEccCircuit(EccCircuit::new(integer_gate))
     }
-}
 
-impl<'a, C: CurveAffine, N: FieldExt> NativeEccCircuit<'a, C, N> {
     fn decompose_bits<const WINDOW_SIZE: usize>(
         &self,
         r: &mut RegionAux<N>,
@@ -41,9 +36,7 @@ impl<'a, C: CurveAffine, N: FieldExt> NativeEccCircuit<'a, C, N> {
 
 const WINDOW_SIZE: usize = 4usize;
 
-impl<'a, C: CurveAffine> EccCircuitOps<C, C::ScalarExt, WINDOW_SIZE>
-    for NativeEccCircuit<'a, C, C::ScalarExt>
-{
+impl<'a, C: CurveAffine> EccCircuitOps<C, C::ScalarExt, WINDOW_SIZE> for NativeEccCircuit<'a, C> {
     fn integer_gate(&self) -> &dyn IntegerCircuitOps<C::Base, C::ScalarExt> {
         self.0.integer_gate
     }

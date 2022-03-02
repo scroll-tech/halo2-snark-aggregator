@@ -54,7 +54,7 @@ impl<C: CurveAffine> TestFiveColumnNativeEccCircuitCircuit<C> {
 
     fn setup_test_add(
         &self,
-        ecc_gate: &NativeEccCircuit<'_, C, C::ScalarExt>,
+        ecc_gate: &NativeEccCircuit<'_, C>,
         r: &mut RegionAux<'_, '_, C::ScalarExt>,
     ) -> Result<(), Error> {
         let s1 = Self::random();
@@ -84,7 +84,7 @@ impl<C: CurveAffine> TestFiveColumnNativeEccCircuitCircuit<C> {
 
     fn setup_test_mul(
         &self,
-        ecc_gate: &NativeEccCircuit<'_, C, C::ScalarExt>,
+        ecc_gate: &NativeEccCircuit<'_, C>,
         r: &mut RegionAux<'_, '_, C::ScalarExt>,
     ) -> Result<(), Error> {
         let base_gate = ecc_gate.base_gate();
@@ -117,7 +117,7 @@ impl<C: CurveAffine> TestFiveColumnNativeEccCircuitCircuit<C> {
 
     fn setup_test_double(
         &self,
-        ecc_gate: &NativeEccCircuit<'_, C, C::ScalarExt>,
+        ecc_gate: &NativeEccCircuit<'_, C>,
         r: &mut RegionAux<'_, '_, C::ScalarExt>,
     ) -> Result<(), Error> {
         let s1 = Self::random();
