@@ -14,17 +14,17 @@ use num_bigint::BigUint;
 pub struct NativeEccCircuit<'a, C: CurveAffine>(EccCircuit<'a, C, C::ScalarExt>);
 
 impl<'a, C: CurveAffine> NativeEccCircuit<'a, C> {
-    pub fn new(integer_gate: &'a dyn IntegerCircuitOps<C::Base, N>) -> Self {
+    pub fn new(integer_gate: &'a dyn IntegerCircuitOps<C::Base, C::ScalarExt>) -> Self {
         NativeEccCircuit(EccCircuit::new(integer_gate))
     }
 
     fn decompose_bits<const WINDOW_SIZE: usize>(
         &self,
-        r: &mut RegionAux<N>,
+        r: &mut RegionAux<C::ScalarExt>,
         s: BigUint,
-    ) -> (Vec<N>, BigUint) {
-        let zero = N::zero();
-        let one = N::one();
+    ) -> (Vec<C::ScalarExt>, BigUint) {
+        let zero = C::ScalarExt::zero();
+        let one = C::ScalarExt::one();
         (
             (0..WINDOW_SIZE)
                 .map(|i| if s.bit(i as u64) { one } else { zero })

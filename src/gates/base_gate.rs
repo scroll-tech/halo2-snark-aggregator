@@ -206,6 +206,20 @@ pub trait BaseGateOps<N: FieldExt> {
         self.sum_with_constant(r, vec![(a, one), (b, one)], zero)
     }
 
+    fn sub(
+        &self,
+        r: &mut RegionAux<'_, '_, N>,
+        a: &AssignedValue<N>,
+        b: &AssignedValue<N>,
+    ) -> Result<AssignedValue<N>, Error> {
+        assert!(self.var_columns() >= 3);
+
+        let zero = N::zero();
+        let one = N::one();
+        self.sum_with_constant(r, vec![(a, one), (b, -one)], zero)
+    }
+
+
     fn mul(
         &self,
         r: &mut RegionAux<'_, '_, N>,

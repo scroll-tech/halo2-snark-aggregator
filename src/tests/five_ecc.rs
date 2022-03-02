@@ -21,6 +21,7 @@ enum TestCase {
     Add,
     Double,
     Mul,
+    Sub,
 }
 
 impl Default for TestCase {
@@ -78,6 +79,34 @@ impl<C: CurveAffine> TestFiveColumnNativeEccCircuitCircuit<C> {
         let mut p4 = ecc_gate.assign_point_from_constant_scalar(r, s4)?;
         let mut p4_ = ecc_gate.add(r, &mut p1.clone(), &p1)?;
         ecc_gate.assert_equal(r, &mut p4, &mut p4_)?;
+
+        Ok(())
+    }
+
+    fn setup_test_sub(
+        &self,
+        ecc_gate: &NativeEccCircuit<'_, C>,
+        r: &mut RegionAux<'_, '_, C::ScalarExt>,
+    ) -> Result<(), Error> {
+        let s1 = Self::random();
+        let s2 = Self::random();
+
+        let s3 = s1 - s2;
+        let identity = C::ScalarExt::zero();
+
+        let mut pi = ecc_gate.assign_point_from_constant_scalar(r, identity)?;
+        let mut p1 = ecc_gate.assign_point_from_constant_scalar(r, s1)?;
+        let p2 = ecc_gate.assign_point_from_constant_scalar(r, s2)?;
+
+        let mut p1_ = ecc_gate.sub(r, &mut p1, &pi)?;
+        ecc_gate.assert_equal(r, &mut p1, &mut p1_)?;
+
+        let mut p3 = ecc_gate.assign_point_from_constant_scalar(r, s3)?;
+        let mut p3_ = ecc_gate.sub(r, &mut p1, &p2)?;
+        ecc_gate.assert_equal(r, &mut p3, &mut p3_)?;
+
+        let mut p4_ = ecc_gate.sub(r, &mut p1.clone(), &p1)?;
+        ecc_gate.assert_equal(r, &mut pi, &mut p4_)?;
 
         Ok(())
     }
@@ -190,6 +219,7 @@ impl<C: CurveAffine> Circuit<C::ScalarExt> for TestFiveColumnNativeEccCircuitCir
                         TestCase::Add => self.setup_test_add(&ecc_gate, r),
                         TestCase::Double => self.setup_test_double(&ecc_gate, r),
                         TestCase::Mul => self.setup_test_mul(&ecc_gate, r),
+                        TestCase::Sub => self.setup_test_sub(&ecc_gate, r),
                     }?;
                 }
 
@@ -233,9 +263,24 @@ fn test_five_column_ecc_gate_double() {
 
 #[test]
 fn test_five_column_ecc_gate_mul() {
-    const K: u32 = (COMMON_RANGE_BITS + 3) as u32;
+    const K: u32 = (COMMON_RANGE_BITS + 2) as u32;
     let circuit = TestFiveColumnNativeEccCircuitCircuit::<G1Affine> {
         test_case: TestCase::Mul,
+        _phantom_w: PhantomData,
+        _phantom_n: PhantomData,
+    };
+    let prover = match MockProver::run(K, &circuit, vec![]) {
+        Ok(prover) => prover,
+        Err(e) => panic!("{:#?}", e),
+    };
+    assert_eq!(prover.verify(), Ok(()));
+}
+
+#[test]
+fn test_five_column_ecc_gate_sub() {
+    const K: u32 = (COMMON_RANGE_BITS + 2) as u32;
+    let circuit = TestFiveColumnNativeEccCircuitCircuit::<G1Affine> {
+        test_case: TestCase::Sub,
         _phantom_w: PhantomData,
         _phantom_n: PhantomData,
     };

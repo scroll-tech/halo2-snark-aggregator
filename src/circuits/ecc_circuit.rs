@@ -331,4 +331,24 @@ pub trait EccCircuitOps<C: CurveAffine, N: FieldExt, const WINDOW_SIZE: usize = 
 
         base_gate.assert_constant(r, &eq.into(), one)
     }
+    fn neg(
+        &self,
+        r: &mut RegionAux<N>,
+        a: &AssignedPoint<C, N>,
+    ) -> Result<AssignedPoint<C, N>, Error> {
+        let x = a.x.clone();
+        let y = self.integer_gate().neg(r, &a.y)?;
+        let z = a.z.clone();
+
+        Ok(AssignedPoint::new(x, y, z))
+    }
+    fn sub(
+        &self,
+        r: &mut RegionAux<N>,
+        a: &mut AssignedPoint<C, N>,
+        b: &AssignedPoint<C, N>,
+    ) -> Result<AssignedPoint<C, N>, Error> {
+        let mut neg_b = self.neg(r, b)?;
+        self.add(r, a, &mut neg_b)
+    }
 }

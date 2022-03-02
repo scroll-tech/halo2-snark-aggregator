@@ -2,43 +2,32 @@
 // trace_macros!(true);
 // Context Arithment Group under Context C, Scalar Group S and Base Group B
 pub trait ContextGroup<C, S, B, Error> {
-    fn add(&self, cxt:&mut C, lhs: &B, rhs: &B) -> Result<B, Error>;
-    fn minus(&self, cxt:&mut C, lhs: &B, rhs: &B) -> Result<B, Error>;
-    fn scalar_mul(&self, cxt:&mut C, lhs: &S, rhs: &B) -> Result<B, Error>;
-    fn one(&self) -> &B;
-    fn zero(&self) -> &B;
-    fn from_constant(&self, c: u32) -> Result<B, Error>;
-    fn generator(&self) -> &B;
-    fn ok(&self, v:B) -> Result<B, Error> {
+    fn add(&self, ctx: &mut C, lhs: &B, rhs: &B) -> Result<B, Error>;
+    fn minus(&self, ctx: &mut C, lhs: &B, rhs: &B) -> Result<B, Error>;
+    fn scalar_mul(&self, ctx: &mut C, lhs: &S, rhs: &B) -> Result<B, Error>;
+    fn one(&self, ctx: &mut C) -> Result<B, Error>;
+    fn zero(&self, ctx: &mut C) -> Result<B, Error>;
+    fn from_constant(&self, ctx: &mut C, c: u32) -> Result<B, Error>;
+    fn generator(&self, ctx: &mut C) -> Result<B, Error>;
+    fn ok(&self, v: B) -> Result<B, Error> {
         Ok(v)
     }
 }
 
 // Context Arithment Group under Context C, Scalar Group S and Base Group B
 pub trait ContextRing<C, S, B, Error> {
-   fn mul(&self, cxt:&mut C, lhs: &B, rhs: &B) -> Result<B, Error>;
-   fn div(&self, cxt:&mut C, lhs: &B, rhs: &B) -> Result<B, Error>;
-   fn square(&self, cxt:&mut C, lhs: &B) -> Result<B, Error>;
+    fn mul(&self, ctx: &mut C, lhs: &B, rhs: &B) -> Result<B, Error>;
+    fn div(&self, ctx: &mut C, lhs: &B, rhs: &B) -> Result<B, Error>;
+    fn square(&self, ctx: &mut C, lhs: &B) -> Result<B, Error>;
 }
 
 pub trait PowConstant<C, S, G, Error> {
-    fn pow_constant(
-        &self,
-        ctx: &mut C,
-        base: &G,
-        exponent: u32,
-    ) -> Result<G, Error>;
+    fn pow_constant(&self, ctx: &mut C, base: &G, exponent: u32) -> Result<G, Error>;
 }
 
-impl<C, S, G:Clone, Error, T:ContextRing<C, S, G, Error>> PowConstant<C, S, G, Error> for T
-{
-    fn pow_constant(
-        &self,
-        ctx: &mut C,
-        base: &G,
-        exponent: u32,
-    ) -> Result<G, Error> {
-       assert!(exponent >= 1);
+impl<C, S, G: Clone, Error, T: ContextRing<C, S, G, Error>> PowConstant<C, S, G, Error> for T {
+    fn pow_constant(&self, ctx: &mut C, base: &G, exponent: u32) -> Result<G, Error> {
+        assert!(exponent >= 1);
         let mut acc = base.clone();
         let mut second_bit = 1;
         while second_bit <= exponent {
@@ -154,91 +143,93 @@ macro_rules! arith_in_ctx {
 
 #[cfg(test)]
 mod test_marco {
-  use crate::arith::api::ContextGroup;
-  use crate::arith::api::ContextRing;
+    use crate::arith::api::ContextGroup;
+    use crate::arith::api::ContextRing;
 
-  #[derive(Debug, Default, Clone)]
-  struct W {
-    pub t: i32,
-  }
-
-  struct Gate {
-    pub one: W,
-    pub zero: W,
-  }
-
-  impl ContextGroup<(), W, W, ()> for Gate {
-    fn add(&self, _ctx:&mut (), lhs:&W, rhs:&W) -> Result<W, ()> {
-      let t = lhs.t + rhs.t;
-      Ok(W {t})
-    }
-    fn minus(&self, _ctx:&mut (), lhs:&W, rhs:&W) -> Result<W, ()> {
-      let t = lhs.t - rhs.t;
-      Ok(W {t})
-    }
-    fn scalar_mul(&self, _ctx:&mut (), lhs:&W, rhs:&W) -> Result<W, ()> {
-      let t = lhs.t * rhs.t;
-      Ok(W {t})
-    }
-    fn one(&self) -> &W {
-      &self.one
-    }
-    fn zero(&self) -> &W {
-      &self.zero
-    }
-    fn from_constant(&self, c: u32) -> Result<W, ()> {
-      Ok(W {t: c as i32})
-    }
-    fn generator (&self) -> &W {
-      &self.one
+    #[derive(Debug, Default, Clone)]
+    struct W {
+        pub t: i32,
     }
 
-  }
+    struct Gate {
+        pub one: W,
+        pub zero: W,
+    }
 
-  impl ContextRing <(), W, W, ()> for Gate {
-    fn mul(&self, _ctx:&mut (), lhs:&W, rhs:&W) -> Result<W, ()> {
-      let t = lhs.t * rhs.t;
-      Ok(W {t})
+    impl ContextGroup<(), W, W, ()> for Gate {
+        fn add(&self, _ctx: &mut (), lhs: &W, rhs: &W) -> Result<W, ()> {
+            let t = lhs.t + rhs.t;
+            Ok(W { t })
+        }
+        fn minus(&self, _ctx: &mut (), lhs: &W, rhs: &W) -> Result<W, ()> {
+            let t = lhs.t - rhs.t;
+            Ok(W { t })
+        }
+        fn scalar_mul(&self, _ctx: &mut (), lhs: &W, rhs: &W) -> Result<W, ()> {
+            let t = lhs.t * rhs.t;
+            Ok(W { t })
+        }
+        fn one(&self, _ctx: &mut ()) -> Result<W, ()> {
+            Ok(self.one.clone())
+        }
+        fn zero(&self, _ctx: &mut ()) -> Result<W, ()> {
+            Ok(self.zero.clone())
+        }
+        fn from_constant(&self, _ctx: &mut (), c: u32) -> Result<W, ()> {
+            Ok(W { t: c as i32 })
+        }
+        fn generator(&self, _ctx: &mut ()) -> Result<W, ()> {
+            Ok(self.one.clone())
+        }
     }
-    fn div(&self, _ctx:&mut (), lhs:&W, rhs:&W) -> Result<W, ()> {
-      let t = lhs.t / rhs.t;
-      Ok(W {t})
-    }
-    fn square(&self, _ctx:&mut (), s:&W) -> Result<W, ()> {
-      let t = s.t * s.t;
-      Ok(W {t})
-    }
-  }
 
-  #[test]
-  fn test_singleton() {
-    let gate = Gate {one: W {t:1}, zero: W {t:0}};
-    let r = &mut ();
-    let a = W {t:1};
-    let a = &a;
-    let b = W {t:2};
-    let b = &b;
-    let c = W {t:3};
-    let c = &c;
-    let d = W {t:4};
-    let d = &d;
-    let a1 = arith_in_ctx!([gate, r] a).unwrap();
-    assert_eq!(a1.t, 1);
-    let a1 = arith_in_ctx!([gate, r] a + a + a).unwrap();
-    assert_eq!(a1.t, 3);
-    let a1 = arith_in_ctx!([gate, r] a - a).unwrap();
-    assert_eq!(a1.t, 0);
-    let a1 = arith_in_ctx!([gate, r] b - (b * b)).unwrap();
-    assert_eq!(a1.t, -2);
-    let a1 = arith_in_ctx!([gate, r] b - b * b).unwrap();
-    assert_eq!(a1.t, -2);
-    let a1 = arith_in_ctx!([gate, r] (b - b) * b).unwrap();
-    assert_eq!(a1.t, 0);
-    let a1 = arith_in_ctx!([gate, r] (b - b * (b + b)) * b + b * b).unwrap();
-    assert_eq!(a1.t, (2-2*(2+2))*2+2*2);
-    let a1 = arith_in_ctx!([gate, r] (c - c * b) / c).unwrap();
-    assert_eq!(a1.t, -1);
-    let a1 = arith_in_ctx!([gate, r] (c * b * b) / (c + c)).unwrap();
-    assert_eq!(a1.t, 2);
-  }
+    impl ContextRing<(), W, W, ()> for Gate {
+        fn mul(&self, _ctx: &mut (), lhs: &W, rhs: &W) -> Result<W, ()> {
+            let t = lhs.t * rhs.t;
+            Ok(W { t })
+        }
+        fn div(&self, _ctx: &mut (), lhs: &W, rhs: &W) -> Result<W, ()> {
+            let t = lhs.t / rhs.t;
+            Ok(W { t })
+        }
+        fn square(&self, _ctx: &mut (), s: &W) -> Result<W, ()> {
+            let t = s.t * s.t;
+            Ok(W { t })
+        }
+    }
+
+    #[test]
+    fn test_singleton() {
+        let gate = Gate {
+            one: W { t: 1 },
+            zero: W { t: 0 },
+        };
+        let r = &mut ();
+        let a = W { t: 1 };
+        let a = &a;
+        let b = W { t: 2 };
+        let b = &b;
+        let c = W { t: 3 };
+        let c = &c;
+        let d = W { t: 4 };
+        let d = &d;
+        let a1 = arith_in_ctx!([gate, r] a).unwrap();
+        assert_eq!(a1.t, 1);
+        let a1 = arith_in_ctx!([gate, r] a + a + a).unwrap();
+        assert_eq!(a1.t, 3);
+        let a1 = arith_in_ctx!([gate, r] a - a).unwrap();
+        assert_eq!(a1.t, 0);
+        let a1 = arith_in_ctx!([gate, r] b - (b * b)).unwrap();
+        assert_eq!(a1.t, -2);
+        let a1 = arith_in_ctx!([gate, r] b - b * b).unwrap();
+        assert_eq!(a1.t, -2);
+        let a1 = arith_in_ctx!([gate, r](b - b) * b).unwrap();
+        assert_eq!(a1.t, 0);
+        let a1 = arith_in_ctx!([gate, r](b - b * (b + b)) * b + b * b).unwrap();
+        assert_eq!(a1.t, (2 - 2 * (2 + 2)) * 2 + 2 * 2);
+        let a1 = arith_in_ctx!([gate, r](c - c * b) / c).unwrap();
+        assert_eq!(a1.t, -1);
+        let a1 = arith_in_ctx!([gate, r](c * b * b) / (c + c)).unwrap();
+        assert_eq!(a1.t, 2);
+    }
 }
