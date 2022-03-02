@@ -63,7 +63,7 @@ impl<C, S:Field, Error:Debug, SGate:ContextGroup<C, S, S, Error> + ContextRing<C
                     advice,
                     instance,
                 );
-                let zero = sgate.zero();
+                let zero = &sgate.zero(ctx).unwrap();
                 arith_in_ctx!([sgate, ctx] zero - a).unwrap()
             }
             Expression::Sum(a, b) => {
@@ -133,7 +133,8 @@ pub struct VerifierParams <
     pub fixed_commitments: Vec<&'a P>,
     pub fixed_evals: Vec<&'a S>,
     pub fixed_queries: Vec<(usize, usize)>,
-    pub permutation_common: Vec<&'a P>,
+    pub permutation_commitments: Vec<P>,
+    pub permutation_evals: Vec<S>, // permutations common evaluation
     pub beta: &'a S,
     pub gamma: &'a S,
     pub alpha: &'a S,
@@ -167,6 +168,11 @@ impl<'a, C:Clone, S:Field, P:Clone,
         let l_0 = x; //sgate.get_laguerre_commits
         let l_last = x; //TODO
         let l_blind = x; //TODO
+
+        let pcommon = permutation::CommonEvaluated {
+            permutation_evals: &self.permutation_evals,
+            permutation_commitments: &self.permutation_commitments,
+        };
 
         let mut r = vec![];
 
@@ -278,7 +284,7 @@ impl<'a, C:Clone, S:Field, P:Clone,
                     )
                 }),
         )
-        //.chain(self.permutations_common.queries(&vk.permutation, x))
+        .chain(pcommon.queries(&x))
         //.chain(vanishing.queries(x))
         ;
         unimplemented!("get point schemas not implemented")

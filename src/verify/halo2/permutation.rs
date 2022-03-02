@@ -6,10 +6,6 @@ use std::fmt::Debug;
 use std::iter;
 use std::marker::PhantomData;
 
-pub struct VerifyingKey<S> {
-    commitments: Vec<S>,
-}
-
 pub struct Committed<P> {
     permutation_product_commitments: Vec<P>,
 }
@@ -21,8 +17,9 @@ pub struct EvaluatedSet<S, P> {
     permutation_product_last_eval: Option<S>,
 }
 
-pub struct CommonEvaluated<S> {
-    permutation_evals: Vec<S>,
+pub struct CommonEvaluated<'a, S, P> {
+    pub permutation_evals: &'a Vec<S>,
+    pub permutation_commitments: &'a Vec<P>,
 }
 
 pub struct Evaluated<'a, C, S, P, Error> {
@@ -31,6 +28,19 @@ pub struct Evaluated<'a, C, S, P, Error> {
     x_last: &'a S,
     sets: Vec<EvaluatedSet<S,P>>,
     _m: PhantomData<(C, Error)>,
+}
+
+impl<'a, S:Clone, P:Clone> CommonEvaluated<'a, S, P> {
+    pub(in crate::verify::halo2) fn queries(
+        &'a self,
+        x: &'a S,
+    ) -> impl Iterator<Item = EvaluationQuery<'a, S, P>> {
+        // Open permutation commitments for each permutation argument at x
+        self.permutation_commitments.iter().zip(self.permutation_evals.iter())
+            .map(|(commitment, eval)|
+                EvaluationQuery::<'a, S, P>::new(x.clone(), &commitment, &eval)
+            )
+    }
 }
 
 impl<'a, C, S:Clone, P:Clone, Error:Debug> Evaluated<'a, C, S, P, Error> {
@@ -107,3 +117,4 @@ impl<'a, C, S:Clone, P:Clone, Error:Debug> Evaluated<'a, C, S, P, Error> {
         )}))
     }
 }
+
