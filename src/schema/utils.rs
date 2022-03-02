@@ -30,7 +30,7 @@ impl<'a, C, S:Clone, Error, SGate: ContextRing<C, S, S, Error>> RingUtils<C, S, 
     }
 }
 
-trait VerifySetupHelper<C, S, P, Error:Debug> {
+pub trait VerifySetupHelper<'a, C, S, Error:Debug> {
     fn get_laguerre_commits(
         &self,
         ctx: &mut C,
@@ -46,11 +46,18 @@ trait VerifySetupHelper<C, S, P, Error:Debug> {
         wits: Vec<S>,
         ls: Vec<S>,
     ) -> Result<S, Error>;
+    fn mult_and_add(
+        &'a self,
+        ctx: &'a mut C,
+        wits: impl Iterator<Item = &'a S> + Clone,
+        y: &'a S,
+    ) -> S;
+
 }
 
 
-impl<'a, C, S:Clone, P:Clone, Error:Debug, SGate: ContextGroup<C, S, S, Error> + ContextRing<C, S, S, Error>>
-    VerifySetupHelper<C, S, P, Error> for SGate {
+impl<'a, C, S:Clone, Error:Debug, SGate: ContextGroup<C, S, S, Error> + ContextRing<C, S, S, Error>>
+    VerifySetupHelper<'a, C, S, Error> for SGate {
     fn get_laguerre_commits(
         &self,
         ctx: &mut C,
@@ -82,11 +89,27 @@ impl<'a, C, S:Clone, P:Clone, Error:Debug, SGate: ContextGroup<C, S, S, Error> +
     ) -> Result<S, Error> {
         let r1 = &wits[0];
         let r2 = &ls[0];
-        let mut r = arith_in_ctx!([self, ctx] r1 + r2)?;
+        let mut r = arith_in_ctx!([self, ctx] r1 * r2)?;
         wits.iter().zip(ls.iter()).skip(1).map(|(x, y)| {
             let prev = &r;
             r = arith_in_ctx!([self, ctx] prev + (x * y)).unwrap();
         });
         Ok(r)
+    }
+
+
+    /* TODO, this needs optimize in circuits */
+    fn mult_and_add (
+        &'a self,
+        ctx: &'a mut C,
+        wits: impl Iterator<Item = &'a S> + Clone,
+        y: &'a S,
+    ) -> S {
+        let mut wits = wits.clone();
+        let r1 = wits.next().unwrap().clone();
+        wits.fold(r1, |e, v| {
+            let e = &e;
+            arith_in_ctx!([self, ctx] e * y + v).unwrap()
+        })
     }
 }

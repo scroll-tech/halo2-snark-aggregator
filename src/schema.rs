@@ -21,6 +21,10 @@ impl<'a, S:Clone, P:Clone> EvaluationQuery<'a, S, P> {
         let s = CommitQuery {c:Some(c), v:Some(v)};
         EvaluationQuery {point: point, s: commit!(s) + eval!(s)}
     }
+    pub fn new_from_query(point:S, s: SchemaItem<'a, S, P>) -> Self {
+        EvaluationQuery {point: point, s}
+    }
+
 }
 
 pub trait SchemaGenerator<'a, C, S:Clone, P:Clone, E> {

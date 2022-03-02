@@ -6,7 +6,7 @@ use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::iter;
 use crate::{commit, scalar};
-use super::{lookup, permutation};
+use super::{lookup, permutation, vanish};
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::arithmetic::Field;
 use crate::{arith_in_ctx, infix2postfix};
@@ -135,6 +135,9 @@ pub struct VerifierParams <
     pub fixed_queries: Vec<(usize, usize)>,
     pub permutation_commitments: Vec<P>,
     pub permutation_evals: Vec<S>, // permutations common evaluation
+    pub vanish_commitments: Vec<&'a P>,
+    pub random_commitment: &'a P,
+    pub random_eval: &'a S,
     pub beta: &'a S,
     pub gamma: &'a S,
     pub alpha: &'a S,
@@ -160,9 +163,11 @@ impl<'a, C:Clone, S:Field, P:Clone,
         &self,
         sgate: &'a SGate,
         ctx: &'a mut C,
+        y: &'a S,
         x: &'a S,
         x_inv: &'a S,
         x_next: &'a S,
+        xn: &'a S,
     ) -> Result<Vec<EvaluationProof<'a, S, P>>, Error> {
         let xns = sgate.pow_constant_vec(ctx, x, self.common.n);
         let l_0 = x; //sgate.get_laguerre_commits
@@ -174,7 +179,7 @@ impl<'a, C:Clone, S:Field, P:Clone,
             permutation_commitments: &self.permutation_commitments,
         };
 
-        let mut r = vec![];
+        let mut expression = vec![];
 
         /* All calculation relies on ctx thus FnMut for map does not work anymore */
         for k in 0 .. self.advice_evals.len(){
@@ -185,7 +190,7 @@ impl<'a, C:Clone, S:Field, P:Clone,
             for i in 0..self.gates.len() {
                 for j in 0..self.gates[i].len() {
                     let poly = &self.gates[i][j];
-                    r.push(poly.ctx_evaluate(
+                    expression.push(poly.ctx_evaluate(
                             sgate,
                             ctx,
                             &|n| self.fixed_evals[n].clone(),
@@ -210,7 +215,7 @@ impl<'a, C:Clone, S:Field, P:Clone,
                    self.gamma,
                    //x,
                 ).unwrap();
-            r.extend(p);
+            expression.extend(p);
             for i in 0..lookups.len() {
                 let l = lookups[i].expressions(
                     sgate,
@@ -226,9 +231,15 @@ impl<'a, C:Clone, S:Field, P:Clone,
                     //fixed_evals,
                     //instance_evals,
                 ).unwrap();
-                r.extend(l);
+                expression.extend(l);
             }
         }
+
+        let vanish = vanish::Evaluated::new(sgate, ctx, expression, y, xn,
+            self.random_commitment,
+            self.random_eval,
+            self.vanish_commitments.clone()
+        );
 
         //vanishing.verify(expressions, y, xn)
 
@@ -284,8 +295,8 @@ impl<'a, C:Clone, S:Field, P:Clone,
                     )
                 }),
         )
-        .chain(pcommon.queries(&x))
-        //.chain(vanishing.queries(x))
+        .chain(pcommon.queries(x))
+        .chain(vanish.queries(x))
         ;
         unimplemented!("get point schemas not implemented")
     }
