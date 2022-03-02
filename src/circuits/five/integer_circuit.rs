@@ -1,4 +1,4 @@
-use crate::circuits::integer_circuit::{AssignedInteger, IntegerGate, IntegerGateOps};
+use crate::circuits::integer_circuit::{AssignedInteger, IntegerCircuit, IntegerCircuitOps};
 use crate::gates::base_gate::BaseGateOps;
 use crate::gates::five::base_gate::VAR_COLUMNS;
 use crate::gates::range_gate::RangeGateOps;
@@ -23,9 +23,9 @@ const OVERFLOW_LIMIT: usize = 1usize << OVERFLOW_LIMIT_SHIFT;
 const OVERFLOW_THRESHOLD_SHIFT: usize = OVERFLOW_LIMIT_SHIFT - 1;
 const OVERFLOW_THRESHOLD: usize = 1usize << OVERFLOW_THRESHOLD_SHIFT;
 
-pub type FiveColumnIntegerGate<'a, W, N> = IntegerGate<'a, W, N, LIMBS, LIMB_COMMON_WIDTH>;
+pub type FiveColumnIntegerCircuit<'a, W, N> = IntegerCircuit<'a, W, N, LIMBS, LIMB_COMMON_WIDTH>;
 
-impl<'a, W: BaseExt, N: FieldExt> FiveColumnIntegerGate<'a, W, N> {
+impl<'a, W: BaseExt, N: FieldExt> FiveColumnIntegerCircuit<'a, W, N> {
     fn find_w_modulus_ceil(&self, a: &AssignedInteger<W, N>) -> [BigUint; LIMBS] {
         let max_a = (a.overflows + 1) * (BigUint::from(1u64) << self.helper.w_ceil_bits);
         let (n, rem) = max_a.div_rem(&self.helper.w_modulus);
@@ -315,7 +315,7 @@ impl<'a, W: BaseExt, N: FieldExt> FiveColumnIntegerGate<'a, W, N> {
     }
 }
 
-impl<'a, W: BaseExt, N: FieldExt> IntegerGateOps<W, N> for FiveColumnIntegerGate<'a, W, N> {
+impl<'a, W: BaseExt, N: FieldExt> IntegerCircuitOps<W, N> for FiveColumnIntegerCircuit<'a, W, N> {
     fn assign_nonleading_limb(
         &self,
         r: &mut RegionAux<N>,

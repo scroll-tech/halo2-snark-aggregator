@@ -1,6 +1,6 @@
-use crate::circuits::ecc_circuit::EccGateOps;
-use crate::circuits::five::integer_circuit::FiveColumnIntegerGate;
-use crate::circuits::native_ecc_circuit::NativeEccGate;
+use crate::circuits::ecc_circuit::EccCircuitOps;
+use crate::circuits::five::integer_circuit::FiveColumnIntegerCircuit;
+use crate::circuits::native_ecc_circuit::NativeEccCircuit;
 use crate::gates::base_gate::RegionAux;
 use crate::gates::five::base_gate::{FiveColumnBaseGate, FiveColumnBaseGateConfig};
 use crate::gates::five::range_gate::FiveColumnRangeGate;
@@ -30,19 +30,19 @@ impl Default for TestCase {
 }
 
 #[derive(Clone)]
-struct TestFiveColumnNativeEccGateConfig {
+struct TestFiveColumnNativeEccCircuitConfig {
     base_gate_config: FiveColumnBaseGateConfig,
     range_gate_config: RangeGateConfig,
 }
 
 #[derive(Default)]
-struct TestFiveColumnNativeEccGateCircuit<C: CurveAffine> {
+struct TestFiveColumnNativeEccCircuitCircuit<C: CurveAffine> {
     test_case: TestCase,
     _phantom_w: PhantomData<C>,
     _phantom_n: PhantomData<C::ScalarExt>,
 }
 
-impl<C: CurveAffine> TestFiveColumnNativeEccGateCircuit<C> {
+impl<C: CurveAffine> TestFiveColumnNativeEccCircuitCircuit<C> {
     fn random() -> C::ScalarExt {
         let seed = chrono::offset::Utc::now()
             .timestamp_nanos()
@@ -54,7 +54,7 @@ impl<C: CurveAffine> TestFiveColumnNativeEccGateCircuit<C> {
 
     fn setup_test_add(
         &self,
-        ecc_gate: &NativeEccGate<'_, C, C::ScalarExt>,
+        ecc_gate: &NativeEccCircuit<'_, C, C::ScalarExt>,
         r: &mut RegionAux<'_, '_, C::ScalarExt>,
     ) -> Result<(), Error> {
         let s1 = Self::random();
@@ -84,7 +84,7 @@ impl<C: CurveAffine> TestFiveColumnNativeEccGateCircuit<C> {
 
     fn setup_test_mul(
         &self,
-        ecc_gate: &NativeEccGate<'_, C, C::ScalarExt>,
+        ecc_gate: &NativeEccCircuit<'_, C, C::ScalarExt>,
         r: &mut RegionAux<'_, '_, C::ScalarExt>,
     ) -> Result<(), Error> {
         let base_gate = ecc_gate.base_gate();
@@ -117,7 +117,7 @@ impl<C: CurveAffine> TestFiveColumnNativeEccGateCircuit<C> {
 
     fn setup_test_double(
         &self,
-        ecc_gate: &NativeEccGate<'_, C, C::ScalarExt>,
+        ecc_gate: &NativeEccCircuit<'_, C, C::ScalarExt>,
         r: &mut RegionAux<'_, '_, C::ScalarExt>,
     ) -> Result<(), Error> {
         let s1 = Self::random();
@@ -140,8 +140,8 @@ impl<C: CurveAffine> TestFiveColumnNativeEccGateCircuit<C> {
 
 const COMMON_RANGE_BITS: usize = 17usize;
 
-impl<C: CurveAffine> Circuit<C::ScalarExt> for TestFiveColumnNativeEccGateCircuit<C> {
-    type Config = TestFiveColumnNativeEccGateConfig;
+impl<C: CurveAffine> Circuit<C::ScalarExt> for TestFiveColumnNativeEccCircuitCircuit<C> {
+    type Config = TestFiveColumnNativeEccCircuitConfig;
     type FloorPlanner = SimpleFloorPlanner;
 
     fn without_witnesses(&self) -> Self {
@@ -155,7 +155,7 @@ impl<C: CurveAffine> Circuit<C::ScalarExt> for TestFiveColumnNativeEccGateCircui
                 meta,
                 &base_gate_config,
             );
-        TestFiveColumnNativeEccGateConfig {
+        TestFiveColumnNativeEccCircuitConfig {
             base_gate_config,
             range_gate_config,
         }
@@ -171,8 +171,8 @@ impl<C: CurveAffine> Circuit<C::ScalarExt> for TestFiveColumnNativeEccGateCircui
             config.range_gate_config,
             &base_gate,
         );
-        let integer_gate = FiveColumnIntegerGate::new(&range_gate);
-        let ecc_gate = NativeEccGate::new(&integer_gate);
+        let integer_gate = FiveColumnIntegerCircuit::new(&range_gate);
+        let ecc_gate = NativeEccCircuit::new(&integer_gate);
 
         range_gate
             .init_table(&mut layouter, &integer_gate.helper.integer_modulus)
@@ -204,7 +204,7 @@ impl<C: CurveAffine> Circuit<C::ScalarExt> for TestFiveColumnNativeEccGateCircui
 #[test]
 fn test_five_column_ecc_gate_add() {
     const K: u32 = (COMMON_RANGE_BITS + 1) as u32;
-    let circuit = TestFiveColumnNativeEccGateCircuit::<G1Affine> {
+    let circuit = TestFiveColumnNativeEccCircuitCircuit::<G1Affine> {
         test_case: TestCase::Add,
         _phantom_w: PhantomData,
         _phantom_n: PhantomData,
@@ -219,7 +219,7 @@ fn test_five_column_ecc_gate_add() {
 #[test]
 fn test_five_column_ecc_gate_double() {
     const K: u32 = (COMMON_RANGE_BITS + 1) as u32;
-    let circuit = TestFiveColumnNativeEccGateCircuit::<G1Affine> {
+    let circuit = TestFiveColumnNativeEccCircuitCircuit::<G1Affine> {
         test_case: TestCase::Double,
         _phantom_w: PhantomData,
         _phantom_n: PhantomData,
@@ -234,7 +234,7 @@ fn test_five_column_ecc_gate_double() {
 #[test]
 fn test_five_column_ecc_gate_mul() {
     const K: u32 = (COMMON_RANGE_BITS + 3) as u32;
-    let circuit = TestFiveColumnNativeEccGateCircuit::<G1Affine> {
+    let circuit = TestFiveColumnNativeEccCircuitCircuit::<G1Affine> {
         test_case: TestCase::Mul,
         _phantom_w: PhantomData,
         _phantom_n: PhantomData,

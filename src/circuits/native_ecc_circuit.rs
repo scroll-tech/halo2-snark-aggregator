@@ -1,6 +1,6 @@
 use super::{
-    ecc_circuit::{EccGate, EccGateOps},
-    integer_circuit::IntegerGateOps,
+    ecc_circuit::{EccCircuit, EccCircuitOps},
+    integer_circuit::IntegerCircuitOps,
 };
 use crate::{
     field::{bn_to_field, field_to_bn},
@@ -14,15 +14,15 @@ use halo2_proofs::{
 };
 use num_bigint::BigUint;
 
-pub struct NativeEccGate<'a, C: CurveAffine, N: FieldExt>(EccGate<'a, C, N>);
+pub struct NativeEccCircuit<'a, C: CurveAffine, N: FieldExt>(EccCircuit<'a, C, N>);
 
-impl<'a, C: CurveAffine, N: FieldExt> NativeEccGate<'a, C, N> {
-    pub fn new(integer_gate: &'a dyn IntegerGateOps<C::Base, N>) -> Self {
-        NativeEccGate(EccGate::new(integer_gate))
+impl<'a, C: CurveAffine, N: FieldExt> NativeEccCircuit<'a, C, N> {
+    pub fn new(integer_gate: &'a dyn IntegerCircuitOps<C::Base, N>) -> Self {
+        NativeEccCircuit(EccCircuit::new(integer_gate))
     }
 }
 
-impl<'a, C: CurveAffine, N: FieldExt> NativeEccGate<'a, C, N> {
+impl<'a, C: CurveAffine, N: FieldExt> NativeEccCircuit<'a, C, N> {
     fn decompose_bits<const WINDOW_SIZE: usize>(
         &self,
         r: &mut RegionAux<N>,
@@ -41,10 +41,10 @@ impl<'a, C: CurveAffine, N: FieldExt> NativeEccGate<'a, C, N> {
 
 const WINDOW_SIZE: usize = 4usize;
 
-impl<'a, C: CurveAffine> EccGateOps<C, C::ScalarExt, WINDOW_SIZE>
-    for NativeEccGate<'a, C, C::ScalarExt>
+impl<'a, C: CurveAffine> EccCircuitOps<C, C::ScalarExt, WINDOW_SIZE>
+    for NativeEccCircuit<'a, C, C::ScalarExt>
 {
-    fn integer_gate(&self) -> &dyn IntegerGateOps<C::Base, C::ScalarExt> {
+    fn integer_gate(&self) -> &dyn IntegerCircuitOps<C::Base, C::ScalarExt> {
         self.0.integer_gate
     }
 

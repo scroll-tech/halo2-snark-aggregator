@@ -1,4 +1,4 @@
-use super::integer_circuit::{AssignedInteger, IntegerGateOps};
+use super::integer_circuit::{AssignedInteger, IntegerCircuitOps};
 use crate::gates::{
     base_gate::{AssignedCondition, BaseGateOps, RegionAux},
     range_gate::RangeGateOps,
@@ -59,19 +59,19 @@ impl<C: CurveAffine, N: FieldExt> AssignedPoint<C, N> {
     }
 }
 
-pub struct EccGate<'a, C: CurveAffine, N: FieldExt> {
-    pub integer_gate: &'a dyn IntegerGateOps<C::Base, N>,
+pub struct EccCircuit<'a, C: CurveAffine, N: FieldExt> {
+    pub integer_gate: &'a dyn IntegerCircuitOps<C::Base, N>,
 }
 
-impl<'a, C: CurveAffine, N: FieldExt> EccGate<'a, C, N> {
-    pub fn new(integer_gate: &'a dyn IntegerGateOps<C::Base, N>) -> Self {
+impl<'a, C: CurveAffine, N: FieldExt> EccCircuit<'a, C, N> {
+    pub fn new(integer_gate: &'a dyn IntegerCircuitOps<C::Base, N>) -> Self {
         Self { integer_gate }
     }
 }
 
-pub trait EccGateOps<C: CurveAffine, N: FieldExt, const WINDOW_SIZE: usize = 4usize> {
+pub trait EccCircuitOps<C: CurveAffine, N: FieldExt, const WINDOW_SIZE: usize = 4usize> {
     type AssignedScalar;
-    fn integer_gate(&self) -> &dyn IntegerGateOps<C::Base, N>;
+    fn integer_gate(&self) -> &dyn IntegerCircuitOps<C::Base, N>;
     fn base_gate(&self) -> &dyn BaseGateOps<N> {
         self.integer_gate().base_gate()
     }

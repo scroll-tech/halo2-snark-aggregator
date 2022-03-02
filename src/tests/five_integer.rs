@@ -1,5 +1,5 @@
-use crate::circuits::five::integer_circuit::FiveColumnIntegerGate;
-use crate::circuits::integer_circuit::IntegerGateOps;
+use crate::circuits::five::integer_circuit::FiveColumnIntegerCircuit;
+use crate::circuits::integer_circuit::IntegerCircuitOps;
 use crate::gates::base_gate::RegionAux;
 use crate::gates::five::base_gate::{FiveColumnBaseGate, FiveColumnBaseGateConfig};
 use crate::gates::five::range_gate::FiveColumnRangeGate;
@@ -32,19 +32,19 @@ impl Default for TestCase {
 }
 
 #[derive(Clone)]
-struct TestFiveColumnIntegerGateConfig {
+struct TestFiveColumnIntegerCircuitConfig {
     base_gate_config: FiveColumnBaseGateConfig,
     range_gate_config: RangeGateConfig,
 }
 
 #[derive(Default)]
-struct TestFiveColumnIntegerGateCircuit<W: BaseExt, N: FieldExt> {
+struct TestFiveColumnIntegerCircuitCircuit<W: BaseExt, N: FieldExt> {
     test_case: TestCase,
     _phantom_w: PhantomData<W>,
     _phantom_n: PhantomData<N>,
 }
 
-impl<W: BaseExt, N: FieldExt> TestFiveColumnIntegerGateCircuit<W, N> {
+impl<W: BaseExt, N: FieldExt> TestFiveColumnIntegerCircuitCircuit<W, N> {
     fn random() -> W {
         let seed = chrono::offset::Utc::now()
             .timestamp_nanos()
@@ -55,7 +55,7 @@ impl<W: BaseExt, N: FieldExt> TestFiveColumnIntegerGateCircuit<W, N> {
     }
     fn setup_test_add(
         &self,
-        integer_gate: &FiveColumnIntegerGate<'_, W, N>,
+        integer_gate: &FiveColumnIntegerCircuit<'_, W, N>,
         r: &mut RegionAux<'_, '_, N>,
     ) -> Result<(), Error> {
         let a = Self::random();
@@ -72,7 +72,7 @@ impl<W: BaseExt, N: FieldExt> TestFiveColumnIntegerGateCircuit<W, N> {
 
     fn setup_test_sub(
         &self,
-        integer_gate: &FiveColumnIntegerGate<'_, W, N>,
+        integer_gate: &FiveColumnIntegerCircuit<'_, W, N>,
         r: &mut RegionAux<'_, '_, N>,
     ) -> Result<(), Error> {
         let a = Self::random();
@@ -90,7 +90,7 @@ impl<W: BaseExt, N: FieldExt> TestFiveColumnIntegerGateCircuit<W, N> {
 
     fn setup_test_neg(
         &self,
-        integer_gate: &FiveColumnIntegerGate<'_, W, N>,
+        integer_gate: &FiveColumnIntegerCircuit<'_, W, N>,
         r: &mut RegionAux<'_, '_, N>,
     ) -> Result<(), Error> {
         let a = Self::random();
@@ -106,7 +106,7 @@ impl<W: BaseExt, N: FieldExt> TestFiveColumnIntegerGateCircuit<W, N> {
 
     fn setup_test_mul(
         &self,
-        integer_gate: &FiveColumnIntegerGate<'_, W, N>,
+        integer_gate: &FiveColumnIntegerCircuit<'_, W, N>,
         r: &mut RegionAux<'_, '_, N>,
     ) -> Result<(), Error> {
         let a = Self::random();
@@ -124,7 +124,7 @@ impl<W: BaseExt, N: FieldExt> TestFiveColumnIntegerGateCircuit<W, N> {
 
     fn setup_test_square(
         &self,
-        integer_gate: &FiveColumnIntegerGate<'_, W, N>,
+        integer_gate: &FiveColumnIntegerCircuit<'_, W, N>,
         r: &mut RegionAux<'_, '_, N>,
     ) -> Result<(), Error> {
         let a = Self::random();
@@ -140,7 +140,7 @@ impl<W: BaseExt, N: FieldExt> TestFiveColumnIntegerGateCircuit<W, N> {
 
     fn setup_test_div(
         &self,
-        integer_gate: &FiveColumnIntegerGate<'_, W, N>,
+        integer_gate: &FiveColumnIntegerCircuit<'_, W, N>,
         r: &mut RegionAux<'_, '_, N>,
     ) -> Result<(), Error> {
         let a = Self::random();
@@ -169,7 +169,7 @@ impl<W: BaseExt, N: FieldExt> TestFiveColumnIntegerGateCircuit<W, N> {
 
     fn setup_test_is_zero(
         &self,
-        integer_gate: &FiveColumnIntegerGate<'_, W, N>,
+        integer_gate: &FiveColumnIntegerCircuit<'_, W, N>,
         r: &mut RegionAux<'_, '_, N>,
     ) -> Result<(), Error> {
         let a = Self::random();
@@ -200,8 +200,8 @@ impl<W: BaseExt, N: FieldExt> TestFiveColumnIntegerGateCircuit<W, N> {
 
 const COMMON_RANGE_BITS: usize = 17usize;
 
-impl<W: BaseExt, N: FieldExt> Circuit<N> for TestFiveColumnIntegerGateCircuit<W, N> {
-    type Config = TestFiveColumnIntegerGateConfig;
+impl<W: BaseExt, N: FieldExt> Circuit<N> for TestFiveColumnIntegerCircuitCircuit<W, N> {
+    type Config = TestFiveColumnIntegerCircuitConfig;
     type FloorPlanner = SimpleFloorPlanner;
 
     fn without_witnesses(&self) -> Self {
@@ -212,7 +212,7 @@ impl<W: BaseExt, N: FieldExt> Circuit<N> for TestFiveColumnIntegerGateCircuit<W,
         let base_gate_config = FiveColumnBaseGate::<N>::configure(meta);
         let range_gate_config =
             FiveColumnRangeGate::<'_, W, N, COMMON_RANGE_BITS>::configure(meta, &base_gate_config);
-        TestFiveColumnIntegerGateConfig {
+        TestFiveColumnIntegerCircuitConfig {
             base_gate_config,
             range_gate_config,
         }
@@ -228,7 +228,7 @@ impl<W: BaseExt, N: FieldExt> Circuit<N> for TestFiveColumnIntegerGateCircuit<W,
             config.range_gate_config,
             &base_gate,
         );
-        let integer_gate = FiveColumnIntegerGate::new(&range_gate);
+        let integer_gate = FiveColumnIntegerCircuit::new(&range_gate);
 
         range_gate
             .init_table(&mut layouter, &integer_gate.helper.integer_modulus)
@@ -264,7 +264,7 @@ impl<W: BaseExt, N: FieldExt> Circuit<N> for TestFiveColumnIntegerGateCircuit<W,
 #[test]
 fn test_five_column_integer_gate_add() {
     const K: u32 = (COMMON_RANGE_BITS + 1) as u32;
-    let circuit = TestFiveColumnIntegerGateCircuit::<Fq, Fr> {
+    let circuit = TestFiveColumnIntegerCircuitCircuit::<Fq, Fr> {
         test_case: TestCase::Add,
         _phantom_w: PhantomData,
         _phantom_n: PhantomData,
@@ -279,7 +279,7 @@ fn test_five_column_integer_gate_add() {
 #[test]
 fn test_five_column_integer_gate_sub() {
     const K: u32 = (COMMON_RANGE_BITS + 1) as u32;
-    let circuit = TestFiveColumnIntegerGateCircuit::<Fq, Fr> {
+    let circuit = TestFiveColumnIntegerCircuitCircuit::<Fq, Fr> {
         test_case: TestCase::Sub,
         _phantom_w: PhantomData,
         _phantom_n: PhantomData,
@@ -294,7 +294,7 @@ fn test_five_column_integer_gate_sub() {
 #[test]
 fn test_five_column_integer_gate_neg() {
     const K: u32 = (COMMON_RANGE_BITS + 1) as u32;
-    let circuit = TestFiveColumnIntegerGateCircuit::<Fq, Fr> {
+    let circuit = TestFiveColumnIntegerCircuitCircuit::<Fq, Fr> {
         test_case: TestCase::Neg,
         _phantom_w: PhantomData,
         _phantom_n: PhantomData,
@@ -309,7 +309,7 @@ fn test_five_column_integer_gate_neg() {
 #[test]
 fn test_five_column_integer_gate_mul() {
     const K: u32 = (COMMON_RANGE_BITS + 1) as u32;
-    let circuit = TestFiveColumnIntegerGateCircuit::<Fq, Fr> {
+    let circuit = TestFiveColumnIntegerCircuitCircuit::<Fq, Fr> {
         test_case: TestCase::Mul,
         _phantom_w: PhantomData,
         _phantom_n: PhantomData,
@@ -324,7 +324,7 @@ fn test_five_column_integer_gate_mul() {
 #[test]
 fn test_five_column_integer_gate_square() {
     const K: u32 = (COMMON_RANGE_BITS + 1) as u32;
-    let circuit = TestFiveColumnIntegerGateCircuit::<Fq, Fr> {
+    let circuit = TestFiveColumnIntegerCircuitCircuit::<Fq, Fr> {
         test_case: TestCase::Square,
         _phantom_w: PhantomData,
         _phantom_n: PhantomData,
@@ -339,7 +339,7 @@ fn test_five_column_integer_gate_square() {
 #[test]
 fn test_five_column_integer_gate_is_zero() {
     const K: u32 = (COMMON_RANGE_BITS + 1) as u32;
-    let circuit = TestFiveColumnIntegerGateCircuit::<Fq, Fr> {
+    let circuit = TestFiveColumnIntegerCircuitCircuit::<Fq, Fr> {
         test_case: TestCase::IsZero,
         _phantom_w: PhantomData,
         _phantom_n: PhantomData,
@@ -354,7 +354,7 @@ fn test_five_column_integer_gate_is_zero() {
 #[test]
 fn test_five_column_integer_gate_div() {
     const K: u32 = (COMMON_RANGE_BITS + 1) as u32;
-    let circuit = TestFiveColumnIntegerGateCircuit::<Fq, Fr> {
+    let circuit = TestFiveColumnIntegerCircuitCircuit::<Fq, Fr> {
         test_case: TestCase::Div,
         _phantom_w: PhantomData,
         _phantom_n: PhantomData,

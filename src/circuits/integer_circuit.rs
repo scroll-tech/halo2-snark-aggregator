@@ -47,7 +47,7 @@ impl<W: BaseExt, N: FieldExt> AssignedInteger<W, N> {
     }
 }
 
-pub struct IntegerGateHelper<W: BaseExt, N: FieldExt, const LIMBS: usize, const LIMB_WIDTH: usize> {
+pub struct IntegerCircuitHelper<W: BaseExt, N: FieldExt, const LIMBS: usize, const LIMB_WIDTH: usize> {
     pub limb_modulus: BigUint,
     pub integer_modulus: BigUint,
     pub limb_modulus_on_n: N,
@@ -63,7 +63,7 @@ pub struct IntegerGateHelper<W: BaseExt, N: FieldExt, const LIMBS: usize, const 
 }
 
 impl<W: BaseExt, N: FieldExt, const LIMBS: usize, const LIMB_WIDTH: usize>
-    IntegerGateHelper<W, N, LIMBS, LIMB_WIDTH>
+    IntegerCircuitHelper<W, N, LIMBS, LIMB_WIDTH>
 {
     pub fn w_to_limb_n_le(&self, w: &W) -> [N; LIMBS] {
         let bn = field_to_bn(w);
@@ -127,7 +127,7 @@ impl<W: BaseExt, N: FieldExt, const LIMBS: usize, const LIMB_WIDTH: usize>
     }
 }
 
-pub trait IntegerGateOps<W: BaseExt, N: FieldExt> {
+pub trait IntegerCircuitOps<W: BaseExt, N: FieldExt> {
     fn base_gate(&self) -> &dyn BaseGateOps<N>;
     fn range_gate(&self) -> &dyn RangeGateOps<W, N>;
     fn assign_nonleading_limb(&self, r: &mut RegionAux<N>, n: N)
@@ -231,18 +231,18 @@ pub trait IntegerGateOps<W: BaseExt, N: FieldExt> {
     ) -> Result<AssignedInteger<W, N>, Error>;
 }
 
-pub struct IntegerGate<'a, W: BaseExt, N: FieldExt, const LIMBS: usize, const LIMB_WIDTH: usize> {
+pub struct IntegerCircuit<'a, W: BaseExt, N: FieldExt, const LIMBS: usize, const LIMB_WIDTH: usize> {
     pub range_gate: &'a dyn RangeGateOps<W, N>,
-    pub helper: IntegerGateHelper<W, N, LIMBS, LIMB_WIDTH>,
+    pub helper: IntegerCircuitHelper<W, N, LIMBS, LIMB_WIDTH>,
 }
 
 impl<'a, W: BaseExt, N: FieldExt, const LIMBS: usize, const LIMB_WIDTH: usize>
-    IntegerGate<'a, W, N, LIMBS, LIMB_WIDTH>
+    IntegerCircuit<'a, W, N, LIMBS, LIMB_WIDTH>
 {
     pub fn new(range_gate: &'a dyn RangeGateOps<W, N>) -> Self {
         Self {
             range_gate,
-            helper: IntegerGateHelper::new(),
+            helper: IntegerCircuitHelper::new(),
         }
     }
 }
