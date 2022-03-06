@@ -46,14 +46,14 @@ impl<'a, S:Clone, P:Clone> CommonEvaluated<'a, S, P> {
 impl<'a, C, S:Clone, P:Clone, Error:Debug> Evaluated<'a, C, S, P, Error> {
     pub(in crate::verify::halo2) fn expressions(
         &'a self,
-        sgate: &(impl ContextGroup<C, S, S, Error> + ContextRing<C, S, S, Error>),
-        ctx: &mut C,
+        sgate: &'a (impl ContextGroup<C, S, S, Error> + ContextRing<C, S, S, Error>),
+        ctx: &'a mut C,
         l_0: &'a S,
         l_last: &'a S,
         l_blind: &'a S,
         beta: &'a S,
         gamma: &'a S,
-    ) -> Result<impl Iterator<Item = S>, Error> {
+    ) -> Result<impl Iterator<Item = S> + 'a, Error> {
         let zero = &sgate.zero(ctx)?;
         let one = &sgate.one(ctx)?;
 
@@ -74,9 +74,20 @@ impl<'a, C, S:Clone, P:Clone, Error:Debug> Evaluated<'a, C, S, P, Error> {
                 self.sets.last().map(|last_set| {
                     let z_x = &last_set.permutation_product_eval;
                     arith_in_ctx!([sgate, ctx] l_last * (z_x * z_x - z_x)).unwrap()
-                })),
+                }))
             // Except for the first set, enforce.
             // l_0(X) * (z_i(X) - z_{i-1}(\omega^(last) X)) = 0
+            .chain(
+                self.sets
+                    .iter()
+                    .skip(1)
+                    .zip(self.sets.iter())
+                    .map(|(set, last_set)| {
+                        let s = &set.permutation_product_eval;
+                        let prev_last = &last_set.permutation_product_last_eval.as_ref().unwrap();
+                        arith_in_ctx!([sgate, ctx] (s - prev_last) * l_0).unwrap()
+                    })
+            )
 
             // And for all the sets we enforce:
             // (1 - (l_last(X) + l_blind(X))) * (

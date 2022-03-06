@@ -16,7 +16,7 @@ pub struct PlonkCommonSetup {
     pub n: u32,
 }
 
-trait Evaluable<C, S, Error:Debug, SGate:ContextGroup<C, S, S, Error> + ContextRing<C, S, S, Error>> {
+pub trait Evaluable<C, S, Error:Debug, SGate:ContextGroup<C, S, S, Error> + ContextRing<C, S, S, Error>> {
     fn ctx_evaluate(
         &self,
         sgate: &SGate,
@@ -122,7 +122,7 @@ pub struct VerifierParams <
     //public_wit: Vec<C::ScalarExt>,
     pub gates: Vec<Vec<Expression<S>>>,
     pub common: PlonkCommonSetup,
-    pub lookup_evaluated: Vec<Vec<lookup::Evaluated<C, S, P, Error>>>,
+    pub lookup_evaluated: Vec<Vec<lookup::Evaluated<'a, C, S, P, Error>>>,
     pub permutation_evaluated: Vec<permutation::Evaluated<'a, C, S, P, Error>>,
     pub instance_commitments: Vec<Vec<&'a P>>,
     pub instance_evals: Vec<Vec<&'a S>>,
@@ -203,8 +203,8 @@ impl<'a, C:Clone, S:Field, P:Clone,
                    //vk,
                    //&vk.cs.permutation,
                    //&permutations_common,
-                   //advice_evals,
                    //fixed_evals,
+                   //advice_evals,
                    //instance_evals,
                    sgate,
                    ctx,
@@ -220,16 +220,16 @@ impl<'a, C:Clone, S:Field, P:Clone,
                 let l = lookups[i].expressions(
                     sgate,
                     ctx,
+                    &self.fixed_evals,
+                    advice_evals,
+                    instance_evals,
                     l_0,
                     l_last,
                     l_blind,
                     //argument,
-                    //self.theta,
+                    self.theta,
                     self.beta,
                     self.gamma,
-                    //advice_evals,
-                    //fixed_evals,
-                    //instance_evals,
                 ).unwrap();
                 expression.extend(l);
             }

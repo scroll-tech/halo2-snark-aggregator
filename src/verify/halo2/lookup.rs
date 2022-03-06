@@ -1,10 +1,13 @@
 use crate::arith::api::{ContextGroup, ContextRing};
-use crate::schema::{EvaluationQuery};
-
-use crate::{arith_in_ctx, infix2postfix};
+use halo2_proofs::plonk::Expression;
+use halo2_proofs::arithmetic::Field;
 use std::fmt::Debug;
 use std::iter;
 use std::marker::PhantomData;
+use crate::schema::{EvaluationQuery};
+use crate::schema::utils::{VerifySetupHelper};
+use crate::{arith_in_ctx, infix2postfix};
+use super::verify::{Evaluable};
 
 pub struct PermutationCommitments<P> {
     permuted_input_commitment: P,
@@ -16,7 +19,9 @@ pub struct Committed<P> {
     product_commitment: P,
 }
 
-pub struct Evaluated<C, S, P, Error> {
+pub struct Evaluated<'a, C, S, P, Error> {
+    input_expressions: &'a Vec<Expression<S>>,
+    table_expressions: &'a Vec<Expression<S>>,
     committed: Committed<P>,
     product_eval: S,      // X
     product_next_eval: S, // ωX
@@ -26,16 +31,20 @@ pub struct Evaluated<C, S, P, Error> {
     _m: PhantomData<(C, Error)>,
 }
 
-impl<C, S:Clone, P:Clone, Error:Debug> Evaluated<C, S, P, Error> {
+impl<'a, C, S:Field, P:Clone, Error:Debug> Evaluated<'a, C, S, P, Error> {
     pub(in crate::verify::halo2) fn expressions(
-        &self,
+        &'a self,
         sgate: &(impl ContextGroup<C, S, S, Error> + ContextRing<C, S, S, Error>),
-        ctx: &mut C,
-        l_0: &S,
-        l_last: &S,
-        l_blind: &S,
-        beta: &S,
-        gamma: &S,
+        ctx: &'a mut C,
+        fixed_evals: &'a Vec<&'a S>,
+        instance_evals: &'a Vec<&'a S>,
+        advice_evals: &'a Vec<&'a S>,
+        l_0: &'a S,
+        l_last: &'a S,
+        l_blind: &'a S,
+        theta: &'a S,
+        beta: &'a S,
+        gamma: &'a S,
     ) -> Result<impl Iterator<Item = S>, Error> {
         let _zero = sgate.zero(ctx)?;
         let _one = sgate.one(ctx)?;
@@ -46,8 +55,36 @@ impl<C, S:Clone, P:Clone, Error:Debug> Evaluated<C, S, P, Error> {
         let a_x = &self.permuted_input_eval;
         let s_x = &self.permuted_table_eval;
         let a_invwx = &self.permuted_input_inv_eval;
+        let product_eval = &self.product_eval;
 
-        let left = arith_in_ctx!([sgate, ctx] z_wx * (a_x + beta) * (s_x + gamma));
+        let left = &arith_in_ctx!([sgate, ctx] z_wx * (a_x + beta) * (s_x + gamma))?;
+
+        let input_evals:Vec<S> = self.input_expressions
+                    .iter()
+                    .map(|expression| {
+                        expression.ctx_evaluate(
+                            sgate,
+                            ctx,
+                            &|n| fixed_evals[n].clone(),
+                            &|n| advice_evals[n].clone(),
+                            &|n| instance_evals[n].clone(),
+                        )
+                    }).collect();
+        let input_eval = &sgate.mult_and_add(ctx, input_evals.iter(), theta);
+
+        let table_evals:Vec<S> = self.input_expressions
+                    .iter()
+                    .map(|expression| {
+                        expression.ctx_evaluate(
+                            sgate,
+                            ctx,
+                            &|n| fixed_evals[n].clone(),
+                            &|n| advice_evals[n].clone(),
+                            &|n| instance_evals[n].clone(),
+                        )
+                    }).collect();
+        let table_eval = &sgate.mult_and_add(ctx, table_evals.iter(), theta);
+
 
         Ok(iter::empty()
             .chain(
@@ -58,15 +95,15 @@ impl<C, S:Clone, P:Clone, Error:Debug> Evaluated<C, S, P, Error> {
                 // l_last(X) * (z(X)^2 - z(X)) = 0
                 arith_in_ctx!([sgate, ctx] l_last * (z_x * z_x - z_x)),
             )
-            /*
-                        .chain(
-                            // (1 - (l_last(X) + l_blind(X))) * (
-                            //   z(\omega X) (a'(X) + \beta) (s'(X) + \gamma)
-                            //   - z(X) (\theta^{m-1} a_0(X) + ... + a_{m-1}(X) + \beta) (\theta^{m-1} s_0(X) + ... + s_{m-1}(X) + \gamma)
-                            // ) = 0
-                            Some(product_expression()),
-                        )
-            */
+            .chain(
+                // (1 - (l_last(X) + l_blind(X))) * (
+                //   z(\omega X) (a'(X) + \beta) (s'(X) + \gamma)
+                //   - z(X) (\theta^{m-1} a_0(X) + ... + a_{m-1}(X) + \beta) (\theta^{m-1} s_0(X) + ... + s_{m-1}(X) + \gamma)
+                // ) = 0
+                arith_in_ctx!([sgate, ctx]
+                    (left - product_eval * (input_eval + beta) * (table_eval + gamma))
+                    * (one - (l_last + l_blind))) //active rows
+            )
             .chain(
                 // l_0(X) * (a'(X) - s'(X)) = 0
                 arith_in_ctx!([sgate, ctx] l_0 * (a_x - s_x)),
@@ -79,7 +116,7 @@ impl<C, S:Clone, P:Clone, Error:Debug> Evaluated<C, S, P, Error> {
             ))
     }
 
-    pub(in crate::verify::halo2) fn queries<'a>(
+    pub(in crate::verify::halo2) fn queries(
         &'a self,
         x: &'a S,
         x_inv: &'a S,
