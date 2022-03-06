@@ -15,6 +15,7 @@ pub struct EvaluatedSet<S, P> {
     permutation_product_eval: S,
     permutation_product_next_eval: S,
     permutation_product_last_eval: Option<S>,
+    chunk_len: usize,
 }
 
 pub struct CommonEvaluated<'a, S, P> {
@@ -27,6 +28,8 @@ pub struct Evaluated<'a, C, S, P, Error> {
     x_next: &'a S,
     x_last: &'a S,
     sets: Vec<EvaluatedSet<S,P>>,
+    evals: Vec<&'a S>,
+    chunk_len: usize,
     _m: PhantomData<(C, Error)>,
 }
 
@@ -48,11 +51,14 @@ impl<'a, C, S:Clone, P:Clone, Error:Debug> Evaluated<'a, C, S, P, Error> {
         &'a self,
         sgate: &'a (impl ContextGroup<C, S, S, Error> + ContextRing<C, S, S, Error>),
         ctx: &'a mut C,
+        common: &'a CommonEvaluated<'a, S, P>,
         l_0: &'a S,
         l_last: &'a S,
         l_blind: &'a S,
+        delta: &'a S,
         beta: &'a S,
         gamma: &'a S,
+        x: &'a S,
     ) -> Result<impl Iterator<Item = S> + 'a, Error> {
         let zero = &sgate.zero(ctx)?;
         let one = &sgate.one(ctx)?;
@@ -94,6 +100,29 @@ impl<'a, C, S:Clone, P:Clone, Error:Debug> Evaluated<'a, C, S, P, Error> {
             //   z_i(\omega X) \prod (p(X) + \beta s_i(X) + \gamma)
             // - z_i(X) \prod (p(X) + \delta^i \beta X + \gamma)
             // )
+            .chain({
+                // mutable borrow ctx, can not use closure!
+                let v = vec![];
+                for ((set, evals), permutation_evals) in self.sets.iter()
+                    .zip(self.evals.chunks(self.chunk_len))
+                    .zip(common.permutation_evals.chunks(self.chunk_len)) {
+                        let one = &sgate.one(ctx).unwrap();
+                        let mut left = set.permutation_product_next_eval.clone();
+                        let mut right = set.permutation_product_eval.clone();
+                        let mut d = arith_in_ctx!([sgate, ctx] beta * x * delta).unwrap();
+                        for (eval, permutation_eval) in evals.iter().zip(permutation_evals) {
+                            let delta_current = &d;
+                            let l_current = &left;
+                            let r_current = &right;
+                            left = arith_in_ctx!([sgate, ctx] (eval + beta * permutation_eval + gamma) * l_current).unwrap();
+                            right = arith_in_ctx!([sgate, ctx] (eval + delta + gamma) * r_current).unwrap();
+                            d = arith_in_ctx!([sgate, ctx] delta * delta_current).unwrap();
+                        }
+                        let (l,r) = (&left, &right);
+                        v.push(arith_in_ctx!([sgate, ctx] (l- r) * (one - (l_last + l_blind))).unwrap());
+                    };
+                v
+            })
         )
     }
     pub(in crate::verify::halo2) fn queries(

@@ -142,6 +142,7 @@ pub struct VerifierParams <
     pub gamma: &'a S,
     pub alpha: &'a S,
     pub theta: &'a S,
+    pub delta: &'a S,
     pub u: &'a S,
     pub v: &'a S,
     pub xi: &'a S,
@@ -208,12 +209,14 @@ impl<'a, C:Clone, S:Field, P:Clone,
                    //instance_evals,
                    sgate,
                    ctx,
+                   &pcommon,
                    l_0,
                    l_last,
                    l_blind,
+                   self.delta,
                    self.beta,
                    self.gamma,
-                   //x,
+                   x,
                 ).unwrap();
             expression.extend(p);
             for i in 0..lookups.len() {
