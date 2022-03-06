@@ -1,4 +1,3 @@
-use group::ff::Field;
 use halo2_proofs::arithmetic::{BaseExt, FieldExt};
 use num_bigint::BigUint;
 use num_integer::Integer;

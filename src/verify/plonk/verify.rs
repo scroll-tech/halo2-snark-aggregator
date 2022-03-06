@@ -1,17 +1,11 @@
+use crate::arith::api::{ContextGroup, ContextRing, PowConstant};
+use crate::schema::ast::{CommitQuery, MultiOpenProof, SchemaItem};
+use crate::schema::utils::RingUtils;
+use crate::schema::{EvaluationProof, SchemaGenerator};
+use crate::{arith_in_ctx, infix2postfix};
+use crate::{commit, eval, scalar};
 use std::fmt::Debug;
 use std::marker::PhantomData;
-
-use crate::{commit, eval, scalar};
-
-use crate::schema::ast::{CommitQuery, MultiOpenProof, SchemaItem};
-
-use crate::schema::utils::RingUtils;
-
-use crate::arith::api::{ContextGroup, ContextRing, PowConstant};
-
-use crate::schema::{EvaluationProof, SchemaGenerator};
-
-use crate::{arith_in_ctx, infix2postfix};
 
 pub struct ParamsPreprocessed<'a, P> {
     pub q_m: &'a P,

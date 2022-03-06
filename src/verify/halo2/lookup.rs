@@ -1,13 +1,13 @@
+use super::verify::Evaluable;
 use crate::arith::api::{ContextGroup, ContextRing};
-use halo2_proofs::plonk::Expression;
+use crate::schema::utils::VerifySetupHelper;
+use crate::schema::EvaluationQuery;
+use crate::{arith_in_ctx, infix2postfix};
 use halo2_proofs::arithmetic::Field;
+use halo2_proofs::plonk::Expression;
 use std::fmt::Debug;
 use std::iter;
 use std::marker::PhantomData;
-use crate::schema::{EvaluationQuery};
-use crate::schema::utils::{VerifySetupHelper};
-use crate::{arith_in_ctx, infix2postfix};
-use super::verify::{Evaluable};
 
 pub struct PermutationCommitments<P> {
     permuted_input_commitment: P,
@@ -31,7 +31,7 @@ pub struct Evaluated<'a, C, S, P, Error> {
     _m: PhantomData<(C, Error)>,
 }
 
-impl<'a, C, S:Field, P:Clone, Error:Debug> Evaluated<'a, C, S, P, Error> {
+impl<'a, C, S: Field, P: Clone, Error: Debug> Evaluated<'a, C, S, P, Error> {
     pub(in crate::verify::halo2) fn expressions(
         &'a self,
         sgate: &(impl ContextGroup<C, S, S, Error> + ContextRing<C, S, S, Error>),
@@ -59,32 +59,35 @@ impl<'a, C, S:Field, P:Clone, Error:Debug> Evaluated<'a, C, S, P, Error> {
 
         let left = &arith_in_ctx!([sgate, ctx] z_wx * (a_x + beta) * (s_x + gamma))?;
 
-        let input_evals:Vec<S> = self.input_expressions
-                    .iter()
-                    .map(|expression| {
-                        expression.ctx_evaluate(
-                            sgate,
-                            ctx,
-                            &|n| fixed_evals[n].clone(),
-                            &|n| advice_evals[n].clone(),
-                            &|n| instance_evals[n].clone(),
-                        )
-                    }).collect();
+        let input_evals: Vec<S> = self
+            .input_expressions
+            .iter()
+            .map(|expression| {
+                expression.ctx_evaluate(
+                    sgate,
+                    ctx,
+                    &|n| fixed_evals[n].clone(),
+                    &|n| advice_evals[n].clone(),
+                    &|n| instance_evals[n].clone(),
+                )
+            })
+            .collect();
         let input_eval = &sgate.mult_and_add(ctx, input_evals.iter(), theta);
 
-        let table_evals:Vec<S> = self.input_expressions
-                    .iter()
-                    .map(|expression| {
-                        expression.ctx_evaluate(
-                            sgate,
-                            ctx,
-                            &|n| fixed_evals[n].clone(),
-                            &|n| advice_evals[n].clone(),
-                            &|n| instance_evals[n].clone(),
-                        )
-                    }).collect();
+        let table_evals: Vec<S> = self
+            .input_expressions
+            .iter()
+            .map(|expression| {
+                expression.ctx_evaluate(
+                    sgate,
+                    ctx,
+                    &|n| fixed_evals[n].clone(),
+                    &|n| advice_evals[n].clone(),
+                    &|n| instance_evals[n].clone(),
+                )
+            })
+            .collect();
         let table_eval = &sgate.mult_and_add(ctx, table_evals.iter(), theta);
-
 
         Ok(iter::empty()
             .chain(
@@ -100,9 +103,10 @@ impl<'a, C, S:Field, P:Clone, Error:Debug> Evaluated<'a, C, S, P, Error> {
                 //   z(\omega X) (a'(X) + \beta) (s'(X) + \gamma)
                 //   - z(X) (\theta^{m-1} a_0(X) + ... + a_{m-1}(X) + \beta) (\theta^{m-1} s_0(X) + ... + s_{m-1}(X) + \gamma)
                 // ) = 0
-                arith_in_ctx!([sgate, ctx]
-                    (left - product_eval * (input_eval + beta) * (table_eval + gamma))
-                    * (one - (l_last + l_blind))) //active rows
+                arith_in_ctx!(
+                    [sgate, ctx](left - product_eval * (input_eval + beta) * (table_eval + gamma))
+                        * (one - (l_last + l_blind))
+                ), //active rows
             )
             .chain(
                 // l_0(X) * (a'(X) - s'(X)) = 0
@@ -154,5 +158,4 @@ impl<'a, C, S:Field, P:Clone, Error:Debug> Evaluated<'a, C, S, P, Error> {
                 &self.product_next_eval,
             )))
     }
-
 }
