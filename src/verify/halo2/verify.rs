@@ -544,35 +544,64 @@ impl<'a>
             >,
         > = permutations_evaluated
             .iter()
-            .map(|eval| Evaluated::<
-                (),
-                <C::G1Affine as CurveAffine>::ScalarExt,
-                <C::G1Affine as CurveAffine>::CurveExt,
-                (),
-            > {
-                x: *x,
-                x_next: x_next,
-                x_last: x_last,
-                sets: eval
-                    .sets
-                    .iter()
-                    .map(|eval| EvaluatedSet::<
-                        <C::G1Affine as CurveAffine>::ScalarExt,
-                        <C::G1Affine as CurveAffine>::CurveExt,
-                    > {
-                        permutation_product_commitment: <C as Engine>::G1::from(
-                            eval.permutation_product_commitment,
-                        ),
-                        permutation_product_eval: eval.permutation_product_eval,
-                        permutation_product_next_eval: eval.permutation_product_next_eval,
-                        permutation_product_last_eval: eval.permutation_product_last_eval,
-                        chunk_len: vk.cs.degree() - 2,
-                    })
-                    .collect(),
-                _m: PhantomData,
-                evals: todo!(),
-                chunk_len: vk.cs.degree() - 2,
-            })
+            .zip(advice_evals.iter())
+            .zip(instance_evals.iter())
+            .map(
+                |((permutation_evals, advice_evals), instance_evals)| Evaluated::<
+                    (),
+                    <C::G1Affine as CurveAffine>::ScalarExt,
+                    <C::G1Affine as CurveAffine>::CurveExt,
+                    (),
+                > {
+                    x: *x,
+                    x_next: x_next,
+                    x_last: x_last,
+                    sets: permutation_evals
+                        .sets
+                        .iter()
+                        .map(|eval| EvaluatedSet::<
+                            <C::G1Affine as CurveAffine>::ScalarExt,
+                            <C::G1Affine as CurveAffine>::CurveExt,
+                        > {
+                            permutation_product_commitment: <C as Engine>::G1::from(
+                                eval.permutation_product_commitment,
+                            ),
+                            permutation_product_eval: eval.permutation_product_eval,
+                            permutation_product_next_eval: eval.permutation_product_next_eval,
+                            permutation_product_last_eval: eval.permutation_product_last_eval,
+                            chunk_len: vk.cs.degree() - 2,
+                        })
+                        .collect(),
+                    _m: PhantomData,
+                    evals: vk
+                        .cs
+                        .permutation
+                        .columns
+                        .chunks(vk.cs.degree() - 2)
+                        .map(|columns| {
+                            columns
+                                .iter()
+                                .map(|column| match column.column_type() {
+                                    halo2_proofs::plonk::Any::Advice => {
+                                        advice_evals
+                                            [vk.cs.get_any_query_index(*column, Rotation::cur())]
+                                    }
+                                    halo2_proofs::plonk::Any::Fixed => {
+                                        fixed_evals
+                                            [vk.cs.get_any_query_index(*column, Rotation::cur())]
+                                    }
+                                    halo2_proofs::plonk::Any::Instance => {
+                                        instance_evals
+                                            [vk.cs.get_any_query_index(*column, Rotation::cur())]
+                                    }
+                                })
+                                .collect::<Vec<<C as Engine>::Scalar>>()
+                        })
+                        .collect::<Vec<Vec<<C as Engine>::Scalar>>>()
+                        .concat(),
+                    chunk_len: vk.cs.degree() - 2,
+                },
+            )
             .collect();
 
         let lookups_evaluated = lookups_committed
