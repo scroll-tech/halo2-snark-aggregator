@@ -6,8 +6,10 @@ use crate::schema::utils::RingUtils;
 use crate::schema::{EvaluationProof, EvaluationQuery, SchemaGenerator};
 use crate::{arith_in_ctx, infix2postfix};
 use crate::{commit, scalar};
+use group::Curve;
 use halo2_proofs::arithmetic::{CurveAffine, Field, MultiMillerLoop};
 use halo2_proofs::plonk::{Expression, VerifyingKey};
+use halo2_proofs::poly::commitment::{Params, ParamsVerifier};
 use halo2_proofs::transcript::{EncodedChallenge, TranscriptRead};
 use pairing_bn256::bn256::G1Affine;
 use std::fmt::Debug;
@@ -359,11 +361,14 @@ impl<'a>
     >
 {
     pub fn from_transcript<
+        'params,
         C: MultiMillerLoop,
         E: EncodedChallenge<C::G1Affine>,
         T: TranscriptRead<C::G1Affine, E>,
     >(
-        _vk: &VerifyingKey<C::G1Affine>,
+        instances: &[&[&[C::Scalar]]],
+        vk: &VerifyingKey<C::G1Affine>,
+        params: &'params ParamsVerifier<C>,
         _transcript: &mut T,
     ) -> Result<
         VerifierParams<
@@ -376,6 +381,22 @@ impl<'a>
         >,
         halo2_proofs::plonk::Error,
     > {
+        let instance_commitments = instances
+            .iter()
+            .map(|instance| {
+                instance
+                    .iter()
+                    .map(|instance| {
+                        if instance.len() > params.n as usize - (vk.cs.blinding_factors() + 1) {
+                            return Err(halo2_proofs::plonk::Error::InstanceTooLarge);
+                        }
+
+                        Ok(params.commit_lagrange(instance.to_vec()))
+                    })
+                    .collect::<Result<Vec<_>, _>>()
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
         Ok(VerifierParams::<
             (), // Dummy Context
             <C::G1Affine as CurveAffine>::ScalarExt,
@@ -388,7 +409,7 @@ impl<'a>
             common: todo!(),
             lookup_evaluated: todo!(),
             permutation_evaluated: todo!(),
-            instance_commitments: todo!(),
+            instance_commitments: instance_commitments,
             instance_evals: todo!(),
             instance_queries: todo!(),
             advice_commitments: todo!(),

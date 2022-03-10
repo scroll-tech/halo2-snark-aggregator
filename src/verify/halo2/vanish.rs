@@ -82,6 +82,7 @@ mod tests {
         create_proof, keygen_pk, keygen_vk, Advice, Circuit, Column, ConstraintSystem, Error,
         Instance, Selector,
     };
+    use halo2_proofs::poly::commitment::ParamsVerifier;
     // use halo2_proofs::poly::commitment::{Guard, MSM};
     use crate::verify::halo2::verify::VerifierParams;
     use halo2_proofs::poly::Rotation;
@@ -368,8 +369,10 @@ mod tests {
         };
 
         const K: u32 = 5;
+        let public_inputs_size = 1;
 
         let params: Params<G1Affine> = Params::<G1Affine>::unsafe_setup::<Bn256>(K);
+        let params_verifier: ParamsVerifier<Bn256> = params.verifier(public_inputs_size).unwrap();
         let vk = keygen_vk(&params, &circuit).expect("keygen_vk should not fail");
         let pk = keygen_pk(&params, vk, &circuit).expect("keygen_pk should not fail");
 
@@ -390,8 +393,13 @@ mod tests {
 
         let mut transcript = Blake2bRead::<_, G1Affine, Challenge255<G1Affine>>::init(&proof[..]);
 
-        let _params =
-            VerifierParams::from_transcript::<Bn256, _, _>(pk.get_vk(), &mut transcript).unwrap();
+        let _params = VerifierParams::from_transcript::<Bn256, _, _>(
+            &[&[&[]]],
+            pk.get_vk(),
+            &params_verifier,
+            &mut transcript,
+        )
+        .unwrap();
         ()
     }
 }

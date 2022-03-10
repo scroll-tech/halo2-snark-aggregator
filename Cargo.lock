@@ -179,7 +179,7 @@ dependencies = [
 [[package]]
 name = "halo2_proofs"
 version = "0.1.0-beta.1"
-source = "git+https://github.com/appliedzkp/halo2.git#d0938ea675a41a61696fb8d4959eb7bff023813e"
+source = "git+https://github.com/hzmozart/halo2-1#80ce86d17c2bcc2241400d4ed4e2d2c9c86eb699"
 dependencies = [
  "blake2b_simd",
  "bumpalo",
