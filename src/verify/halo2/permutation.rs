@@ -11,11 +11,11 @@ pub struct Committed<P> {
 }
 
 pub struct EvaluatedSet<S, P> {
-    permutation_product_commitment: P,
-    permutation_product_eval: S,
-    permutation_product_next_eval: S,
-    permutation_product_last_eval: Option<S>,
-    chunk_len: usize,
+    pub(in crate::verify::halo2) permutation_product_commitment: P,
+    pub(in crate::verify::halo2) permutation_product_eval: S,
+    pub(in crate::verify::halo2) permutation_product_next_eval: S,
+    pub(in crate::verify::halo2) permutation_product_last_eval: Option<S>,
+    pub(in crate::verify::halo2) chunk_len: usize,
 }
 
 pub struct CommonEvaluated<'a, S, P> {
@@ -24,13 +24,13 @@ pub struct CommonEvaluated<'a, S, P> {
 }
 
 pub struct Evaluated<C, S, P, Error> {
-    x: S,
-    x_next: S,
-    x_last: S,
-    sets: Vec<EvaluatedSet<S, P>>,
-    evals: Vec<S>,
-    chunk_len: usize,
-    _m: PhantomData<(C, Error)>,
+    pub(in crate::verify::halo2) x: S,
+    pub(in crate::verify::halo2) x_next: S,
+    pub(in crate::verify::halo2) x_last: S,
+    pub(in crate::verify::halo2) sets: Vec<EvaluatedSet<S, P>>,
+    pub(in crate::verify::halo2) evals: Vec<S>,
+    pub(in crate::verify::halo2) chunk_len: usize,
+    pub(in crate::verify::halo2) _m: PhantomData<(C, Error)>,
 }
 
 impl<'a, S: Clone, P: Clone> CommonEvaluated<'a, S, P> {

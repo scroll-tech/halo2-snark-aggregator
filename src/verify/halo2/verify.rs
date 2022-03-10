@@ -7,10 +7,11 @@ use crate::schema::{EvaluationProof, EvaluationQuery, SchemaGenerator};
 use crate::{arith_in_ctx, infix2postfix};
 use crate::{commit, scalar};
 use group::Curve;
-use halo2_proofs::arithmetic::{CurveAffine, Field, MultiMillerLoop};
+use halo2_proofs::arithmetic::{CurveAffine, Engine, Field, MultiMillerLoop};
 use halo2_proofs::plonk::{Expression, VerifyingKey};
 use halo2_proofs::poly::commitment::{Params, ParamsVerifier};
-use halo2_proofs::transcript::{EncodedChallenge, TranscriptRead};
+use halo2_proofs::poly::Rotation;
+use halo2_proofs::transcript::{read_n_points, read_n_scalars, EncodedChallenge, TranscriptRead};
 use pairing_bn256::bn256::G1Affine;
 use std::fmt::Debug;
 use std::iter;
@@ -369,7 +370,7 @@ impl<'a>
         instances: &[&[&[C::Scalar]]],
         vk: &VerifyingKey<C::G1Affine>,
         params: &'params ParamsVerifier<C>,
-        _transcript: &mut T,
+        transcript: &mut T,
     ) -> Result<
         VerifierParams<
             (),
@@ -381,9 +382,30 @@ impl<'a>
         >,
         halo2_proofs::plonk::Error,
     > {
+        use crate::verify::halo2::permutation::Evaluated;
+        use crate::verify::halo2::permutation::EvaluatedSet;
+        use group::Group;
         use halo2_proofs::plonk::Error;
+        use halo2_proofs::transcript::ChallengeScalar;
 
-        // Check that instances matches the expected number of instance columns
+        let from_affine = |v: Vec<Vec<C::G1Affine>>| {
+            v.iter()
+                .map(|v| v.iter().map(|&affine| C::G1::from(affine)).collect())
+                .collect()
+        };
+
+        let fc = FieldCode::<<C::G1Affine as CurveAffine>::ScalarExt> {
+            one: <C::G1Affine as CurveAffine>::ScalarExt::one(),
+            zero: <C::G1Affine as CurveAffine>::ScalarExt::zero(),
+            generator: <C::G1Affine as CurveAffine>::ScalarExt::one(),
+        };
+
+        let pc = PointCode::<C::G1Affine> {
+            one: <C::G1Affine as CurveAffine>::CurveExt::generator(),
+            zero: <C::G1Affine as CurveAffine>::CurveExt::identity(),
+            generator: <C::G1Affine as CurveAffine>::CurveExt::generator(),
+        };
+
         for instances in instances.iter() {
             if instances.len() != vk.cs.num_instance_columns {
                 return Err(Error::InvalidInstances);
@@ -400,11 +422,217 @@ impl<'a>
                             return Err(Error::InstanceTooLarge);
                         }
 
-                        Ok(params.commit_lagrange(instance.to_vec()))
+                        Ok(params.commit_lagrange(instance.to_vec()).to_affine())
                     })
                     .collect::<Result<Vec<_>, _>>()
             })
             .collect::<Result<Vec<_>, _>>()?;
+
+        let num_proofs = instance_commitments.len();
+
+        // Hash verification key into transcript
+        vk.hash_into(transcript)?;
+
+        for instance_commitments in instance_commitments.iter() {
+            // Hash the instance (external) commitments into the transcript
+            for commitment in instance_commitments {
+                transcript.common_point(*commitment)?
+            }
+        }
+
+        let advice_commitments = (0..num_proofs)
+            .map(|_| -> Result<Vec<_>, _> {
+                // Hash the prover's advice commitments into the transcript
+                read_n_points(transcript, vk.cs.num_advice_columns)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        // Sample theta challenge for keeping lookup columns linearly independent
+        let theta: ChallengeScalar<<C as Engine>::G1Affine, T> =
+            transcript.squeeze_challenge_scalar();
+
+        let lookups_permuted = (0..num_proofs)
+            .map(|_| -> Result<Vec<_>, _> {
+                // Hash each lookup permuted commitment
+                vk.cs
+                    .lookups
+                    .iter()
+                    .map(|argument| argument.read_permuted_commitments(transcript))
+                    .collect::<Result<Vec<_>, _>>()
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        // Sample beta challenge
+        let beta: ChallengeScalar<<C as Engine>::G1Affine, T> =
+            transcript.squeeze_challenge_scalar();
+
+        // Sample gamma challenge
+        let gamma: ChallengeScalar<<C as Engine>::G1Affine, T> =
+            transcript.squeeze_challenge_scalar();
+
+        let permutations_committed = (0..num_proofs)
+            .map(|_| {
+                // Hash each permutation product commitment
+                vk.cs.permutation.read_product_commitments(vk, transcript)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let permutations_commitments = permutations_committed
+            .iter()
+            .map(|commit| commit.permutation_product_commitments.clone())
+            .collect::<Vec<Vec<<C as Engine>::G1Affine>>>();
+
+        let lookups_committed = lookups_permuted
+            .into_iter()
+            .map(|lookups| {
+                // Hash each lookup product commitment
+                lookups
+                    .into_iter()
+                    .map(|lookup| lookup.read_product_commitment(transcript))
+                    .collect::<Result<Vec<_>, _>>()
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let random_poly_commitment = transcript.read_point()?;
+
+        // Sample y challenge, which keeps the gates linearly independent.
+        let y: ChallengeScalar<<C as Engine>::G1Affine, T> = transcript.squeeze_challenge_scalar();
+
+        let h_commitments = read_n_points(transcript, vk.domain.get_quotient_poly_degree())?;
+        let h_commitments: Vec<<C as Engine>::G1> = h_commitments
+            .iter()
+            .map(|&affine| <C as Engine>::G1::from(affine))
+            .collect();
+
+        // Sample x challenge, which is used to ensure the circuit is
+        // satisfied with high probability.
+        let x: ChallengeScalar<<C as Engine>::G1Affine, T> = transcript.squeeze_challenge_scalar();
+        let x_next = vk.domain.rotate_omega(*x, Rotation::next());
+        let x_last = vk
+            .domain
+            .rotate_omega(*x, Rotation(-((vk.cs.blinding_factors() + 1) as i32)));
+
+        let instance_evals = (0..num_proofs)
+            .map(|_| -> Result<Vec<_>, _> {
+                read_n_scalars(transcript, vk.cs.instance_queries.len())
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let advice_evals = (0..num_proofs)
+            .map(|_| -> Result<Vec<_>, _> {
+                read_n_scalars(transcript, vk.cs.advice_queries.len())
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let fixed_evals = read_n_scalars(transcript, vk.cs.fixed_queries.len())?;
+
+        let random_eval = transcript.read_scalar()?;
+
+        let permutations_common = vk.permutation.evaluate(transcript)?;
+
+        let permutations_evaluated = permutations_committed
+            .into_iter()
+            .map(|permutation| permutation.evaluate(transcript))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let permutations_evaluated: Vec<
+            crate::verify::halo2::permutation::Evaluated<
+                (),
+                <C::G1Affine as CurveAffine>::ScalarExt,
+                <C::G1Affine as CurveAffine>::CurveExt,
+                (),
+            >,
+        > = permutations_evaluated
+            .iter()
+            .map(|eval| Evaluated::<
+                (),
+                <C::G1Affine as CurveAffine>::ScalarExt,
+                <C::G1Affine as CurveAffine>::CurveExt,
+                (),
+            > {
+                x: *x,
+                x_next: x_next,
+                x_last: x_last,
+                sets: eval
+                    .sets
+                    .iter()
+                    .map(|eval| EvaluatedSet::<
+                        <C::G1Affine as CurveAffine>::ScalarExt,
+                        <C::G1Affine as CurveAffine>::CurveExt,
+                    > {
+                        permutation_product_commitment: <C as Engine>::G1::from(
+                            eval.permutation_product_commitment,
+                        ),
+                        permutation_product_eval: eval.permutation_product_eval,
+                        permutation_product_next_eval: eval.permutation_product_next_eval,
+                        permutation_product_last_eval: eval.permutation_product_last_eval,
+                        chunk_len: todo!(),
+                    })
+                    .collect(),
+                _m: PhantomData,
+                evals: todo!(),
+                chunk_len: todo!(),
+            })
+            .collect();
+
+        let lookups_evaluated = lookups_committed
+            .into_iter()
+            .map(|lookups| -> Result<Vec<_>, _> {
+                lookups
+                    .into_iter()
+                    .map(|lookup| lookup.evaluate(transcript))
+                    .collect::<Result<Vec<_>, _>>()
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let lookups_evaluated: Vec<
+            Vec<
+                crate::verify::halo2::lookup::Evaluated<
+                    (),
+                    <C::G1Affine as CurveAffine>::ScalarExt,
+                    <C::G1Affine as CurveAffine>::CurveExt,
+                    (),
+                >,
+            >,
+        > = lookups_evaluated
+            .into_iter()
+            .map(|vec| {
+                vec.into_iter()
+                    .zip(vk.cs.lookups.iter())
+                    .map(
+                        |(lookup, argument)| crate::verify::halo2::lookup::Evaluated {
+                            input_expressions: argument.input_expressions.clone(),
+                            table_expressions: argument.table_expressions.clone(),
+                            committed: crate::verify::halo2::lookup::Committed {
+                                permuted: crate::verify::halo2::lookup::PermutationCommitments {
+                                    permuted_input_commitment: <C as Engine>::G1::from(
+                                        lookup.committed.permuted.permuted_input_commitment,
+                                    ),
+                                    permuted_table_commitment: <C as Engine>::G1::from(
+                                        lookup.committed.permuted.permuted_table_commitment,
+                                    ),
+                                },
+                                product_commitment: <C as Engine>::G1::from(
+                                    lookup.committed.product_commitment,
+                                ),
+                            },
+                            product_eval: lookup.product_eval,
+                            product_next_eval: lookup.product_next_eval,
+                            permuted_input_eval: lookup.permuted_input_eval,
+                            permuted_input_inv_eval: lookup.permuted_input_inv_eval,
+                            permuted_table_eval: lookup.permuted_table_eval,
+                            _m: PhantomData,
+                        },
+                    )
+                    .collect()
+            })
+            .collect();
+
+        let fixed_commitments: Vec<<C as Engine>::G1> = vk
+            .fixed_commitments
+            .iter()
+            .map(|&affine| <C as Engine>::G1::from(affine))
+            .collect();
 
         Ok(VerifierParams::<
             (), // Dummy Context
@@ -416,34 +644,50 @@ impl<'a>
         > {
             gates: todo!(),
             common: todo!(),
-            lookup_evaluated: todo!(),
-            permutation_evaluated: todo!(),
-            instance_commitments: instance_commitments,
-            instance_evals: todo!(),
-            instance_queries: todo!(),
-            advice_commitments: todo!(),
-            advice_evals: todo!(),
-            advice_queries: todo!(),
-            fixed_commitments: todo!(),
-            fixed_evals: todo!(),
-            fixed_queries: todo!(),
-            permutation_commitments: todo!(),
-            permutation_evals: todo!(),
-            vanish_commitments: todo!(),
-            random_commitment: todo!(),
-            random_eval: todo!(),
-            beta: todo!(),
-            gamma: todo!(),
+            lookup_evaluated: lookups_evaluated,
+            permutation_evaluated: permutations_evaluated,
+            instance_commitments: from_affine(instance_commitments),
+            instance_evals,
+            instance_queries: vk
+                .cs
+                .instance_queries
+                .iter()
+                .map(|column| (column.0.index, column.1 .0 as usize))
+                .collect(),
+            advice_commitments: from_affine(advice_commitments),
+            advice_evals,
+            advice_queries: vk
+                .cs
+                .advice_queries
+                .iter()
+                .map(|column| (column.0.index, column.1 .0 as usize))
+                .collect(),
+            fixed_commitments: fixed_commitments.iter().map(|&elem| elem).collect(),
+            fixed_evals,
+            fixed_queries: vk
+                .cs
+                .fixed_queries
+                .iter()
+                .map(|column| (column.0.index, column.1 .0 as usize))
+                .collect(),
+            // not sure
+            permutation_commitments: from_affine(permutations_commitments).concat(),
+            permutation_evals: permutations_common.permutation_evals,
+            vanish_commitments: h_commitments.iter().map(|&elem| elem).collect(),
+            random_commitment: <C as Engine>::G1::from(random_poly_commitment),
+            random_eval,
+            beta: *beta,
+            gamma: *gamma,
             alpha: todo!(),
-            theta: todo!(),
+            theta: *theta,
             delta: todo!(),
             u: todo!(),
             v: todo!(),
             xi: todo!(),
-            sgate: todo!(),
-            pgate: todo!(),
-            _ctx: todo!(),
-            _error: todo!(),
+            sgate: fc,
+            pgate: pc,
+            _ctx: PhantomData,
+            _error: PhantomData,
         })
     }
 }
