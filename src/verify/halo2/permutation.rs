@@ -161,10 +161,19 @@ impl<'a, C, S: Clone, P: Clone, Error: Debug> Evaluated<C, S, P, Error> {
 
 #[cfg(test)]
 mod tests {
-    use crate::verify::halo2::test::build_verifier_params;
+    use crate::verify::halo2::test::*;
 
     #[test]
     fn test_permutation_queries() {
-        build_verifier_params();
+        let params = build_verifier_params().unwrap();
+        let x = 1;
+
+        let pcommon = super::CommonEvaluated {
+            permutation_evals: &params.permutation_evals,
+            permutation_commitments: &params.permutation_commitments,
+        };
+
+        let result = pcommon.queries(&params.x);
+        result.into_iter().for_each(|ele| println!("{:?}", ele));
     }
 }

@@ -1,7 +1,8 @@
 use std::marker::PhantomData;
 
+use crate::arith::code::{FieldCode, PointCode};
 use crate::field::bn_to_field;
-use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::arithmetic::{CurveAffine, FieldExt, MultiMillerLoop};
 use halo2_proofs::circuit::{AssignedCell, Chip, Layouter, Region, SimpleFloorPlanner};
 use halo2_proofs::dev::MockProver;
 use halo2_proofs::plonk::{
@@ -13,7 +14,7 @@ use num_bigint::BigUint;
 // use halo2_proofs::poly::commitment::{Guard, MSM};
 use crate::verify::halo2::verify::VerifierParams;
 use halo2_proofs::poly::Rotation;
-use halo2_proofs::transcript::Challenge255;
+use halo2_proofs::transcript::{Challenge255, EncodedChallenge, TranscriptRead};
 use pairing_bn256::bn256::{Bn256, G1Affine};
 use rand_core::OsRng;
 
@@ -271,7 +272,17 @@ impl<F: FieldExt> Circuit<F> for MyCircuit<F> {
     }
 }
 
-pub(in crate) fn build_verifier_params() {
+pub(in crate) fn build_verifier_params() -> Result<
+    VerifierParams<
+        (),
+        <G1Affine as CurveAffine>::ScalarExt,
+        <G1Affine as CurveAffine>::CurveExt,
+        (),
+        FieldCode<<G1Affine as CurveAffine>::ScalarExt>,
+        PointCode<G1Affine>,
+    >,
+    halo2_proofs::plonk::Error,
+> {
     use halo2_proofs::poly::commitment::Params;
     use halo2_proofs::transcript::{Blake2bRead, Blake2bWrite};
     use pairing_bn256::bn256::Fr as Fp;
@@ -298,11 +309,11 @@ pub(in crate) fn build_verifier_params() {
     let instance = Fp::one();
 
     /*
-            let prover = match MockProver::run(K, &circuit, vec![vec![instance.clone()]]) {
-                Ok(prover) => prover,
-                Err(e) => panic!("{:?}", e),
-            };
-            assert_eq!(prover.verify(), Ok(()));
+    let prover = match MockProver::run(K, &circuit, vec![vec![instance.clone()]]) {
+        Ok(prover) => prover,
+        Err(e) => panic!("{:?}", e),
+    };
+    assert_eq!(prover.verify(), Ok(()));
     */
 
     create_proof(
@@ -319,7 +330,7 @@ pub(in crate) fn build_verifier_params() {
 
     let mut transcript = Blake2bRead::<_, G1Affine, Challenge255<G1Affine>>::init(&proof[..]);
 
-    let params = VerifierParams::from_transcript::<Bn256, _, _>(
+    VerifierParams::from_transcript::<Bn256, _, _>(
         u,
         u,
         u,
@@ -329,13 +340,4 @@ pub(in crate) fn build_verifier_params() {
         &params_verifier,
         &mut transcript,
     )
-    .unwrap();
-    /*
-    let pcommon = permutation::CommonEvaluated {
-        permutation_evals: &self.permutation_evals,
-        permutation_commitments: &self.permutation_commitments,
-    };
-
-    pcommon.queries(x);
-    */
 }
