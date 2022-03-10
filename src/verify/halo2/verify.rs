@@ -7,7 +7,7 @@ use crate::schema::{EvaluationProof, EvaluationQuery, SchemaGenerator};
 use crate::{arith_in_ctx, infix2postfix};
 use crate::{commit, scalar};
 use group::Curve;
-use halo2_proofs::arithmetic::{CurveAffine, Engine, Field, MultiMillerLoop};
+use halo2_proofs::arithmetic::{CurveAffine, Engine, Field, FieldExt, MultiMillerLoop};
 use halo2_proofs::plonk::{Expression, VerifyingKey};
 use halo2_proofs::poly::commitment::{Params, ParamsVerifier};
 use halo2_proofs::poly::Rotation;
@@ -367,6 +367,10 @@ impl<'a>
         E: EncodedChallenge<C::G1Affine>,
         T: TranscriptRead<C::G1Affine, E>,
     >(
+        alpha: <C::G1Affine as CurveAffine>::ScalarExt,
+        u: <C::G1Affine as CurveAffine>::ScalarExt,
+        v: <C::G1Affine as CurveAffine>::ScalarExt,
+        xi: <C::G1Affine as CurveAffine>::ScalarExt,
         instances: &[&[&[C::Scalar]]],
         vk: &VerifyingKey<C::G1Affine>,
         params: &'params ParamsVerifier<C>,
@@ -496,7 +500,7 @@ impl<'a>
         let random_poly_commitment = transcript.read_point()?;
 
         // Sample y challenge, which keeps the gates linearly independent.
-        let y: ChallengeScalar<<C as Engine>::G1Affine, T> = transcript.squeeze_challenge_scalar();
+        let _y: ChallengeScalar<<C as Engine>::G1Affine, T> = transcript.squeeze_challenge_scalar();
 
         let h_commitments = read_n_points(transcript, vk.domain.get_quotient_poly_degree())?;
         let h_commitments: Vec<<C as Engine>::G1> = h_commitments
@@ -709,12 +713,12 @@ impl<'a>
             random_eval,
             beta: *beta,
             gamma: *gamma,
-            alpha: todo!(),
+            alpha,
             theta: *theta,
-            delta: todo!(),
-            u: todo!(),
-            v: todo!(),
-            xi: todo!(),
+            delta: <<C::G1Affine as CurveAffine>::ScalarExt as FieldExt>::DELTA,
+            u,
+            v,
+            xi,
             sgate: fc,
             pgate: pc,
             _ctx: PhantomData,

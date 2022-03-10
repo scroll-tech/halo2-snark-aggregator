@@ -76,6 +76,7 @@ impl<'a, C, S: Clone, P: Clone, Error: Debug> Evaluated<'a, C, S, P, Error> {
 mod tests {
     use std::marker::PhantomData;
 
+    use crate::field::bn_to_field;
     use halo2_proofs::arithmetic::FieldExt;
     use halo2_proofs::circuit::{AssignedCell, Chip, Layouter, Region, SimpleFloorPlanner};
     use halo2_proofs::plonk::{
@@ -83,6 +84,7 @@ mod tests {
         Instance, Selector,
     };
     use halo2_proofs::poly::commitment::ParamsVerifier;
+    use num_bigint::BigUint;
     // use halo2_proofs::poly::commitment::{Guard, MSM};
     use crate::verify::halo2::verify::VerifierParams;
     use halo2_proofs::poly::Rotation;
@@ -363,6 +365,10 @@ mod tests {
         use halo2_proofs::transcript::{Blake2bRead, Blake2bWrite};
         use pairing_bn256::bn256::Fr as Fp;
 
+        let u = bn_to_field(&BigUint::from_bytes_be(
+            b"2bf0d643e52e5e03edec5e060a6e2d57014425cbf7344f2846771ef22efffdfc",
+        ));
+
         let circuit = MyCircuit::<Fp> {
             a: Some(Fp::from(1)),
             b: Some(Fp::from(1)),
@@ -394,6 +400,10 @@ mod tests {
         let mut transcript = Blake2bRead::<_, G1Affine, Challenge255<G1Affine>>::init(&proof[..]);
 
         let _params = VerifierParams::from_transcript::<Bn256, _, _>(
+            u,
+            u,
+            u,
+            u,
             &[&[&[]]],
             pk.get_vk(),
             &params_verifier,
