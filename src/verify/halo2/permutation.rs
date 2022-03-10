@@ -158,3 +158,13 @@ impl<'a, C, S: Clone, P: Clone, Error: Debug> Evaluated<C, S, P, Error> {
             }))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::verify::halo2::test::build_verifier_params;
+
+    #[test]
+    fn test_permutation_queries() {
+        build_verifier_params();
+    }
+}

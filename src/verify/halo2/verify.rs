@@ -151,7 +151,7 @@ impl<
     fn rotate_omega(&self, at: usize) -> S {
         unimplemented!("rotate omega")
     }
-    fn queries(
+    pub(in crate) fn queries(
         &'a self,
         sgate: &'a SGate,
         ctx: &'a mut C,
