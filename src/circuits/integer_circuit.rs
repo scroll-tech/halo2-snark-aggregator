@@ -47,7 +47,12 @@ impl<W: BaseExt, N: FieldExt> AssignedInteger<W, N> {
     }
 }
 
-pub struct IntegerCircuitHelper<W: BaseExt, N: FieldExt, const LIMBS: usize, const LIMB_WIDTH: usize> {
+pub struct IntegerCircuitHelper<
+    W: BaseExt,
+    N: FieldExt,
+    const LIMBS: usize,
+    const LIMB_WIDTH: usize,
+> {
     pub limb_modulus: BigUint,
     pub integer_modulus: BigUint,
     pub limb_modulus_on_n: N,
@@ -231,7 +236,8 @@ pub trait IntegerCircuitOps<W: BaseExt, N: FieldExt> {
     ) -> Result<AssignedInteger<W, N>, Error>;
 }
 
-pub struct IntegerCircuit<'a, W: BaseExt, N: FieldExt, const LIMBS: usize, const LIMB_WIDTH: usize> {
+pub struct IntegerCircuit<'a, W: BaseExt, N: FieldExt, const LIMBS: usize, const LIMB_WIDTH: usize>
+{
     pub range_gate: &'a dyn RangeGateOps<W, N>,
     pub helper: IntegerCircuitHelper<W, N, LIMBS, LIMB_WIDTH>,
 }

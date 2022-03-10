@@ -1,4 +1,4 @@
-mod permutation;
 mod lookup;
+mod permutation;
 mod vanish;
 mod verify;
