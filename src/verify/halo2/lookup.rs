@@ -19,9 +19,9 @@ pub struct Committed<P> {
     product_commitment: P,
 }
 
-pub struct Evaluated<'a, C, S, P, Error> {
-    input_expressions: &'a Vec<Expression<S>>,
-    table_expressions: &'a Vec<Expression<S>>,
+pub struct Evaluated<C, S, P, Error> {
+    input_expressions: Vec<Expression<S>>,
+    table_expressions: Vec<Expression<S>>,
     committed: Committed<P>,
     product_eval: S,      // X
     product_next_eval: S, // ωX
@@ -31,7 +31,7 @@ pub struct Evaluated<'a, C, S, P, Error> {
     _m: PhantomData<(C, Error)>,
 }
 
-impl<'a, C, S: Field, P: Clone, Error: Debug> Evaluated<'a, C, S, P, Error> {
+impl<'a, C, S: Field, P: Clone, Error: Debug> Evaluated<C, S, P, Error> {
     pub(in crate::verify::halo2) fn expressions(
         &'a self,
         sgate: &(impl ContextGroup<C, S, S, Error> + ContextRing<C, S, S, Error>),

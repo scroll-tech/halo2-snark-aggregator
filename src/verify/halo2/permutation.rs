@@ -23,12 +23,12 @@ pub struct CommonEvaluated<'a, S, P> {
     pub permutation_commitments: &'a Vec<P>,
 }
 
-pub struct Evaluated<'a, C, S, P, Error> {
-    x: &'a S,
-    x_next: &'a S,
-    x_last: &'a S,
+pub struct Evaluated<C, S, P, Error> {
+    x: S,
+    x_next: S,
+    x_last: S,
     sets: Vec<EvaluatedSet<S, P>>,
-    evals: Vec<&'a S>,
+    evals: Vec<S>,
     chunk_len: usize,
     _m: PhantomData<(C, Error)>,
 }
@@ -48,7 +48,7 @@ impl<'a, S: Clone, P: Clone> CommonEvaluated<'a, S, P> {
     }
 }
 
-impl<'a, C, S: Clone, P: Clone, Error: Debug> Evaluated<'a, C, S, P, Error> {
+impl<'a, C, S: Clone, P: Clone, Error: Debug> Evaluated<C, S, P, Error> {
     pub(in crate::verify::halo2) fn expressions(
         &'a self,
         sgate: &'a (impl ContextGroup<C, S, S, Error> + ContextRing<C, S, S, Error>),

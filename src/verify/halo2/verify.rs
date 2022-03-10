@@ -92,7 +92,6 @@ impl<
 }
 
 pub struct VerifierParams<
-    'a,
     C,
     S: Field,
     P: Clone,
@@ -103,32 +102,32 @@ pub struct VerifierParams<
     //public_wit: Vec<C::ScalarExt>,
     pub gates: Vec<Vec<Expression<S>>>,
     pub common: PlonkCommonSetup,
-    pub lookup_evaluated: Vec<Vec<lookup::Evaluated<'a, C, S, P, Error>>>,
-    pub permutation_evaluated: Vec<permutation::Evaluated<'a, C, S, P, Error>>,
-    pub instance_commitments: Vec<Vec<&'a P>>,
-    pub instance_evals: Vec<Vec<&'a S>>,
+    pub lookup_evaluated: Vec<Vec<lookup::Evaluated<C, S, P, Error>>>,
+    pub permutation_evaluated: Vec<permutation::Evaluated<C, S, P, Error>>,
+    pub instance_commitments: Vec<Vec<P>>,
+    pub instance_evals: Vec<Vec<S>>,
     pub instance_queries: Vec<(usize, usize)>,
-    pub advice_commitments: Vec<Vec<&'a P>>,
-    pub advice_evals: Vec<Vec<&'a S>>,
+    pub advice_commitments: Vec<Vec<P>>,
+    pub advice_evals: Vec<Vec<S>>,
     pub advice_queries: Vec<(usize, usize)>,
-    pub fixed_commitments: Vec<&'a P>,
-    pub fixed_evals: Vec<&'a S>,
+    pub fixed_commitments: Vec<P>,
+    pub fixed_evals: Vec<S>,
     pub fixed_queries: Vec<(usize, usize)>,
     pub permutation_commitments: Vec<P>,
     pub permutation_evals: Vec<S>, // permutations common evaluation
-    pub vanish_commitments: Vec<&'a P>,
-    pub random_commitment: &'a P,
-    pub random_eval: &'a S,
-    pub beta: &'a S,
-    pub gamma: &'a S,
-    pub alpha: &'a S,
-    pub theta: &'a S,
-    pub delta: &'a S,
-    pub u: &'a S,
-    pub v: &'a S,
-    pub xi: &'a S,
-    pub sgate: &'a SGate,
-    pub pgate: &'a PGate,
+    pub vanish_commitments: Vec<P>,
+    pub random_commitment: P,
+    pub random_eval: S,
+    pub beta: S,
+    pub gamma: S,
+    pub alpha: S,
+    pub theta: S,
+    pub delta: S,
+    pub u: S,
+    pub v: S,
+    pub xi: S,
+    pub sgate: SGate,
+    pub pgate: PGate,
     pub _ctx: PhantomData<C>,
     pub _error: PhantomData<Error>,
 }
@@ -141,13 +140,13 @@ impl<
         Error: Debug,
         SGate: ContextGroup<C, S, S, Error> + ContextRing<C, S, S, Error>,
         PGate: ContextGroup<C, S, P, Error>,
-    > VerifierParams<'a, C, S, P, Error, SGate, PGate>
+    > VerifierParams<C, S, P, Error, SGate, PGate>
 {
     fn rotate_omega(&self, at: usize) -> S {
         unimplemented!("rotate omega")
     }
     fn queries(
-        &self,
+        &'a self,
         sgate: &'a SGate,
         ctx: &'a mut C,
         y: &'a S,
@@ -186,35 +185,42 @@ impl<
                     ));
                 }
             }
-            let p =
-                permutation
-                    .expressions(
-                        //vk,
-                        //&vk.cs.permutation,
-                        //&permutations_common,
-                        //fixed_evals,
-                        //advice_evals,
-                        //instance_evals,
-                        sgate, ctx, &pcommon, l_0, l_last, l_blind, self.delta, self.beta,
-                        self.gamma, x,
-                    )
-                    .unwrap();
+            let p = permutation
+                .expressions(
+                    //vk,
+                    //&vk.cs.permutation,
+                    //&permutations_common,
+                    //fixed_evals,
+                    //advice_evals,
+                    //instance_evals,
+                    sgate,
+                    ctx,
+                    &pcommon,
+                    l_0,
+                    l_last,
+                    l_blind,
+                    &self.delta,
+                    &self.beta,
+                    &self.gamma,
+                    x,
+                )
+                .unwrap();
             expression.extend(p);
             for i in 0..lookups.len() {
                 let l = lookups[i]
                     .expressions(
                         sgate,
                         ctx,
-                        &self.fixed_evals,
-                        advice_evals,
-                        instance_evals,
+                        &self.fixed_evals.iter().map(|ele| ele).collect(),
+                        &advice_evals.iter().map(|ele| ele).collect(),
+                        &instance_evals.iter().map(|ele| ele).collect(),
                         l_0,
                         l_last,
                         l_blind,
                         //argument,
-                        self.theta,
-                        self.beta,
-                        self.gamma,
+                        &self.theta,
+                        &self.beta,
+                        &self.gamma,
                     )
                     .unwrap();
                 expression.extend(l);
@@ -227,9 +233,9 @@ impl<
             expression,
             y,
             xn,
-            self.random_commitment,
-            self.random_eval,
-            self.vanish_commitments.clone(),
+            &self.random_commitment,
+            &self.random_eval,
+            self.vanish_commitments.iter().map(|ele| ele).collect(),
         );
 
         //vanishing.verify(expressions, y, xn)
@@ -258,8 +264,8 @@ impl<
                             move |(query_index, &(column, at))| {
                                 EvaluationQuery::new(
                                     self.rotate_omega(at),
-                                    instance_commitments[column],
-                                    instance_evals[query_index],
+                                    &instance_commitments[column],
+                                    &instance_evals[query_index],
                                 )
                             },
                         ))
@@ -267,8 +273,8 @@ impl<
                             move |(query_index, &(column, at))| {
                                 EvaluationQuery::new(
                                     self.rotate_omega(at),
-                                    advice_commitments[column],
-                                    advice_evals[query_index],
+                                    &advice_commitments[column],
+                                    &advice_evals[query_index],
                                 )
                             },
                         ))
@@ -307,7 +313,7 @@ impl<
         Error: Debug,
         SGate: ContextGroup<C, S, S, Error> + ContextRing<C, S, S, Error>,
         PGate: ContextGroup<C, S, P, Error>,
-    > SchemaGenerator<'a, C, S, P, Error> for VerifierParams<'a, C, S, P, Error, SGate, PGate>
+    > SchemaGenerator<'a, C, S, P, Error> for VerifierParams<C, S, P, Error, SGate, PGate>
 {
     fn get_point_schemas(&self, ctx: &mut C) -> Result<Vec<EvaluationProof<'a, S, P>>, Error> {
         unimplemented!("get point schemas not implemented")
