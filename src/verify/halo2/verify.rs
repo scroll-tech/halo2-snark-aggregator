@@ -18,7 +18,7 @@ use std::iter;
 use std::marker::PhantomData;
 
 pub struct PlonkCommonSetup {
-    pub l: u32,
+    // pub l: u32,
     pub n: u32,
 }
 
@@ -566,12 +566,12 @@ impl<'a>
                         permutation_product_eval: eval.permutation_product_eval,
                         permutation_product_next_eval: eval.permutation_product_next_eval,
                         permutation_product_last_eval: eval.permutation_product_last_eval,
-                        chunk_len: todo!(),
+                        chunk_len: vk.cs.degree() - 2,
                     })
                     .collect(),
                 _m: PhantomData,
                 evals: todo!(),
-                chunk_len: todo!(),
+                chunk_len: vk.cs.degree() - 2,
             })
             .collect();
 
@@ -642,8 +642,10 @@ impl<'a>
             FieldCode<<C::G1Affine as CurveAffine>::ScalarExt>,
             PointCode<C::G1Affine>,
         > {
-            gates: todo!(),
-            common: todo!(),
+            gates: vk.cs.gates.iter().map(|gate| gate.polys.clone()).collect(),
+            common: PlonkCommonSetup {
+                n: (params.n as u32),
+            },
             lookup_evaluated: lookups_evaluated,
             permutation_evaluated: permutations_evaluated,
             instance_commitments: from_affine(instance_commitments),
