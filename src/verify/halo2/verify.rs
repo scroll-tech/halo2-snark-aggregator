@@ -1,12 +1,15 @@
 use super::{lookup, permutation, vanish};
 use crate::arith::api::{ContextGroup, ContextRing};
-use crate::schema::ast::{CommitQuery, EvaluationAST, MultiOpenProof, SchemaItem};
+use crate::arith::code::{FieldCode, PointCode};
+use crate::schema::ast::{CommitQuery, MultiOpenProof, SchemaItem};
 use crate::schema::utils::RingUtils;
 use crate::schema::{EvaluationProof, EvaluationQuery, SchemaGenerator};
 use crate::{arith_in_ctx, infix2postfix};
 use crate::{commit, scalar};
-use halo2_proofs::arithmetic::Field;
-use halo2_proofs::plonk::Expression;
+use halo2_proofs::arithmetic::{CurveAffine, Field, MultiMillerLoop};
+use halo2_proofs::plonk::{Expression, VerifyingKey};
+use halo2_proofs::transcript::{EncodedChallenge, TranscriptRead};
+use pairing_bn256::bn256::G1Affine;
 use std::fmt::Debug;
 use std::iter;
 use std::marker::PhantomData;
@@ -342,5 +345,75 @@ impl<
             w_g = scalar!(self.u) * w_g.clone() + scalar!(p.point) * commit!(w) + s.clone();
         });
         Ok(MultiOpenProof { w_x, w_g })
+    }
+}
+
+impl<'a>
+    VerifierParams<
+        (),
+        <G1Affine as CurveAffine>::ScalarExt,
+        <G1Affine as CurveAffine>::CurveExt,
+        (),
+        FieldCode<<G1Affine as CurveAffine>::ScalarExt>,
+        PointCode<G1Affine>,
+    >
+{
+    pub fn from_transcript<
+        C: MultiMillerLoop,
+        E: EncodedChallenge<C::G1Affine>,
+        T: TranscriptRead<C::G1Affine, E>,
+    >(
+        _vk: &VerifyingKey<C::G1Affine>,
+        _transcript: &mut T,
+    ) -> Result<
+        VerifierParams<
+            (),
+            <C::G1Affine as CurveAffine>::ScalarExt,
+            <C::G1Affine as CurveAffine>::CurveExt,
+            (),
+            FieldCode<<C::G1Affine as CurveAffine>::ScalarExt>,
+            PointCode<C::G1Affine>,
+        >,
+        halo2_proofs::plonk::Error,
+    > {
+        Ok(VerifierParams::<
+            (), // Dummy Context
+            <C::G1Affine as CurveAffine>::ScalarExt,
+            <C::G1Affine as CurveAffine>::CurveExt,
+            (), //Error
+            FieldCode<<C::G1Affine as CurveAffine>::ScalarExt>,
+            PointCode<C::G1Affine>,
+        > {
+            gates: todo!(),
+            common: todo!(),
+            lookup_evaluated: todo!(),
+            permutation_evaluated: todo!(),
+            instance_commitments: todo!(),
+            instance_evals: todo!(),
+            instance_queries: todo!(),
+            advice_commitments: todo!(),
+            advice_evals: todo!(),
+            advice_queries: todo!(),
+            fixed_commitments: todo!(),
+            fixed_evals: todo!(),
+            fixed_queries: todo!(),
+            permutation_commitments: todo!(),
+            permutation_evals: todo!(),
+            vanish_commitments: todo!(),
+            random_commitment: todo!(),
+            random_eval: todo!(),
+            beta: todo!(),
+            gamma: todo!(),
+            alpha: todo!(),
+            theta: todo!(),
+            delta: todo!(),
+            u: todo!(),
+            v: todo!(),
+            xi: todo!(),
+            sgate: todo!(),
+            pgate: todo!(),
+            _ctx: todo!(),
+            _error: todo!(),
+        })
     }
 }
