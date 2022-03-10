@@ -79,6 +79,7 @@ mod tests {
     use crate::field::bn_to_field;
     use halo2_proofs::arithmetic::FieldExt;
     use halo2_proofs::circuit::{AssignedCell, Chip, Layouter, Region, SimpleFloorPlanner};
+    use halo2_proofs::dev::MockProver;
     use halo2_proofs::plonk::{
         create_proof, keygen_pk, keygen_vk, Advice, Circuit, Column, ConstraintSystem, Error,
         Instance, Selector,
@@ -384,12 +385,21 @@ mod tests {
 
         let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
 
-        let instance = Fp::one() + Fp::one();
+        let instance = Fp::one();
+
+        /*
+                let prover = match MockProver::run(K, &circuit, vec![vec![instance.clone()]]) {
+                    Ok(prover) => prover,
+                    Err(e) => panic!("{:?}", e),
+                };
+                assert_eq!(prover.verify(), Ok(()));
+        */
+
         create_proof(
             &params,
             &pk,
-            &[circuit.clone(), circuit.clone()],
-            &[&[&[instance]], &[&[instance]]],
+            &[circuit.clone()],
+            &[&[&[instance]]],
             OsRng,
             &mut transcript,
         )
@@ -404,7 +414,7 @@ mod tests {
             u,
             u,
             u,
-            &[&[&[]]],
+            &[&[&[instance]]],
             pk.get_vk(),
             &params_verifier,
             &mut transcript,
