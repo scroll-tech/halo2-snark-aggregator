@@ -381,6 +381,15 @@ impl<'a>
         >,
         halo2_proofs::plonk::Error,
     > {
+        use halo2_proofs::plonk::Error;
+
+        // Check that instances matches the expected number of instance columns
+        for instances in instances.iter() {
+            if instances.len() != vk.cs.num_instance_columns {
+                return Err(Error::InvalidInstances);
+            }
+        }
+
         let instance_commitments = instances
             .iter()
             .map(|instance| {
@@ -388,7 +397,7 @@ impl<'a>
                     .iter()
                     .map(|instance| {
                         if instance.len() > params.n as usize - (vk.cs.blinding_factors() + 1) {
-                            return Err(halo2_proofs::plonk::Error::InstanceTooLarge);
+                            return Err(Error::InstanceTooLarge);
                         }
 
                         Ok(params.commit_lagrange(instance.to_vec()))
