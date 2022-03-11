@@ -11,6 +11,9 @@ use halo2_proofs::plonk::{
 };
 use halo2_proofs::poly::commitment::ParamsVerifier;
 use num_bigint::BigUint;
+use rand::prelude::StdRng;
+use rand::{Rng, RngCore, SeedableRng};
+use rand_pcg::Pcg32;
 // use halo2_proofs::poly::commitment::{Guard, MSM};
 use crate::verify::halo2::verify::VerifierParams;
 use halo2_proofs::poly::Rotation;
@@ -299,7 +302,9 @@ pub(in crate) fn build_verifier_params() -> Result<
     const K: u32 = 5;
     let public_inputs_size = 1;
 
-    let params: Params<G1Affine> = Params::<G1Affine>::unsafe_setup::<Bn256>(K);
+    let params: Params<G1Affine> =
+        Params::<G1Affine>::unsafe_setup_rng::<Bn256, _>(K, Pcg32::seed_from_u64(42));
+
     let params_verifier: ParamsVerifier<Bn256> = params.verifier(public_inputs_size).unwrap();
     let vk = keygen_vk(&params, &circuit).expect("keygen_vk should not fail");
     let pk = keygen_pk(&params, vk, &circuit).expect("keygen_pk should not fail");
@@ -321,7 +326,7 @@ pub(in crate) fn build_verifier_params() -> Result<
         &pk,
         &[circuit.clone()],
         &[&[&[instance]]],
-        OsRng,
+        Pcg32::seed_from_u64(42),
         &mut transcript,
     )
     .expect("proof generation should not fail");

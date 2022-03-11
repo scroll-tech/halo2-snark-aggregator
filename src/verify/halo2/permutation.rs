@@ -10,6 +10,7 @@ pub struct Committed<P> {
     permutation_product_commitments: Vec<P>,
 }
 
+#[derive(Debug)]
 pub struct EvaluatedSet<S, P> {
     pub(in crate::verify::halo2) permutation_product_commitment: P,
     pub(in crate::verify::halo2) permutation_product_eval: S,
@@ -23,6 +24,7 @@ pub struct CommonEvaluated<'a, S, P> {
     pub permutation_commitments: &'a Vec<P>,
 }
 
+#[derive(Debug)]
 pub struct Evaluated<C, S, P, Error> {
     pub(in crate::verify::halo2) x: S,
     pub(in crate::verify::halo2) x_next: S,
@@ -161,19 +163,66 @@ impl<'a, C, S: Clone, P: Clone, Error: Debug> Evaluated<C, S, P, Error> {
 
 #[cfg(test)]
 mod tests {
-    use crate::verify::halo2::test::*;
+    use halo2_proofs::arithmetic::CurveAffine;
+    use num_bigint::BigUint;
+    use pairing_bn256::bn256::{Bn256, G1Affine, G1};
+
+    use crate::verify::{halo2::test::*, plonk::bn_to_field};
 
     #[test]
-    fn test_permutation_queries() {
+    fn test_permutation_queries1() {
         let params = build_verifier_params().unwrap();
-        let x = 1;
 
-        let pcommon = super::CommonEvaluated {
-            permutation_evals: &params.permutation_evals,
-            permutation_commitments: &params.permutation_commitments,
-        };
+        let res: Vec<<G1Affine as CurveAffine>::ScalarExt> = vec![
+            BigUint::parse_bytes(
+                b"0c4490cdcf6545e3e7b951799adab8efd7e0812cf59bb1fde0cb826e5b51448b",
+                16,
+            )
+            .unwrap(),
+            BigUint::parse_bytes(
+                b"1a23d5660f0fd2ff2bb5d01c2b69499da64c863234fd8474d2715a59acf918df",
+                16,
+            )
+            .unwrap(),
+            BigUint::parse_bytes(
+                b"0c4490cdcf6545e3e7b951799adab8efd7e0812cf59bb1fde0cb826e5b51448b",
+                16,
+            )
+            .unwrap(),
+            BigUint::parse_bytes(
+                b"1a23d5660f0fd2ff2bb5d01c2b69499da64c863234fd8474d2715a59acf918df",
+                16,
+            )
+            .unwrap(),
+            BigUint::parse_bytes(
+                b"0c4490cdcf6545e3e7b951799adab8efd7e0812cf59bb1fde0cb826e5b51448b",
+                16,
+            )
+            .unwrap(),
+            BigUint::parse_bytes(
+                b"1a23d5660f0fd2ff2bb5d01c2b69499da64c863234fd8474d2715a59acf918df",
+                16,
+            )
+            .unwrap(),
+            BigUint::parse_bytes(
+                b"0fa7d2a74c9c0c7aee15a51c6213e9cd05eaa928d4ff3e0e0621552b885c4c08",
+                16,
+            )
+            .unwrap(),
+            BigUint::parse_bytes(
+                b"0fa7d2a74c9c0c7aee15a51c6213e9cd05eaa928d4ff3e0e0621552b885c4c08",
+                16,
+            )
+            .unwrap(),
+        ]
+        .into_iter()
+        .map(|ele| bn_to_field(&ele))
+        .collect();
 
-        let result = pcommon.queries(&params.x);
-        result.into_iter().for_each(|ele| println!("{:?}", ele));
+        for ele in params.permutation_evaluated {
+            ele.queries()
+                .zip(res.iter())
+                .for_each(|(query, expected)| assert_eq!(query.point, *expected))
+        }
     }
 }
