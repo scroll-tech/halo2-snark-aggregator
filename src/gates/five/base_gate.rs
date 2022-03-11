@@ -1,4 +1,4 @@
-use halo2_proofs::{plonk::Error, arithmetic::FieldExt};
+use halo2_proofs::{arithmetic::FieldExt, plonk::Error};
 
 use crate::{
     gates::base_gate::{

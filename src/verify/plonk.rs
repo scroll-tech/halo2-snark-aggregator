@@ -53,11 +53,11 @@ mod test_marco {
     use super::verify::{
         ParamsPreprocessed, PlonkCommonSetup, PlonkVerifierParams, VerifyCommitments, VerifyEvals,
     };
-    use crate::arith::api::{ContextGroup, ContextRing};
+    use crate::arith::api::ContextGroup;
     use crate::arith::code::{FieldCode, PointCode};
     use crate::schema::{ast::EvaluationAST, SchemaGenerator};
     use num_bigint::BigUint;
-    use pairing_bn256::arithmetic::{CurveAffine, CurveExt, FieldExt};
+    use pairing_bn256::arithmetic::CurveAffine;
     use pairing_bn256::bn256::{G1Affine, G1};
     use pairing_bn256::group::Group;
     #[test]

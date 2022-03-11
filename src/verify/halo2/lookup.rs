@@ -10,28 +10,28 @@ use std::iter;
 use std::marker::PhantomData;
 
 pub struct PermutationCommitments<P> {
-    permuted_input_commitment: P,
-    permuted_table_commitment: P,
+    pub(in crate::verify::halo2) permuted_input_commitment: P,
+    pub(in crate::verify::halo2) permuted_table_commitment: P,
 }
 
 pub struct Committed<P> {
-    permuted: PermutationCommitments<P>,
-    product_commitment: P,
+    pub(in crate::verify::halo2) permuted: PermutationCommitments<P>,
+    pub(in crate::verify::halo2) product_commitment: P,
 }
 
-pub struct Evaluated<'a, C, S, P, Error> {
-    input_expressions: &'a Vec<Expression<S>>,
-    table_expressions: &'a Vec<Expression<S>>,
-    committed: Committed<P>,
-    product_eval: S,      // X
-    product_next_eval: S, // ωX
-    permuted_input_eval: S,
-    permuted_input_inv_eval: S,
-    permuted_table_eval: S,
-    _m: PhantomData<(C, Error)>,
+pub struct Evaluated<C, S, P, Error> {
+    pub(in crate::verify::halo2) input_expressions: Vec<Expression<S>>,
+    pub(in crate::verify::halo2) table_expressions: Vec<Expression<S>>,
+    pub(in crate::verify::halo2) committed: Committed<P>,
+    pub(in crate::verify::halo2) product_eval: S, // X
+    pub(in crate::verify::halo2) product_next_eval: S, // ωX
+    pub(in crate::verify::halo2) permuted_input_eval: S,
+    pub(in crate::verify::halo2) permuted_input_inv_eval: S,
+    pub(in crate::verify::halo2) permuted_table_eval: S,
+    pub(in crate::verify::halo2) _m: PhantomData<(C, Error)>,
 }
 
-impl<'a, C, S: Field, P: Clone, Error: Debug> Evaluated<'a, C, S, P, Error> {
+impl<'a, C, S: Field, P: Clone, Error: Debug> Evaluated<C, S, P, Error> {
     pub(in crate::verify::halo2) fn expressions(
         &'a self,
         sgate: &(impl ContextGroup<C, S, S, Error> + ContextRing<C, S, S, Error>),

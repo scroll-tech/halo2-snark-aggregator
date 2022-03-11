@@ -219,7 +219,6 @@ pub trait BaseGateOps<N: FieldExt> {
         self.sum_with_constant(r, vec![(a, one), (b, -one)], zero)
     }
 
-
     fn mul(
         &self,
         r: &mut RegionAux<'_, '_, N>,

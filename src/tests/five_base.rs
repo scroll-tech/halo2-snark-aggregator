@@ -51,13 +51,12 @@ impl<N: FieldExt> TestFiveColumnBaseGateCircuit<N> {
         let rng = XorShiftRng::seed_from_u64(seed);
         N::random(rng)
     }
-    
+
     fn setup_test_one_line(
         &self,
         base_gate: &FiveColumnBaseGate<N>,
         r: &mut RegionAux<'_, '_, N>,
     ) -> Result<(), Error> {
-
         let vars = [(); VAR_COLUMNS].map(|_| Self::random());
         let coeffs = [(); VAR_COLUMNS].map(|_| Self::random());
         let muls_coeffs = [(); MUL_COLUMNS].map(|_| Self::random());

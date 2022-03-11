@@ -1,8 +1,8 @@
 #![allow(dead_code)]
 #![feature(trait_alias)]
+mod circuits;
 mod field;
 mod gates;
-mod circuits;
 
 mod arith;
 mod schema;
