@@ -29,13 +29,13 @@ impl<C, S, G: Clone, Error, T: ContextGroup<C, S, G, Error>> ArrayOpAdd<C, S, G,
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct CommitQuery<'a, S: Clone, P: Clone> {
     pub c: Option<&'a P>,
     pub v: Option<&'a S>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum SchemaItem<'a, S: Clone, P: Clone> {
     Commit(CommitQuery<'a, S, P>),
     Eval(CommitQuery<'a, S, P>),

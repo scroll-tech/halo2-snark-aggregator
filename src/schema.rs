@@ -9,7 +9,7 @@ pub struct EvaluationProof<'a, S: Clone, P: Clone> {
     pub w: &'a P,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct EvaluationQuery<'a, S: Clone, P: Clone> {
     pub point: S,
     pub s: SchemaItem<'a, S, P>, // f, e pair
