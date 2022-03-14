@@ -483,11 +483,6 @@ impl<'a>
             })
             .collect::<Result<Vec<_>, _>>()?;
 
-        let permutations_commitments = permutations_committed
-            .iter()
-            .map(|commit| commit.permutation_product_commitments.clone())
-            .collect::<Vec<Vec<<C as Engine>::G1Affine>>>();
-
         let lookups_committed = lookups_permuted
             .into_iter()
             .map(|lookups| {
@@ -709,8 +704,12 @@ impl<'a>
                 .iter()
                 .map(|column| (column.0.index, column.1 .0 as usize))
                 .collect(),
-            // not sure
-            permutation_commitments: from_affine(permutations_commitments).concat(),
+            permutation_commitments: vk
+                .permutation
+                .commitments
+                .iter()
+                .map(|commit| C::G1::from(*commit))
+                .collect(),
             permutation_evals: permutations_common.permutation_evals,
             vanish_commitments: h_commitments.iter().map(|&elem| elem).collect(),
             random_commitment: <C as Engine>::G1::from(random_poly_commitment),
