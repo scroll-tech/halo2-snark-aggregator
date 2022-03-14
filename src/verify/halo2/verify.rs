@@ -11,6 +11,7 @@ use halo2_proofs::arithmetic::{CurveAffine, Engine, Field, FieldExt, MultiMiller
 use halo2_proofs::plonk::{Expression, VerifyingKey};
 use halo2_proofs::poly::commitment::{Params, ParamsVerifier};
 use halo2_proofs::poly::Rotation;
+use halo2_proofs::poly::EvaluationDomain;
 use halo2_proofs::transcript::{read_n_points, read_n_scalars, EncodedChallenge, TranscriptRead};
 use pairing_bn256::bn256::G1Affine;
 use std::fmt::Debug;
@@ -112,13 +113,13 @@ pub struct VerifierParams<
     pub permutation_evaluated: Vec<permutation::Evaluated<C, S, P, Error>>,
     pub instance_commitments: Vec<Vec<P>>,
     pub instance_evals: Vec<Vec<S>>,
-    pub instance_queries: Vec<(usize, usize)>,
+    pub instance_queries: Vec<(usize, i32)>,
     pub advice_commitments: Vec<Vec<P>>,
     pub advice_evals: Vec<Vec<S>>,
-    pub advice_queries: Vec<(usize, usize)>,
+    pub advice_queries: Vec<(usize, i32)>,
     pub fixed_commitments: Vec<P>,
     pub fixed_evals: Vec<S>,
-    pub fixed_queries: Vec<(usize, usize)>,
+    pub fixed_queries: Vec<(usize, i32)>,
     pub permutation_commitments: Vec<P>,
     pub permutation_evals: Vec<S>, // permutations common evaluation
     pub vanish_commitments: Vec<P>,
@@ -133,7 +134,7 @@ pub struct VerifierParams<
     pub u: S,
     pub v: S,
     pub xi: S,
-    // TODO omage: S root of z^{2^n} = 1
+    pub omega: S,
     pub sgate: SGate,
     pub pgate: PGate,
     pub _ctx: PhantomData<C>,
@@ -150,7 +151,7 @@ impl<
         PGate: ContextGroup<C, S, P, Error>,
     > VerifierParams<C, S, P, Error, SGate, PGate>
 {
-    fn rotate_omega(&self, at: usize) -> S {
+    fn rotate_omega(&self, at: i32) -> S {
         unimplemented!("rotate omega")
     }
     pub(in crate) fn queries(
@@ -159,14 +160,15 @@ impl<
         ctx: &'a mut C,
         y: &'a S,
         w: &'a S,
-        l: u32,
+        l: u32, // blind_factors + 1
     ) -> Result<Vec<EvaluationProof<'a, S, P>>, Error> {
         let zero = &sgate.zero(ctx);
+        let omega = &self.omega;
         let x = &self.x;
-        let x_inv = x; //TODO
-        let x_next = x; //TODO
-        let xn = x; // TODO let xn = x.pow(&[params.n as u64, 0, 0, 0]);
-        let xns = sgate.pow_constant_vec(ctx, x, self.common.n)?;
+        let x_inv = &arith_in_ctx!([sgate, ctx] x / omega)?;
+        let x_next = &arith_in_ctx!([sgate, ctx] x * omega)?;
+        let xn = &self.rotate_omega(self.common.n as i32); // double check let xn = x.pow(&[params.n as u64, 0, 0, 0]);
+        let x_last = &self.rotate_omega(-(l as i32)); // double check let xn = x.pow(&[params.n as u64, 0, 0, 0]);
         let ls = sgate.get_lagrange_commits(ctx, x, xn, w, self.common.n, l)?;
         let l_0 = &(ls[0]);
         let l_last = &ls[l as usize];
@@ -290,7 +292,7 @@ impl<
                                 )
                             },
                         ))
-                        .chain(permutation.queries()) // tested
+                        .chain(permutation.queries(x_next, x_last)) // tested
                         .chain(
                             lookups
                                 .iter()
@@ -561,8 +563,6 @@ impl<'a>
                     (),
                 > {
                     x: *x,
-                    x_next: x_next,
-                    x_last: x_last,
                     sets: permutation_evals
                         .sets
                         .iter()
@@ -690,7 +690,7 @@ impl<'a>
                 .cs
                 .instance_queries
                 .iter()
-                .map(|column| (column.0.index, column.1 .0 as usize))
+                .map(|column| (column.0.index, column.1 .0 as i32))
                 .collect(),
             advice_commitments: from_affine(advice_commitments),
             advice_evals,
@@ -698,7 +698,7 @@ impl<'a>
                 .cs
                 .advice_queries
                 .iter()
-                .map(|column| (column.0.index, column.1 .0 as usize))
+                .map(|column| (column.0.index, column.1 .0 as i32))
                 .collect(),
             fixed_commitments: fixed_commitments.iter().map(|&elem| elem).collect(),
             fixed_evals,
@@ -706,7 +706,7 @@ impl<'a>
                 .cs
                 .fixed_queries
                 .iter()
-                .map(|column| (column.0.index, column.1 .0 as usize))
+                .map(|column| (column.0.index, column.1 .0 as i32))
                 .collect(),
             permutation_commitments: vk
                 .permutation
@@ -727,6 +727,7 @@ impl<'a>
             u,
             v,
             xi,
+            omega: vk.domain.get_omega(),
             sgate: fc,
             pgate: pc,
             _ctx: PhantomData,

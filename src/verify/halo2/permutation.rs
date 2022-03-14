@@ -29,8 +29,6 @@ pub struct CommonEvaluated<'a, S, P> {
 pub struct Evaluated<C, S, P, Error> {
     pub(in crate::verify::halo2) x: S,
     // put x_next x_last into circuit
-    pub(in crate::verify::halo2) x_next: S,
-    pub(in crate::verify::halo2) x_last: S,
     pub(in crate::verify::halo2) sets: Vec<EvaluatedSet<S, P>>,
     pub(in crate::verify::halo2) evals: Vec<S>,
     pub(in crate::verify::halo2) chunk_len: usize,
@@ -134,6 +132,8 @@ impl<'a, C, S: Clone, P: Clone, Error: Debug> Evaluated<C, S, P, Error> {
     }
     pub(in crate::verify::halo2) fn queries(
         &'a self,
+        x_next: &'a S,
+        x_last: &'a S,
     ) -> impl Iterator<Item = EvaluationQuery<'a, S, P>> {
         iter::empty()
             .chain(self.sets.iter().flat_map(|set| {
@@ -147,7 +147,7 @@ impl<'a, C, S: Clone, P: Clone, Error: Debug> Evaluated<C, S, P, Error> {
                         &set.permutation_product_eval,
                     )))
                     .chain(Some(EvaluationQuery::new(
-                        self.x_next.clone(),
+                        x_next.clone(),
                         &set.permutation_product_commitment,
                         &set.permutation_product_next_eval,
                     )))
@@ -155,7 +155,7 @@ impl<'a, C, S: Clone, P: Clone, Error: Debug> Evaluated<C, S, P, Error> {
             // Open it at \omega^{last} x for all but the last set
             .chain(self.sets.iter().rev().skip(1).flat_map(|set| {
                 Some(EvaluationQuery::new(
-                    self.x_last.clone(),
+                    x_last.clone(),
                     &set.permutation_product_commitment,
                     &set.permutation_product_last_eval.as_ref().unwrap(),
                 ))
