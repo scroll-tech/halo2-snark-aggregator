@@ -1,4 +1,7 @@
+use num_bigint::BigUint;
 use pairing_bn256::arithmetic::{CurveAffine, FieldExt};
+
+use crate::field::bn_to_field;
 
 use super::api::{ContextGroup, ContextRing};
 
@@ -14,7 +17,7 @@ pub struct PointCode<C: CurveAffine> {
     pub generator: C::CurveExt,
 }
 
-impl<C: CurveAffine> ContextGroup<(), C::ScalarExt, C::CurveExt, ()> for PointCode<C> {
+impl<C: CurveAffine> ContextGroup<(), C::ScalarExt, C::CurveExt, C::CurveExt, ()> for PointCode<C> {
     fn add(&self, _ctx: &mut (), lhs: &C::CurveExt, rhs: &C::CurveExt) -> Result<C::CurveExt, ()> {
         let t = (*lhs) + (*rhs);
         Ok(t)
@@ -48,8 +51,8 @@ impl<C: CurveAffine> ContextGroup<(), C::ScalarExt, C::CurveExt, ()> for PointCo
         Ok(self.zero)
     }
 
-    fn from_constant(&self, _ctx: &mut (), c: u32) -> Result<C::CurveExt, ()> {
-        Ok(self.generator * C::ScalarExt::from(c as u64))
+    fn from_constant(&self, _ctx: &mut (), c: C::CurveExt) -> Result<C::CurveExt, ()> {
+        Ok(c)
     }
 
     fn generator(&self, _ctx: &mut ()) -> Result<C::CurveExt, ()> {
@@ -57,7 +60,7 @@ impl<C: CurveAffine> ContextGroup<(), C::ScalarExt, C::CurveExt, ()> for PointCo
     }
 }
 
-impl<F: FieldExt> ContextGroup<(), F, F, ()> for FieldCode<F> {
+impl<F: FieldExt> ContextGroup<(), F, F, F, ()> for FieldCode<F> {
     fn add(&self, _ctx: &mut (), lhs: &F, rhs: &F) -> Result<F, ()> {
         let t = *lhs + *rhs;
         Ok(t)
@@ -81,8 +84,8 @@ impl<F: FieldExt> ContextGroup<(), F, F, ()> for FieldCode<F> {
         Ok(self.zero)
     }
 
-    fn from_constant(&self, _ctx: &mut (), c: u32) -> Result<F, ()> {
-        Ok(F::from(c as u64))
+    fn from_constant(&self, _ctx: &mut (), c: F) -> Result<F, ()> {
+        Ok(c)
     }
 
     fn generator(&self, _ctx: &mut ()) -> Result<F, ()> {

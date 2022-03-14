@@ -1,3 +1,6 @@
+use halo2_proofs::arithmetic::FieldExt;
+use num_bigint::BigUint;
+
 use crate::arith::api::{ContextGroup, ContextRing, PowConstant};
 use crate::schema::ast::{CommitQuery, MultiOpenProof, SchemaItem};
 use crate::schema::utils::RingUtils;
@@ -48,15 +51,7 @@ pub struct PlonkCommonSetup<'a, S> {
     pub zero: &'a S,
 }
 
-pub struct PlonkVerifierParams<
-    'a,
-    C,
-    S,
-    P,
-    Error: Debug,
-    SGate: ContextGroup<C, S, S, Error> + ContextRing<C, S, S, Error>,
-    PGate: ContextGroup<C, S, P, Error>,
-> {
+pub struct PlonkVerifierParams<'a, C, S, P, Error: Debug> {
     //public_wit: Vec<C::ScalarExt>,
     pub common: PlonkCommonSetup<'a, S>,
     pub params: ParamsPreprocessed<'a, P>,
@@ -68,34 +63,29 @@ pub struct PlonkVerifierParams<
     pub u: &'a S,
     pub v: &'a S,
     pub xi: &'a S,
-    pub sgate: &'a SGate,
-    pub pgate: &'a PGate,
     pub _ctx: PhantomData<C>,
     pub _error: PhantomData<Error>,
 }
 
-impl<
-        'a,
-        C,
-        S: Clone,
-        P: Clone,
-        Error: Debug,
-        SGate: ContextGroup<C, S, S, Error> + ContextRing<C, S, S, Error>,
-        PGate: ContextGroup<C, S, P, Error>,
-    > PlonkVerifierParams<'a, C, S, P, Error, SGate, PGate>
-{
-    fn get_common_evals(&self, ctx: &mut C) -> Result<[SchemaItem<'a, S, P>; 6], Error> {
-        let sgate = self.sgate;
-        let n = &sgate.from_constant(ctx, self.common.n)?;
-        let _one = self.sgate.one(ctx)?;
+impl<'a, C, S: Clone, P: Clone, Error: Debug> PlonkVerifierParams<'a, C, S, P, Error> {
+    fn get_common_evals<
+        T: FieldExt,
+        SGate: ContextGroup<C, S, S, T, Error> + ContextRing<C, S, S, Error>,
+    >(
+        &self,
+        ctx: &mut C,
+        sgate: &SGate,
+    ) -> Result<[SchemaItem<'a, S, P>; 6], Error> {
+        let n = &sgate.from_constant(ctx, T::from(self.common.n as u64))?;
+        let _one = sgate.one(ctx)?;
         let one = &_one;
         let xi = self.xi;
 
-        let xi_n = &self.sgate.pow_constant(ctx, self.xi, self.common.n)?;
-        let xi_2n = &self.sgate.pow_constant(ctx, xi_n, 2)?;
+        let xi_n = &sgate.pow_constant(ctx, self.xi, self.common.n)?;
+        let xi_2n = &sgate.pow_constant(ctx, xi_n, 2)?;
 
         // zh_xi = xi ^ n - 1
-        let zh_xi = &self.sgate.minus(ctx, xi_n, one)?;
+        let zh_xi = &sgate.minus(ctx, xi_n, one)?;
 
         // l1_xi = w * (xi ^ n - 1) / (n * (xi - w))
         let l1_xi = &{
@@ -132,9 +122,16 @@ impl<
         ])
     }
 
-    fn get_proof_xi(&self, ctx: &mut C) -> Result<EvaluationProof<'a, S, P>, Error> {
-        let _zero = self.sgate.zero(ctx)?;
-        let _one = self.sgate.one(ctx)?;
+    fn get_proof_xi<
+        T: FieldExt,
+        SGate: ContextGroup<C, S, S, T, Error> + ContextRing<C, S, S, Error>,
+    >(
+        &self,
+        ctx: &mut C,
+        sgate: &SGate,
+    ) -> Result<EvaluationProof<'a, S, P>, Error> {
+        let _zero = sgate.zero(ctx)?;
+        let _one = sgate.one(ctx)?;
         let zero = &_zero;
         let one = &_one;
         let a = CommitQuery {
@@ -201,8 +198,8 @@ impl<
             c: Some(self.commits.th),
             v: None,
         };
-        let [xi, xi_n, xi_2n, zh_xi, l1_xi, pi_xi] = self.get_common_evals(ctx)?;
-        let neg_one = &(self.sgate.minus(ctx, zero, one)?);
+        let [xi, xi_n, xi_2n, zh_xi, l1_xi, pi_xi] = self.get_common_evals(ctx, sgate)?;
+        let neg_one = &(sgate.minus(ctx, zero, one)?);
         let r = eval!(a) * eval!(b) * commit!(qm)
             + eval!(a) * commit!(ql)
             + eval!(b) * commit!(qr)
@@ -249,8 +246,14 @@ impl<
         })
     }
 
-    fn get_proof_wxi(&self, ctx: &mut C) -> Result<EvaluationProof<'a, S, P>, Error> {
-        let sgate = self.sgate;
+    fn get_proof_wxi<
+        T: FieldExt,
+        SGate: ContextGroup<C, S, S, T, Error> + ContextRing<C, S, S, Error>,
+    >(
+        &self,
+        ctx: &mut C,
+        sgate: &SGate,
+    ) -> Result<EvaluationProof<'a, S, P>, Error> {
         let zxi = CommitQuery::<S, P> {
             c: Some(self.commits.z),
             v: Some(self.evals.z_xiw),
@@ -274,19 +277,32 @@ impl<
         C: Clone,
         S: Clone,
         P: Clone,
+        TS: FieldExt,
+        TP,
         Error: Debug,
-        SGate: ContextGroup<C, S, S, Error> + ContextRing<C, S, S, Error>,
-        PGate: ContextGroup<C, S, P, Error>,
-    > SchemaGenerator<'a, C, S, P, Error>
-    for PlonkVerifierParams<'a, C, S, P, Error, SGate, PGate>
+        SGate: ContextGroup<C, S, S, TS, Error> + ContextRing<C, S, S, Error>,
+        PGate: ContextGroup<C, S, P, TP, Error>,
+    > SchemaGenerator<'a, C, S, P, TS, TP, Error, SGate, PGate>
+    for PlonkVerifierParams<'a, C, S, P, Error>
 {
-    fn get_point_schemas(&self, ctx: &mut C) -> Result<Vec<EvaluationProof<'a, S, P>>, Error> {
-        let proof_xi = self.get_proof_xi(ctx)?;
-        let proof_wxi = self.get_proof_wxi(ctx)?;
+    fn get_point_schemas(
+        &self,
+        ctx: &mut C,
+        sgate: &SGate,
+        pgate: &PGate,
+    ) -> Result<Vec<EvaluationProof<'a, S, P>>, Error> {
+        let proof_xi = self.get_proof_xi(ctx, sgate)?;
+        let proof_wxi = self.get_proof_wxi(ctx, sgate)?;
         Ok(vec![proof_xi, proof_wxi])
     }
-    fn batch_multi_open_proofs(&self, ctx: &mut C) -> Result<MultiOpenProof<'a, S, P>, Error> {
-        let mut proofs = self.get_point_schemas(ctx)?;
+
+    fn batch_multi_open_proofs(
+        &self,
+        ctx: &mut C,
+        sgate: &SGate,
+        pgate: &PGate,
+    ) -> Result<MultiOpenProof<'a, S, P>, Error> {
+        let mut proofs = self.get_point_schemas(ctx, sgate, pgate)?;
         proofs.reverse();
         let (mut w_x, mut w_g) = {
             let s = &proofs[0].s;

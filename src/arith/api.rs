@@ -1,13 +1,15 @@
+use num_bigint::BigUint;
+
 //#![feature(trace_macros)]
 // trace_macros!(true);
 // Context Arithment Group under Context C, Scalar Group S and Base Group B
-pub trait ContextGroup<C, S, B, Error> {
+pub trait ContextGroup<C, S, B, T, Error> {
     fn add(&self, ctx: &mut C, lhs: &B, rhs: &B) -> Result<B, Error>;
     fn minus(&self, ctx: &mut C, lhs: &B, rhs: &B) -> Result<B, Error>;
     fn scalar_mul(&self, ctx: &mut C, lhs: &S, rhs: &B) -> Result<B, Error>;
     fn one(&self, ctx: &mut C) -> Result<B, Error>;
     fn zero(&self, ctx: &mut C) -> Result<B, Error>;
-    fn from_constant(&self, ctx: &mut C, c: u32) -> Result<B, Error>;
+    fn from_constant(&self, ctx: &mut C, c: T) -> Result<B, Error>;
     fn generator(&self, ctx: &mut C) -> Result<B, Error>;
     fn ok(&self, v: B) -> Result<B, Error> {
         Ok(v)
@@ -143,6 +145,8 @@ macro_rules! arith_in_ctx {
 
 #[cfg(test)]
 mod test_marco {
+    use num_bigint::BigUint;
+
     use crate::arith::api::ContextGroup;
     use crate::arith::api::ContextRing;
 
@@ -156,7 +160,7 @@ mod test_marco {
         pub zero: W,
     }
 
-    impl ContextGroup<(), W, W, ()> for Gate {
+    impl ContextGroup<(), W, W, i32, ()> for Gate {
         fn add(&self, _ctx: &mut (), lhs: &W, rhs: &W) -> Result<W, ()> {
             let t = lhs.t + rhs.t;
             Ok(W { t })
@@ -175,8 +179,8 @@ mod test_marco {
         fn zero(&self, _ctx: &mut ()) -> Result<W, ()> {
             Ok(self.zero.clone())
         }
-        fn from_constant(&self, _ctx: &mut (), c: u32) -> Result<W, ()> {
-            Ok(W { t: c as i32 })
+        fn from_constant(&self, _ctx: &mut (), c: i32) -> Result<W, ()> {
+            Ok(W { t: c })
         }
         fn generator(&self, _ctx: &mut ()) -> Result<W, ()> {
             Ok(self.one.clone())

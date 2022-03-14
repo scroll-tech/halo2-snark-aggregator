@@ -1,3 +1,6 @@
+use halo2_proofs::arithmetic::FieldExt;
+use num_bigint::BigUint;
+
 use crate::arith::api::{ContextGroup, ContextRing, PowConstant};
 use crate::{arith_in_ctx, infix2postfix};
 use std::fmt::Debug;
@@ -20,7 +23,7 @@ impl<'a, C, S: Clone, Error, SGate: ContextRing<C, S, S, Error>> RingUtils<C, S,
     }
 }
 
-pub trait VerifySetupHelper<'a, C, S, Error: Debug> {
+pub trait VerifySetupHelper<'a, C, S, T, Error: Debug> {
     fn get_lagrange_commits(
         &self,
         ctx: &mut C,
@@ -43,9 +46,10 @@ impl<
         'a,
         C,
         S: Clone,
+        T: FieldExt,
         Error: Debug,
-        SGate: ContextGroup<C, S, S, Error> + ContextRing<C, S, S, Error>,
-    > VerifySetupHelper<'a, C, S, Error> for SGate
+        SGate: ContextGroup<C, S, S, T, Error> + ContextRing<C, S, S, Error>,
+    > VerifySetupHelper<'a, C, S, T, Error> for SGate
 {
     fn get_lagrange_commits(
         &self,
@@ -56,7 +60,7 @@ impl<
         n: u32,
         l: u32,
     ) -> Result<Vec<S>, Error> {
-        let n = &self.from_constant(ctx, n)?;
+        let n = &self.from_constant(ctx, T::from(n as u64))?;
         let _one = self.one(ctx)?;
         let one = &_one;
         let ws = self.pow_constant_vec(ctx, w, l)?;

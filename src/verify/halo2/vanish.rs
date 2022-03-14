@@ -1,3 +1,5 @@
+use halo2_proofs::arithmetic::FieldExt;
+
 use crate::arith::api::{ContextGroup, ContextRing};
 use crate::schema::EvaluationQuery;
 
@@ -20,8 +22,8 @@ pub struct Evaluated<'a, C, S: Clone, P: Clone, Error> {
 }
 
 impl<'a, C, S: Clone, P: Clone, Error: Debug> Evaluated<'a, C, S, P, Error> {
-    pub(in crate::verify::halo2) fn new(
-        sgate: &(impl ContextGroup<C, S, S, Error> + ContextRing<C, S, S, Error>),
+    pub(in crate::verify::halo2) fn new<T: FieldExt>(
+        sgate: &(impl ContextGroup<C, S, S, T, Error> + ContextRing<C, S, S, Error>),
         ctx: &'a mut C,
         expressions: Vec<S>,
         y: &'a S,
@@ -49,8 +51,8 @@ impl<'a, C, S: Clone, P: Clone, Error: Debug> Evaluated<'a, C, S, P, Error> {
         Evaluated {
             h_commitment,
             expected_h_eval,
-            random_eval: random_eval,
-            random_commitment: random_commitment,
+            random_eval,
+            random_commitment,
             _m: PhantomData,
         }
     }

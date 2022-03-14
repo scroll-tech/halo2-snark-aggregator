@@ -5,11 +5,11 @@ pub trait ArrayOpMul<C, S, G, Error> {
     fn mul_array(&self, ctx: &mut C, l: Vec<&G>) -> Result<G, Error>;
 }
 
-pub trait ArrayOpAdd<C, S, G, Error> {
+pub trait ArrayOpAdd<C, S, G, T, Error> {
     fn add_array(&self, ctx: &mut C, l: Vec<&G>) -> Result<G, Error>;
 }
 
-impl<C, S, G: Clone, Error, T: ContextRing<C, S, G, Error>> ArrayOpMul<C, S, G, Error> for T {
+impl<C, S, G: Clone, Error, Gate: ContextRing<C, S, G, Error>> ArrayOpMul<C, S, G, Error> for Gate {
     fn mul_array(&self, ctx: &mut C, l: Vec<&G>) -> Result<G, Error> {
         let mut base: G = (*l[0]).clone();
         for i in 1..l.len() {
@@ -19,7 +19,9 @@ impl<C, S, G: Clone, Error, T: ContextRing<C, S, G, Error>> ArrayOpMul<C, S, G, 
     }
 }
 
-impl<C, S, G: Clone, Error, T: ContextGroup<C, S, G, Error>> ArrayOpAdd<C, S, G, Error> for T {
+impl<C, S, T, G: Clone, Error, Gate: ContextGroup<C, S, G, T, Error>> ArrayOpAdd<C, S, G, T, Error>
+    for Gate
+{
     fn add_array(&self, ctx: &mut C, l: Vec<&G>) -> Result<G, Error> {
         let mut base: G = l[0].clone();
         for i in 1..l.len() {
@@ -70,10 +72,10 @@ impl<S: Clone, P: Clone> std::ops::Mul for SchemaItem<'_, S, P> {
     }
 }
 
-pub trait EvaluationAST<S, C, P, SGate, PGate, Error>
+pub trait EvaluationAST<S, C, P, TS, TP, SGate, PGate, Error>
 where
-    SGate: ContextRing<C, S, S, Error> + ContextGroup<C, S, S, Error>,
-    PGate: ContextGroup<C, S, P, Error>,
+    SGate: ContextRing<C, S, S, Error> + ContextGroup<C, S, S, TS, Error>,
+    PGate: ContextGroup<C, S, P, TP, Error>,
 {
     fn eval(
         &self,
@@ -87,10 +89,12 @@ impl<
         C,
         S: Clone,
         P: Clone,
+        TS,
+        TP,
         Error: Debug,
-        SGate: ContextGroup<C, S, S, Error> + ContextRing<C, S, S, Error>,
-        PGate: ContextGroup<C, S, P, Error>,
-    > EvaluationAST<S, C, P, SGate, PGate, Error> for SchemaItem<'_, S, P>
+        SGate: ContextGroup<C, S, S, TS, Error> + ContextRing<C, S, S, Error>,
+        PGate: ContextGroup<C, S, P, TP, Error>,
+    > EvaluationAST<S, C, P, TS, TP, SGate, PGate, Error> for SchemaItem<'_, S, P>
 {
     fn eval(
         &self,

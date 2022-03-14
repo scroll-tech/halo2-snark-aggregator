@@ -1,17 +1,20 @@
 use super::{lookup, permutation, vanish};
 use crate::arith::api::{ContextGroup, ContextRing};
 use crate::arith::code::{FieldCode, PointCode};
-use crate::schema::ast::{CommitQuery, MultiOpenProof, SchemaItem, ArrayOpAdd};
+use crate::schema::ast::{ArrayOpAdd, CommitQuery, MultiOpenProof, SchemaItem};
 use crate::schema::utils::{RingUtils, VerifySetupHelper};
 use crate::schema::{EvaluationProof, EvaluationQuery, SchemaGenerator};
+use crate::verify::halo2::permutation::Evaluated;
+use crate::verify::halo2::permutation::EvaluatedSet;
 use crate::{arith_in_ctx, infix2postfix};
 use crate::{commit, scalar};
 use group::Curve;
 use halo2_proofs::arithmetic::{CurveAffine, Engine, Field, FieldExt, MultiMillerLoop};
-use halo2_proofs::plonk::{Expression, VerifyingKey};
+use halo2_proofs::plonk::{Error, Expression, VerifyingKey};
 use halo2_proofs::poly::commitment::{Params, ParamsVerifier};
-use halo2_proofs::poly::Rotation;
 use halo2_proofs::poly::EvaluationDomain;
+use halo2_proofs::poly::Rotation;
+use halo2_proofs::transcript::ChallengeScalar;
 use halo2_proofs::transcript::{read_n_points, read_n_scalars, EncodedChallenge, TranscriptRead};
 use pairing_bn256::bn256::G1Affine;
 use std::fmt::Debug;
@@ -19,15 +22,16 @@ use std::iter;
 use std::marker::PhantomData;
 
 pub struct PlonkCommonSetup {
-    // pub l: u32,
+    pub l: u32,
     pub n: u32,
 }
 
 pub trait Evaluable<
     C,
     S,
+    T,
     Error: Debug,
-    SGate: ContextGroup<C, S, S, Error> + ContextRing<C, S, S, Error>,
+    SGate: ContextGroup<C, S, S, T, Error> + ContextRing<C, S, S, Error>,
 >
 {
     fn ctx_evaluate(
@@ -42,10 +46,11 @@ pub trait Evaluable<
 
 impl<
         C,
-        S: Field,
+        S,
+        T: FieldExt,
         Error: Debug,
-        SGate: ContextGroup<C, S, S, Error> + ContextRing<C, S, S, Error>,
-    > Evaluable<C, S, Error, SGate> for Expression<S>
+        SGate: ContextGroup<C, S, S, T, Error> + ContextRing<C, S, S, Error>,
+    > Evaluable<C, S, T, Error, SGate> for Expression<S>
 {
     fn ctx_evaluate(
         &self,
@@ -98,14 +103,7 @@ impl<
     }
 }
 
-pub struct VerifierParams<
-    C,
-    S: Field,
-    P: Clone,
-    Error: Debug,
-    SGate: ContextGroup<C, S, S, Error> + ContextRing<C, S, S, Error>,
-    PGate: ContextGroup<C, S, P, Error>,
-> {
+pub struct VerifierParams<C, S: Clone, P: Clone, Error: Debug> {
     //public_wit: Vec<C::ScalarExt>,
     pub gates: Vec<Vec<Expression<S>>>,
     pub common: PlonkCommonSetup,
@@ -135,26 +133,60 @@ pub struct VerifierParams<
     pub v: S,
     pub xi: S,
     pub omega: S,
-    pub sgate: SGate,
-    pub pgate: PGate,
     pub _ctx: PhantomData<C>,
     pub _error: PhantomData<Error>,
+}
+
+pub(crate) trait IVerifierParams<
+    'a,
+    C: Clone,
+    S: Clone,
+    T: FieldExt,
+    P: Clone,
+    Error: Debug,
+    SGate: ContextGroup<C, S, S, T, Error> + ContextRing<C, S, S, Error>,
+>
+{
+    fn rotate_omega(&self, sgate: &'a SGate, ctx: &'a mut C, at: i32) -> Result<S, Error>;
+    fn x_next(&'a self, sgate: &'a SGate, ctx: &'a mut C) -> Result<S, Error>;
+    fn x_last(&'a self, sgate: &'a SGate, ctx: &'a mut C) -> Result<S, Error>;
+    fn queries(
+        &'a self,
+        sgate: &'a SGate,
+        ctx: &'a mut C,
+        y: &'a S,
+        w: &'a S,
+        l: u32, // blind_factors + 1
+    ) -> Result<Vec<EvaluationProof<'a, S, P>>, Error>;
 }
 
 impl<
         'a,
         C: Clone,
-        S: Field,
+        S: Clone,
+        T: FieldExt,
         P: Clone,
         Error: Debug,
-        SGate: ContextGroup<C, S, S, Error> + ContextRing<C, S, S, Error>,
-        PGate: ContextGroup<C, S, P, Error>,
-    > VerifierParams<C, S, P, Error, SGate, PGate>
+        SGate: ContextGroup<C, S, S, T, Error> + ContextRing<C, S, S, Error>,
+    > IVerifierParams<'a, C, S, T, P, Error, SGate> for VerifierParams<C, S, P, Error>
 {
-    fn rotate_omega(&self, at: i32) -> S {
+    fn rotate_omega(&self, sgate: &'a SGate, ctx: &'a mut C, at: i32) -> Result<S, Error> {
         unimplemented!("rotate omega")
     }
-    pub(in crate) fn queries(
+
+    fn x_next(&'a self, sgate: &'a SGate, ctx: &'a mut C) -> Result<S, Error> {
+        let x = &self.x;
+        let omega = &self.omega;
+        arith_in_ctx!([sgate, ctx] x * omega)
+    }
+
+    fn x_last(&'a self, sgate: &'a SGate, ctx: &'a mut C) -> Result<S, Error> {
+        let x = &self.x;
+        let omega = &self.omega;
+        self.rotate_omega(sgate, ctx, -(self.common.l as i32))
+    }
+
+    fn queries(
         &'a self,
         sgate: &'a SGate,
         ctx: &'a mut C,
@@ -165,10 +197,10 @@ impl<
         let zero = &sgate.zero(ctx);
         let omega = &self.omega;
         let x = &self.x;
+        let x_next = &self.x_next(sgate, ctx)?;
+        let x_last = &self.x_last(sgate, ctx)?;
         let x_inv = &arith_in_ctx!([sgate, ctx] x / omega)?;
-        let x_next = &arith_in_ctx!([sgate, ctx] x * omega)?;
-        let xn = &self.rotate_omega(self.common.n as i32); // double check let xn = x.pow(&[params.n as u64, 0, 0, 0]);
-        let x_last = &self.rotate_omega(-(l as i32)); // double check let xn = x.pow(&[params.n as u64, 0, 0, 0]);
+        let xn = &self.rotate_omega(sgate, ctx, self.common.n as i32)?; // double check let xn = x.pow(&[params.n as u64, 0, 0, 0]);
         let ls = sgate.get_lagrange_commits(ctx, x, xn, w, self.common.n, l)?;
         let l_0 = &(ls[0]);
         let l_last = &ls[l as usize];
@@ -277,7 +309,7 @@ impl<
                         .chain(self.instance_queries.iter().enumerate().map(
                             move |(query_index, &(column, at))| {
                                 EvaluationQuery::new(
-                                    self.rotate_omega(at),
+                                    self.rotate_omega(sgate, ctx, at).unwrap(),
                                     &instance_commitments[column],
                                     &instance_evals[query_index],
                                 )
@@ -286,7 +318,7 @@ impl<
                         .chain(self.advice_queries.iter().enumerate().map(
                             move |(query_index, &(column, at))| {
                                 EvaluationQuery::new(
-                                    self.rotate_omega(at),
+                                    self.rotate_omega(sgate, ctx, at).unwrap(),
                                     &advice_commitments[column],
                                     &advice_evals[query_index],
                                 )
@@ -307,7 +339,7 @@ impl<
                     .enumerate()
                     .map(|(query_index, &(column, at))| {
                         EvaluationQuery::<'a, S, P>::new(
-                            self.rotate_omega(at),
+                            self.rotate_omega(sgate, ctx, at).unwrap(),
                             &self.fixed_commitments[column],
                             &self.fixed_evals[query_index],
                         )
@@ -324,16 +356,29 @@ impl<
         C: Clone,
         S: Field,
         P: Clone,
+        TS,
+        TP,
         Error: Debug,
-        SGate: ContextGroup<C, S, S, Error> + ContextRing<C, S, S, Error>,
-        PGate: ContextGroup<C, S, P, Error>,
-    > SchemaGenerator<'a, C, S, P, Error> for VerifierParams<C, S, P, Error, SGate, PGate>
+        SGate: ContextGroup<C, S, S, TS, Error> + ContextRing<C, S, S, Error>,
+        PGate: ContextGroup<C, S, P, TP, Error>,
+    > SchemaGenerator<'a, C, S, P, TS, TP, Error, SGate, PGate> for VerifierParams<C, S, P, Error>
 {
-    fn get_point_schemas(&self, ctx: &mut C) -> Result<Vec<EvaluationProof<'a, S, P>>, Error> {
+    fn get_point_schemas(
+        &self,
+        ctx: &mut C,
+        sgate: &SGate,
+        pgate: &PGate,
+    ) -> Result<Vec<EvaluationProof<'a, S, P>>, Error> {
         unimplemented!("get point schemas not implemented")
     }
-    fn batch_multi_open_proofs(&self, ctx: &mut C) -> Result<MultiOpenProof<'a, S, P>, Error> {
-        let mut proofs = self.get_point_schemas(ctx)?;
+
+    fn batch_multi_open_proofs(
+        &self,
+        ctx: &mut C,
+        sgate: &SGate,
+        pgate: &PGate,
+    ) -> Result<MultiOpenProof<'a, S, P>, Error> {
+        let mut proofs = self.get_point_schemas(ctx, sgate, pgate)?;
         proofs.reverse();
         let (mut w_x, mut w_g) = {
             let s = &proofs[0].s;
@@ -359,23 +404,19 @@ impl<
     }
 }
 
-impl<'a>
-    VerifierParams<
-        (),
-        <G1Affine as CurveAffine>::ScalarExt,
-        <G1Affine as CurveAffine>::CurveExt,
-        (),
-        FieldCode<<G1Affine as CurveAffine>::ScalarExt>,
-        PointCode<G1Affine>,
-    >
-{
+impl<'a, CTX, S: Clone, P: Clone> VerifierParams<CTX, S, P, Error> {
     pub fn from_transcript<
         'params,
         C: MultiMillerLoop,
         E: EncodedChallenge<C::G1Affine>,
         T: TranscriptRead<C::G1Affine, E>,
+        SGate: ContextGroup<CTX, S, S, <C::G1Affine as CurveAffine>::ScalarExt, Error>
+            + ContextRing<CTX, S, S, Error>,
+        PGate: ContextGroup<CTX, S, P, C::G1Affine, Error>,
     >(
-        alpha: <C::G1Affine as CurveAffine>::ScalarExt,
+        sgate: &'a SGate,
+        pgate: &'a PGate,
+        ctx: &mut CTX,
         u: <C::G1Affine as CurveAffine>::ScalarExt,
         v: <C::G1Affine as CurveAffine>::ScalarExt,
         xi: <C::G1Affine as CurveAffine>::ScalarExt,
@@ -383,41 +424,7 @@ impl<'a>
         vk: &VerifyingKey<C::G1Affine>,
         params: &'params ParamsVerifier<C>,
         transcript: &mut T,
-    ) -> Result<
-        VerifierParams<
-            (),
-            <C::G1Affine as CurveAffine>::ScalarExt,
-            <C::G1Affine as CurveAffine>::CurveExt,
-            (),
-            FieldCode<<C::G1Affine as CurveAffine>::ScalarExt>,
-            PointCode<C::G1Affine>,
-        >,
-        halo2_proofs::plonk::Error,
-    > {
-        use crate::verify::halo2::permutation::Evaluated;
-        use crate::verify::halo2::permutation::EvaluatedSet;
-        use group::Group;
-        use halo2_proofs::plonk::Error;
-        use halo2_proofs::transcript::ChallengeScalar;
-
-        let from_affine = |v: Vec<Vec<C::G1Affine>>| {
-            v.iter()
-                .map(|v| v.iter().map(|&affine| C::G1::from(affine)).collect())
-                .collect()
-        };
-
-        let fc = FieldCode::<<C::G1Affine as CurveAffine>::ScalarExt> {
-            one: <C::G1Affine as CurveAffine>::ScalarExt::one(),
-            zero: <C::G1Affine as CurveAffine>::ScalarExt::zero(),
-            generator: <C::G1Affine as CurveAffine>::ScalarExt::one(),
-        };
-
-        let pc = PointCode::<C::G1Affine> {
-            one: <C::G1Affine as CurveAffine>::CurveExt::generator(),
-            zero: <C::G1Affine as CurveAffine>::CurveExt::identity(),
-            generator: <C::G1Affine as CurveAffine>::CurveExt::generator(),
-        };
-
+    ) -> Result<VerifierParams<CTX, S, P, Error>, Error> {
         for instances in instances.iter() {
             if instances.len() != vk.cs.num_instance_columns {
                 return Err(Error::InvalidInstances);
@@ -433,7 +440,6 @@ impl<'a>
                         if instance.len() > params.n as usize - (vk.cs.blinding_factors() + 1) {
                             return Err(Error::InstanceTooLarge);
                         }
-
                         Ok(params.commit_lagrange(instance.to_vec()).to_affine())
                     })
                     .collect::<Result<Vec<_>, _>>()
@@ -442,6 +448,7 @@ impl<'a>
 
         let num_proofs = instance_commitments.len();
 
+        // TODO: replace hash method and add it into circuits
         // Hash verification key into transcript
         vk.hash_into(transcript)?;
 
@@ -452,16 +459,32 @@ impl<'a>
             }
         }
 
-        let advice_commitments = (0..num_proofs)
-            .map(|_| -> Result<Vec<_>, _> {
-                // Hash the prover's advice commitments into the transcript
-                read_n_points(transcript, vk.cs.num_advice_columns)
+        let instance_commitments = instance_commitments
+            .into_iter()
+            .map(|instance| {
+                instance
+                    .into_iter()
+                    .map(|instance| pgate.from_constant(ctx, instance))
+                    .collect::<Result<Vec<_>, _>>()
             })
             .collect::<Result<Vec<_>, _>>()?;
 
+        let advice_commitments = (0..num_proofs)
+            .map(|_| -> Result<Vec<_>, _> {
+                // Hash the prover's advice commitments into the transcript
+                let points = read_n_points(transcript, vk.cs.num_advice_columns)?;
+                points
+                    .into_iter()
+                    .map(|advice| pgate.from_constant(ctx, advice))
+                    .collect()
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        // TODO: Put hash process of theta into circuit
         // Sample theta challenge for keeping lookup columns linearly independent
         let theta: ChallengeScalar<<C as Engine>::G1Affine, T> =
             transcript.squeeze_challenge_scalar();
+        let theta = sgate.from_constant(ctx, *theta)?;
 
         let lookups_permuted = (0..num_proofs)
             .map(|_| -> Result<Vec<_>, _> {
@@ -477,10 +500,12 @@ impl<'a>
         // Sample beta challenge
         let beta: ChallengeScalar<<C as Engine>::G1Affine, T> =
             transcript.squeeze_challenge_scalar();
+        let beta = sgate.from_constant(ctx, *beta)?;
 
         // Sample gamma challenge
         let gamma: ChallengeScalar<<C as Engine>::G1Affine, T> =
             transcript.squeeze_challenge_scalar();
+        let gamma = sgate.from_constant(ctx, *gamma)?;
 
         let permutations_committed = (0..num_proofs)
             .map(|_| {
@@ -501,41 +526,48 @@ impl<'a>
             .collect::<Result<Vec<_>, _>>()?;
 
         let random_poly_commitment = transcript.read_point()?;
+        let random_commitment = pgate.from_constant(ctx, random_poly_commitment)?;
 
         // Sample y challenge, which keeps the gates linearly independent.
-        let _y: ChallengeScalar<<C as Engine>::G1Affine, T> = transcript.squeeze_challenge_scalar();
+        let y: ChallengeScalar<<C as Engine>::G1Affine, T> = transcript.squeeze_challenge_scalar();
+        let y = sgate.from_constant(ctx, *y)?;
 
         let h_commitments = read_n_points(transcript, vk.domain.get_quotient_poly_degree())?;
-        let h_commitments: Vec<<C as Engine>::G1> = h_commitments
+        let h_commitments = h_commitments
             .iter()
-            .map(|&affine| <C as Engine>::G1::from(affine))
-            .collect();
+            .map(|&affine| pgate.from_constant(ctx, affine))
+            .collect::<Result<Vec<_>, _>>()?;
 
         // Sample x challenge, which is used to ensure the circuit is
         // satisfied with high probability.
         let x: ChallengeScalar<<C as Engine>::G1Affine, T> = transcript.squeeze_challenge_scalar();
-
-        // TODO PUT INTO CIRCUIT
-        let x_next = vk.domain.rotate_omega(*x, Rotation::next());
-        let x_last = vk
-            .domain
-            .rotate_omega(*x, Rotation(-((vk.cs.blinding_factors() + 1) as i32)));
+        let x = sgate.from_constant(ctx, *x)?;
 
         let instance_evals = (0..num_proofs)
             .map(|_| -> Result<Vec<_>, _> {
-                read_n_scalars(transcript, vk.cs.instance_queries.len())
+                read_n_scalars(transcript, vk.cs.instance_queries.len())?
+                    .into_iter()
+                    .map(|s| sgate.from_constant(ctx, s))
+                    .collect()
             })
             .collect::<Result<Vec<_>, _>>()?;
 
         let advice_evals = (0..num_proofs)
             .map(|_| -> Result<Vec<_>, _> {
-                read_n_scalars(transcript, vk.cs.advice_queries.len())
+                read_n_scalars(transcript, vk.cs.advice_queries.len())?
+                    .into_iter()
+                    .map(|s| sgate.from_constant(ctx, s))
+                    .collect()
             })
             .collect::<Result<Vec<_>, _>>()?;
 
-        let fixed_evals = read_n_scalars(transcript, vk.cs.fixed_queries.len())?;
+        let fixed_evals = read_n_scalars(transcript, vk.cs.fixed_queries.len())?
+            .into_iter()
+            .map(|s| sgate.from_constant(ctx, s))
+            .collect();
 
         let random_eval = transcript.read_scalar()?;
+        let random_eval = sgate.from_constant(ctx, random_eval)?;
 
         let permutations_common = vk.permutation.evaluate(transcript)?;
 
@@ -544,25 +576,13 @@ impl<'a>
             .map(|permutation| permutation.evaluate(transcript))
             .collect::<Result<Vec<_>, _>>()?;
 
-        let permutations_evaluated: Vec<
-            crate::verify::halo2::permutation::Evaluated<
-                (),
-                <C::G1Affine as CurveAffine>::ScalarExt,
-                <C::G1Affine as CurveAffine>::CurveExt,
-                (),
-            >,
-        > = permutations_evaluated
+        let permutations_evaluated = permutations_evaluated
             .iter()
             .zip(advice_evals.iter())
             .zip(instance_evals.iter())
             .map(
-                |((permutation_evals, advice_evals), instance_evals)| Evaluated::<
-                    (),
-                    <C::G1Affine as CurveAffine>::ScalarExt,
-                    <C::G1Affine as CurveAffine>::CurveExt,
-                    (),
-                > {
-                    x: *x,
+                |((permutation_evals, advice_evals), instance_evals)| Evaluated {
+                    x,
                     sets: permutation_evals
                         .sets
                         .iter()
@@ -670,16 +690,10 @@ impl<'a>
             .map(|&affine| <C as Engine>::G1::from(affine))
             .collect();
 
-        Ok(VerifierParams::<
-            (), // Dummy Context
-            <C::G1Affine as CurveAffine>::ScalarExt,
-            <C::G1Affine as CurveAffine>::CurveExt,
-            (), //Error
-            FieldCode<<C::G1Affine as CurveAffine>::ScalarExt>,
-            PointCode<C::G1Affine>,
-        > {
+        Ok(VerifierParams::<CTX, S, P, Error> {
             gates: vk.cs.gates.iter().map(|gate| gate.polys.clone()).collect(),
             common: PlonkCommonSetup {
+                l: vk.domain.blind_factors.len() + 1,
                 n: (params.n as u32),
             },
             lookup_evaluated: lookups_evaluated,
@@ -714,7 +728,10 @@ impl<'a>
                 .iter()
                 .map(|commit| C::G1::from(*commit))
                 .collect(),
-            permutation_evals: permutations_common.permutation_evals,
+            permutation_evals: permutations_common
+                .permutation_evals
+                .into_iter(|s| sgate.from_constant(ctx, s))
+                .collect()?,
             vanish_commitments: h_commitments.iter().map(|&elem| elem).collect(),
             random_commitment: <C as Engine>::G1::from(random_poly_commitment),
             random_eval,

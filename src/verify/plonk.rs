@@ -30,15 +30,7 @@ mod verify;
 use verify::PlonkVerifierParams;
 
 struct PlonkVeriyCode<'a, C: CurveAffine>(
-    PlonkVerifierParams<
-        'a,
-        (),
-        C::ScalarExt,
-        C::CurveExt,
-        (),
-        FieldCode<C::ScalarExt>,
-        PointCode<C>,
-    >,
+    PlonkVerifierParams<'a, (), C::ScalarExt, C::CurveExt, ()>,
 );
 // type PlonkVeriyCircuit = PlonkVerifierParams<'a, Gate ....
 
@@ -78,8 +70,12 @@ mod test_marco {
         let w = BigUint::from_bytes_be(
             b"19540430494807482326159819597004422086093766032135589407132600596362845576832",
         );
-        let k1 = fc.from_constant(&mut (), 2).unwrap();
-        let k2 = fc.from_constant(&mut (), 3).unwrap();
+        let k1 = fc
+            .from_constant(&mut (), <G1Affine as CurveAffine>::ScalarExt::from(2u64))
+            .unwrap();
+        let k2 = fc
+            .from_constant(&mut (), <G1Affine as CurveAffine>::ScalarExt::from(3u64))
+            .unwrap();
 
         let one = fc.one(&mut ()).unwrap();
         let zero = fc.zero(&mut ()).unwrap();
@@ -200,8 +196,6 @@ mod test_marco {
             <G1Affine as CurveAffine>::ScalarExt,
             <G1Affine as CurveAffine>::CurveExt,
             (), //Error
-            FieldCode<<G1Affine as CurveAffine>::ScalarExt>,
-            PointCode<G1Affine>,
         > {
             common: common_setup,
             params: params_preprocessed,
@@ -213,13 +207,13 @@ mod test_marco {
             xi: &bn_to_field(&xi),
             v: &bn_to_field(&v),
             u: &bn_to_field(&u),
-            sgate: &fc,
-            pgate: &pc,
             _ctx: PhantomData,
             _error: PhantomData,
         };
 
-        let mp = verify_params.batch_multi_open_proofs(&mut ()).unwrap();
+        let mp = verify_params
+            .batch_multi_open_proofs(&mut (), &fc, &pc)
+            .unwrap();
         let wx = (mp.w_x).eval(&fc, &pc, &mut ());
         let wg = (mp.w_g).eval(&fc, &pc, &mut ());
         println!("wx is {:?}", wx);

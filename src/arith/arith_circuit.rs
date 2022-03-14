@@ -4,21 +4,26 @@ use crate::{
         ecc_circuit::{AssignedPoint, EccCircuitOps},
         native_ecc_circuit::NativeEccCircuit,
     },
+    field::bn_to_field,
     gates::{
         base_gate::{AssignedValue, BaseGateOps, RegionAux},
         five::base_gate::FiveColumnBaseGate,
     },
 };
+use group::ff::Field;
+use group::{Curve, GroupEncoding};
 use halo2_proofs::{
     arithmetic::{CurveAffine, FieldExt},
     plonk::Error,
 };
+use num_bigint::BigUint;
 
 impl<'a, 'b, 'c, C: CurveAffine>
     ContextGroup<
         RegionAux<'a, 'b, C::ScalarExt>,
         AssignedValue<C::ScalarExt>,
         AssignedPoint<C, C::ScalarExt>,
+        C::CurveExt,
         Error,
     > for NativeEccCircuit<'c, C>
 {
@@ -66,9 +71,9 @@ impl<'a, 'b, 'c, C: CurveAffine>
     fn from_constant(
         &self,
         ctx: &mut RegionAux<'a, 'b, C::ScalarExt>,
-        c: u32,
+        c: C::CurveExt,
     ) -> Result<AssignedPoint<C, C::ScalarExt>, Error> {
-        EccCircuitOps::assign_point_from_constant_scalar(self, ctx, C::ScalarExt::from(c as u64))
+        EccCircuitOps::assign_point_from_constant(self, ctx, c)
     }
 
     fn generator(
@@ -80,7 +85,7 @@ impl<'a, 'b, 'c, C: CurveAffine>
 }
 
 impl<'a, 'b, N: FieldExt>
-    ContextGroup<RegionAux<'a, 'b, N>, AssignedValue<N>, AssignedValue<N>, Error>
+    ContextGroup<RegionAux<'a, 'b, N>, AssignedValue<N>, AssignedValue<N>, N, Error>
     for FiveColumnBaseGate<N>
 {
     fn add(
@@ -121,9 +126,9 @@ impl<'a, 'b, N: FieldExt>
     fn from_constant(
         &self,
         ctx: &mut RegionAux<'a, 'b, N>,
-        c: u32,
+        c: N,
     ) -> Result<AssignedValue<N>, Error> {
-        BaseGateOps::assign_constant(self, ctx, N::from(c as u64))
+        BaseGateOps::assign_constant(self, ctx, c)
     }
 
     fn generator(&self, ctx: &mut RegionAux<'a, 'b, N>) -> Result<AssignedValue<N>, Error> {

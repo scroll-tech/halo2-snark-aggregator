@@ -3,7 +3,7 @@ use crate::arith::api::{ContextGroup, ContextRing};
 use crate::schema::utils::VerifySetupHelper;
 use crate::schema::EvaluationQuery;
 use crate::{arith_in_ctx, infix2postfix};
-use halo2_proofs::arithmetic::Field;
+use halo2_proofs::arithmetic::{Field, FieldExt};
 use halo2_proofs::plonk::Expression;
 use std::fmt::Debug;
 use std::iter;
@@ -31,10 +31,10 @@ pub struct Evaluated<C, S, P, Error> {
     pub(in crate::verify::halo2) _m: PhantomData<(C, Error)>,
 }
 
-impl<'a, C, S: Field, P: Clone, Error: Debug> Evaluated<C, S, P, Error> {
-    pub(in crate::verify::halo2) fn expressions(
+impl<'a, C, S: Clone, P: Clone, Error: Debug> Evaluated<C, S, P, Error> {
+    pub(in crate::verify::halo2) fn expressions<T: FieldExt>(
         &'a self,
-        sgate: &(impl ContextGroup<C, S, S, Error> + ContextRing<C, S, S, Error>),
+        sgate: &(impl ContextGroup<C, S, S, T, Error> + ContextRing<C, S, S, Error>),
         ctx: &'a mut C,
         fixed_evals: &'a Vec<&'a S>,
         instance_evals: &'a Vec<&'a S>,

@@ -281,8 +281,6 @@ pub(in crate) fn build_verifier_params() -> Result<
         <G1Affine as CurveAffine>::ScalarExt,
         <G1Affine as CurveAffine>::CurveExt,
         (),
-        FieldCode<<G1Affine as CurveAffine>::ScalarExt>,
-        PointCode<G1Affine>,
     >,
     halo2_proofs::plonk::Error,
 > {

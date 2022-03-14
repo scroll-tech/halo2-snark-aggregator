@@ -1,6 +1,9 @@
 pub mod ast;
 pub mod utils;
-use crate::{commit, eval};
+use crate::{
+    arith::api::{ContextGroup, ContextRing},
+    commit, eval,
+};
 use ast::{CommitQuery, MultiOpenProof, SchemaItem};
 
 pub struct EvaluationProof<'a, S: Clone, P: Clone> {
@@ -31,7 +34,28 @@ impl<'a, S: Clone, P: Clone> EvaluationQuery<'a, S, P> {
     }
 }
 
-pub trait SchemaGenerator<'a, C, S: Clone, P: Clone, E> {
-    fn get_point_schemas(&self, ctx: &mut C) -> Result<Vec<EvaluationProof<'a, S, P>>, E>;
-    fn batch_multi_open_proofs(&self, ctx: &mut C) -> Result<MultiOpenProof<'a, S, P>, E>;
+pub trait SchemaGenerator<
+    'a,
+    C: Clone,
+    S: Clone,
+    P: Clone,
+    TS,
+    TP,
+    E,
+    SGate: ContextGroup<C, S, S, TS, E> + ContextRing<C, S, S, E>,
+    PGate: ContextGroup<C, S, P, TP, E>,
+>
+{
+    fn get_point_schemas(
+        &self,
+        ctx: &mut C,
+        sgate: &SGate,
+        pgate: &PGate,
+    ) -> Result<Vec<EvaluationProof<'a, S, P>>, E>;
+    fn batch_multi_open_proofs(
+        &self,
+        ctx: &mut C,
+        sgate: &SGate,
+        pgate: &PGate,
+    ) -> Result<MultiOpenProof<'a, S, P>, E>;
 }
