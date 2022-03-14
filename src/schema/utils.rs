@@ -21,7 +21,7 @@ impl<'a, C, S: Clone, Error, SGate: ContextRing<C, S, S, Error>> RingUtils<C, S,
 }
 
 pub trait VerifySetupHelper<'a, C, S, Error: Debug> {
-    fn get_laguerre_commits(
+    fn get_lagrange_commits(
         &self,
         ctx: &mut C,
         xi: &S,
@@ -47,7 +47,7 @@ impl<
         SGate: ContextGroup<C, S, S, Error> + ContextRing<C, S, S, Error>,
     > VerifySetupHelper<'a, C, S, Error> for SGate
 {
-    fn get_laguerre_commits(
+    fn get_lagrange_commits(
         &self,
         ctx: &mut C,
         xi: &S,

@@ -1,8 +1,8 @@
 use super::{lookup, permutation, vanish};
 use crate::arith::api::{ContextGroup, ContextRing};
 use crate::arith::code::{FieldCode, PointCode};
-use crate::schema::ast::{CommitQuery, MultiOpenProof, SchemaItem};
-use crate::schema::utils::RingUtils;
+use crate::schema::ast::{CommitQuery, MultiOpenProof, SchemaItem, ArrayOpAdd};
+use crate::schema::utils::{RingUtils, VerifySetupHelper};
 use crate::schema::{EvaluationProof, EvaluationQuery, SchemaGenerator};
 use crate::{arith_in_ctx, infix2postfix};
 use crate::{commit, scalar};
@@ -158,15 +158,19 @@ impl<
         sgate: &'a SGate,
         ctx: &'a mut C,
         y: &'a S,
+        w: &'a S,
+        l: u32,
     ) -> Result<Vec<EvaluationProof<'a, S, P>>, Error> {
+        let zero = &sgate.zero(ctx);
         let x = &self.x;
         let x_inv = x;  //TODO
         let x_next = x; //TODO
         let xn = x; // TODO let xn = x.pow(&[params.n as u64, 0, 0, 0]);
-        let xns = sgate.pow_constant_vec(ctx, x, self.common.n);
-        let l_0 = x; //sgate.get_laguerre_commits
-        let l_last = x; //TODO
-        let l_blind = x; //TODO
+        let xns = sgate.pow_constant_vec(ctx, x, self.common.n)?;
+        let ls = sgate.get_lagrange_commits(ctx, x, xn, w, self.common.n, l)?;
+        let l_0 = &(ls[0]);
+        let l_last = &ls[l as usize];
+        let l_blind = &sgate.add_array(ctx, ls[1..(l as usize)].iter().collect())?;
 
         let pcommon = permutation::CommonEvaluated {
             permutation_evals: &self.permutation_evals,

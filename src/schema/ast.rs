@@ -1,11 +1,11 @@
 use crate::arith::api::{ContextGroup, ContextRing};
 use std::fmt::Debug;
 
-trait ArrayOpMul<C, S, G, Error> {
+pub trait ArrayOpMul<C, S, G, Error> {
     fn mul_array(&self, ctx: &mut C, l: Vec<&G>) -> Result<G, Error>;
 }
 
-trait ArrayOpAdd<C, S, G, Error> {
+pub trait ArrayOpAdd<C, S, G, Error> {
     fn add_array(&self, ctx: &mut C, l: Vec<&G>) -> Result<G, Error>;
 }
 
