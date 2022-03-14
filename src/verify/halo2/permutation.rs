@@ -28,6 +28,7 @@ pub struct CommonEvaluated<'a, S, P> {
 #[derive(Debug)]
 pub struct Evaluated<C, S, P, Error> {
     pub(in crate::verify::halo2) x: S,
+// put x_next x_last into circuit
     pub(in crate::verify::halo2) x_next: S,
     pub(in crate::verify::halo2) x_last: S,
     pub(in crate::verify::halo2) sets: Vec<EvaluatedSet<S, P>>,

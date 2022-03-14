@@ -133,6 +133,7 @@ pub struct VerifierParams<
     pub u: S,
     pub v: S,
     pub xi: S,
+    // TODO omage: S root of z^{2^n} = 1
     pub sgate: SGate,
     pub pgate: PGate,
     pub _ctx: PhantomData<C>,
@@ -157,11 +158,11 @@ impl<
         sgate: &'a SGate,
         ctx: &'a mut C,
         y: &'a S,
-        x: &'a S,
-        x_inv: &'a S,
-        x_next: &'a S,
-        xn: &'a S,
     ) -> Result<Vec<EvaluationProof<'a, S, P>>, Error> {
+        let x = &self.x;
+        let x_inv = x;  //TODO
+        let x_next = x; //TODO
+        let xn = x; // TODO let xn = x.pow(&[params.n as u64, 0, 0, 0]);
         let xns = sgate.pow_constant_vec(ctx, x, self.common.n);
         let l_0 = x; //sgate.get_laguerre_commits
         let l_last = x; //TODO
@@ -285,7 +286,7 @@ impl<
                                 )
                             },
                         ))
-                        .chain(permutation.queries())
+                        .chain(permutation.queries()) // tested
                         .chain(
                             lookups
                                 .iter()
@@ -512,6 +513,8 @@ impl<'a>
         // Sample x challenge, which is used to ensure the circuit is
         // satisfied with high probability.
         let x: ChallengeScalar<<C as Engine>::G1Affine, T> = transcript.squeeze_challenge_scalar();
+
+        // TODO PUT INTO CIRCUIT
         let x_next = vk.domain.rotate_omega(*x, Rotation::next());
         let x_last = vk
             .domain
