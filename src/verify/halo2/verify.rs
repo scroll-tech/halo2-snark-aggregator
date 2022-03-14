@@ -163,7 +163,7 @@ impl<
     ) -> Result<Vec<EvaluationProof<'a, S, P>>, Error> {
         let zero = &sgate.zero(ctx);
         let x = &self.x;
-        let x_inv = x;  //TODO
+        let x_inv = x; //TODO
         let x_next = x; //TODO
         let xn = x; // TODO let xn = x.pow(&[params.n as u64, 0, 0, 0]);
         let xns = sgate.pow_constant_vec(ctx, x, self.common.n)?;
@@ -732,5 +732,49 @@ impl<'a>
             _ctx: PhantomData,
             _error: PhantomData,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use pairing_bn256::bn256::Fr;
+
+    use crate::verify::halo2::test::build_verifier_params;
+
+    use super::Evaluable;
+
+    #[test]
+    fn test_ctx_evaluate() {
+        let params = build_verifier_params().unwrap();
+
+        params
+            .advice_evals
+            .iter()
+            .zip(params.instance_evals.iter())
+            .for_each(|(advice_evals, instance_evals)| {
+                params.gates.iter().for_each(|gate| {
+                    gate.iter().for_each(|poly| {
+                        let res = poly.ctx_evaluate(
+                            &params.sgate,
+                            &mut (),
+                            &|n| params.fixed_evals[n],
+                            &|n| advice_evals[n],
+                            &|n| instance_evals[n],
+                        );
+                        let expected = poly.evaluate(
+                            &|scalar| scalar,
+                            &|_| panic!("virtual selectors are removed during optimization"),
+                            &|n, _, _| params.fixed_evals[n],
+                            &|n, _, _| advice_evals[n],
+                            &|n, _, _| instance_evals[n],
+                            &|a| -a,
+                            &|a, b| a + &b,
+                            &|a, b| a * &b,
+                            &|a, scalar| a * &scalar,
+                        );
+                        assert_eq!(res, expected);
+                    })
+                })
+            });
     }
 }
