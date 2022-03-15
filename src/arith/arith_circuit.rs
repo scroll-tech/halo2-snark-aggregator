@@ -23,7 +23,7 @@ impl<'a, 'b, 'c, C: CurveAffine>
         RegionAux<'a, 'b, C::ScalarExt>,
         AssignedValue<C::ScalarExt>,
         AssignedPoint<C, C::ScalarExt>,
-        C::CurveExt,
+        C,
         Error,
     > for NativeEccCircuit<'c, C>
 {
@@ -71,9 +71,9 @@ impl<'a, 'b, 'c, C: CurveAffine>
     fn from_constant(
         &self,
         ctx: &mut RegionAux<'a, 'b, C::ScalarExt>,
-        c: C::CurveExt,
+        c: C,
     ) -> Result<AssignedPoint<C, C::ScalarExt>, Error> {
-        EccCircuitOps::assign_constant_point(self, ctx, c)
+        EccCircuitOps::assign_constant_point(self, ctx, c.to_curve())
     }
 
     fn generator(
@@ -83,16 +83,16 @@ impl<'a, 'b, 'c, C: CurveAffine>
         EccCircuitOps::assign_constant_point_from_scalar(self, ctx, C::ScalarExt::from(1u64))
     }
 
-    fn to_value(&self, a: &AssignedPoint<C, C::ScalarExt>) -> Result<C::CurveExt, Error> {
+    fn to_value(&self, a: &AssignedPoint<C, C::ScalarExt>) -> Result<C, Error> {
         unimplemented!()
     }
 
     fn from_var(
         &self,
         ctx: &mut RegionAux<'a, 'b, C::ScalarExt>,
-        c: C::CurveExt,
+        c: C,
     ) -> Result<AssignedPoint<C, C::ScalarExt>, Error> {
-        EccCircuitOps::assign_point(self, ctx, c)
+        EccCircuitOps::assign_point(self, ctx, c.to_curve())
     }
 }
 

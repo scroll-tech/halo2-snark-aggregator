@@ -22,7 +22,7 @@ use pairing_bn256::bn256::{Bn256, G1Affine};
 use rand_core::OsRng;
 
 #[derive(Clone, Debug)]
-struct FieldConfig {
+pub struct FieldConfig {
     /// For this chip, we will use two advice columns to implement our instructions.
     /// These are also the columns through which we communicate with other parts of
     /// the circuit.
@@ -238,9 +238,9 @@ impl<F: FieldExt> NumericInstructions<F> for FieldChip<F> {
 }
 
 #[derive(Clone, Default)]
-struct MyCircuit<F: FieldExt> {
-    a: Option<F>,
-    b: Option<F>,
+pub struct MyCircuit<F: FieldExt> {
+    pub a: Option<F>,
+    pub b: Option<F>,
 }
 
 impl<F: FieldExt> Circuit<F> for MyCircuit<F> {
