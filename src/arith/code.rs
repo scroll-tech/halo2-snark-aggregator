@@ -1,9 +1,8 @@
+use super::api::{ContextGroup, ContextRing};
+use crate::field::bn_to_field;
+use halo2_proofs::plonk::Error;
 use num_bigint::BigUint;
 use pairing_bn256::arithmetic::{CurveAffine, FieldExt};
-
-use crate::field::bn_to_field;
-
-use super::api::{ContextGroup, ContextRing};
 
 pub struct FieldCode<F: FieldExt> {
     pub one: F,
@@ -17,7 +16,9 @@ pub struct PointCode<C: CurveAffine> {
     pub generator: C::CurveExt,
 }
 
-impl<C: CurveAffine> ContextGroup<(), C::ScalarExt, C::CurveExt, C::CurveExt, ()> for PointCode<C> {
+impl<C: CurveAffine> ContextGroup<(), C::ScalarExt, C::CurveExt, C, ()>
+    for PointCode<C>
+{
     fn add(&self, _ctx: &mut (), lhs: &C::CurveExt, rhs: &C::CurveExt) -> Result<C::CurveExt, ()> {
         let t = (*lhs) + (*rhs);
         Ok(t)
@@ -51,7 +52,8 @@ impl<C: CurveAffine> ContextGroup<(), C::ScalarExt, C::CurveExt, C::CurveExt, ()
         Ok(self.zero)
     }
 
-    fn from_constant(&self, _ctx: &mut (), c: C::CurveExt) -> Result<C::CurveExt, ()> {
+    fn from_constant(&self, _ctx: &mut (), c: C) -> Result<C::CurveExt, ()> {
+        let c = c.to_curve();
         Ok(c)
     }
 

@@ -284,9 +284,22 @@ pub(in crate) fn build_verifier_params() -> Result<
     >,
     halo2_proofs::plonk::Error,
 > {
+    use group::Group;
     use halo2_proofs::poly::commitment::Params;
     use halo2_proofs::transcript::{Blake2bRead, Blake2bWrite};
     use pairing_bn256::bn256::Fr as Fp;
+
+    let fc = FieldCode::<<G1Affine as CurveAffine>::ScalarExt> {
+        one: <G1Affine as CurveAffine>::ScalarExt::one(),
+        zero: <G1Affine as CurveAffine>::ScalarExt::zero(),
+        generator: <G1Affine as CurveAffine>::ScalarExt::one(),
+    };
+
+    let pc = PointCode::<G1Affine> {
+        one: <G1Affine as CurveAffine>::CurveExt::generator(),
+        zero: <G1Affine as CurveAffine>::CurveExt::identity(),
+        generator: <G1Affine as CurveAffine>::CurveExt::generator(),
+    };
 
     let u = bn_to_field(&BigUint::from_bytes_be(
         b"2bf0d643e52e5e03edec5e060a6e2d57014425cbf7344f2846771ef22efffdfc",
@@ -333,8 +346,10 @@ pub(in crate) fn build_verifier_params() -> Result<
 
     let mut transcript = Blake2bRead::<_, G1Affine, Challenge255<G1Affine>>::init(&proof[..]);
 
-    VerifierParams::from_transcript::<Bn256, _, _>(
-        u,
+    Ok(VerifierParams::from_transcript::<Bn256, _, _, _, _>(
+        &fc,
+        &pc,
+        &mut(),
         u,
         u,
         u,
@@ -342,5 +357,5 @@ pub(in crate) fn build_verifier_params() -> Result<
         pk.get_vk(),
         &params_verifier,
         &mut transcript,
-    )
+    ).unwrap())
 }
