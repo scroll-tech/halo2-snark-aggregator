@@ -402,6 +402,12 @@ pub trait BaseGateOps<N: FieldExt> {
         Ok(cells[0])
     }
 
+    fn assign(&self, r: &mut RegionAux<'_, '_, N>, v: N) -> Result<AssignedValue<N>, Error> {
+        let zero = N::zero();
+        let cells = self.one_line_add(r, vec![pair!(v, zero)], zero)?;
+        Ok(cells[0])
+    }
+
     fn assert_equal(
         &self,
         r: &mut RegionAux<'_, '_, N>,

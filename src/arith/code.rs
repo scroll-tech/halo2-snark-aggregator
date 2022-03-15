@@ -16,9 +16,7 @@ pub struct PointCode<C: CurveAffine> {
     pub generator: C::CurveExt,
 }
 
-impl<C: CurveAffine> ContextGroup<(), C::ScalarExt, C::CurveExt, C, ()>
-    for PointCode<C>
-{
+impl<C: CurveAffine> ContextGroup<(), C::ScalarExt, C::CurveExt, C, ()> for PointCode<C> {
     fn add(&self, _ctx: &mut (), lhs: &C::CurveExt, rhs: &C::CurveExt) -> Result<C::CurveExt, ()> {
         let t = (*lhs) + (*rhs);
         Ok(t)
@@ -64,6 +62,11 @@ impl<C: CurveAffine> ContextGroup<(), C::ScalarExt, C::CurveExt, C, ()>
     fn to_value(&self, v: &C::CurveExt) -> Result<C, ()> {
         unimplemented!()
     }
+
+    fn from_var(&self, ctx: &mut (), c: C) -> Result<C::CurveExt, ()> {
+        let c = c.to_curve();
+        Ok(c)
+    }
 }
 
 impl<F: FieldExt> ContextGroup<(), F, F, F, ()> for FieldCode<F> {
@@ -100,6 +103,10 @@ impl<F: FieldExt> ContextGroup<(), F, F, F, ()> for FieldCode<F> {
 
     fn to_value(&self, v: &F) -> Result<F, ()> {
         Ok(v.clone())
+    }
+
+    fn from_var(&self, ctx: &mut (), c: F) -> Result<F, ()> {
+        Ok(c)
     }
 }
 

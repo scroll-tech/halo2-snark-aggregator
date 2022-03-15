@@ -58,14 +58,14 @@ impl<'a, 'b, 'c, C: CurveAffine>
         &self,
         ctx: &mut RegionAux<'a, 'b, C::ScalarExt>,
     ) -> Result<AssignedPoint<C, C::ScalarExt>, Error> {
-        EccCircuitOps::assign_point_from_constant_scalar(self, ctx, C::ScalarExt::from(0u64))
+        EccCircuitOps::assign_constant_point_from_scalar(self, ctx, C::ScalarExt::from(0u64))
     }
 
     fn zero(
         &self,
         ctx: &mut RegionAux<'a, 'b, C::ScalarExt>,
     ) -> Result<AssignedPoint<C, C::ScalarExt>, Error> {
-        EccCircuitOps::assign_point_from_constant_scalar(self, ctx, C::ScalarExt::from(1u64))
+        EccCircuitOps::assign_constant_point_from_scalar(self, ctx, C::ScalarExt::from(1u64))
     }
 
     fn from_constant(
@@ -73,19 +73,26 @@ impl<'a, 'b, 'c, C: CurveAffine>
         ctx: &mut RegionAux<'a, 'b, C::ScalarExt>,
         c: C::CurveExt,
     ) -> Result<AssignedPoint<C, C::ScalarExt>, Error> {
-        EccCircuitOps::assign_point_from_constant(self, ctx, c)
+        EccCircuitOps::assign_constant_point(self, ctx, c)
     }
 
     fn generator(
         &self,
         ctx: &mut RegionAux<'a, 'b, C::ScalarExt>,
     ) -> Result<AssignedPoint<C, C::ScalarExt>, Error> {
-        EccCircuitOps::assign_point_from_constant_scalar(self, ctx, C::ScalarExt::from(1u64))
+        EccCircuitOps::assign_constant_point_from_scalar(self, ctx, C::ScalarExt::from(1u64))
     }
 
-    
     fn to_value(&self, a: &AssignedPoint<C, C::ScalarExt>) -> Result<C::CurveExt, Error> {
         unimplemented!()
+    }
+
+    fn from_var(
+        &self,
+        ctx: &mut RegionAux<'a, 'b, C::ScalarExt>,
+        c: C::CurveExt,
+    ) -> Result<AssignedPoint<C, C::ScalarExt>, Error> {
+        EccCircuitOps::assign_point(self, ctx, c)
     }
 }
 
@@ -142,6 +149,10 @@ impl<'a, 'b, N: FieldExt>
 
     fn to_value(&self, a: &AssignedValue<N>) -> Result<N, Error> {
         Ok(a.value.clone())
+    }
+
+    fn from_var(&self, ctx: &mut RegionAux<'a, 'b, N>, c: N) -> Result<AssignedValue<N>, Error> {
+        BaseGateOps::assign(self, ctx, c)
     }
 }
 

@@ -10,6 +10,7 @@ pub trait ContextGroup<C, S, B, T, Error> {
     fn one(&self, ctx: &mut C) -> Result<B, Error>;
     fn zero(&self, ctx: &mut C) -> Result<B, Error>;
     fn from_constant(&self, ctx: &mut C, c: T) -> Result<B, Error>;
+    fn from_var(&self, ctx: &mut C, c: T) -> Result<B, Error>;
     fn generator(&self, ctx: &mut C) -> Result<B, Error>;
     fn ok(&self, v: B) -> Result<B, Error> {
         Ok(v)
@@ -189,6 +190,10 @@ mod test_marco {
 
         fn to_value(&self, v: &W) -> Result<i32, ()> {
             Ok(v.t)
+        }
+
+        fn from_var(&self, ctx: &mut (), c: i32) -> Result<W, ()> {
+            Ok(W { t: c })
         }
     }
 

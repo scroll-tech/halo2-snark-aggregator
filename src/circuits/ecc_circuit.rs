@@ -276,10 +276,10 @@ pub trait EccCircuitOps<C: CurveAffine, N: FieldExt, const WINDOW_SIZE: usize = 
         p.z = base_gate.bisec_cond(r, &a.z, &a.z, &p.z)?;
         Ok(p)
     }
-    fn assign_point_from_constant(
+    fn assign_constant_point(
         &self,
         r: &mut RegionAux<N>,
-        c: C::CurveExt
+        c: C::CurveExt,
     ) -> Result<AssignedPoint<C, N>, Error> {
         let coordinates = c.to_affine().coordinates();
         let x = coordinates
@@ -298,13 +298,43 @@ pub trait EccCircuitOps<C: CurveAffine, N: FieldExt, const WINDOW_SIZE: usize = 
 
         Ok(AssignedPoint::new(x, y, z.into()))
     }
-    fn assign_point_from_constant_scalar(
+    fn assign_point(
+        &self,
+        r: &mut RegionAux<N>,
+        c: C::CurveExt,
+    ) -> Result<AssignedPoint<C, N>, Error> {
+        let coordinates = c.to_affine().coordinates();
+        let x = coordinates
+            .map(|v| v.x().clone())
+            .unwrap_or(C::Base::zero());
+        let y = coordinates
+            .map(|v| v.y().clone())
+            .unwrap_or(C::Base::zero());
+        let z = N::conditional_select(&N::zero(), &N::one(), c.to_affine().is_identity());
+
+        let base_gate = self.base_gate();
+        let integer_gate = self.integer_gate();
+        let x = integer_gate.assign_w(r, &x)?;
+        let y = integer_gate.assign_w(r, &y)?;
+        let z = base_gate.assign(r, z)?;
+
+        Ok(AssignedPoint::new(x, y, z.into()))
+    }
+    fn assign_constant_point_from_scalar(
         &self,
         r: &mut RegionAux<N>,
         scalar: C::ScalarExt,
     ) -> Result<AssignedPoint<C, N>, Error> {
         let p: C::CurveExt = C::generator() * scalar;
-        self.assign_point_from_constant(r, p)
+        self.assign_constant_point(r, p)
+    }
+    fn assign_point_from_scalar(
+        &self,
+        r: &mut RegionAux<N>,
+        scalar: C::ScalarExt,
+    ) -> Result<AssignedPoint<C, N>, Error> {
+        let p: C::CurveExt = C::generator() * scalar;
+        self.assign_point(r, p)
     }
     fn assign_identity(&self, r: &mut RegionAux<N>) -> Result<AssignedPoint<C, N>, Error> {
         let zero = self.integer_gate().assign_constant(r, C::Base::zero())?;
