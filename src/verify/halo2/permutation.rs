@@ -245,7 +245,7 @@ mod tests {
         .map(|ele| bn_to_field(&ele))
         .collect();
 
-        for ele in params.permutation_evaluated {
+        for ele in &params.permutation_evaluated {
             let x_next = &params.x_next(&fc, &mut ()).unwrap();
             let x_last = &params.x_last(&fc, &mut ()).unwrap();
             ele.queries(x_next, x_last)
@@ -599,7 +599,7 @@ mod tests {
             .map(|(point, s)| EvaluationQuery { point, s })
             .collect();
 
-        for ele in params.permutation_evaluated {
+        for ele in &params.permutation_evaluated {
             let x_next = &params.x_next(&fc, &mut ()).unwrap();
             let x_last = &params.x_last(&fc, &mut ()).unwrap();
             for (query, expected) in ele.queries(x_next, x_last).zip(expected.iter()) {

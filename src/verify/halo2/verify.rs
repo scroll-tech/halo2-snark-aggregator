@@ -46,7 +46,7 @@ pub trait Evaluable<
 
 impl<
         C,
-        S,
+        S: Clone,
         T: FieldExt,
         Error: Debug,
         SGate: ContextGroup<C, S, S, T, Error> + ContextRing<C, S, S, Error>,
@@ -61,7 +61,7 @@ impl<
         instance: &impl Fn(usize) -> S,
     ) -> S {
         match self {
-            Expression::Constant(scalar) => *scalar,
+            Expression::Constant(scalar) => scalar.clone(),
             Expression::Selector(selector) => {
                 panic!("virtual selectors are removed during optimization")
             }
