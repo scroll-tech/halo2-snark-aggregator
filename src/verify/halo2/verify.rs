@@ -542,7 +542,7 @@ impl<'a, CTX, S: Clone, P: Clone, Error: Debug> VerifierParams<CTX, S, P, Error>
             .map(|instance| {
                 instance
                     .into_iter()
-                    .map(|instance| pgate.from_constant(ctx, instance))
+                    .map(|instance| pgate.from_var(ctx, instance))
                     .collect::<Result<Vec<_>, _>>()
             })
             .collect::<Result<Vec<_>, _>>()?;
@@ -553,7 +553,7 @@ impl<'a, CTX, S: Clone, P: Clone, Error: Debug> VerifierParams<CTX, S, P, Error>
                 let points = read_n_points(transcript, vk.cs.num_advice_columns).unwrap();
                 points
                     .into_iter()
-                    .map(|advice| pgate.from_constant(ctx, advice))
+                    .map(|advice| pgate.from_var(ctx, advice))
                     .collect()
             })
             .collect::<Result<Vec<_>, _>>()?;
@@ -562,7 +562,7 @@ impl<'a, CTX, S: Clone, P: Clone, Error: Debug> VerifierParams<CTX, S, P, Error>
         // Sample theta challenge for keeping lookup columns linearly independent
         let theta: ChallengeScalar<<C as Engine>::G1Affine, T> =
             transcript.squeeze_challenge_scalar();
-        let theta = sgate.from_constant(ctx, *theta)?;
+        let theta = sgate.from_var(ctx, *theta)?;
 
         let lookups_permuted = (0..num_proofs)
             .map(|_| -> Result<Vec<_>, _> {
@@ -579,7 +579,7 @@ impl<'a, CTX, S: Clone, P: Clone, Error: Debug> VerifierParams<CTX, S, P, Error>
         // Sample beta challenge
         let beta: ChallengeScalar<<C as Engine>::G1Affine, T> =
             transcript.squeeze_challenge_scalar();
-        let beta = sgate.from_constant(ctx, *beta)?;
+        let beta = sgate.from_var(ctx, *beta)?;
 
         // Sample gamma challenge
         let gamma: ChallengeScalar<<C as Engine>::G1Affine, T> =
@@ -607,30 +607,30 @@ impl<'a, CTX, S: Clone, P: Clone, Error: Debug> VerifierParams<CTX, S, P, Error>
             .unwrap();
 
         let random_poly_commitment = transcript.read_point().unwrap();
-        let random_commitment = pgate.from_constant(ctx, random_poly_commitment)?;
+        let random_commitment = pgate.from_var(ctx, random_poly_commitment)?;
 
         // Sample y challenge, which keeps the gates linearly independent.
         let y: ChallengeScalar<<C as Engine>::G1Affine, T> = transcript.squeeze_challenge_scalar();
-        let y = sgate.from_constant(ctx, *y)?;
+        let y = sgate.from_var(ctx, *y)?;
 
         let h_commitments =
             read_n_points(transcript, vk.domain.get_quotient_poly_degree()).unwrap();
         let h_commitments = h_commitments
             .iter()
-            .map(|&affine| pgate.from_constant(ctx, affine))
+            .map(|&affine| pgate.from_var(ctx, affine))
             .collect::<Result<Vec<_>, _>>()?;
 
         // Sample x challenge, which is used to ensure the circuit is
         // satisfied with high probability.
         let x: ChallengeScalar<<C as Engine>::G1Affine, T> = transcript.squeeze_challenge_scalar();
-        let x = sgate.from_constant(ctx, *x)?;
+        let x = sgate.from_var(ctx, *x)?;
 
         let instance_evals = (0..num_proofs)
             .map(|_| -> Result<Vec<_>, _> {
                 read_n_scalars(transcript, vk.cs.instance_queries.len())
                     .unwrap()
                     .into_iter()
-                    .map(|s| sgate.from_constant(ctx, s))
+                    .map(|s| sgate.from_var(ctx, s))
                     .collect()
             })
             .collect::<Result<Vec<_>, _>>()?;
@@ -640,7 +640,7 @@ impl<'a, CTX, S: Clone, P: Clone, Error: Debug> VerifierParams<CTX, S, P, Error>
                 read_n_scalars(transcript, vk.cs.advice_queries.len())
                     .unwrap()
                     .into_iter()
-                    .map(|s| sgate.from_constant(ctx, s))
+                    .map(|s| sgate.from_var(ctx, s))
                     .collect()
             })
             .collect::<Result<Vec<_>, _>>()?;
@@ -652,7 +652,7 @@ impl<'a, CTX, S: Clone, P: Clone, Error: Debug> VerifierParams<CTX, S, P, Error>
             .collect::<Result<Vec<_>, _>>()?;
 
         let random_eval = transcript.read_scalar().unwrap();
-        let random_eval = sgate.from_constant(ctx, random_eval)?;
+        let random_eval = sgate.from_var(ctx, random_eval)?;
 
         let permutations_common = vk.permutation.evaluate(transcript).unwrap();
 
@@ -670,14 +670,14 @@ impl<'a, CTX, S: Clone, P: Clone, Error: Debug> VerifierParams<CTX, S, P, Error>
                     .map(|eval| {
                         Ok(EvaluatedSet {
                             permutation_product_commitment: pgate
-                                .from_constant(ctx, eval.permutation_product_commitment)?,
+                                .from_var(ctx, eval.permutation_product_commitment)?,
                             permutation_product_eval: sgate
-                                .from_constant(ctx, eval.permutation_product_eval)?,
+                                .from_var(ctx, eval.permutation_product_eval)?,
                             permutation_product_next_eval: sgate
-                                .from_constant(ctx, eval.permutation_product_next_eval)?,
+                                .from_var(ctx, eval.permutation_product_next_eval)?,
                             permutation_product_last_eval: eval
                                 .permutation_product_last_eval
-                                .map(|e| sgate.from_constant(ctx, e))
+                                .map(|e| sgate.from_var(ctx, e))
                                 .transpose()?,
                             chunk_len: vk.cs.degree() - 2,
                         })
@@ -772,27 +772,27 @@ impl<'a, CTX, S: Clone, P: Clone, Error: Debug> VerifierParams<CTX, S, P, Error>
                                 .collect::<Result<Vec<_>, _>>()?,
                             committed: crate::verify::halo2::lookup::Committed {
                                 permuted: crate::verify::halo2::lookup::PermutationCommitments {
-                                    permuted_input_commitment: pgate.from_constant(
+                                    permuted_input_commitment: pgate.from_var(
                                         ctx,
                                         lookup.committed.permuted.permuted_input_commitment,
                                     )?,
-                                    permuted_table_commitment: pgate.from_constant(
+                                    permuted_table_commitment: pgate.from_var(
                                         ctx,
                                         lookup.committed.permuted.permuted_table_commitment,
                                     )?,
                                 },
                                 product_commitment: pgate
-                                    .from_constant(ctx, lookup.committed.product_commitment)?,
+                                    .from_var(ctx, lookup.committed.product_commitment)?,
                             },
                             product_eval: sgate.from_constant(ctx, lookup.product_eval)?,
                             product_next_eval: sgate
-                                .from_constant(ctx, lookup.product_next_eval)?,
+                                .from_var(ctx, lookup.product_next_eval)?,
                             permuted_input_eval: sgate
-                                .from_constant(ctx, lookup.permuted_input_eval)?,
+                                .from_var(ctx, lookup.permuted_input_eval)?,
                             permuted_input_inv_eval: sgate
-                                .from_constant(ctx, lookup.permuted_input_inv_eval)?,
+                                .from_var(ctx, lookup.permuted_input_inv_eval)?,
                             permuted_table_eval: sgate
-                                .from_constant(ctx, lookup.permuted_table_eval)?,
+                                .from_var(ctx, lookup.permuted_table_eval)?,
                             _m: PhantomData,
                         })
                     })
@@ -859,15 +859,15 @@ impl<'a, CTX, S: Clone, P: Clone, Error: Debug> VerifierParams<CTX, S, P, Error>
                 .permutation
                 .commitments
                 .iter()
-                .map(|commit| pgate.from_constant(ctx, *commit))
+                .map(|commit| pgate.from_var(ctx, *commit))
                 .collect::<Result<Vec<_>, Error>>()?,
             permutation_evals: permutations_common
                 .permutation_evals
                 .into_iter()
-                .map(|s| sgate.from_constant(ctx, s))
+                .map(|s| sgate.from_var(ctx, s))
                 .collect::<Result<Vec<_>, Error>>()?,
             vanish_commitments: h_commitments,
-            random_commitment: pgate.from_constant(ctx, random_poly_commitment)?,
+            random_commitment,
             random_eval,
             beta,
             gamma,
