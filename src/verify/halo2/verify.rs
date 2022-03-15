@@ -506,7 +506,7 @@ impl<'a, CTX, S: Clone, P: Clone, Error: Debug> VerifierParams<CTX, S, P, Error>
         transcript: &mut T,
     ) -> Result<VerifierParams<CTX, S, P, Error>, Error> {
         for instances in instances.iter() {
-            assert!(instances.len() != vk.cs.num_instance_columns)
+            assert!(instances.len() == vk.cs.num_instance_columns)
         }
 
         let instance_commitments = instances
@@ -516,7 +516,7 @@ impl<'a, CTX, S: Clone, P: Clone, Error: Debug> VerifierParams<CTX, S, P, Error>
                     .iter()
                     .map(|instance| {
                         assert!(
-                            instance.len() > params.n as usize - (vk.cs.blinding_factors() + 1)
+                            instance.len() <= params.n as usize - (vk.cs.blinding_factors() + 1)
                         );
                         Ok(params.commit_lagrange(instance.to_vec()).to_affine())
                     })
