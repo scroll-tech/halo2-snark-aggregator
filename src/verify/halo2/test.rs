@@ -2,24 +2,22 @@ use std::marker::PhantomData;
 
 use crate::arith::code::{FieldCode, PointCode};
 use crate::field::bn_to_field;
-use halo2_proofs::arithmetic::{CurveAffine, FieldExt, MultiMillerLoop};
+use halo2_proofs::arithmetic::{CurveAffine, FieldExt};
 use halo2_proofs::circuit::{AssignedCell, Chip, Layouter, Region, SimpleFloorPlanner};
-use halo2_proofs::dev::MockProver;
+
 use halo2_proofs::plonk::{
     create_proof, keygen_pk, keygen_vk, Advice, Circuit, Column, ConstraintSystem, Error, Instance,
     Selector,
 };
 use halo2_proofs::poly::commitment::ParamsVerifier;
 use num_bigint::BigUint;
-use rand::prelude::StdRng;
-use rand::{Rng, RngCore, SeedableRng};
+use rand::SeedableRng;
 use rand_pcg::Pcg32;
 // use halo2_proofs::poly::commitment::{Guard, MSM};
 use crate::verify::halo2::verify::VerifierParams;
 use halo2_proofs::poly::Rotation;
-use halo2_proofs::transcript::{Challenge255, EncodedChallenge, TranscriptRead};
+use halo2_proofs::transcript::Challenge255;
 use pairing_bn256::bn256::{Bn256, G1Affine};
-use rand_core::OsRng;
 
 #[derive(Clone, Debug)]
 pub struct FieldConfig {
@@ -349,7 +347,7 @@ pub(in crate) fn build_verifier_params() -> Result<
     Ok(VerifierParams::from_transcript::<Bn256, _, _, _, _>(
         &fc,
         &pc,
-        &mut(),
+        &mut (),
         u,
         u,
         u,
@@ -357,5 +355,6 @@ pub(in crate) fn build_verifier_params() -> Result<
         pk.get_vk(),
         &params_verifier,
         &mut transcript,
-    ).unwrap())
+    )
+    .unwrap())
 }

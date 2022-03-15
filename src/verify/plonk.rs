@@ -1,5 +1,4 @@
 //use halo2_proofs::arithmetic::{CurveAffine, Field, FieldExt, CurveExt};
-use crate::arith::code::{FieldCode, PointCode};
 use num_bigint::BigUint;
 use pairing_bn256::arithmetic::{CurveAffine, FieldExt};
 

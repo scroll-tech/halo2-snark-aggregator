@@ -1,7 +1,4 @@
 use super::api::{ContextGroup, ContextRing};
-use crate::field::bn_to_field;
-use halo2_proofs::plonk::Error;
-use num_bigint::BigUint;
 use pairing_bn256::arithmetic::{CurveAffine, FieldExt};
 
 pub struct FieldCode<F: FieldExt> {
@@ -59,11 +56,11 @@ impl<C: CurveAffine> ContextGroup<(), C::ScalarExt, C::CurveExt, C, ()> for Poin
         Ok(self.generator)
     }
 
-    fn to_value(&self, v: &C::CurveExt) -> Result<C, ()> {
+    fn to_value(&self, _: &C::CurveExt) -> Result<C, ()> {
         unimplemented!()
     }
 
-    fn from_var(&self, ctx: &mut (), c: C) -> Result<C::CurveExt, ()> {
+    fn from_var(&self, _: &mut (), c: C) -> Result<C::CurveExt, ()> {
         let c = c.to_curve();
         Ok(c)
     }

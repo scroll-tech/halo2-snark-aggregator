@@ -1,8 +1,8 @@
+use super::permutation::CommonEvaluated;
 use super::{lookup, permutation, vanish};
 use crate::arith::api::{ContextGroup, ContextRing};
-use crate::arith::code::{FieldCode, PointCode};
 use crate::schema::ast::{ArrayOpAdd, CommitQuery, MultiOpenProof, SchemaItem};
-use crate::schema::utils::{RingUtils, VerifySetupHelper};
+use crate::schema::utils::VerifySetupHelper;
 use crate::schema::{EvaluationProof, EvaluationQuery, SchemaGenerator};
 use crate::verify::halo2::permutation::Evaluated;
 use crate::verify::halo2::permutation::EvaluatedSet;
@@ -10,16 +10,14 @@ use crate::{arith_in_ctx, infix2postfix};
 use crate::{commit, scalar};
 use group::Curve;
 use halo2_proofs::arithmetic::{CurveAffine, Engine, Field, FieldExt, MultiMillerLoop};
-use halo2_proofs::plonk::{Error, Expression, VerifyingKey};
-use halo2_proofs::poly::commitment::{Params, ParamsVerifier};
-use halo2_proofs::poly::EvaluationDomain;
+use halo2_proofs::plonk::{Expression, VerifyingKey};
+use halo2_proofs::poly::commitment::ParamsVerifier;
 use halo2_proofs::poly::Rotation;
 use halo2_proofs::transcript::ChallengeScalar;
 use halo2_proofs::transcript::{read_n_points, read_n_scalars, EncodedChallenge, TranscriptRead};
-use pairing_bn256::bn256::G1Affine;
 use std::fmt::Debug;
-use std::iter::{self, empty};
 use std::marker::PhantomData;
+use std::os::windows::prelude::FileExt;
 
 pub struct PlonkCommonSetup {
     pub l: u32,
@@ -128,6 +126,11 @@ pub struct VerifierParams<C, S: Clone, P: Clone, Error: Debug> {
     pub theta: S,
     pub delta: S,
     pub x: S,
+    pub x_next: S,
+    pub x_last: S,
+    pub x_inv: S,
+    pub xn: S,
+    pub y: S,
     pub u: S,
     pub v: S,
     pub xi: S,
@@ -138,7 +141,7 @@ pub struct VerifierParams<C, S: Clone, P: Clone, Error: Debug> {
 
 pub(crate) trait IVerifierParams<
     'a,
-    C: Clone,
+    C,
     S: Clone,
     T: FieldExt,
     P: Clone,
@@ -147,21 +150,16 @@ pub(crate) trait IVerifierParams<
 >
 {
     fn rotate_omega(&self, sgate: &'a SGate, ctx: &'a mut C, at: i32) -> Result<S, Error>;
-    fn x_next(&'a self, sgate: &'a SGate, ctx: &'a mut C) -> Result<S, Error>;
-    fn x_last(&'a self, sgate: &'a SGate, ctx: &'a mut C) -> Result<S, Error>;
     fn queries(
         &'a self,
         sgate: &'a SGate,
         ctx: &'a mut C,
-        y: &'a S,
-        w: &'a S,
-        l: u32, // blind_factors + 1
-    ) -> Result<Vec<EvaluationProof<'a, S, P>>, Error>;
+    ) -> Result<Vec<EvaluationQuery<S, P>>, Error>;
 }
 
 impl<
         'a,
-        C: Clone,
+        C,
         S: Clone,
         T: FieldExt,
         P: Clone,
@@ -192,35 +190,23 @@ impl<
         }
     }
 
-    fn x_next(&'a self, sgate: &'a SGate, ctx: &'a mut C) -> Result<S, Error> {
-        let x = &self.x;
-        let omega = &self.omega;
-        arith_in_ctx!([sgate, ctx] x * omega)
-    }
-
-    fn x_last(&'a self, sgate: &'a SGate, ctx: &'a mut C) -> Result<S, Error> {
-        self.rotate_omega(sgate, ctx, -(self.common.l as i32))
-    }
-
     fn queries(
         &'a self,
         sgate: &'a SGate,
         ctx: &'a mut C,
-        y: &'a S,
-        w: &'a S,
-        l: u32, // blind_factors + 1
-    ) -> Result<Vec<EvaluationProof<'a, S, P>>, Error> {
-        let zero = &sgate.zero(ctx);
-        let omega = &self.omega;
+    ) -> Result<Vec<EvaluationQuery<'a, S, P>>, Error> {
         let x = &self.x;
-        let x_next = &self.x_next(sgate, ctx)?;
-        let x_last = &self.x_last(sgate, ctx)?;
-        let x_inv = &arith_in_ctx!([sgate, ctx] x / omega)?;
-        let xn = &self.rotate_omega(sgate, ctx, self.common.n as i32)?; // double check let xn = x.pow(&[params.n as u64, 0, 0, 0]);
-        let ls = sgate.get_lagrange_commits(ctx, x, xn, w, self.common.n, l)?;
+        let ls = sgate.get_lagrange_commits(
+            ctx,
+            x,
+            &self.xn,
+            &self.omega,
+            self.common.n,
+            self.common.l,
+        )?;
         let l_0 = &(ls[0]);
-        let l_last = &ls[l as usize];
-        let l_blind = &sgate.add_array(ctx, ls[1..(l as usize)].iter().collect())?;
+        let l_last = &ls[self.common.l as usize - 1];
+        let l_blind = &sgate.add_array(ctx, ls[1..(self.common.l as usize - 1)].iter().collect())?;
 
         let pcommon = permutation::CommonEvaluated {
             permutation_evals: &self.permutation_evals,
@@ -321,11 +307,11 @@ impl<
                 ))
             }
 
-            queries.append(&mut permutation.queries(x_next, x_last).collect()); // tested
+            queries.append(&mut permutation.queries(&self.x_next, &self.x_last).collect()); // tested
             queries.append(
                 &mut lookups
                     .iter()
-                    .flat_map(move |p| p.queries(x, x_inv, x_next))
+                    .flat_map(move |p| p.queries(x, &self.x_inv, &self.x_next))
                     .collect(),
             );
         }
@@ -338,22 +324,24 @@ impl<
             ))
         }
 
-        queries.append(&mut pcommon.queries(x).collect());
+        let mut pcommon = pcommon.queries(x);
+        queries.append(&mut pcommon);
 
         let vanish = vanish::Evaluated::new(
             sgate,
             ctx,
             expression,
-            y,
-            xn,
+            &self.y,
+            &self.xn,
             &self.random_commitment,
             &self.random_eval,
             self.vanish_commitments.iter().map(|ele| ele).collect(),
         );
         //vanishing.verify(expressions, y, xn)
-        queries.append(&mut vanish.queries(x).collect());
+        let mut vanish = vanish.queries(x);
+        queries.append(&mut vanish);
 
-        unimplemented!("get point schemas not implemented")
+        Ok(queries)
     }
 }
 
@@ -411,6 +399,28 @@ impl<
 }
 
 impl<'a, CTX, S: Clone, P: Clone, Error: Debug> VerifierParams<CTX, S, P, Error> {
+    fn rotate_omega<
+        ScalarExt: FieldExt,
+        SGate: ContextGroup<CTX, S, S, ScalarExt, Error> + ContextRing<CTX, S, S, Error>,
+    >(
+        sgate: &'a SGate,
+        ctx: &'a mut CTX,
+        x: &S,
+        omega: ScalarExt,
+        at: i32,
+    ) -> Result<S, Error> {
+        if at < 0 {
+            let omega_at = &sgate.from_constant(
+                ctx,
+                omega.invert().unwrap().pow_vartime([(-at) as u64, 0, 0, 0]),
+            )?;
+            arith_in_ctx!([sgate, ctx] x * omega_at)
+        } else {
+            let omega_at = &sgate.from_constant(ctx, omega.pow_vartime([at as u64, 0, 0, 0]))?;
+            arith_in_ctx!([sgate, ctx] x * omega_at)
+        }
+    }
+
     fn from_expression<
         C: MultiMillerLoop,
         SGate: ContextGroup<CTX, S, S, <C::G1Affine as CurveAffine>::ScalarExt, Error>
@@ -620,10 +630,19 @@ impl<'a, CTX, S: Clone, P: Clone, Error: Debug> VerifierParams<CTX, S, P, Error>
             .map(|&affine| pgate.from_var(ctx, affine))
             .collect::<Result<Vec<_>, _>>()?;
 
+        let l = vk.cs.blinding_factors() as u32 + 1;
+        let n = params.n as u32;
+
+        let omega = vk.domain.get_omega();
+
         // Sample x challenge, which is used to ensure the circuit is
         // satisfied with high probability.
         let x: ChallengeScalar<<C as Engine>::G1Affine, T> = transcript.squeeze_challenge_scalar();
         let x = sgate.from_var(ctx, *x)?;
+        let x_next = Self::rotate_omega(sgate, ctx, &x, omega, 1)?;
+        let x_last = Self::rotate_omega(sgate, ctx, &x, omega, -(l as i32))?;
+        let x_inv = Self::rotate_omega(sgate, ctx, &x, omega, -1)?;
+        let xn = Self::rotate_omega(sgate, ctx, &x, omega, n as i32)?;
 
         let instance_evals = (0..num_proofs)
             .map(|_| -> Result<Vec<_>, _> {
@@ -785,14 +804,11 @@ impl<'a, CTX, S: Clone, P: Clone, Error: Debug> VerifierParams<CTX, S, P, Error>
                                     .from_var(ctx, lookup.committed.product_commitment)?,
                             },
                             product_eval: sgate.from_constant(ctx, lookup.product_eval)?,
-                            product_next_eval: sgate
-                                .from_var(ctx, lookup.product_next_eval)?,
-                            permuted_input_eval: sgate
-                                .from_var(ctx, lookup.permuted_input_eval)?,
+                            product_next_eval: sgate.from_var(ctx, lookup.product_next_eval)?,
+                            permuted_input_eval: sgate.from_var(ctx, lookup.permuted_input_eval)?,
                             permuted_input_inv_eval: sgate
                                 .from_var(ctx, lookup.permuted_input_inv_eval)?,
-                            permuted_table_eval: sgate
-                                .from_var(ctx, lookup.permuted_table_eval)?,
+                            permuted_table_eval: sgate.from_var(ctx, lookup.permuted_table_eval)?,
                             _m: PhantomData,
                         })
                     })
@@ -825,10 +841,7 @@ impl<'a, CTX, S: Clone, P: Clone, Error: Debug> VerifierParams<CTX, S, P, Error>
                         .collect::<Result<Vec<_>, Error>>()
                 })
                 .collect::<Result<Vec<_>, Error>>()?,
-            common: PlonkCommonSetup {
-                l: vk.cs.blinding_factors() as u32 + 1,
-                n: (params.n as u32),
-            },
+            common: PlonkCommonSetup { l, n },
             lookup_evaluated,
             permutation_evaluated,
             instance_commitments,
@@ -877,6 +890,11 @@ impl<'a, CTX, S: Clone, P: Clone, Error: Debug> VerifierParams<CTX, S, P, Error>
                 <<C::G1Affine as CurveAffine>::ScalarExt as FieldExt>::DELTA,
             )?,
             x,
+            x_next,
+            x_last,
+            x_inv,
+            xn,
+            y,
             u: sgate.from_constant(ctx, u)?,
             v: sgate.from_constant(ctx, v)?,
             xi: sgate.from_constant(ctx, xi)?,

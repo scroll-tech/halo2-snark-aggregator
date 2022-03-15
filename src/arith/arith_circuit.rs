@@ -4,19 +4,15 @@ use crate::{
         ecc_circuit::{AssignedPoint, EccCircuitOps},
         native_ecc_circuit::NativeEccCircuit,
     },
-    field::bn_to_field,
     gates::{
         base_gate::{AssignedValue, BaseGateOps, RegionAux},
         five::base_gate::FiveColumnBaseGate,
     },
 };
-use group::ff::Field;
-use group::{Curve, GroupEncoding};
 use halo2_proofs::{
     arithmetic::{CurveAffine, FieldExt},
     plonk::Error,
 };
-use num_bigint::BigUint;
 
 impl<'a, 'b, 'c, C: CurveAffine>
     ContextGroup<
@@ -83,7 +79,7 @@ impl<'a, 'b, 'c, C: CurveAffine>
         EccCircuitOps::assign_constant_point_from_scalar(self, ctx, C::ScalarExt::from(1u64))
     }
 
-    fn to_value(&self, a: &AssignedPoint<C, C::ScalarExt>) -> Result<C, Error> {
+    fn to_value(&self, _: &AssignedPoint<C, C::ScalarExt>) -> Result<C, Error> {
         unimplemented!()
     }
 

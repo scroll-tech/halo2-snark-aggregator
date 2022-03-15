@@ -1,8 +1,6 @@
-use halo2_proofs::arithmetic::FieldExt;
-use num_bigint::BigUint;
-
 use crate::arith::api::{ContextGroup, ContextRing, PowConstant};
 use crate::{arith_in_ctx, infix2postfix};
+use halo2_proofs::arithmetic::FieldExt;
 use std::fmt::Debug;
 
 pub trait RingUtils<C, S, Error> {

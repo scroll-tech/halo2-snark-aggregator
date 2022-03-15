@@ -37,9 +37,9 @@ pub struct Evaluated<C, S, P, Error> {
 
 impl<'a, S: Clone, P: Clone> CommonEvaluated<'a, S, P> {
     pub(in crate::verify::halo2) fn queries(
-        &'a self,
+        &self,
         x: &'a S,
-    ) -> impl Iterator<Item = EvaluationQuery<'a, S, P>> {
+    ) -> Vec<EvaluationQuery<'a, S, P>> {
         // Open permutation commitments for each permutation argument at x
         self.permutation_commitments
             .iter()
@@ -47,6 +47,7 @@ impl<'a, S: Clone, P: Clone> CommonEvaluated<'a, S, P> {
             .map(|(commitment, eval)| {
                 EvaluationQuery::<'a, S, P>::new(x.clone(), &commitment, &eval)
             })
+            .collect()
     }
 }
 
@@ -165,38 +166,23 @@ impl<'a, C, S: Clone, P: Clone, Error: Debug> Evaluated<C, S, P, Error> {
 
 #[cfg(test)]
 mod tests {
-    use crate::arith::code::{FieldCode, PointCode};
-    use crate::verify::halo2::verify::IVerifierParams;
     use crate::{
         schema::{
             ast::{CommitQuery, SchemaItem},
             EvaluationQuery,
         },
         verify::{
-            halo2::{lookup::Evaluated, test::*},
+            halo2::test::*,
             plonk::bn_to_field,
         },
     };
-    use group::Group;
     use halo2_proofs::arithmetic::CurveAffine;
     use num_bigint::BigUint;
     use pairing_bn256::bn256::Fr;
-    use pairing_bn256::bn256::{Bn256, G1Affine, G1};
+    use pairing_bn256::bn256::{G1Affine, G1};
 
     #[test]
     fn test_permutation_pcommon() {
-        let fc = FieldCode::<<G1Affine as CurveAffine>::ScalarExt> {
-            one: <G1Affine as CurveAffine>::ScalarExt::one(),
-            zero: <G1Affine as CurveAffine>::ScalarExt::zero(),
-            generator: <G1Affine as CurveAffine>::ScalarExt::one(),
-        };
-
-        let pc = PointCode::<G1Affine> {
-            one: <G1Affine as CurveAffine>::CurveExt::generator(),
-            zero: <G1Affine as CurveAffine>::CurveExt::identity(),
-            generator: <G1Affine as CurveAffine>::CurveExt::generator(),
-        };
-
         let params = build_verifier_params().unwrap();
 
         let res: Vec<<G1Affine as CurveAffine>::ScalarExt> = vec![
@@ -246,8 +232,8 @@ mod tests {
         .collect();
 
         for ele in &params.permutation_evaluated {
-            let x_next = &params.x_next(&fc, &mut ()).unwrap();
-            let x_last = &params.x_last(&fc, &mut ()).unwrap();
+            let x_next = &params.x_next;
+            let x_last = &params.x_last;
             ele.queries(x_next, x_last)
                 .zip(res.iter())
                 .for_each(|(query, expected)| assert_eq!(query.point, *expected))
@@ -256,18 +242,6 @@ mod tests {
 
     #[test]
     fn test_permutation_queries() {
-        let fc = FieldCode::<<G1Affine as CurveAffine>::ScalarExt> {
-            one: <G1Affine as CurveAffine>::ScalarExt::one(),
-            zero: <G1Affine as CurveAffine>::ScalarExt::zero(),
-            generator: <G1Affine as CurveAffine>::ScalarExt::one(),
-        };
-
-        let pc = PointCode::<G1Affine> {
-            one: <G1Affine as CurveAffine>::CurveExt::generator(),
-            zero: <G1Affine as CurveAffine>::CurveExt::identity(),
-            generator: <G1Affine as CurveAffine>::CurveExt::generator(),
-        };
-
         let params = build_verifier_params().unwrap();
 
         let points: Vec<<G1Affine as CurveAffine>::ScalarExt> = vec![
@@ -600,8 +574,8 @@ mod tests {
             .collect();
 
         for ele in &params.permutation_evaluated {
-            let x_next = &params.x_next(&fc, &mut ()).unwrap();
-            let x_last = &params.x_last(&fc, &mut ()).unwrap();
+            let x_next = &params.x_next;
+            let x_last = &params.x_last;
             for (query, expected) in ele.queries(x_next, x_last).zip(expected.iter()) {
                 assert_eq!(query, *expected);
             }

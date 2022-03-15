@@ -1,12 +1,10 @@
-use halo2_proofs::arithmetic::FieldExt;
-use num_bigint::BigUint;
-
 use crate::arith::api::{ContextGroup, ContextRing, PowConstant};
 use crate::schema::ast::{CommitQuery, MultiOpenProof, SchemaItem};
 use crate::schema::utils::RingUtils;
 use crate::schema::{EvaluationProof, SchemaGenerator};
 use crate::{arith_in_ctx, infix2postfix};
 use crate::{commit, eval, scalar};
+use halo2_proofs::arithmetic::FieldExt;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 

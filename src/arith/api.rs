@@ -1,5 +1,3 @@
-use num_bigint::BigUint;
-
 //#![feature(trace_macros)]
 // trace_macros!(true);
 // Context Arithment Group under Context C, Scalar Group S and Base Group B
@@ -147,8 +145,6 @@ macro_rules! arith_in_ctx {
 
 #[cfg(test)]
 mod test_marco {
-    use num_bigint::BigUint;
-
     use crate::arith::api::ContextGroup;
     use crate::arith::api::ContextRing;
 
@@ -225,8 +221,6 @@ mod test_marco {
         let b = &b;
         let c = W { t: 3 };
         let c = &c;
-        let d = W { t: 4 };
-        let d = &d;
         let a1 = arith_in_ctx!([gate, r] a).unwrap();
         assert_eq!(a1.t, 1);
         let a1 = arith_in_ctx!([gate, r] a + a + a).unwrap();

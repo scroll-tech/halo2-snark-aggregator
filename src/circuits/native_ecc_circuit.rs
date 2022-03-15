@@ -20,7 +20,7 @@ impl<'a, C: CurveAffine> NativeEccCircuit<'a, C> {
 
     fn decompose_bits<const WINDOW_SIZE: usize>(
         &self,
-        r: &mut RegionAux<C::ScalarExt>,
+        _: &mut RegionAux<C::ScalarExt>,
         s: BigUint,
     ) -> (Vec<C::ScalarExt>, BigUint) {
         let zero = C::ScalarExt::zero();

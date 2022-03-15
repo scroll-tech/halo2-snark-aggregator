@@ -1,16 +1,15 @@
-use crate::circuits::ecc_circuit::EccCircuitOps;
 use crate::circuits::five::integer_circuit::FiveColumnIntegerCircuit;
 use crate::circuits::native_ecc_circuit::NativeEccCircuit;
 use crate::field::bn_to_field;
-use crate::gates::base_gate::{AssignedValue, BaseGate, RegionAux};
+use crate::gates::base_gate::{RegionAux};
 use crate::gates::five::base_gate::{FiveColumnBaseGate, FiveColumnBaseGateConfig};
 use crate::gates::five::range_gate::FiveColumnRangeGate;
 use crate::gates::range_gate::RangeGateConfig;
 use crate::verify::halo2::test::MyCircuit;
 use crate::verify::halo2::verify::VerifierParams;
 use group::ff::Field;
-use halo2_proofs::arithmetic::{CurveAffine, FieldExt};
-use halo2_proofs::plonk::{Advice, Column, Instance, Selector, VerifyingKey};
+use halo2_proofs::arithmetic::CurveAffine;
+use halo2_proofs::plonk::VerifyingKey;
 use halo2_proofs::poly::commitment::{Params, ParamsVerifier};
 use halo2_proofs::transcript::Challenge255;
 use halo2_proofs::{
@@ -66,6 +65,7 @@ impl TestFiveColumnHalo2VerifyCircuitCircuit<G1Affine> {
     ) -> Result<(), Error> {
         use halo2_proofs::plonk::{create_proof, keygen_pk, keygen_vk};
         use halo2_proofs::transcript::{Blake2bRead, Blake2bWrite};
+        use crate::verify::halo2::verify::IVerifierParams;
 
         let circuit = MyCircuit::<Fr> {
             a: Some(Fr::from(1)),
@@ -99,7 +99,7 @@ impl TestFiveColumnHalo2VerifyCircuitCircuit<G1Affine> {
         let proof = transcript.finalize();
         let mut transcript = Blake2bRead::<_, G1Affine, Challenge255<G1Affine>>::init(&proof[..]);
 
-        VerifierParams::from_transcript(
+        let params = VerifierParams::from_transcript(
             base_gate,
             ecc_gate,
             r,
@@ -111,6 +111,8 @@ impl TestFiveColumnHalo2VerifyCircuitCircuit<G1Affine> {
             &params_verifier,
             &mut transcript,
         )?;
+
+        let _queries = params.queries(base_gate, r)?;
 
         Ok(())
     }

@@ -3,7 +3,7 @@ use crate::arith::api::{ContextGroup, ContextRing};
 use crate::schema::utils::VerifySetupHelper;
 use crate::schema::EvaluationQuery;
 use crate::{arith_in_ctx, infix2postfix};
-use halo2_proofs::arithmetic::{Field, FieldExt};
+use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Expression;
 use std::fmt::Debug;
 use std::iter;
@@ -46,9 +46,7 @@ impl<'a, C, S: Clone, P: Clone, Error: Debug> Evaluated<C, S, P, Error> {
         beta: &'a S,
         gamma: &'a S,
     ) -> Result<impl Iterator<Item = S>, Error> {
-        let _zero = sgate.zero(ctx)?;
         let _one = sgate.one(ctx)?;
-        let zero = &_zero;
         let one = &_one;
         let z_wx = &self.product_next_eval;
         let z_x = &self.product_eval;

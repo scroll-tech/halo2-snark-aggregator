@@ -57,10 +57,7 @@ impl<'a, C, S: Clone, P: Clone, Error: Debug> Evaluated<'a, C, S, P, Error> {
         }
     }
 
-    pub(in crate::verify::halo2) fn queries(
-        &'a self,
-        x: &'a S,
-    ) -> impl Iterator<Item = EvaluationQuery<'a, S, P>> {
+    pub(in crate::verify::halo2) fn queries(&self, x: &'a S) -> Vec<EvaluationQuery<'a, S, P>> {
         iter::empty()
             .chain(Some(EvaluationQuery::new_from_query(
                 x.clone(),
@@ -71,5 +68,6 @@ impl<'a, C, S: Clone, P: Clone, Error: Debug> Evaluated<'a, C, S, P, Error> {
                 self.random_commitment,
                 self.random_eval,
             )))
+            .collect()
     }
 }
