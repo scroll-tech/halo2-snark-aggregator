@@ -60,6 +60,10 @@ impl<C: CurveAffine> ContextGroup<(), C::ScalarExt, C::CurveExt, C, ()>
     fn generator(&self, _ctx: &mut ()) -> Result<C::CurveExt, ()> {
         Ok(self.generator)
     }
+
+    fn to_value(&self, v: &C::CurveExt) -> Result<C, ()> {
+        unimplemented!()
+    }
 }
 
 impl<F: FieldExt> ContextGroup<(), F, F, F, ()> for FieldCode<F> {
@@ -92,6 +96,10 @@ impl<F: FieldExt> ContextGroup<(), F, F, F, ()> for FieldCode<F> {
 
     fn generator(&self, _ctx: &mut ()) -> Result<F, ()> {
         Ok(self.generator)
+    }
+
+    fn to_value(&self, v: &F) -> Result<F, ()> {
+        Ok(v.clone())
     }
 }
 

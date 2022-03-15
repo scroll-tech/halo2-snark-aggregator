@@ -82,6 +82,11 @@ impl<'a, 'b, 'c, C: CurveAffine>
     ) -> Result<AssignedPoint<C, C::ScalarExt>, Error> {
         EccCircuitOps::assign_point_from_constant_scalar(self, ctx, C::ScalarExt::from(1u64))
     }
+
+    
+    fn to_value(&self, a: &AssignedPoint<C, C::ScalarExt>) -> Result<C::CurveExt, Error> {
+        unimplemented!()
+    }
 }
 
 impl<'a, 'b, N: FieldExt>
@@ -133,6 +138,10 @@ impl<'a, 'b, N: FieldExt>
 
     fn generator(&self, ctx: &mut RegionAux<'a, 'b, N>) -> Result<AssignedValue<N>, Error> {
         BaseGateOps::assign_constant(self, ctx, N::one())
+    }
+
+    fn to_value(&self, a: &AssignedValue<N>) -> Result<N, Error> {
+        Ok(a.value.clone())
     }
 }
 

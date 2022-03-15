@@ -18,7 +18,7 @@ use halo2_proofs::transcript::ChallengeScalar;
 use halo2_proofs::transcript::{read_n_points, read_n_scalars, EncodedChallenge, TranscriptRead};
 use pairing_bn256::bn256::G1Affine;
 use std::fmt::Debug;
-use std::iter;
+use std::iter::{self, empty};
 use std::marker::PhantomData;
 
 pub struct PlonkCommonSetup {
@@ -170,7 +170,26 @@ impl<
     > IVerifierParams<'a, C, S, T, P, Error, SGate> for VerifierParams<C, S, P, Error>
 {
     fn rotate_omega(&self, sgate: &'a SGate, ctx: &'a mut C, at: i32) -> Result<S, Error> {
-        unimplemented!("rotate omega")
+        let x = &self.x;
+        if at < 0 {
+            let omega_at = &sgate.from_constant(
+                ctx,
+                sgate
+                    .to_value(&self.omega)?
+                    .invert()
+                    .unwrap()
+                    .pow_vartime([(-at) as u64, 0, 0, 0]),
+            )?;
+            arith_in_ctx!([sgate, ctx] x * omega_at)
+        } else {
+            let omega_at = &sgate.from_constant(
+                ctx,
+                sgate
+                    .to_value(&self.omega)?
+                    .pow_vartime([at as u64, 0, 0, 0]),
+            )?;
+            arith_in_ctx!([sgate, ctx] x * omega_at)
+        }
     }
 
     fn x_next(&'a self, sgate: &'a SGate, ctx: &'a mut C) -> Result<S, Error> {
@@ -180,8 +199,6 @@ impl<
     }
 
     fn x_last(&'a self, sgate: &'a SGate, ctx: &'a mut C) -> Result<S, Error> {
-        let x = &self.x;
-        let omega = &self.omega;
         self.rotate_omega(sgate, ctx, -(self.common.l as i32))
     }
 
@@ -272,6 +289,57 @@ impl<
             }
         }
 
+        let mut queries = vec![];
+        for (
+            (
+                (((instance_commitments, instance_evals), advice_commitments), advice_evals),
+                permutation,
+            ),
+            lookups,
+        ) in self
+            .instance_commitments
+            .iter()
+            .zip(self.instance_evals.iter())
+            .zip(self.advice_commitments.iter())
+            .zip(self.advice_evals.iter())
+            .zip(self.permutation_evaluated.iter())
+            .zip(self.lookup_evaluated.iter())
+        {
+            for (query_index, &(column, at)) in self.instance_queries.iter().enumerate() {
+                queries.push(EvaluationQuery::new(
+                    self.rotate_omega(sgate, ctx, at).unwrap(),
+                    &instance_commitments[column],
+                    &instance_evals[query_index],
+                ))
+            }
+
+            for (query_index, &(column, at)) in self.advice_queries.iter().enumerate() {
+                queries.push(EvaluationQuery::new(
+                    self.rotate_omega(sgate, ctx, at).unwrap(),
+                    &advice_commitments[column],
+                    &advice_evals[query_index],
+                ))
+            }
+
+            queries.append(&mut permutation.queries(x_next, x_last).collect()); // tested
+            queries.append(
+                &mut lookups
+                    .iter()
+                    .flat_map(move |p| p.queries(x, x_inv, x_next))
+                    .collect(),
+            );
+        }
+
+        for (query_index, &(column, at)) in self.fixed_queries.iter().enumerate() {
+            queries.push(EvaluationQuery::<'a, S, P>::new(
+                self.rotate_omega(sgate, ctx, at).unwrap(),
+                &self.fixed_commitments[column],
+                &self.fixed_evals[query_index],
+            ))
+        }
+
+        queries.append(&mut pcommon.queries(x).collect());
+
         let vanish = vanish::Evaluated::new(
             sgate,
             ctx,
@@ -282,70 +350,9 @@ impl<
             &self.random_eval,
             self.vanish_commitments.iter().map(|ele| ele).collect(),
         );
-
         //vanishing.verify(expressions, y, xn)
+        queries.append(&mut vanish.queries(x).collect());
 
-        let queries = self
-            .instance_commitments
-            .iter()
-            .zip(self.instance_evals.iter())
-            .zip(self.advice_commitments.iter())
-            .zip(self.advice_evals.iter())
-            .zip(self.permutation_evaluated.iter())
-            .zip(self.lookup_evaluated.iter())
-            .flat_map(
-                |(
-                    (
-                        (
-                            ((instance_commitments, instance_evals), advice_commitments),
-                            advice_evals,
-                        ),
-                        permutation,
-                    ),
-                    lookups,
-                )| {
-                    iter::empty()
-                        .chain(self.instance_queries.iter().enumerate().map(
-                            move |(query_index, &(column, at))| {
-                                EvaluationQuery::new(
-                                    self.rotate_omega(sgate, ctx, at).unwrap(),
-                                    &instance_commitments[column],
-                                    &instance_evals[query_index],
-                                )
-                            },
-                        ))
-                        .chain(self.advice_queries.iter().enumerate().map(
-                            move |(query_index, &(column, at))| {
-                                EvaluationQuery::new(
-                                    self.rotate_omega(sgate, ctx, at).unwrap(),
-                                    &advice_commitments[column],
-                                    &advice_evals[query_index],
-                                )
-                            },
-                        ))
-                        .chain(permutation.queries(x_next, x_last)) // tested
-                        .chain(
-                            lookups
-                                .iter()
-                                .flat_map(move |p| p.queries(x, x_inv, x_next))
-                                .into_iter(),
-                        )
-                },
-            )
-            .chain(
-                self.fixed_queries
-                    .iter()
-                    .enumerate()
-                    .map(|(query_index, &(column, at))| {
-                        EvaluationQuery::<'a, S, P>::new(
-                            self.rotate_omega(sgate, ctx, at).unwrap(),
-                            &self.fixed_commitments[column],
-                            &self.fixed_evals[query_index],
-                        )
-                    }),
-            )
-            .chain(pcommon.queries(x))
-            .chain(vanish.queries(x));
         unimplemented!("get point schemas not implemented")
     }
 }
@@ -508,7 +515,9 @@ impl<'a, CTX, S: Clone, P: Clone, Error: Debug> VerifierParams<CTX, S, P, Error>
                 instance
                     .iter()
                     .map(|instance| {
-                        assert!(instance.len() > params.n as usize - (vk.cs.blinding_factors() + 1));
+                        assert!(
+                            instance.len() > params.n as usize - (vk.cs.blinding_factors() + 1)
+                        );
                         Ok(params.commit_lagrange(instance.to_vec()).to_affine())
                     })
                     .collect::<Result<Vec<_>, _>>()
@@ -564,7 +573,8 @@ impl<'a, CTX, S: Clone, P: Clone, Error: Debug> VerifierParams<CTX, S, P, Error>
                     .map(|argument| argument.read_permuted_commitments(transcript))
                     .collect::<Result<Vec<_>, _>>()
             })
-            .collect::<Result<Vec<_>, _>>().unwrap();
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
 
         // Sample beta challenge
         let beta: ChallengeScalar<<C as Engine>::G1Affine, T> =
@@ -581,7 +591,8 @@ impl<'a, CTX, S: Clone, P: Clone, Error: Debug> VerifierParams<CTX, S, P, Error>
                 // Hash each permutation product commitment
                 vk.cs.permutation.read_product_commitments(vk, transcript)
             })
-            .collect::<Result<Vec<_>, _>>().unwrap();
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
 
         let lookups_committed = lookups_permuted
             .into_iter()
@@ -592,7 +603,8 @@ impl<'a, CTX, S: Clone, P: Clone, Error: Debug> VerifierParams<CTX, S, P, Error>
                     .map(|lookup| lookup.read_product_commitment(transcript))
                     .collect::<Result<Vec<_>, _>>()
             })
-            .collect::<Result<Vec<_>, _>>().unwrap();
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
 
         let random_poly_commitment = transcript.read_point().unwrap();
         let random_commitment = pgate.from_constant(ctx, random_poly_commitment)?;
@@ -601,7 +613,8 @@ impl<'a, CTX, S: Clone, P: Clone, Error: Debug> VerifierParams<CTX, S, P, Error>
         let y: ChallengeScalar<<C as Engine>::G1Affine, T> = transcript.squeeze_challenge_scalar();
         let y = sgate.from_constant(ctx, *y)?;
 
-        let h_commitments = read_n_points(transcript, vk.domain.get_quotient_poly_degree()).unwrap();
+        let h_commitments =
+            read_n_points(transcript, vk.domain.get_quotient_poly_degree()).unwrap();
         let h_commitments = h_commitments
             .iter()
             .map(|&affine| pgate.from_constant(ctx, affine))
@@ -614,7 +627,8 @@ impl<'a, CTX, S: Clone, P: Clone, Error: Debug> VerifierParams<CTX, S, P, Error>
 
         let instance_evals = (0..num_proofs)
             .map(|_| -> Result<Vec<_>, _> {
-                read_n_scalars(transcript, vk.cs.instance_queries.len()).unwrap()
+                read_n_scalars(transcript, vk.cs.instance_queries.len())
+                    .unwrap()
                     .into_iter()
                     .map(|s| sgate.from_constant(ctx, s))
                     .collect()
@@ -623,14 +637,16 @@ impl<'a, CTX, S: Clone, P: Clone, Error: Debug> VerifierParams<CTX, S, P, Error>
 
         let advice_evals = (0..num_proofs)
             .map(|_| -> Result<Vec<_>, _> {
-                read_n_scalars(transcript, vk.cs.advice_queries.len()).unwrap()
+                read_n_scalars(transcript, vk.cs.advice_queries.len())
+                    .unwrap()
                     .into_iter()
                     .map(|s| sgate.from_constant(ctx, s))
                     .collect()
             })
             .collect::<Result<Vec<_>, _>>()?;
 
-        let fixed_evals = read_n_scalars(transcript, vk.cs.fixed_queries.len()).unwrap()
+        let fixed_evals = read_n_scalars(transcript, vk.cs.fixed_queries.len())
+            .unwrap()
             .into_iter()
             .map(|s| sgate.from_constant(ctx, s))
             .collect::<Result<Vec<_>, _>>()?;
@@ -643,7 +659,8 @@ impl<'a, CTX, S: Clone, P: Clone, Error: Debug> VerifierParams<CTX, S, P, Error>
         let permutation_evaluated = permutations_committed
             .into_iter()
             .map(|permutation| permutation.evaluate(transcript))
-            .collect::<Result<Vec<_>, _>>().unwrap();
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
         let permutation_evaluated_sets = permutation_evaluated
             .into_iter()
             .map(|permutation_evals| {
@@ -680,17 +697,15 @@ impl<'a, CTX, S: Clone, P: Clone, Error: Debug> VerifierParams<CTX, S, P, Error>
                         columns
                             .iter()
                             .map(|column| match column.column_type() {
-                                halo2_proofs::plonk::Any::Advice => {
-                                    advice_evals
-                                        [vk.cs.get_any_query_index(*column, Rotation::cur())]
-                                }
-                                halo2_proofs::plonk::Any::Fixed => {
-                                    fixed_evals[vk.cs.get_any_query_index(*column, Rotation::cur())]
-                                }
-                                halo2_proofs::plonk::Any::Instance => {
-                                    instance_evals
-                                        [vk.cs.get_any_query_index(*column, Rotation::cur())]
-                                }
+                                halo2_proofs::plonk::Any::Advice => advice_evals
+                                    [vk.cs.get_any_query_index(*column, Rotation::cur())]
+                                .clone(),
+                                halo2_proofs::plonk::Any::Fixed => fixed_evals
+                                    [vk.cs.get_any_query_index(*column, Rotation::cur())]
+                                .clone(),
+                                halo2_proofs::plonk::Any::Instance => instance_evals
+                                    [vk.cs.get_any_query_index(*column, Rotation::cur())]
+                                .clone(),
                             })
                             .collect::<Vec<_>>()
                     })
@@ -704,7 +719,7 @@ impl<'a, CTX, S: Clone, P: Clone, Error: Debug> VerifierParams<CTX, S, P, Error>
             .zip(permutation_evaluated_evals.into_iter())
             .map(
                 |(permutation_evaluated_set, permutation_evaluated_eval)| Evaluated {
-                    x,
+                    x: x.clone(),
                     sets: permutation_evaluated_set,
                     evals: permutation_evaluated_eval,
                     chunk_len: vk.cs.degree() - 2,
@@ -721,7 +736,8 @@ impl<'a, CTX, S: Clone, P: Clone, Error: Debug> VerifierParams<CTX, S, P, Error>
                     .map(|lookup| lookup.evaluate(transcript))
                     .collect::<Result<Vec<_>, _>>()
             })
-            .collect::<Result<Vec<_>, _>>().unwrap();
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
 
         let lookup_evaluated = lookup_evaluated
             .into_iter()
@@ -850,7 +866,7 @@ impl<'a, CTX, S: Clone, P: Clone, Error: Debug> VerifierParams<CTX, S, P, Error>
                 .into_iter()
                 .map(|s| sgate.from_constant(ctx, s))
                 .collect::<Result<Vec<_>, Error>>()?,
-            vanish_commitments: h_commitments.iter().map(|&elem| elem).collect(),
+            vanish_commitments: h_commitments,
             random_commitment: pgate.from_constant(ctx, random_poly_commitment)?,
             random_eval,
             beta,

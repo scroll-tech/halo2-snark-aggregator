@@ -14,6 +14,7 @@ pub trait ContextGroup<C, S, B, T, Error> {
     fn ok(&self, v: B) -> Result<B, Error> {
         Ok(v)
     }
+    fn to_value(&self, v: &B) -> Result<T, Error>;
 }
 
 // Context Arithment Group under Context C, Scalar Group S and Base Group B
@@ -184,6 +185,10 @@ mod test_marco {
         }
         fn generator(&self, _ctx: &mut ()) -> Result<W, ()> {
             Ok(self.one.clone())
+        }
+
+        fn to_value(&self, v: &W) -> Result<i32, ()> {
+            Ok(v.t)
         }
     }
 
