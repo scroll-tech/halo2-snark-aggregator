@@ -9,16 +9,19 @@ use std::fmt::Debug;
 use std::iter;
 use std::marker::PhantomData;
 
+#[derive(Debug)]
 pub struct PermutationCommitments<P> {
     pub(in crate::verify::halo2) permuted_input_commitment: P,
     pub(in crate::verify::halo2) permuted_table_commitment: P,
 }
 
+#[derive(Debug)]
 pub struct Committed<P> {
     pub(in crate::verify::halo2) permuted: PermutationCommitments<P>,
     pub(in crate::verify::halo2) product_commitment: P,
 }
 
+#[derive(Debug)]
 pub struct Evaluated<C, S, P, Error> {
     pub(in crate::verify::halo2) input_expressions: Vec<Expression<S>>,
     pub(in crate::verify::halo2) table_expressions: Vec<Expression<S>>,
@@ -160,11 +163,228 @@ impl<'a, C, S: Clone, P: Clone, Error: Debug> Evaluated<C, S, P, Error> {
 
 #[cfg(test)]
 mod tests {
-    use crate::verify::halo2::tests::lookup_circuit_builder::build_verifier_params;
+    use num_bigint::BigUint;
+    use pairing_bn256::bn256::{Fr, G1};
+
+    use crate::{
+        schema::EvaluationQuery,
+        verify::{halo2::tests::lookup_circuit_builder::build_verifier_params, plonk::bn_to_field},
+    };
 
     #[test]
-    fn test_lookup_queries() {
+    fn test_lookup_evaluated() {
         let params = build_verifier_params().unwrap();
-        ()
+
+        let point = vec![
+            bn_to_field(
+                &BigUint::parse_bytes(
+                    b"015032989a10da518164bbc7813fc9dfbe7f28c5024e986c6f0443fd0ad9c2b8",
+                    16,
+                )
+                .unwrap(),
+            ),
+            bn_to_field(
+                &BigUint::parse_bytes(
+                    b"015032989a10da518164bbc7813fc9dfbe7f28c5024e986c6f0443fd0ad9c2b8",
+                    16,
+                )
+                .unwrap(),
+            ),
+            bn_to_field(
+                &BigUint::parse_bytes(
+                    b"015032989a10da518164bbc7813fc9dfbe7f28c5024e986c6f0443fd0ad9c2b8",
+                    16,
+                )
+                .unwrap(),
+            ),
+            bn_to_field(
+                &BigUint::parse_bytes(
+                    b"16401165f6eff43ae1136c5926b5574a1840fe4ea1d87dc58a5aa76412da32cb",
+                    16,
+                )
+                .unwrap(),
+            ),
+            bn_to_field(
+                &BigUint::parse_bytes(
+                    b"035c3590a63a63855b04faaf73652de0a121bad3c6ea9dbd53e7739534bb854f",
+                    16,
+                )
+                .unwrap(),
+            ),
+        ];
+
+        let commitment = vec![
+            G1 {
+                x: bn_to_field(
+                    &BigUint::parse_bytes(
+                        b"077bc1b638c2eb47d048c446e30216553601f420deeecd7f0cecf86e58c144b1",
+                        16,
+                    )
+                    .unwrap(),
+                ),
+                y: bn_to_field(
+                    &BigUint::parse_bytes(
+                        b"2b8e229bc8ba77b92311b3f38e28aefb0a8cf7245b97c4263d7e5144d00331b9",
+                        16,
+                    )
+                    .unwrap(),
+                ),
+                z: bn_to_field(
+                    &BigUint::parse_bytes(
+                        b"0000000000000000000000000000000000000000000000000000000000000001",
+                        16,
+                    )
+                    .unwrap(),
+                ),
+            },
+            G1 {
+                x: bn_to_field(
+                    &BigUint::parse_bytes(
+                        b"1f9f3347f9b401e4a768e058eb0f7e8ab2fc98b9bb5c555c9dfec0376f0a367b",
+                        16,
+                    )
+                    .unwrap(),
+                ),
+                y: bn_to_field(
+                    &BigUint::parse_bytes(
+                        b"202fcab76493c549c454946dcf7ef061011e40ed62238c15e3c378fd26662bda",
+                        16,
+                    )
+                    .unwrap(),
+                ),
+                z: bn_to_field(
+                    &BigUint::parse_bytes(
+                        b"0000000000000000000000000000000000000000000000000000000000000001",
+                        16,
+                    )
+                    .unwrap(),
+                ),
+            },
+            G1 {
+                x: bn_to_field(
+                    &BigUint::parse_bytes(
+                        b"0ea507d0ef046f4cbfefe16aa304342f385fd331eebd329a3ea5a5ad00c58c18",
+                        16,
+                    )
+                    .unwrap(),
+                ),
+                y: bn_to_field(
+                    &BigUint::parse_bytes(
+                        b"0c0dab138bb190da35d1e7ecea4ed1b59a8110be4c5bcbe019701bf35fc8d7f8",
+                        16,
+                    )
+                    .unwrap(),
+                ),
+                z: bn_to_field(
+                    &BigUint::parse_bytes(
+                        b"0000000000000000000000000000000000000000000000000000000000000001",
+                        16,
+                    )
+                    .unwrap(),
+                ),
+            },
+            G1 {
+                x: bn_to_field(
+                    &BigUint::parse_bytes(
+                        b"1f9f3347f9b401e4a768e058eb0f7e8ab2fc98b9bb5c555c9dfec0376f0a367b",
+                        16,
+                    )
+                    .unwrap(),
+                ),
+                y: bn_to_field(
+                    &BigUint::parse_bytes(
+                        b"202fcab76493c549c454946dcf7ef061011e40ed62238c15e3c378fd26662bda",
+                        16,
+                    )
+                    .unwrap(),
+                ),
+                z: bn_to_field(
+                    &BigUint::parse_bytes(
+                        b"0000000000000000000000000000000000000000000000000000000000000001",
+                        16,
+                    )
+                    .unwrap(),
+                ),
+            },
+            G1 {
+                x: bn_to_field(
+                    &BigUint::parse_bytes(
+                        b"077bc1b638c2eb47d048c446e30216553601f420deeecd7f0cecf86e58c144b1",
+                        16,
+                    )
+                    .unwrap(),
+                ),
+                y: bn_to_field(
+                    &BigUint::parse_bytes(
+                        b"2b8e229bc8ba77b92311b3f38e28aefb0a8cf7245b97c4263d7e5144d00331b9",
+                        16,
+                    )
+                    .unwrap(),
+                ),
+                z: bn_to_field(
+                    &BigUint::parse_bytes(
+                        b"0000000000000000000000000000000000000000000000000000000000000001",
+                        16,
+                    )
+                    .unwrap(),
+                ),
+            },
+        ];
+
+        let eval: Vec<Fr> = vec![
+            bn_to_field(
+                &BigUint::parse_bytes(
+                    b"16728c6fb9318b519ca10b5b9a4fe407db2243487d60432392f7704bdcda2b1c",
+                    16,
+                )
+                .unwrap(),
+            ),
+            bn_to_field(
+                &BigUint::parse_bytes(
+                    b"0862fa0438c476f29b2c5bc3a6444024359076dee50a3ea2b30ce94f23657aed",
+                    16,
+                )
+                .unwrap(),
+            ),
+            bn_to_field(
+                &BigUint::parse_bytes(
+                    b"15aafc436b1b3892708dd5db1be4362771c722edbf886bbd86fc90cdf4d0e92b",
+                    16,
+                )
+                .unwrap(),
+            ),
+            bn_to_field(
+                &BigUint::parse_bytes(
+                    b"263b14a199e642552f0cdabdebc3e6c6490652b9401df903bb3da950dbf9b723",
+                    16,
+                )
+                .unwrap(),
+            ),
+            bn_to_field(
+                &BigUint::parse_bytes(
+                    b"0a7bbf6b2bd7865492078952a11996b4a0734e1a2aa9e542bf5a44c607751ed0",
+                    16,
+                )
+                .unwrap(),
+            ),
+        ];
+
+        let expected = point
+            .into_iter()
+            .zip(commitment.iter())
+            .zip(eval.iter())
+            .map(|((p, c), v)| EvaluationQuery::new(p, c, v))
+            .collect::<Vec<_>>();
+
+        params.lookup_evaluated.iter().for_each(|lookups| {
+            lookups.iter().for_each(|lookup| {
+                lookup
+                    .queries(&params.x, &params.x_inv, &params.x_next)
+                    .zip(expected.iter())
+                    .for_each(|(q, expected)| {
+                        assert_eq!(q, *expected);
+                    });
+            })
+        })
     }
 }

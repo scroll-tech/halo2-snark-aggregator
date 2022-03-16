@@ -128,7 +128,7 @@ pub(in crate) fn build_verifier_params() -> Result<
 
     let circuit = MyCircuit::<Fp> { lookup_table };
 
-    const K: u32 = 5;
+    const K: u32 = 4;
     let public_inputs_size = 2;
 
     let params: Params<G1Affine> =
