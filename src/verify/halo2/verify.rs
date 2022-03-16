@@ -17,7 +17,6 @@ use halo2_proofs::transcript::ChallengeScalar;
 use halo2_proofs::transcript::{read_n_points, read_n_scalars, EncodedChallenge, TranscriptRead};
 use std::fmt::Debug;
 use std::marker::PhantomData;
-use std::os::windows::prelude::FileExt;
 
 pub struct PlonkCommonSetup {
     pub l: u32,
