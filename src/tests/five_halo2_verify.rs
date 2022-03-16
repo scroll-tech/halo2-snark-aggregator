@@ -1,11 +1,11 @@
 use crate::circuits::five::integer_circuit::FiveColumnIntegerCircuit;
 use crate::circuits::native_ecc_circuit::NativeEccCircuit;
 use crate::field::bn_to_field;
-use crate::gates::base_gate::{RegionAux};
+use crate::gates::base_gate::RegionAux;
 use crate::gates::five::base_gate::{FiveColumnBaseGate, FiveColumnBaseGateConfig};
 use crate::gates::five::range_gate::FiveColumnRangeGate;
 use crate::gates::range_gate::RangeGateConfig;
-use crate::verify::halo2::test::MyCircuit;
+use crate::verify::halo2::tests::mul_circuit_builder::MyCircuit;
 use crate::verify::halo2::verify::VerifierParams;
 use group::ff::Field;
 use halo2_proofs::arithmetic::CurveAffine;
@@ -63,9 +63,9 @@ impl TestFiveColumnHalo2VerifyCircuitCircuit<G1Affine> {
         base_gate: &FiveColumnBaseGate<Fr>,
         r: &mut RegionAux<'_, '_, Fr>,
     ) -> Result<(), Error> {
+        use crate::verify::halo2::verify::IVerifierParams;
         use halo2_proofs::plonk::{create_proof, keygen_pk, keygen_vk};
         use halo2_proofs::transcript::{Blake2bRead, Blake2bWrite};
-        use crate::verify::halo2::verify::IVerifierParams;
 
         let circuit = MyCircuit::<Fr> {
             a: Some(Fr::from(1)),

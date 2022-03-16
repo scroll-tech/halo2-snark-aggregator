@@ -36,10 +36,7 @@ pub struct Evaluated<C, S, P, Error> {
 }
 
 impl<'a, S: Clone, P: Clone> CommonEvaluated<'a, S, P> {
-    pub(in crate::verify::halo2) fn queries(
-        &self,
-        x: &'a S,
-    ) -> Vec<EvaluationQuery<'a, S, P>> {
+    pub(in crate::verify::halo2) fn queries(&self, x: &'a S) -> Vec<EvaluationQuery<'a, S, P>> {
         // Open permutation commitments for each permutation argument at x
         self.permutation_commitments
             .iter()
@@ -171,10 +168,7 @@ mod tests {
             ast::{CommitQuery, SchemaItem},
             EvaluationQuery,
         },
-        verify::{
-            halo2::test::*,
-            plonk::bn_to_field,
-        },
+        verify::{halo2::tests::mul_circuit_builder::*, plonk::bn_to_field},
     };
     use halo2_proofs::arithmetic::CurveAffine;
     use num_bigint::BigUint;

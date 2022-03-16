@@ -205,7 +205,8 @@ impl<
         )?;
         let l_0 = &(ls[0]);
         let l_last = &ls[self.common.l as usize - 1];
-        let l_blind = &sgate.add_array(ctx, ls[1..(self.common.l as usize - 1)].iter().collect())?;
+        let l_blind =
+            &sgate.add_array(ctx, ls[1..(self.common.l as usize - 1)].iter().collect())?;
 
         let pcommon = permutation::CommonEvaluated {
             permutation_evals: &self.permutation_evals,
@@ -907,7 +908,9 @@ impl<'a, CTX, S: Clone, P: Clone, Error: Debug> VerifierParams<CTX, S, P, Error>
 #[cfg(test)]
 mod tests {
     use super::Evaluable;
-    use crate::{arith::code::FieldCode, verify::halo2::test::build_verifier_params};
+    use crate::{
+        arith::code::FieldCode, verify::halo2::tests::mul_circuit_builder::build_verifier_params,
+    };
     use pairing_bn256::bn256::Fr;
 
     #[test]

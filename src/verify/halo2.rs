@@ -1,5 +1,5 @@
 mod lookup;
 mod permutation;
-pub mod test;
+pub mod tests;
 mod vanish;
 pub mod verify;
