@@ -157,3 +157,14 @@ impl<'a, C, S: Clone, P: Clone, Error: Debug> Evaluated<C, S, P, Error> {
             )))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::verify::halo2::tests::lookup_circuit_builder::build_verifier_params;
+
+    #[test]
+    fn test_lookup_queries() {
+        let params = build_verifier_params().unwrap();
+        ()
+    }
+}
