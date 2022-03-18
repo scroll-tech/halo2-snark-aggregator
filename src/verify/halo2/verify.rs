@@ -909,8 +909,10 @@ impl<'a, CTX, S: Clone, P: Clone, Error: Debug> VerifierParams<CTX, S, P, Error>
 mod tests {
     use super::Evaluable;
     use crate::{
-        arith::code::FieldCode, verify::halo2::tests::mul_circuit_builder::build_verifier_params,
+        arith::code::FieldCode,
+        verify::{halo2::tests::mul_circuit_builder::build_verifier_params, plonk::bn_to_field},
     };
+    use num_bigint::BigUint;
     use pairing_bn256::bn256::Fr;
 
     #[test]
@@ -952,5 +954,60 @@ mod tests {
                     })
                 })
             });
+    }
+
+    #[test]
+    fn test_rotate_omega() {
+        let param = build_verifier_params().unwrap();
+        assert_eq!(
+            param.x,
+            bn_to_field(
+                &BigUint::parse_bytes(
+                    b"0c4490cdcf6545e3e7b951799adab8efd7e0812cf59bb1fde0cb826e5b51448b",
+                    16
+                )
+                .unwrap()
+            )
+        );
+        assert_eq!(
+            param.x_next,
+            bn_to_field(
+                &BigUint::parse_bytes(
+                    b"1a23d5660f0fd2ff2bb5d01c2b69499da64c863234fd8474d2715a59acf918df",
+                    16
+                )
+                .unwrap()
+            )
+        );
+        assert_eq!(
+            param.x_last,
+            bn_to_field(
+                &BigUint::parse_bytes(
+                    b"0fa7d2a74c9c0c7aee15a51c6213e9cd05eaa928d4ff3e0e0621552b885c4c08",
+                    16
+                )
+                .unwrap()
+            )
+        );
+        assert_eq!(
+            param.x_inv,
+            bn_to_field(
+                &BigUint::parse_bytes(
+                    b"18e61e79f9a7becf4090148dd6321acd9f0da0df20b2e26069a360842598beac",
+                    16
+                )
+                .unwrap()
+            )
+        );
+        assert_eq!(
+            param.xn,
+            bn_to_field(
+                &BigUint::parse_bytes(
+                    b"0918f0797719cd0667a1689f6fd167dbfa8ddd0ac5218125c08598dadef28e70",
+                    16
+                )
+                .unwrap()
+            )
+        );
     }
 }
