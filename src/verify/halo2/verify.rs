@@ -1,8 +1,8 @@
 use super::permutation::CommonEvaluated;
 use super::{lookup, permutation, vanish};
-use crate::arith::api::{ContextGroup, ContextRing};
+use crate::arith::api::{ContextGroup, ContextRing, PowConstant};
 use crate::schema::ast::{ArrayOpAdd, CommitQuery, MultiOpenProof, SchemaItem};
-use crate::schema::utils::VerifySetupHelper;
+use crate::schema::utils::{RingUtils, VerifySetupHelper};
 use crate::schema::{EvaluationProof, EvaluationQuery, SchemaGenerator};
 use crate::verify::halo2::permutation::Evaluated;
 use crate::verify::halo2::permutation::EvaluatedSet;
@@ -398,7 +398,7 @@ impl<
     }
 }
 
-impl<'a, CTX, S: Clone, P: Clone, Error: Debug> VerifierParams<CTX, S, P, Error> {
+impl<'a, CTX, S: Clone + Debug, P: Clone, Error: Debug> VerifierParams<CTX, S, P, Error> {
     fn rotate_omega<
         ScalarExt: FieldExt,
         SGate: ContextGroup<CTX, S, S, ScalarExt, Error> + ContextRing<CTX, S, S, Error>,
@@ -642,7 +642,7 @@ impl<'a, CTX, S: Clone, P: Clone, Error: Debug> VerifierParams<CTX, S, P, Error>
         let x_next = Self::rotate_omega(sgate, ctx, &x, omega, 1)?;
         let x_last = Self::rotate_omega(sgate, ctx, &x, omega, -(l as i32))?;
         let x_inv = Self::rotate_omega(sgate, ctx, &x, omega, -1)?;
-        let xn = Self::rotate_omega(sgate, ctx, &x, omega, n as i32)?;
+        let xn = sgate.pow_constant(ctx, &x, n)?;
 
         let instance_evals = (0..num_proofs)
             .map(|_| -> Result<Vec<_>, _> {
