@@ -71,35 +71,3 @@ impl<'a, C, S: Clone + Debug, P: Clone, Error: Debug> Evaluated<'a, C, S, P, Err
             .collect()
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use halo2_proofs::arithmetic::CurveAffine;
-    use pairing_bn256::bn256::G1Affine;
-
-    use super::*;
-    use crate::{
-        arith::code::FieldCode, verify::halo2::tests::mul_circuit_builder::build_verifier_params,
-    };
-
-    #[test]
-    fn test_vanish_queries() {
-        let param = build_verifier_params().unwrap();
-        let mut expression = vec![];
-        let mut ctx = ();
-
-        let vanish = Evaluated::new(
-            &FieldCode::<<G1Affine as CurveAffine>::ScalarExt>::default(),
-            &mut ctx,
-            expression,
-            &param.y,
-            &param.xn,
-            &param.random_commitment,
-            &param.random_eval,
-            param.vanish_commitments.iter().map(|e| e).collect(),
-        );
-
-        let vanish = vanish.queries(&param.x);
-        // TODO
-    }
-}

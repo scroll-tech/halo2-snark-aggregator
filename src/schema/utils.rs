@@ -66,10 +66,11 @@ impl<
             ws.push(self.pow_constant(ctx, w, i as u32)?);
         }
         let mut pi_vec = vec![];
-        for i  in (-l)..=0 {
+        for i in (-l)..=0 {
             let wi = &ws[-i as usize];
             // li_xi = (w ^ i) * (xi ^ n - 1) / (n * (xi - w ^ i))
-            let li_xi = arith_in_ctx!([self, ctx] (one / wi) * (xi_n - one) / (n * (xi - one / wi))).unwrap();
+            let li_xi = arith_in_ctx!([self, ctx](one / wi) * (xi_n - one) / (n * (xi - one / wi)))
+                .unwrap();
             pi_vec.push(li_xi);
         }
         Ok(pi_vec)

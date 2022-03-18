@@ -205,8 +205,7 @@ impl<
         )?;
         let l_last = &(ls[0]);
         let l_0 = &ls[self.common.l as usize];
-        let l_blind =
-            &sgate.add_array(ctx, ls[1..(self.common.l as usize)].iter().collect())?;
+        let l_blind = &sgate.add_array(ctx, ls[1..(self.common.l as usize)].iter().collect())?;
 
         let pcommon = permutation::CommonEvaluated {
             permutation_evals: &self.permutation_evals,
@@ -1658,6 +1657,7 @@ mod tests {
 
         // 16 h_commitment
         //assert_eq!(queries[16], EvaluationQuery::new_from_query(param.x, s));
+        println!("{:?}", queries[16]);
 
         // 17 random poly commitment
         assert_eq!(
