@@ -1,4 +1,5 @@
 use super::api::{ContextGroup, ContextRing};
+use group::Group;
 use pairing_bn256::arithmetic::{CurveAffine, FieldExt};
 
 pub struct FieldCode<F: FieldExt> {
@@ -7,10 +8,30 @@ pub struct FieldCode<F: FieldExt> {
     pub generator: F,
 }
 
+impl<F: FieldExt> Default for FieldCode<F> {
+    fn default() -> Self {
+        Self {
+            one: F::one(),
+            zero: F::zero(),
+            generator: F::one(),
+        }
+    }
+}
+
 pub struct PointCode<C: CurveAffine> {
     pub one: C::CurveExt,
     pub zero: C::CurveExt,
     pub generator: C::CurveExt,
+}
+
+impl<C: CurveAffine> Default for PointCode<C> {
+    fn default() -> Self {
+        Self {
+            one: <C as CurveAffine>::CurveExt::generator(),
+            zero: <C as CurveAffine>::CurveExt::identity(),
+            generator: <C as CurveAffine>::CurveExt::generator(),
+        }
+    }
 }
 
 impl<C: CurveAffine> ContextGroup<(), C::ScalarExt, C::CurveExt, C, ()> for PointCode<C> {

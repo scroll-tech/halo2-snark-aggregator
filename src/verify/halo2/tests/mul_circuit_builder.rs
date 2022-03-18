@@ -287,17 +287,8 @@ pub(in crate) fn build_verifier_params() -> Result<
     use halo2_proofs::transcript::{Blake2bRead, Blake2bWrite};
     use pairing_bn256::bn256::Fr as Fp;
 
-    let fc = FieldCode::<<G1Affine as CurveAffine>::ScalarExt> {
-        one: <G1Affine as CurveAffine>::ScalarExt::one(),
-        zero: <G1Affine as CurveAffine>::ScalarExt::zero(),
-        generator: <G1Affine as CurveAffine>::ScalarExt::one(),
-    };
-
-    let pc = PointCode::<G1Affine> {
-        one: <G1Affine as CurveAffine>::CurveExt::generator(),
-        zero: <G1Affine as CurveAffine>::CurveExt::identity(),
-        generator: <G1Affine as CurveAffine>::CurveExt::generator(),
-    };
+    let fc = FieldCode::<<G1Affine as CurveAffine>::ScalarExt>::default();
+    let pc = PointCode::<G1Affine>::default();
 
     let u = bn_to_field(&BigUint::from_bytes_be(
         b"2bf0d643e52e5e03edec5e060a6e2d57014425cbf7344f2846771ef22efffdfc",
