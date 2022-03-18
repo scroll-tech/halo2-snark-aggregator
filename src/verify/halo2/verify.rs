@@ -201,12 +201,12 @@ impl<
             &self.xn,
             &self.omega,
             self.common.n,
-            self.common.l,
+            self.common.l as i32,
         )?;
-        let l_0 = &(ls[0]);
-        let l_last = &ls[self.common.l as usize - 1];
+        let l_last = &(ls[0]);
+        let l_0 = &ls[self.common.l as usize];
         let l_blind =
-            &sgate.add_array(ctx, ls[1..(self.common.l as usize - 1)].iter().collect())?;
+            &sgate.add_array(ctx, ls[1..(self.common.l as usize)].iter().collect())?;
 
         let pcommon = permutation::CommonEvaluated {
             permutation_evals: &self.permutation_evals,

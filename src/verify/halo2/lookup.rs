@@ -34,7 +34,7 @@ pub struct Evaluated<C, S, P, Error> {
     pub(in crate::verify::halo2) _m: PhantomData<(C, Error)>,
 }
 
-impl<'a, C, S: Clone, P: Clone, Error: Debug> Evaluated<C, S, P, Error> {
+impl<'a, C, S: Clone + Debug, P: Clone, Error: Debug> Evaluated<C, S, P, Error> {
     pub(in crate::verify::halo2) fn expressions<T: FieldExt>(
         &'a self,
         sgate: &(impl ContextGroup<C, S, S, T, Error> + ContextRing<C, S, S, Error>),

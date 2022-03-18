@@ -38,7 +38,7 @@ impl<C, S, G: Clone, Error, T: ContextRing<C, S, G, Error>> PowConstant<C, S, G,
         second_bit >>= 2;
         while second_bit > 0 {
             acc = self.square(ctx, &acc)?;
-            if exponent & second_bit == 1 {
+            if exponent & second_bit != 0 {
                 acc = self.mul(ctx, &acc, base)?;
             }
             second_bit >>= 1;

@@ -29,7 +29,7 @@ pub trait VerifySetupHelper<'a, C, S, T, Error: Debug> {
         xi_n: &S,
         w: &S,
         n: u32,
-        l: u32,
+        l: i32,
     ) -> Result<Vec<S>, Error>;
     fn commit_instance(&self, ctx: &mut C, wits: Vec<S>, ls: Vec<S>) -> Result<S, Error>;
     fn mult_and_add(
@@ -43,7 +43,7 @@ pub trait VerifySetupHelper<'a, C, S, T, Error: Debug> {
 impl<
         'a,
         C,
-        S: Clone,
+        S: Clone + Debug,
         T: FieldExt,
         Error: Debug,
         SGate: ContextGroup<C, S, S, T, Error> + ContextRing<C, S, S, Error>,
@@ -56,17 +56,20 @@ impl<
         xi_n: &S,
         w: &S,
         n: u32,
-        l: u32,
+        l: i32,
     ) -> Result<Vec<S>, Error> {
         let n = &self.from_constant(ctx, T::from(n as u64))?;
         let _one = self.one(ctx)?;
         let one = &_one;
-        let ws = self.pow_constant_vec(ctx, w, l)?;
+        let mut ws = vec![one.clone()];
+        for i in 1..=l {
+            ws.push(self.pow_constant(ctx, w, i as u32)?);
+        }
         let mut pi_vec = vec![];
-        for i in 0..l {
-            let wi = &ws[i as usize];
+        for i  in (-l)..=0 {
+            let wi = &ws[-i as usize];
             // li_xi = (w ^ i) * (xi ^ n - 1) / (n * (xi - w ^ i))
-            let li_xi = arith_in_ctx!([self, ctx] wi * (xi_n - one) / (n * (xi - wi))).unwrap();
+            let li_xi = arith_in_ctx!([self, ctx] (one / wi) * (xi_n - one) / (n * (xi - one / wi))).unwrap();
             pi_vec.push(li_xi);
         }
         Ok(pi_vec)
