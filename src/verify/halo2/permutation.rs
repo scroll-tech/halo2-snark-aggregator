@@ -1,4 +1,4 @@
-use crate::arith::api::{ContextGroup, ContextRing};
+use crate::arith::api::{ContextGroup, ContextRing, PowConstant};
 use crate::schema::EvaluationQuery;
 
 use crate::{arith_in_ctx, infix2postfix};
@@ -48,7 +48,7 @@ impl<'a, S: Clone, P: Clone> CommonEvaluated<'a, S, P> {
     }
 }
 
-impl<'a, C, S: Clone, P: Clone, Error: Debug> Evaluated<C, S, P, Error> {
+impl<'a, C, S: Clone + Debug, P: Clone, Error: Debug> Evaluated<C, S, P, Error> {
     pub(in crate::verify::halo2) fn expressions<T>(
         &'a self,
         sgate: &'a (impl ContextGroup<C, S, S, T, Error> + ContextRing<C, S, S, Error>),
@@ -98,16 +98,27 @@ impl<'a, C, S: Clone, P: Clone, Error: Debug> Evaluated<C, S, P, Error> {
             // )
             .chain({
                 let mut v = vec![];
-                for ((set, evals), permutation_evals) in self
+                for (chunk_index, ((set, evals), permutation_evals)) in self
                     .sets
                     .iter()
                     .zip(self.evals.chunks(self.chunk_len))
                     .zip(common.permutation_evals.chunks(self.chunk_len))
+                    .enumerate()
                 {
                     let one = &sgate.one(ctx).unwrap();
                     let mut left = set.permutation_product_next_eval.clone();
                     let mut right = set.permutation_product_eval.clone();
-                    let mut d = arith_in_ctx!([sgate, ctx] beta * x * delta).unwrap();
+
+                    let delta_pow = if chunk_index == 0 {
+                        one.clone()
+                    } else {
+                        sgate
+                            .pow_constant(ctx, delta, (chunk_index * self.chunk_len) as u32)
+                            .unwrap()
+                    };
+                    let delta_pow = &delta_pow;
+                    let mut d = arith_in_ctx!([sgate, ctx] beta * x * delta_pow).unwrap();
+
                     for (eval, permutation_eval) in evals.iter().zip(permutation_evals) {
                         let delta_current = &d;
                         let l_current = &left;
@@ -117,7 +128,8 @@ impl<'a, C, S: Clone, P: Clone, Error: Debug> Evaluated<C, S, P, Error> {
                         )
                         .unwrap();
                         right =
-                            arith_in_ctx!([sgate, ctx](eval + delta + gamma) * r_current).unwrap();
+                            arith_in_ctx!([sgate, ctx](eval + delta_current + gamma) * r_current)
+                                .unwrap();
                         d = arith_in_ctx!([sgate, ctx] delta * delta_current).unwrap();
                     }
                     let (l, r) = (&left, &right);
@@ -163,9 +175,13 @@ impl<'a, C, S: Clone, P: Clone, Error: Debug> Evaluated<C, S, P, Error> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use crate::schema::ast::ArrayOpAdd;
     use crate::{
+        arith::code::FieldCode,
         schema::{
             ast::{CommitQuery, SchemaItem},
+            utils::VerifySetupHelper,
             EvaluationQuery,
         },
         verify::{halo2::tests::mul_circuit_builder::*, plonk::bn_to_field},
@@ -574,5 +590,106 @@ mod tests {
                 assert_eq!(query, *expected);
             }
         }
+    }
+
+    #[test]
+    fn test_permutation_expressions() {
+        let param = build_verifier_params().unwrap();
+        let sgate = FieldCode::<Fr>::default();
+
+        let mut result = vec![];
+        let mut ctx = ();
+        let ls = sgate
+            .get_lagrange_commits(
+                &mut ctx,
+                &param.x,
+                &param.xn,
+                &param.omega,
+                param.common.n,
+                param.common.l as i32,
+            )
+            .unwrap();
+        let l_last = &(ls[0]);
+        let l_0 = &ls[param.common.l as usize];
+        let l_blind = &sgate
+            .add_array(&mut ctx, ls[1..(param.common.l as usize)].iter().collect())
+            .unwrap();
+        let pcommon = CommonEvaluated {
+            permutation_evals: &param.permutation_evals,
+            permutation_commitments: &param.permutation_commitments,
+        };
+
+        let expected = vec![
+            bn_to_field(
+                &BigUint::parse_bytes(
+                    b"232c781b8a3c8ef63a989c0ec9fdfaa7734ab4f6821e7ef349fbdf3b73e876f2",
+                    16,
+                )
+                .unwrap(),
+            ),
+            bn_to_field(
+                &BigUint::parse_bytes(
+                    b"104893a179bad7d055ae14568eed1290000a737ad9499978d77a27ca933529b7",
+                    16,
+                )
+                .unwrap(),
+            ),
+            bn_to_field(
+                &BigUint::parse_bytes(
+                    b"145668dd152b253bd803cb6a0b938f6a8d8e8dbab1293eb0a9918d98642c96af",
+                    16,
+                )
+                .unwrap(),
+            ),
+            bn_to_field(
+                &BigUint::parse_bytes(
+                    b"1c54cb558b475c1d3af73756d40180ef4e54e23c9b541d9b542e28a00fb03f28",
+                    16,
+                )
+                .unwrap(),
+            ),
+            bn_to_field(
+                &BigUint::parse_bytes(
+                    b"168828762a15bef86db4bba10e9baffec033b09ef863bedb5e3b556362b6a386",
+                    16,
+                )
+                .unwrap(),
+            ),
+            bn_to_field(
+                &BigUint::parse_bytes(
+                    b"054db75d2125435a1558e5c9408c32ee59d943fe1338f8d7695ce5903667658c",
+                    16,
+                )
+                .unwrap(),
+            ),
+            bn_to_field(
+                &BigUint::parse_bytes(
+                    b"17a77d738b74306c25640ab1c93abcb91f07a512c6c332e0b3ee237fcbcf0261",
+                    16,
+                )
+                .unwrap(),
+            ),
+        ];
+
+        for k in 0..param.advice_evals.len() {
+            let permutation = &param.permutation_evaluated[k];
+
+            let p = permutation
+                .expressions(
+                    &sgate,
+                    &mut ctx,
+                    &pcommon,
+                    l_0,
+                    l_last,
+                    l_blind,
+                    &param.delta,
+                    &param.beta,
+                    &param.gamma,
+                    &param.x,
+                )
+                .unwrap();
+            result.extend(p);
+        }
+        assert_eq!(result, expected);
     }
 }

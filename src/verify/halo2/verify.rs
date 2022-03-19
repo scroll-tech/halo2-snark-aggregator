@@ -161,7 +161,7 @@ impl<
         C,
         S: Clone + Debug,
         T: FieldExt,
-        P: Clone,
+        P: Clone + Debug,
         Error: Debug,
         SGate: ContextGroup<C, S, S, T, Error> + ContextRing<C, S, S, Error>,
     > IVerifierParams<'a, C, S, T, P, Error, SGate> for VerifierParams<C, S, P, Error>
@@ -908,7 +908,8 @@ impl<'a, CTX, S: Clone + Debug, P: Clone, Error: Debug> VerifierParams<CTX, S, P
 mod tests {
     use super::*;
     use crate::{
-        arith::code::FieldCode,
+        arith::code::{FieldCode, PointCode},
+        schema::ast::EvaluationAST,
         verify::{halo2::tests::mul_circuit_builder::build_verifier_params, plonk::bn_to_field},
     };
     use num_bigint::BigUint;
@@ -1011,6 +1012,7 @@ mod tests {
         let param = build_verifier_params().unwrap();
 
         let sgate = &FieldCode::<<G1Affine as CurveAffine>::ScalarExt>::default();
+        let pgate = &PointCode::<G1Affine>::default();
         let mut ctx = &mut ();
         let queries = param.queries(sgate, &mut ctx).unwrap();
 
@@ -1636,6 +1638,35 @@ mod tests {
         assert_eq!(queries[0..expected.len()], expected);
         assert_eq!(expected.len(), 16);
 
+        // TODO
+        assert_eq!(
+            queries[16].point,
+            bn_to_field(
+                &BigUint::parse_bytes(
+                    b"0c4490cdcf6545e3e7b951799adab8efd7e0812cf59bb1fde0cb826e5b51448b",
+                    16,
+                )
+                .unwrap(),
+            )
+        );
+        let eval: Fr = bn_to_field(
+            &BigUint::parse_bytes(
+                b"004adf66a7569a52eba357b0d23b4082dbd5ad73eb086697f392fe43373c5e51",
+                16,
+            )
+            .unwrap(),
+        );
+
+        /*
+        assert_eq!(
+            queries[16].s,
+            SchemaItem::Add(vec![
+                SchemaItem::Add(vec![SchemaItem::Mul(()), SchemaItem::Commit(())]),
+                SchemaItem::Scalar(eval)
+            ])
+        );
+        */
+
         /*
              let _ =  EvaluationQuery {
                         point: 0x0c4490cdcf6545e3e7b951799adab8efd7e0812cf59bb1fde0cb826e5b51448b,
@@ -1657,7 +1688,8 @@ mod tests {
 
         // 16 h_commitment
         //assert_eq!(queries[16], EvaluationQuery::new_from_query(param.x, s));
-        println!("{:?}", queries[16]);
+        let mut ctx = &mut ();
+        let s = queries[16].s.eval(sgate, pgate, &mut ctx);
 
         // 17 random poly commitment
         assert_eq!(
