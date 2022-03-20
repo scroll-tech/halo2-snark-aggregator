@@ -1638,7 +1638,7 @@ mod tests {
         assert_eq!(queries[0..expected.len()], expected);
         assert_eq!(expected.len(), 16);
 
-        // TODO
+        // 16. h_commitment
         assert_eq!(
             queries[16].point,
             bn_to_field(
@@ -1649,47 +1649,85 @@ mod tests {
                 .unwrap(),
             )
         );
-        let eval: Fr = bn_to_field(
+
+        assert_eq!(
+            param.xn,
+            bn_to_field(
+                &BigUint::parse_bytes(
+                    b"0918f0797719cd0667a1689f6fd167dbfa8ddd0ac5218125c08598dadef28e70",
+                    16,
+                )
+                .unwrap()
+            )
+        );
+
+        let commit1 = G1 {
+            x: bn_to_field(
+                &BigUint::parse_bytes(
+                    b"28439b92a108997ab7632589265b0e005fd876840a88187a79f105f99e7c6f9f",
+                    16,
+                )
+                .unwrap(),
+            ),
+            y: bn_to_field(
+                &BigUint::parse_bytes(
+                    b"03fdb5b8017cd021c74919f74e96c80e2feaf7d3ac924be8ded13f48a6cdf7ce",
+                    16,
+                )
+                .unwrap(),
+            ),
+            z: bn_to_field(
+                &BigUint::parse_bytes(
+                    b"0000000000000000000000000000000000000000000000000000000000000001",
+                    16,
+                )
+                .unwrap(),
+            ),
+        };
+
+        let commit2 = G1 {
+            x: bn_to_field(
+                &BigUint::parse_bytes(
+                    b"02d5e533c8deadecddb48c01293e0e5255c6fc73262c8e325bc5a37ce5e48a6d",
+                    16,
+                )
+                .unwrap(),
+            ),
+            y: bn_to_field(
+                &BigUint::parse_bytes(
+                    b"1c169690ffe762cfe60fb2789dd81c9958e8acfa78db3afa85e9cfa035e202d1",
+                    16,
+                )
+                .unwrap(),
+            ),
+            z: bn_to_field(
+                &BigUint::parse_bytes(
+                    b"0000000000000000000000000000000000000000000000000000000000000001",
+                    16,
+                )
+                .unwrap(),
+            ),
+        };
+        let expected_h_eval = bn_to_field(
             &BigUint::parse_bytes(
                 b"004adf66a7569a52eba357b0d23b4082dbd5ad73eb086697f392fe43373c5e51",
                 16,
             )
             .unwrap(),
         );
-
-        /*
         assert_eq!(
             queries[16].s,
-            SchemaItem::Add(vec![
-                SchemaItem::Add(vec![SchemaItem::Mul(()), SchemaItem::Commit(())]),
-                SchemaItem::Scalar(eval)
-            ])
+            (SchemaItem::Scalar(param.xn)
+                * SchemaItem::Commit(CommitQuery {
+                    c: Some(&commit1),
+                    v: None
+                })
+                + SchemaItem::Commit(CommitQuery {
+                    c: Some(&commit2),
+                    v: None
+                }))
+                + SchemaItem::Scalar(expected_h_eval)
         );
-        */
-
-        /*
-             let _ =  EvaluationQuery {
-                        point: 0x0c4490cdcf6545e3e7b951799adab8efd7e0812cf59bb1fde0cb826e5b51448b,
-                        s: Add(
-                            [
-                                Mul([Scalar(0x0918f0797719cd0667a1689f6fd167dbfa8ddd0ac5218125c08598dadef28e70),
-                                        Add([Mul([Scalar(0x0918f0797719cd0667a1689f6fd167dbfa8ddd0ac5218125c08598dadef28e70),
-                                        Scalar(0x0000000000000000000000000000000000000000000000000000000000000000)]),
-                                        Commit(CommitQuery { c: Some(G1 { x: 0x28439b92a108997ab7632589265b0e005fd876840a88187a79f105f99e7c6f9f,
-                                            y: 0x03fdb5b8017cd021c74919f74e96c80e2feaf7d3ac924be8ded13f48a6cdf7ce,
-                                            z: 0x0000000000000000000000000000000000000000000000000000000000000001 }),
-                                    v: None })])]),
-                                Commit(CommitQuery { c: Some(G1 { x: 0x02d5e533c8deadecddb48c01293e0e5255c6fc73262c8e325bc5a37ce5e48a6d,
-                                                y: 0x1c169690ffe762cfe60fb2789dd81c9958e8acfa78db3afa85e9cfa035e202d1,
-                                                z: 0x0000000000000000000000000000000000000000000000000000000000000001 }),
-                                                v: None }),
-                                                Scalar(0x1ed5779d3f2ba0c9c6a627082e759ce400ce8022211b3e2113ec9a037eb64836)]) };
-        */
-
-        // 16 h_commitment
-        //assert_eq!(queries[16], EvaluationQuery::new_from_query(param.x, s));
-        let mut ctx = &mut ();
-        let s = queries[16].s.eval(sgate, pgate, &mut ctx);
 
         // 17 random poly commitment
         assert_eq!(
