@@ -37,17 +37,17 @@ impl<'a, C, S: Clone + Debug, P: Clone + Debug, Error: Debug> Evaluated<'a, C, S
         let expected_h_eval = &sgate.mult_and_add(ctx, expressions.iter(), y);
         let expected_h_eval = arith_in_ctx!([sgate, ctx] expected_h_eval / (xn - one)).unwrap();
 
-        let h_commitment =
-            expect_commitments
-                .iter()
-                .rev()
-                .fold(scalar!(zero), |acc, commitment| {
-                    let c = CommitQuery {
-                        c: Some(commitment.clone()),
-                        v: None,
-                    };
-                    scalar!(xn) * acc + commit!(c)
-                });
+        let h_commitment: SchemaItem<S, P> = expect_commitments
+            .iter()
+            .rev()
+            .map(|c| {
+                commit!(CommitQuery {
+                    c: Some(c.clone()),
+                    v: None,
+                })
+            })
+            .reduce(|acc, commitment| scalar!(xn) * acc + commitment)
+            .unwrap();
         Evaluated {
             h_commitment,
             expected_h_eval,
