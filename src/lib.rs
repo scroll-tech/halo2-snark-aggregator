@@ -5,7 +5,7 @@ mod circuits;
 mod field;
 mod gates;
 
-mod arith;
+pub mod arith;
 mod schema;
 pub mod verify;
 
