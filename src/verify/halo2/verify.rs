@@ -138,7 +138,7 @@ pub struct VerifierParams<C, S: Clone, P: Clone, Error: Debug> {
     pub _error: PhantomData<Error>,
 }
 
-pub(crate) trait IVerifierParams<
+pub trait IVerifierParams<
     'a,
     C,
     S: Clone,
