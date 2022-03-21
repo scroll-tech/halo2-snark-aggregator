@@ -179,7 +179,7 @@ dependencies = [
 [[package]]
 name = "halo2_proofs"
 version = "0.1.0-beta.1"
-source = "git+https://github.com/hzmozart/halo2-1#4934cc6a83fe4229a54e6705e9e86641d226be6d"
+source = "git+ssh://git@github.com/junyu0312/halo2.git?branch=export_symbol#b5dbdc634cfc8460aa5905d0f58a878f743f7b0c"
 dependencies = [
  "blake2b_simd",
  "bumpalo",
@@ -189,7 +189,6 @@ dependencies = [
  "pairing_bn256",
  "rand",
  "rand_core",
- "rand_pcg",
  "rayon",
  "subtle",
 ]

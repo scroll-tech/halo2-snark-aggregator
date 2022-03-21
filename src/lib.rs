@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 #![feature(trait_alias)]
+#![feature(const_generics_defaults)]
 mod circuits;
 mod field;
 mod gates;
