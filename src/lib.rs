@@ -6,7 +6,7 @@ mod gates;
 
 mod arith;
 mod schema;
-mod verify;
+pub mod verify;
 
 #[cfg(test)]
 mod tests;
