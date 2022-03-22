@@ -76,7 +76,7 @@ impl<'a, C, S: Clone + Debug, P: Clone, Error: Debug> Evaluated<C, S, P, Error> 
         let input_eval = &sgate.mult_and_add(ctx, input_evals.iter(), theta);
 
         let table_evals: Vec<S> = self
-            .input_expressions
+            .table_expressions
             .iter()
             .map(|expression| {
                 expression.ctx_evaluate(
@@ -89,7 +89,6 @@ impl<'a, C, S: Clone + Debug, P: Clone, Error: Debug> Evaluated<C, S, P, Error> 
             })
             .collect();
         let table_eval = &sgate.mult_and_add(ctx, table_evals.iter(), theta);
-
         Ok(iter::empty()
             .chain(
                 // l_0(X) * (1 - z'(X)) = 0
@@ -164,12 +163,103 @@ impl<'a, C, S: Clone + Debug, P: Clone, Error: Debug> Evaluated<C, S, P, Error> 
 #[cfg(test)]
 mod tests {
     use num_bigint::BigUint;
-    use pairing_bn256::bn256::{Fr, G1};
+    use pairing_bn256::bn256::{Fr, G1Affine, G1};
 
     use crate::{
-        schema::EvaluationQuery,
+        arith::code::{FieldCode, PointCode},
+        schema::{ast::ArrayOpAdd, utils::VerifySetupHelper, EvaluationQuery},
         verify::{halo2::tests::lookup_circuit_builder::build_verifier_params, plonk::bn_to_field},
     };
+
+    #[test]
+    fn test_lookup_experssions() {
+        let params = build_verifier_params().unwrap();
+        let sgate = FieldCode::<Fr>::default();
+        let pgate = PointCode::<G1Affine>::default();
+        let mut ctx = &mut ();
+
+        let ls = sgate
+            .get_lagrange_commits(
+                ctx,
+                &params.x,
+                &params.xn,
+                &params.omega,
+                params.common.n,
+                params.common.l as i32,
+            )
+            .unwrap();
+        let l_last = &(ls[0]);
+        let l_0 = &ls[params.common.l as usize];
+        let l_blind = &sgate
+            .add_array(ctx, ls[1..(params.common.l as usize)].iter().collect())
+            .unwrap();
+
+        let expected = vec![
+            bn_to_field(
+                &BigUint::parse_bytes(
+                    b"2454c2aefc00ba497d26e0d4886dcee1c9b091de2217c7efadc8a16138669113",
+                    16,
+                )
+                .unwrap(),
+            ),
+            bn_to_field(
+                &BigUint::parse_bytes(
+                    b"0f6626a8ef4cf7403db6b42f3a2a2cc7fc9e8fe07d5cfeee8395f05e9e4841f7",
+                    16,
+                )
+                .unwrap(),
+            ),
+            bn_to_field(
+                &BigUint::parse_bytes(
+                    b"27c51617bae7b3fbdabfb18801b95e25791006bef164e09e53db440c33df7174",
+                    16,
+                )
+                .unwrap(),
+            ),
+            bn_to_field(
+                &BigUint::parse_bytes(
+                    b"1c83850b4cc107113b24b6d0333c4051ceff8184521923bb482db1e1e73441b5",
+                    16,
+                )
+                .unwrap(),
+            ),
+            bn_to_field(
+                &BigUint::parse_bytes(
+                    b"0d8c8750ddf43663d6c9ee7c6cf036facd01517a854aff136c115e3b35344572",
+                    16,
+                )
+                .unwrap(),
+            ),
+        ];
+        let mut expected = expected.iter();
+
+        for k in 0..params.advice_evals.len() {
+            let advice_evals = &params.advice_evals[k];
+            let instance_evals = &params.instance_evals[k];
+            let lookups = &params.lookup_evaluated[k];
+
+            for i in 0..lookups.len() {
+                let l = lookups[i]
+                    .expressions(
+                        &sgate,
+                        &mut ctx,
+                        &params.fixed_evals.iter().map(|ele| ele).collect(),
+                        &instance_evals.iter().map(|ele| ele).collect(),
+                        &advice_evals.iter().map(|ele| ele).collect(),
+                        l_0,
+                        l_last,
+                        l_blind,
+                        //argument,
+                        &params.theta,
+                        &params.beta,
+                        &params.gamma,
+                    )
+                    .unwrap();
+
+                l.for_each(|e| assert_eq!(Some(&e), expected.next()));
+            }
+        }
+    }
 
     #[test]
     fn test_lookup_evaluated() {
