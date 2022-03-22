@@ -1,9 +1,9 @@
 #![allow(dead_code)]
 #![feature(trait_alias)]
 #![feature(const_generics_defaults)]
-mod circuits;
+pub mod circuits;
 mod field;
-mod gates;
+pub mod gates;
 
 pub mod arith;
 mod schema;

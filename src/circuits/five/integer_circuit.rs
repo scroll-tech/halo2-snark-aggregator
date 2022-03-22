@@ -14,7 +14,7 @@ use num_integer::Integer;
 
 const LIMBS: usize = 4usize;
 const LIMB_COMMON_WIDTH_OF_COMMON_RANGE: usize = 4usize;
-const COMMON_RANGE_BITS: usize = 17usize;
+pub const COMMON_RANGE_BITS: usize = 17usize;
 const LIMB_COMMON_WIDTH: usize = LIMB_COMMON_WIDTH_OF_COMMON_RANGE * COMMON_RANGE_BITS; // 68
 
 const OVERFLOW_LIMIT_SHIFT: usize = 6usize;
