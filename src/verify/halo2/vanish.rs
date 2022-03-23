@@ -3,7 +3,7 @@ use halo2_proofs::arithmetic::FieldExt;
 use crate::arith::api::{ContextGroup, ContextRing};
 use crate::schema::EvaluationQuery;
 
-use crate::schema::ast::{CommitQuery, EvaluationAST, SchemaItem};
+use crate::schema::ast::{CommitQuery, SchemaItem};
 
 use crate::schema::utils::VerifySetupHelper;
 
@@ -33,7 +33,6 @@ impl<'a, C, S: Clone + Debug, P: Clone + Debug, Error: Debug> Evaluated<'a, C, S
         expect_commitments: Vec<&'a P>,
     ) -> Evaluated<'a, C, S, P, Error> {
         let one = &sgate.one(ctx).unwrap();
-        let zero = &sgate.zero(ctx).unwrap();
         let expected_h_eval = &sgate.mult_and_add(ctx, expressions.iter(), y);
         let expected_h_eval = arith_in_ctx!([sgate, ctx] expected_h_eval / (xn - one)).unwrap();
 

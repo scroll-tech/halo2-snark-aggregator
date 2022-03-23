@@ -163,10 +163,10 @@ impl<'a, C, S: Clone + Debug, P: Clone, Error: Debug> Evaluated<C, S, P, Error> 
 #[cfg(test)]
 mod tests {
     use num_bigint::BigUint;
-    use pairing_bn256::bn256::{Fr, G1Affine, G1};
+    use pairing_bn256::bn256::{Fr, G1};
 
     use crate::{
-        arith::code::{FieldCode, PointCode},
+        arith::code::FieldCode,
         schema::{ast::ArrayOpAdd, utils::VerifySetupHelper, EvaluationQuery},
         verify::{halo2::tests::lookup_circuit_builder::build_verifier_params, plonk::bn_to_field},
     };
@@ -175,7 +175,6 @@ mod tests {
     fn test_lookup_experssions() {
         let params = build_verifier_params().unwrap();
         let sgate = FieldCode::<Fr>::default();
-        let pgate = PointCode::<G1Affine>::default();
         let mut ctx = &mut ();
 
         let ls = sgate

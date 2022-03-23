@@ -123,7 +123,7 @@ impl<F: FieldExt> ContextGroup<(), F, F, F, ()> for FieldCode<F> {
         Ok(v.clone())
     }
 
-    fn from_var(&self, ctx: &mut (), c: F) -> Result<F, ()> {
+    fn from_var(&self, _ctx: &mut (), c: F) -> Result<F, ()> {
         Ok(c)
     }
 }

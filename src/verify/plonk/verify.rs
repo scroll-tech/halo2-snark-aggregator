@@ -287,7 +287,7 @@ impl<
         &self,
         ctx: &mut C,
         sgate: &SGate,
-        pgate: &PGate,
+        _pgate: &PGate,
     ) -> Result<Vec<EvaluationProof<'a, S, P>>, Error> {
         let proof_xi = self.get_proof_xi(ctx, sgate)?;
         let proof_wxi = self.get_proof_wxi(ctx, sgate)?;

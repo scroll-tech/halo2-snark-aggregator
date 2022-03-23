@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use crate::arith::code::{FieldCode, PointCode};
 use crate::field::bn_to_field;
 use halo2_proofs::arithmetic::{CurveAffine, FieldExt};
-use halo2_proofs::circuit::{AssignedCell, Chip, Layouter, Region, SimpleFloorPlanner};
+use halo2_proofs::circuit::{Layouter, SimpleFloorPlanner};
 
 use crate::verify::halo2::verify::VerifierParams;
 use halo2_proofs::plonk::{
@@ -99,7 +99,6 @@ pub(in crate) fn build_verifier_params() -> Result<
     >,
     halo2_proofs::plonk::Error,
 > {
-    use group::Group;
     use halo2_proofs::poly::commitment::Params;
     use halo2_proofs::transcript::{Blake2bRead, Blake2bWrite};
     use pairing_bn256::bn256::Fr as Fp;

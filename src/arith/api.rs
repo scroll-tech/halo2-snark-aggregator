@@ -188,7 +188,7 @@ mod test_marco {
             Ok(v.t)
         }
 
-        fn from_var(&self, ctx: &mut (), c: i32) -> Result<W, ()> {
+        fn from_var(&self, _ctx: &mut (), c: i32) -> Result<W, ()> {
             Ok(W { t: c })
         }
     }

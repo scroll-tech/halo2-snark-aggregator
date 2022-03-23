@@ -1,9 +1,8 @@
-use super::permutation::CommonEvaluated;
 use super::{lookup, permutation, vanish};
 use crate::arith::api::{ContextGroup, ContextRing, PowConstant};
 use crate::arith::code::{FieldCode, PointCode};
-use crate::schema::ast::{ArrayOpAdd, CommitQuery, MultiOpenProof, SchemaItem, EvaluationAST};
-use crate::schema::utils::{RingUtils, VerifySetupHelper};
+use crate::schema::ast::{ArrayOpAdd, CommitQuery, EvaluationAST, MultiOpenProof, SchemaItem};
+use crate::schema::utils::VerifySetupHelper;
 use crate::schema::{EvaluationProof, EvaluationQuery, SchemaGenerator};
 use crate::verify::halo2::permutation::Evaluated;
 use crate::verify::halo2::permutation::EvaluatedSet;
@@ -13,8 +12,8 @@ use group::Curve;
 use halo2_proofs::arithmetic::{CurveAffine, Engine, Field, FieldExt, MultiMillerLoop};
 use halo2_proofs::plonk::{Expression, VerifyingKey};
 use halo2_proofs::poly::commitment::ParamsVerifier;
-use halo2_proofs::poly::multiopen::{VerifierQuery, CommitmentReference};
-use halo2_proofs::poly::{MSM, Rotation};
+use halo2_proofs::poly::multiopen::{CommitmentReference, VerifierQuery};
+use halo2_proofs::poly::{Rotation, MSM};
 use halo2_proofs::transcript::ChallengeScalar;
 use halo2_proofs::transcript::{read_n_points, read_n_scalars, EncodedChallenge, TranscriptRead};
 use pairing_bn256::bn256::{Fr as Fp, G1Affine};
@@ -62,7 +61,7 @@ impl<
     ) -> S {
         match self {
             Expression::Constant(scalar) => scalar.clone(),
-            Expression::Selector(selector) => {
+            Expression::Selector(_selector) => {
                 panic!("virtual selectors are removed during optimization")
             }
             Expression::Fixed {
@@ -361,9 +360,9 @@ impl<
 {
     fn get_point_schemas(
         &self,
-        ctx: &mut C,
-        sgate: &SGate,
-        pgate: &PGate,
+        _ctx: &mut C,
+        _sgate: &SGate,
+        _pgate: &PGate,
     ) -> Result<Vec<EvaluationProof<'a, S, P>>, Error> {
         unimplemented!("get point schemas not implemented")
     }
@@ -928,11 +927,15 @@ pub fn sanity_check_fn(
         .zip(expected_queries.iter())
         .for_each(|(q, e)| {
             assert_eq!(q.point, e.point);
-            let (commit,eval) = q.s.eval(&sgate, &pgate, &mut ()).unwrap();
+            let (commit, eval) = q.s.eval(&sgate, &pgate, &mut ()).unwrap();
             let mut msm = MSM::new();
             match e.commitment {
-                CommitmentReference::Commitment(c) => {msm.append_term(<G1Affine as CurveAffine>::ScalarExt::one(), *c);}
-                CommitmentReference::MSM(m) => {msm.add_msm(m);}
+                CommitmentReference::Commitment(c) => {
+                    msm.append_term(<G1Affine as CurveAffine>::ScalarExt::one(), *c);
+                }
+                CommitmentReference::MSM(m) => {
+                    msm.add_msm(m);
+                }
             };
             let expected_commitment = msm.eval();
             assert_eq!(eval.unwrap(), e.eval);
@@ -945,7 +948,7 @@ pub fn sanity_check_fn(
 mod tests {
     use super::*;
     use crate::{
-        arith::code::{FieldCode, PointCode},
+        arith::code::FieldCode,
         verify::{halo2::tests::mul_circuit_builder::build_verifier_params, plonk::bn_to_field},
     };
     use num_bigint::BigUint;
@@ -1048,7 +1051,6 @@ mod tests {
         let param = build_verifier_params().unwrap();
 
         let sgate = &FieldCode::<<G1Affine as CurveAffine>::ScalarExt>::default();
-        let pgate = &PointCode::<G1Affine>::default();
         let mut ctx = &mut ();
         let queries = param.queries(sgate, &mut ctx).unwrap();
 

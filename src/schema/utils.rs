@@ -80,7 +80,7 @@ impl<
         let r1 = &wits[0];
         let r2 = &ls[0];
         let mut r = arith_in_ctx!([self, ctx] r1 * r2)?;
-        wits.iter().zip(ls.iter()).skip(1).map(|(x, y)| {
+        wits.iter().zip(ls.iter()).skip(1).for_each(|(x, y)| {
             let prev = &r;
             r = arith_in_ctx!([self, ctx] prev + (x * y)).unwrap();
         });

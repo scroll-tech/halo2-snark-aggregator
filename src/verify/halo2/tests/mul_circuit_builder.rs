@@ -14,7 +14,7 @@ use num_bigint::BigUint;
 use rand::SeedableRng;
 use rand_pcg::Pcg32;
 // use halo2_proofs::poly::commitment::{Guard, MSM};
-use crate::verify::halo2::verify::{IVerifierParams, VerifierParams};
+use crate::verify::halo2::verify::VerifierParams;
 use halo2_proofs::poly::Rotation;
 use halo2_proofs::transcript::Challenge255;
 use pairing_bn256::bn256::Fr as Fp;
