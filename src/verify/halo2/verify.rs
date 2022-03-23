@@ -13,8 +13,8 @@ use group::Curve;
 use halo2_proofs::arithmetic::{CurveAffine, Engine, Field, FieldExt, MultiMillerLoop};
 use halo2_proofs::plonk::{Expression, VerifyingKey};
 use halo2_proofs::poly::commitment::ParamsVerifier;
-use halo2_proofs::poly::multiopen::VerifierQuery;
-use halo2_proofs::poly::Rotation;
+use halo2_proofs::poly::multiopen::{VerifierQuery, CommitmentReference};
+use halo2_proofs::poly::{MSM, Rotation};
 use halo2_proofs::transcript::ChallengeScalar;
 use halo2_proofs::transcript::{read_n_points, read_n_scalars, EncodedChallenge, TranscriptRead};
 use pairing_bn256::bn256::{Fr as Fp, G1Affine};
@@ -929,8 +929,14 @@ pub fn sanity_check_fn(
         .for_each(|(q, e)| {
             assert_eq!(q.point, e.point);
             let (commit,eval) = q.s.eval(&sgate, &pgate, &mut ()).unwrap();
-            //assert_eq!(c.unwrap(), e.commitment);
+            let mut msm = MSM::new();
+            match e.commitment {
+                CommitmentReference::Commitment(c) => {msm.append_term(<G1Affine as CurveAffine>::ScalarExt::one(), *c);}
+                CommitmentReference::MSM(m) => {msm.add_msm(m);}
+            };
+            let expected_commitment = msm.eval();
             assert_eq!(eval.unwrap(), e.eval);
+            assert_eq!(commit.unwrap().to_affine(), expected_commitment);
             // TODO: compare q.s with e.commitment and eval
         })
 }
