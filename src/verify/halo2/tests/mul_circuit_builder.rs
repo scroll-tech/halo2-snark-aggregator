@@ -6,17 +6,18 @@ use halo2_proofs::arithmetic::{CurveAffine, FieldExt};
 use halo2_proofs::circuit::{AssignedCell, Chip, Layouter, Region, SimpleFloorPlanner};
 
 use halo2_proofs::plonk::{
-    create_proof, keygen_pk, keygen_vk, Advice, Circuit, Column, ConstraintSystem, Error, Instance,
-    Selector,
+    create_proof, keygen_pk, keygen_vk, verify_proof_check, Advice, Circuit, Column,
+    ConstraintSystem, Error, Instance, Selector, SingleVerifier,
 };
 use halo2_proofs::poly::commitment::ParamsVerifier;
 use num_bigint::BigUint;
 use rand::SeedableRng;
 use rand_pcg::Pcg32;
 // use halo2_proofs::poly::commitment::{Guard, MSM};
-use crate::verify::halo2::verify::VerifierParams;
+use crate::verify::halo2::verify::{IVerifierParams, VerifierParams};
 use halo2_proofs::poly::Rotation;
 use halo2_proofs::transcript::Challenge255;
+use pairing_bn256::bn256::Fr as Fp;
 use pairing_bn256::bn256::{Bn256, G1Affine};
 
 #[derive(Clone, Debug)]
@@ -282,10 +283,10 @@ pub(in crate) fn build_verifier_params() -> Result<
     >,
     halo2_proofs::plonk::Error,
 > {
-    use group::Group;
+    use crate::verify::halo2::verify::sanity_check_fn;
+
     use halo2_proofs::poly::commitment::Params;
     use halo2_proofs::transcript::{Blake2bRead, Blake2bWrite};
-    use pairing_bn256::bn256::Fr as Fp;
 
     let fc = FieldCode::<<G1Affine as CurveAffine>::ScalarExt>::default();
     let pc = PointCode::<G1Affine>::default();
@@ -313,14 +314,6 @@ pub(in crate) fn build_verifier_params() -> Result<
 
     let instance = Fp::one();
 
-    /*
-    let prover = match MockProver::run(K, &circuit, vec![vec![instance.clone()]]) {
-        Ok(prover) => prover,
-        Err(e) => panic!("{:?}", e),
-    };
-    assert_eq!(prover.verify(), Ok(()));
-    */
-
     create_proof(
         &params,
         &pk,
@@ -333,19 +326,33 @@ pub(in crate) fn build_verifier_params() -> Result<
 
     let proof = transcript.finalize();
 
+    let instances: &[&[&[Fp]]] = &[&[&[instance]]];
     let mut transcript = Blake2bRead::<_, G1Affine, Challenge255<G1Affine>>::init(&proof[..]);
 
-    Ok(VerifierParams::from_transcript::<Bn256, _, _, _, _>(
+    let params = VerifierParams::from_transcript::<Bn256, _, _, _, _>(
         &fc,
         &pc,
         &mut (),
         u,
         u,
         u,
-        &[&[&[instance]]],
+        instances,
         pk.get_vk(),
         &params_verifier,
         &mut transcript,
     )
-    .unwrap())
+    .unwrap();
+
+    let strategy = SingleVerifier::new(&params_verifier);
+    let mut transcript = Blake2bRead::<_, _, Challenge255<_>>::init(&proof[..]);
+    let _ = verify_proof_check(
+        &params_verifier,
+        pk.get_vk(),
+        strategy,
+        instances,
+        &mut transcript,
+        |queries| sanity_check_fn(&params, queries),
+    );
+
+    Ok(params)
 }

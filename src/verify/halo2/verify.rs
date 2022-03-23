@@ -1,6 +1,7 @@
 use super::permutation::CommonEvaluated;
 use super::{lookup, permutation, vanish};
 use crate::arith::api::{ContextGroup, ContextRing, PowConstant};
+use crate::arith::code::FieldCode;
 use crate::schema::ast::{ArrayOpAdd, CommitQuery, MultiOpenProof, SchemaItem};
 use crate::schema::utils::{RingUtils, VerifySetupHelper};
 use crate::schema::{EvaluationProof, EvaluationQuery, SchemaGenerator};
@@ -12,9 +13,11 @@ use group::Curve;
 use halo2_proofs::arithmetic::{CurveAffine, Engine, Field, FieldExt, MultiMillerLoop};
 use halo2_proofs::plonk::{Expression, VerifyingKey};
 use halo2_proofs::poly::commitment::ParamsVerifier;
+use halo2_proofs::poly::multiopen::VerifierQuery;
 use halo2_proofs::poly::Rotation;
 use halo2_proofs::transcript::ChallengeScalar;
 use halo2_proofs::transcript::{read_n_points, read_n_scalars, EncodedChallenge, TranscriptRead};
+use pairing_bn256::bn256::{Fr as Fp, G1Affine};
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
@@ -904,12 +907,35 @@ impl<'a, CTX, S: Clone + Debug, P: Clone, Error: Debug> VerifierParams<CTX, S, P
     }
 }
 
+pub fn sanity_check_fn(
+    params: &VerifierParams<
+        (),
+        <G1Affine as CurveAffine>::ScalarExt,
+        <G1Affine as CurveAffine>::CurveExt,
+        (),
+    >,
+    expected_queries: Vec<VerifierQuery<G1Affine>>,
+) -> () {
+    let sgate = FieldCode::<Fp>::default();
+    let ctx = &mut ();
+
+    let queries = params.queries(&sgate, ctx).unwrap();
+    assert_eq!(queries.len(), expected_queries.len());
+
+    queries
+        .iter()
+        .zip(expected_queries.iter())
+        .for_each(|(q, e)| {
+            assert_eq!(q.point, e.point);
+            // TODO: compare q.s with e.commitment and eval
+        })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::{
         arith::code::{FieldCode, PointCode},
-        schema::ast::EvaluationAST,
         verify::{halo2::tests::mul_circuit_builder::build_verifier_params, plonk::bn_to_field},
     };
     use num_bigint::BigUint;
