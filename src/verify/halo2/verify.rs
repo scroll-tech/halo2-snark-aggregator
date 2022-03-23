@@ -1,8 +1,8 @@
 use super::permutation::CommonEvaluated;
 use super::{lookup, permutation, vanish};
 use crate::arith::api::{ContextGroup, ContextRing, PowConstant};
-use crate::arith::code::FieldCode;
-use crate::schema::ast::{ArrayOpAdd, CommitQuery, MultiOpenProof, SchemaItem};
+use crate::arith::code::{FieldCode, PointCode};
+use crate::schema::ast::{ArrayOpAdd, CommitQuery, MultiOpenProof, SchemaItem, EvaluationAST};
 use crate::schema::utils::{RingUtils, VerifySetupHelper};
 use crate::schema::{EvaluationProof, EvaluationQuery, SchemaGenerator};
 use crate::verify::halo2::permutation::Evaluated;
@@ -917,6 +917,7 @@ pub fn sanity_check_fn(
     expected_queries: Vec<VerifierQuery<G1Affine>>,
 ) -> () {
     let sgate = FieldCode::<Fp>::default();
+    let pgate = PointCode::<G1Affine>::default();
     let ctx = &mut ();
 
     let queries = params.queries(&sgate, ctx).unwrap();
@@ -927,6 +928,9 @@ pub fn sanity_check_fn(
         .zip(expected_queries.iter())
         .for_each(|(q, e)| {
             assert_eq!(q.point, e.point);
+            let (commit,eval) = q.s.eval(&sgate, &pgate, &mut ()).unwrap();
+            //assert_eq!(c.unwrap(), e.commitment);
+            assert_eq!(eval.unwrap(), e.eval);
             // TODO: compare q.s with e.commitment and eval
         })
 }
