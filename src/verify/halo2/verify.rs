@@ -66,18 +66,18 @@ impl<
             }
             Expression::Fixed {
                 query_index,
-                column_index,
-                rotation,
+                column_index: _,
+                rotation: _,
             } => fixed(*query_index),
             Expression::Advice {
                 query_index,
-                column_index,
-                rotation,
+                column_index: _,
+                rotation: _,
             } => advice(*query_index),
             Expression::Instance {
                 query_index,
-                column_index,
-                rotation,
+                column_index: _,
+                rotation: _,
             } => instance(*query_index),
             Expression::Negated(a) => {
                 let a = &a.ctx_evaluate(sgate, ctx, fixed, advice, instance);
