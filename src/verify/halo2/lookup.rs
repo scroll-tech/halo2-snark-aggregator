@@ -173,7 +173,7 @@ mod tests {
 
     #[test]
     fn test_lookup_experssions() {
-        let params = build_verifier_params().unwrap();
+        let params = build_verifier_params(true).unwrap();
         let sgate = FieldCode::<Fr>::default();
         let mut ctx = &mut ();
 
@@ -262,7 +262,7 @@ mod tests {
 
     #[test]
     fn test_lookup_evaluated() {
-        let params = build_verifier_params().unwrap();
+        let params = build_verifier_params(true).unwrap();
 
         let point = vec![
             bn_to_field(

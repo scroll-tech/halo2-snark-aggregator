@@ -5,9 +5,10 @@ use crate::field::bn_to_field;
 use halo2_proofs::arithmetic::{CurveAffine, FieldExt};
 use halo2_proofs::circuit::{Layouter, SimpleFloorPlanner};
 
-use crate::verify::halo2::verify::VerifierParams;
+use crate::verify::halo2::verify::{sanity_check_fn, VerifierParams};
 use halo2_proofs::plonk::{
-    create_proof, keygen_pk, keygen_vk, Advice, Circuit, Column, ConstraintSystem, Error, Instance,
+    create_proof, keygen_pk, keygen_vk, verify_proof_check, Advice, Circuit, Column,
+    ConstraintSystem, Error, Instance, SingleVerifier,
 };
 use halo2_proofs::poly::commitment::ParamsVerifier;
 use halo2_proofs::poly::Rotation;
@@ -90,7 +91,9 @@ impl<F: FieldExt> Circuit<F> for MyCircuit<F> {
     }
 }
 
-pub(in crate) fn build_verifier_params() -> Result<
+pub(in crate) fn build_verifier_params(
+    sanity_check: bool,
+) -> Result<
     VerifierParams<
         (),
         <G1Affine as CurveAffine>::ScalarExt,
@@ -143,20 +146,38 @@ pub(in crate) fn build_verifier_params() -> Result<
     .expect("proof generation should not fail");
 
     let proof = transcript.finalize();
+    let instances: &[&[&[Fp]]] = &[&[lookup]];
 
     let mut transcript = Blake2bRead::<_, G1Affine, Challenge255<G1Affine>>::init(&proof[..]);
 
-    Ok(VerifierParams::from_transcript::<Bn256, _, _, _, _>(
+    let params = VerifierParams::from_transcript::<Bn256, _, _, _, _>(
         &fc,
         &pc,
         &mut (),
         u,
         u,
         u,
-        &[&[lookup]],
+        instances,
         pk.get_vk(),
         &params_verifier,
         &mut transcript,
     )
-    .unwrap())
+    .unwrap();
+
+    let strategy = SingleVerifier::new(&params_verifier);
+    let mut transcript = Blake2bRead::<_, _, Challenge255<_>>::init(&proof[..]);
+
+    if sanity_check {
+        assert!(verify_proof_check(
+            &params_verifier,
+            pk.get_vk(),
+            strategy,
+            instances,
+            &mut transcript,
+            |queries| sanity_check_fn(&params, queries),
+        )
+        .is_ok());
+    }
+
+    Ok(params)
 }

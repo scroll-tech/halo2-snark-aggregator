@@ -274,7 +274,9 @@ impl<F: FieldExt> Circuit<F> for MyCircuit<F> {
     }
 }
 
-pub(in crate) fn build_verifier_params() -> Result<
+pub(in crate) fn build_verifier_params(
+    sanity_check: bool,
+) -> Result<
     VerifierParams<
         (),
         <G1Affine as CurveAffine>::ScalarExt,
@@ -345,14 +347,18 @@ pub(in crate) fn build_verifier_params() -> Result<
 
     let strategy = SingleVerifier::new(&params_verifier);
     let mut transcript = Blake2bRead::<_, _, Challenge255<_>>::init(&proof[..]);
-    let _ = verify_proof_check(
-        &params_verifier,
-        pk.get_vk(),
-        strategy,
-        instances,
-        &mut transcript,
-        |queries| sanity_check_fn(&params, queries),
-    );
+
+    if sanity_check {
+        assert!(verify_proof_check(
+            &params_verifier,
+            pk.get_vk(),
+            strategy,
+            instances,
+            &mut transcript,
+            |queries| sanity_check_fn(&params, queries),
+        )
+        .is_ok());
+    }
 
     Ok(params)
 }
