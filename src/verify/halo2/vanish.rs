@@ -24,7 +24,7 @@ pub struct Evaluated<'a, C, S: Clone, P: Clone, Error> {
 impl<'a, C, S: Clone + Debug, P: Clone + Debug, Error: Debug> Evaluated<'a, C, S, P, Error> {
     pub(in crate::verify::halo2) fn new<T: FieldExt>(
         sgate: &(impl ContextGroup<C, S, S, T, Error> + ContextRing<C, S, S, Error>),
-        ctx: &'a mut C,
+        ctx: &mut C,
         expressions: Vec<S>,
         y: &'a S,
         xn: &'a S,

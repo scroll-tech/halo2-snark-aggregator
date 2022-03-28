@@ -153,9 +153,9 @@ pub trait IVerifierParams<
     fn rotate_omega(&self, sgate: &'a SGate, ctx: &'a mut C, at: i32) -> Result<S, Error>;
     fn queries(
         &'a self,
-        sgate: &'a SGate,
-        ctx: &'a mut C,
-    ) -> Result<Vec<EvaluationQuery<S, P>>, Error>;
+        sgate: &SGate,
+        ctx: &mut C,
+    ) -> Result<Vec<EvaluationQuery<'a, S, P>>, Error>;
 }
 
 impl<
@@ -193,8 +193,8 @@ impl<
 
     fn queries(
         &'a self,
-        sgate: &'a SGate,
-        ctx: &'a mut C,
+        sgate: &SGate,
+        ctx: &mut C,
     ) -> Result<Vec<EvaluationQuery<'a, S, P>>, Error> {
         let x = &self.x;
         let ls = sgate.get_lagrange_commits(
@@ -349,9 +349,9 @@ impl<
 impl<
         'a,
         C: Clone,
-        S: Field,
-        P: Clone,
-        TS,
+        S: Field + Ord,
+        P: Clone + Debug,
+        TS: FieldExt,
         TP,
         Error: Debug,
         SGate: ContextGroup<C, S, S, TS, Error> + ContextRing<C, S, S, Error>,
@@ -359,16 +359,52 @@ impl<
     > SchemaGenerator<'a, C, S, P, TS, TP, Error, SGate, PGate> for VerifierParams<C, S, P, Error>
 {
     fn get_point_schemas(
-        &self,
-        _ctx: &mut C,
-        _sgate: &SGate,
+        &'a self,
+        ctx: &mut C,
+        sgate: &SGate,
         _pgate: &PGate,
     ) -> Result<Vec<EvaluationProof<'a, S, P>>, Error> {
-        unimplemented!("get point schemas not implemented")
+        let queries = self.queries(sgate, ctx)?;
+
+        let mut points: Vec<(S, Vec<_>)> = vec![];
+        for query in queries.into_iter() {
+            let mut found = None;
+            for point in points.iter_mut() {
+                if point.0 == query.point {
+                    found = Some(&mut point.1);
+                }
+            }
+            match found {
+                Some(v) => v.push(query.s),
+                _ => points.push((query.point, vec![query.s])),
+            }
+        }
+
+        points
+            .into_iter()
+            .map(|p| {
+                let point = p.0;
+                let queries = p.1;
+                let mut acc = None;
+
+                for q in queries.into_iter() {
+                    acc = match acc {
+                        Some(acc) => Some(scalar!(self.v) * acc + q),
+                        _ => Some(q),
+                    }
+                }
+
+                Ok(EvaluationProof {
+                    s: acc.unwrap(),
+                    point,
+                    w: &self.vanish_commitments[0], //TODO: fix this
+                })
+            })
+            .collect()
     }
 
     fn batch_multi_open_proofs(
-        &self,
+        &'a self,
         ctx: &mut C,
         sgate: &SGate,
         pgate: &PGate,

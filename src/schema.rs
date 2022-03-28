@@ -12,7 +12,7 @@ pub struct EvaluationProof<'a, S: Clone, P: Clone> {
     pub w: &'a P,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct EvaluationQuery<'a, S: Clone, P: Clone> {
     pub point: S,
     pub s: SchemaItem<'a, S, P>, // f, e pair
@@ -47,13 +47,13 @@ pub trait SchemaGenerator<
 >
 {
     fn get_point_schemas(
-        &self,
+        &'a self,
         ctx: &mut C,
-        sgate: &SGate,
+        sgate: & SGate,
         pgate: &PGate,
     ) -> Result<Vec<EvaluationProof<'a, S, P>>, E>;
     fn batch_multi_open_proofs(
-        &self,
+        &'a self,
         ctx: &mut C,
         sgate: &SGate,
         pgate: &PGate,

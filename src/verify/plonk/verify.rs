@@ -284,7 +284,7 @@ impl<
     for PlonkVerifierParams<'a, C, S, P, Error>
 {
     fn get_point_schemas(
-        &self,
+        &'a self,
         ctx: &mut C,
         sgate: &SGate,
         _pgate: &PGate,
@@ -295,7 +295,7 @@ impl<
     }
 
     fn batch_multi_open_proofs(
-        &self,
+        &'a self,
         ctx: &mut C,
         sgate: &SGate,
         pgate: &PGate,
