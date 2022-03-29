@@ -49,7 +49,7 @@ pub trait SchemaGenerator<
     fn get_point_schemas(
         &'a self,
         ctx: &mut C,
-        sgate: & SGate,
+        sgate: &SGate,
         pgate: &PGate,
     ) -> Result<Vec<EvaluationProof<'a, S, P>>, E>;
     fn batch_multi_open_proofs(

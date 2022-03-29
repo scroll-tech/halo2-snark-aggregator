@@ -193,7 +193,7 @@ mod tests {
 
     #[test]
     fn test_permutation_pcommon() {
-        let params = build_verifier_params(true).unwrap();
+        let (_, _, _, params) = build_verifier_params(true).unwrap();
 
         let res: Vec<<G1Affine as CurveAffine>::ScalarExt> = vec![
             BigUint::parse_bytes(
@@ -257,7 +257,7 @@ mod tests {
 
     #[test]
     fn test_permutation_expressions() {
-        let param = build_verifier_params(true).unwrap();
+        let (_, _, _, param) = build_verifier_params(true).unwrap();
         let sgate = FieldCode::<Fr>::default();
 
         let mut result = vec![];

@@ -1004,6 +1004,8 @@ mod tests {
         arith::code::FieldCode,
         verify::{halo2::tests::mul_circuit_builder::build_verifier_params, plonk::bn_to_field},
     };
+    use group::Group;
+    use halo2_proofs::arithmetic::MillerLoopResult;
     use num_bigint::BigUint;
     use pairing_bn256::bn256::{Fr, G1Affine, G1};
 
@@ -1011,7 +1013,7 @@ mod tests {
     fn test_ctx_evaluate() {
         let sgate = FieldCode::<Fr>::default();
 
-        let params = build_verifier_params(true).unwrap();
+        let (_, _, _, params) = build_verifier_params(true).unwrap();
 
         params
             .advice_evals
@@ -1046,7 +1048,7 @@ mod tests {
 
     #[test]
     fn test_rotate_omega() {
-        let param = build_verifier_params(true).unwrap();
+        let (_, _, _, param) = build_verifier_params(true).unwrap();
         assert_eq!(
             param.x,
             bn_to_field(
@@ -1102,5 +1104,27 @@ mod tests {
     #[test]
     fn test_verify_queries() {
         let _ = build_verifier_params(true).unwrap();
+    }
+
+    #[test]
+    fn test_multi_open() {
+        use pairing_bn256::bn256::Bn256;
+
+        let (sg, pg, params_verifier, param) = build_verifier_params(false).unwrap();
+
+        let guard = param.batch_multi_open_proofs(&mut (), &sg, &pg).unwrap();
+        let s_g2_prepared = <Bn256 as MultiMillerLoop>::G2Prepared::from(params_verifier.s_g2);
+        let n_g2_prepared = <Bn256 as MultiMillerLoop>::G2Prepared::from(-params_verifier.g2);
+        let (left_s, left_e) = guard.w_x.eval(&sg, &pg, &mut ()).unwrap();
+        let (right_s, right_e) = guard.w_g.eval(&sg, &pg, &mut ()).unwrap();
+
+        assert!(bool::from(
+            Bn256::multi_miller_loop(&[
+                (&left_s.unwrap().to_affine(), &s_g2_prepared),
+                (&right_s.unwrap().to_affine(), &n_g2_prepared)
+            ])
+            .final_exponentiation()
+            .is_identity()
+        ));
     }
 }

@@ -277,12 +277,17 @@ impl<F: FieldExt> Circuit<F> for MyCircuit<F> {
 pub(in crate) fn build_verifier_params(
     sanity_check: bool,
 ) -> Result<
-    VerifierParams<
-        (),
-        <G1Affine as CurveAffine>::ScalarExt,
-        <G1Affine as CurveAffine>::CurveExt,
-        (),
-    >,
+    (
+        FieldCode<<G1Affine as CurveAffine>::ScalarExt>,
+        PointCode<G1Affine>,
+        ParamsVerifier<Bn256>,
+        VerifierParams<
+            (),
+            <G1Affine as CurveAffine>::ScalarExt,
+            <G1Affine as CurveAffine>::CurveExt,
+            (),
+        >,
+    ),
     halo2_proofs::plonk::Error,
 > {
     use crate::verify::halo2::verify::sanity_check_fn;
@@ -292,6 +297,7 @@ pub(in crate) fn build_verifier_params(
 
     let fc = FieldCode::<<G1Affine as CurveAffine>::ScalarExt>::default();
     let pc = PointCode::<G1Affine>::default();
+    let ctx = &mut ();
 
     let u = bn_to_field(&BigUint::from_bytes_be(
         b"2bf0d643e52e5e03edec5e060a6e2d57014425cbf7344f2846771ef22efffdfc",
@@ -334,7 +340,7 @@ pub(in crate) fn build_verifier_params(
     let params = VerifierParams::from_transcript::<Bn256, _, _, _, _>(
         &fc,
         &pc,
-        &mut (),
+        ctx,
         u,
         u,
         u,
@@ -360,5 +366,5 @@ pub(in crate) fn build_verifier_params(
         .is_ok());
     }
 
-    Ok(params)
+    Ok((fc, pc, params_verifier, params))
 }
