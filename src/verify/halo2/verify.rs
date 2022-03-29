@@ -121,6 +121,7 @@ pub struct VerifierParams<C, S: Clone, P: Clone, Error: Debug> {
     pub permutation_evals: Vec<S>, // permutations common evaluation
     pub vanish_commitments: Vec<P>,
     pub random_commitment: P,
+    pub w: Vec<P>,
     pub random_eval: S,
     pub beta: S,
     pub gamma: S,
@@ -380,9 +381,12 @@ impl<
             }
         }
 
+        assert_eq!(self.w.len(), points.len());
+
         points
             .into_iter()
-            .map(|p| {
+            .enumerate()
+            .map(|(i, p)| {
                 let point = p.0;
                 let queries = p.1;
                 let mut acc = None;
@@ -397,7 +401,7 @@ impl<
                 Ok(EvaluationProof {
                     s: acc.unwrap(),
                     point,
-                    w: &self.vanish_commitments[0], //TODO: fix this
+                    w: &self.w[i],
                 })
             })
             .collect()
@@ -859,6 +863,18 @@ impl<'a, CTX, S: Clone + Debug, P: Clone, Error: Debug> VerifierParams<CTX, S, P
             .map(|&affine| pgate.from_constant(ctx, affine))
             .collect::<Result<Vec<_>, Error>>()?;
 
+        let mut w = vec![];
+        let mut stop = false;
+        while !stop {
+            let p = transcript.read_point();
+            if p.is_ok() {
+                let p = pgate.from_var(ctx, p.unwrap())?;
+                w.push(p)
+            } else {
+                stop = true;
+            }
+        }
+
         Ok(VerifierParams::<CTX, S, P, Error> {
             gates: vk
                 .cs
@@ -936,6 +952,7 @@ impl<'a, CTX, S: Clone + Debug, P: Clone, Error: Debug> VerifierParams<CTX, S, P
             v: sgate.from_constant(ctx, v)?,
             xi: sgate.from_constant(ctx, xi)?,
             omega: sgate.from_constant(ctx, vk.domain.get_omega())?,
+            w,
             _ctx: PhantomData,
             _error: PhantomData,
         })
