@@ -342,8 +342,6 @@ pub(in crate) fn build_verifier_params(
         &pc,
         ctx,
         u,
-        u,
-        u,
         instances,
         pk.get_vk(),
         &params_verifier,

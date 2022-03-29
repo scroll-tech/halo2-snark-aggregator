@@ -104,8 +104,6 @@ impl TestFiveColumnHalo2VerifyCircuitCircuit<G1Affine> {
             ecc_gate,
             r,
             u,
-            u,
-            u,
             &[&[&[instance]]],
             pk.get_vk() as &VerifyingKey<G1Affine>,
             &params_verifier,

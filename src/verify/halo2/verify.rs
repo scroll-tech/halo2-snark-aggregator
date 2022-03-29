@@ -548,8 +548,6 @@ impl<'a, CTX, S: Clone + Debug, P: Clone, Error: Debug> VerifierParams<CTX, S, P
         sgate: &'a SGate,
         pgate: &'a PGate,
         ctx: &mut CTX,
-        u: <C::G1Affine as CurveAffine>::ScalarExt,
-        v: <C::G1Affine as CurveAffine>::ScalarExt,
         xi: <C::G1Affine as CurveAffine>::ScalarExt,
         instances: &[&[&[C::Scalar]]],
         vk: &VerifyingKey<C::G1Affine>,
@@ -863,6 +861,9 @@ impl<'a, CTX, S: Clone + Debug, P: Clone, Error: Debug> VerifierParams<CTX, S, P
             .map(|&affine| pgate.from_constant(ctx, affine))
             .collect::<Result<Vec<_>, Error>>()?;
 
+        let v: ChallengeScalar<<C as Engine>::G1Affine, T> = transcript.squeeze_challenge_scalar();
+        let u: ChallengeScalar<<C as Engine>::G1Affine, T> = transcript.squeeze_challenge_scalar();
+
         let mut w = vec![];
         let mut stop = false;
         while !stop {
@@ -948,8 +949,8 @@ impl<'a, CTX, S: Clone + Debug, P: Clone, Error: Debug> VerifierParams<CTX, S, P
             x_inv,
             xn,
             y,
-            u: sgate.from_constant(ctx, u)?,
-            v: sgate.from_constant(ctx, v)?,
+            u: sgate.from_constant(ctx, *u)?,
+            v: sgate.from_constant(ctx, *v)?,
             xi: sgate.from_constant(ctx, xi)?,
             omega: sgate.from_constant(ctx, vk.domain.get_omega())?,
             w,
