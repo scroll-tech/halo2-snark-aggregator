@@ -395,7 +395,7 @@ impl<
                     acc = match acc {
                         Some(acc) => Some(scalar!(self.v) * acc + q),
                         _ => Some(q),
-                    }
+                    };
                 }
 
                 Ok(EvaluationProof {
@@ -413,8 +413,7 @@ impl<
         sgate: &SGate,
         pgate: &PGate,
     ) -> Result<MultiOpenProof<'a, S, P>, Error> {
-        let mut proofs = self.get_point_schemas(ctx, sgate, pgate)?;
-        proofs.reverse();
+        let proofs = self.get_point_schemas(ctx, sgate, pgate)?;
         let (mut w_x, mut w_g) = {
             let s = &proofs[0].s;
             let w = CommitQuery {
@@ -426,15 +425,15 @@ impl<
                 scalar!(proofs[0].point) * commit!(w) + s.clone(),
             )
         };
-        let _ = proofs[1..].iter().map(|p| {
+        for p in &proofs[1..] {
             let s = &p.s;
             let w = CommitQuery {
                 c: Some(p.w),
                 v: None,
             };
-            w_x = scalar!(self.u) * w_x.clone() + commit!(w);
-            w_g = scalar!(self.u) * w_g.clone() + scalar!(p.point) * commit!(w) + s.clone();
-        });
+            w_x = scalar!(self.u) * w_x + commit!(w);
+            w_g = scalar!(self.u) * w_g + scalar!(p.point) * commit!(w) + s.clone();
+        }
         Ok(MultiOpenProof { w_x, w_g })
     }
 }
@@ -1117,7 +1116,17 @@ mod tests {
         let s_g2_prepared = <Bn256 as MultiMillerLoop>::G2Prepared::from(params_verifier.s_g2);
         let n_g2_prepared = <Bn256 as MultiMillerLoop>::G2Prepared::from(-params_verifier.g2);
         let (left_s, left_e) = guard.w_x.eval(&sg, &pg, &mut ()).unwrap();
+        let left_s = left_e.map_or(Ok(left_s.unwrap()), |left_e| {
+            let one = pg.one(&mut ())?;
+            let left_es = pg.scalar_mul(&mut (), &left_e, &one)?;
+            pg.add(&mut (), &left_s.unwrap(), &left_es)
+        });
         let (right_s, right_e) = guard.w_g.eval(&sg, &pg, &mut ()).unwrap();
+        let right_s = right_e.map_or(Ok(right_s.unwrap()), |right_e| {
+            let one = pg.one(&mut ())?;
+            let right_es = pg.scalar_mul(&mut (), &right_e, &one)?;
+            pg.minus(&mut (), &right_s.unwrap(), &right_es)
+        });
 
         assert!(bool::from(
             Bn256::multi_miller_loop(&[

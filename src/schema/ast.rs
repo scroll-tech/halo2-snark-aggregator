@@ -130,22 +130,38 @@ impl<
             SchemaItem::Mul(ls) => {
                 let mut cs = Vec::new();
                 let mut vs = Vec::new();
+                let mut cv = None;
                 ls.iter().for_each(|val| {
                     let (c, v) = val.eval(sgate, pgate, context).unwrap();
-                    c.map(|c| cs.push(c));
-                    v.map(|v| vs.push(v));
+                    match c {
+                        Some(c) => {
+                            cs.push(c);
+                            assert!(cv.is_none());
+                            cv = v;
+                        }
+                        None => {
+                            v.map(|v| vs.push(v));
+                        }
+                    };
                 });
-                let vs = vs.iter().collect::<Vec<_>>();
-                let v = match vs[..] {
+                let v = match &vs[..] {
                     [] => None,
-                    _ => Some(sgate.mul_array(context, vs)?),
+                    [v] => Some(v.clone()),
+                    _ => Some(sgate.mul_array(context, vs.iter().collect::<Vec<_>>())?),
+                };
+                let s = match cv {
+                    Some(cv) => match &v {
+                        Some(v) => Some(sgate.mul(context, &cv, v)?),
+                        None => Some(cv),
+                    },
+                    None => None,
                 };
                 let cs = cs.iter().collect::<Vec<_>>();
                 match cs[..] {
-                    [] => Ok((None, v)),
+                    [] => Ok((None, s)),
                     [c] => match v {
-                        None => Ok((Some(c.clone()), None)),
-                        Some(v) => Ok((Some(pgate.scalar_mul(context, &v, c)?), None)),
+                        None => Ok((Some(c.clone()), s)),
+                        Some(v) => Ok((Some(pgate.scalar_mul(context, &v, c)?), s)),
                     },
                     _ => unreachable!(),
                 }
