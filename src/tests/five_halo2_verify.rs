@@ -52,6 +52,10 @@ struct TestFiveColumnHalo2VerifyCircuitCircuit<C: CurveAffine> {
     _phantom_n: PhantomData<Fr>,
 }
 
+
+const COMMON_RANGE_BITS: usize = 17usize;
+const K: u32 = 22u32;
+
 impl TestFiveColumnHalo2VerifyCircuitCircuit<G1Affine> {
     fn random() -> Fr {
         let seed = chrono::offset::Utc::now()
@@ -68,7 +72,6 @@ impl TestFiveColumnHalo2VerifyCircuitCircuit<G1Affine> {
         base_gate: &FiveColumnBaseGate<Fr>,
         r: &mut RegionAux<'_, '_, Fr>,
     ) -> Result<(), Error> {
-        const K: u32 = 18;
         let public_inputs_size = 1;
         let u = bn_to_field::<Fr>(&BigUint::from_bytes_be(b"0"));
 
@@ -78,7 +81,7 @@ impl TestFiveColumnHalo2VerifyCircuitCircuit<G1Affine> {
         };
 
         let params: Params<G1Affine> =
-            Params::<G1Affine>::unsafe_setup_rng::<Bn256, _>(K, Pcg32::seed_from_u64(42));
+            Params::<G1Affine>::unsafe_setup_rng::<Bn256, _>(6, Pcg32::seed_from_u64(42));
         let params_verifier: ParamsVerifier<Bn256> = params.verifier(public_inputs_size).unwrap();
         let vk = keygen_vk(&params, &circuit).expect("keygen_vk should not fail");
         let pk = keygen_pk(&params, vk, &circuit).expect("keygen_pk should not fail");
@@ -142,8 +145,6 @@ impl TestFiveColumnHalo2VerifyCircuitCircuit<G1Affine> {
     }
 }
 
-const COMMON_RANGE_BITS: usize = 17usize;
-
 impl Circuit<Fr> for TestFiveColumnHalo2VerifyCircuitCircuit<G1Affine> {
     type Config = TestFiveColumnHalo2VerifyCircuitConfig;
     type FloorPlanner = SimpleFloorPlanner;
@@ -204,7 +205,6 @@ impl Circuit<Fr> for TestFiveColumnHalo2VerifyCircuitCircuit<G1Affine> {
 
 #[test]
 fn test_five_column_halo2_verify() {
-    const K: u32 = (COMMON_RANGE_BITS + 1) as u32;
     let circuit = TestFiveColumnHalo2VerifyCircuitCircuit::<G1Affine> {
         test_case: TestCase::Normal,
         _phantom_w: PhantomData,

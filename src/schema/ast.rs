@@ -33,6 +33,7 @@ impl<C, S, T, G: Clone, Error, Gate: ContextGroup<C, S, G, T, Error>> ArrayOpAdd
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct CommitQuery<'a, S: Clone, P: Clone> {
+    pub key: String,
     pub c: Option<&'a P>,
     pub v: Option<&'a S>,
 }
@@ -85,10 +86,100 @@ where
     ) -> Result<(Option<P>, Option<S>), Error>;
 }
 
+impl<S: Clone + Debug, P: Clone + Debug> SchemaItem<'_, S, P> {
+    fn _eval<
+        'a,
+        C,
+        TS,
+        Error: Debug,
+        SGate: ContextGroup<C, S, S, TS, Error> + ContextRing<C, S, S, Error>,
+    >(
+        &'a self,
+        sgate: &SGate,
+        context: &mut C,
+        one: &S,
+    ) -> Result<Vec<(&'a str, Option<&'a CommitQuery<S, P>>, Option<S>)>, Error> {
+        match self {
+            SchemaItem::Commit(cq) => Ok(vec![(&cq.key, Some(cq), None)]),
+            SchemaItem::Eval(cq) => Ok(vec![("", None, Some(cq.v.unwrap().clone()))]),
+            SchemaItem::Scalar(s) => Ok(vec![("", None, Some(s.clone()))]),
+            SchemaItem::Add(ls) => {
+                let mut els: Vec<(_, _, Vec<_>)> = vec![];
+                for s in ls {
+                    let res = s._eval(sgate, context, one)?;
+                    for r in res {
+                        let mut found = None;
+                        for p in els.iter_mut() {
+                            if p.0 == r.0 {
+                                found = Some(&mut p.2);
+                            }
+                        }
+
+                        match found {
+                            Some(p) => p.push(r.2),
+                            None => els.push((r.0, r.1, vec![r.2])),
+                        }
+                    }
+                }
+
+                let mut res = vec![];
+                for e in els {
+                    assert!(!e.2.is_empty());
+                    let e2 = if e.2.len() == 1 {
+                        e.2.into_iter().nth(0).unwrap()
+                    } else {
+                        Some(sgate.add_array(
+                            context,
+                            e.2.iter().map(|x| x.as_ref().unwrap_or(one)).collect(),
+                        )?)
+                    };
+                    res.push((e.0, e.1, e2));
+                }
+
+                Ok(res)
+            }
+            SchemaItem::Mul(ls) => {
+                let mut s_vec = vec![];
+                let mut p_vec = None;
+                for s in ls {
+                    let res = s._eval(sgate, context, one)?;
+
+                    if res.len() == 1 && res[0].1.is_none() {
+                        for s in res {
+                            s.2.map(|s| s_vec.push(s.clone()));
+                        }
+                    } else {
+                        assert!(p_vec.is_none());
+                        p_vec = Some(res);
+                    }
+                }
+
+                if s_vec.is_empty() {
+                    Ok(p_vec.unwrap())
+                } else {
+                    let s = sgate.mul_array(context, s_vec.iter().collect())?;
+                    p_vec.map_or(Ok(vec![("", None, Some(s.clone()))]), |p_vec| {
+                        p_vec
+                            .into_iter()
+                            .map(|p| -> Result<_, Error> {
+                                let p2 = match p.2 {
+                                    Some(p2) => Some(sgate.mul(context, &p2, &s)?),
+                                    None => Some(s.clone()),
+                                };
+                                Ok((p.0, p.1, p2))
+                            })
+                            .collect()
+                    })
+                }
+            }
+        }
+    }
+}
+
 impl<
         C,
-        S: Clone,
-        P: Clone,
+        S: Clone + Debug,
+        P: Clone + Debug,
         TS,
         TP,
         Error: Debug,
@@ -96,77 +187,39 @@ impl<
         PGate: ContextGroup<C, S, P, TP, Error>,
     > EvaluationAST<S, C, P, TS, TP, SGate, PGate, Error> for SchemaItem<'_, S, P>
 {
-    fn eval(
-        &self,
-        sgate: &SGate,
-        pgate: &PGate,
-        context: &mut C,
-    ) -> Result<(Option<P>, Option<S>), Error> {
-        match self {
-            SchemaItem::Commit(cq) => Ok((cq.c.map(|c| c.clone()), None)),
-            SchemaItem::Eval(cq) => Ok((None, cq.v.map(|c| c.clone()))),
+    fn eval(&self, sgate: &SGate, pgate: &PGate, context: &mut C) -> Result<(Option<P>, Option<S>), Error> {
+        let one = sgate.one(context)?;
+        let p_vec = self._eval(sgate, context, &one)?;
+        let mut acc = None;
+        let mut s = None;
 
-            SchemaItem::Scalar(s) => Ok((None, Some(s.clone()))),
-            SchemaItem::Add(ls) => {
-                let mut cs = Vec::new();
-                let mut vs = Vec::new();
-                ls.iter().for_each(|val| {
-                    let (c, v) = val.eval(sgate, pgate, context).unwrap();
-                    c.map(|c| cs.push(c));
-                    v.map(|v| vs.push(v));
-                });
-                let vs = vs.iter().collect::<Vec<_>>();
-                let v = match vs[..] {
-                    [] => None,
-                    _ => Some(sgate.add_array(context, vs)?),
-                };
-                let cs = cs.iter().collect::<Vec<_>>();
-                let c = match cs[..] {
-                    [] => None,
-                    _ => Some(pgate.add_array(context, cs)?),
-                };
-                Ok((c, v))
-            }
-            SchemaItem::Mul(ls) => {
-                let mut cs = Vec::new();
-                let mut vs = Vec::new();
-                let mut cv = None;
-                ls.iter().for_each(|val| {
-                    let (c, v) = val.eval(sgate, pgate, context).unwrap();
-                    match c {
-                        Some(c) => {
-                            cs.push(c);
-                            assert!(cv.is_none());
-                            cv = v;
-                        }
-                        None => {
-                            v.map(|v| vs.push(v));
-                        }
-                    };
-                });
-                let v = match &vs[..] {
-                    [] => None,
-                    [v] => Some(v.clone()),
-                    _ => Some(sgate.mul_array(context, vs.iter().collect::<Vec<_>>())?),
-                };
-                let s = match cv {
-                    Some(cv) => match &v {
-                        Some(v) => Some(sgate.mul(context, &cv, v)?),
-                        None => Some(cv),
-                    },
-                    None => None,
-                };
-                let cs = cs.iter().collect::<Vec<_>>();
-                match cs[..] {
-                    [] => Ok((None, s)),
-                    [c] => match v {
-                        None => Ok((Some(c.clone()), s)),
-                        Some(v) => Ok((Some(pgate.scalar_mul(context, &v, c)?), s)),
-                    },
-                    _ => unreachable!(),
+        println!("");
+        println!("start!===========================");
+        for p in p_vec {
+            let base = p.1;
+            let scalar = p.2;
+            println!("");
+            println!("key {:?}", p.0);
+            println!("base {:?}", base);
+            println!("scalar {:?}", scalar);
+            match &base {
+                Some(base) => {
+                    let p_res = scalar.map_or_else(
+                        || Ok(base.c.unwrap().clone()),
+                        |scalar| pgate.scalar_mul(context, &scalar, base.c.unwrap()),
+                    )?;
+                    acc = match acc {
+                        Some(acc) => Some(pgate.add(context, &acc, &p_res)?),
+                        None => Some(p_res),
+                    }
                 }
-            }
+                None => {
+                    s = scalar;
+                }
+            };
         }
+
+        Ok((acc, s))
     }
 }
 

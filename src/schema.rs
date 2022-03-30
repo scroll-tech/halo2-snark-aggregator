@@ -1,5 +1,7 @@
 pub mod ast;
 pub mod utils;
+use std::fmt::Debug;
+
 use crate::{
     arith::api::{ContextGroup, ContextRing},
     commit, eval,
@@ -18,9 +20,11 @@ pub struct EvaluationQuery<'a, S: Clone, P: Clone> {
     pub s: SchemaItem<'a, S, P>, // f, e pair
 }
 
-impl<'a, S: Clone, P: Clone> EvaluationQuery<'a, S, P> {
-    pub fn new(point: S, c: &'a P, v: &'a S) -> Self {
+impl<'a, S: Clone, P: Clone + Debug> EvaluationQuery<'a, S, P> {
+    pub fn new(point: S, key: String, c: &'a P, v: &'a S) -> Self {
+        println!("{}, {:?}", key, c);
         let s = CommitQuery {
+            key,
             c: Some(c),
             v: Some(v),
         };

@@ -39,8 +39,10 @@ impl<'a, C, S: Clone + Debug, P: Clone + Debug, Error: Debug> Evaluated<'a, C, S
         let h_commitment: SchemaItem<S, P> = expect_commitments
             .iter()
             .rev()
-            .map(|c| {
+            .enumerate()
+            .map(|(i, c)| {
                 commit!(CommitQuery {
+                    key: format!("h{}", i),
                     c: Some(c.clone()),
                     v: None,
                 })
@@ -64,6 +66,7 @@ impl<'a, C, S: Clone + Debug, P: Clone + Debug, Error: Debug> Evaluated<'a, C, S
             )))
             .chain(Some(EvaluationQuery::new(
                 x.clone(),
+                "random".to_string(),
                 self.random_commitment,
                 self.random_eval,
             )))

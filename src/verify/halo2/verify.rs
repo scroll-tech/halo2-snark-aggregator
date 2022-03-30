@@ -296,6 +296,7 @@ impl<
             for (query_index, &(column, at)) in self.instance_queries.iter().enumerate() {
                 queries.push(EvaluationQuery::new(
                     self.rotate_omega(sgate, ctx, at).unwrap(),
+                    format!("instance{}", query_index),
                     &instance_commitments[column],
                     &instance_evals[query_index],
                 ))
@@ -304,6 +305,7 @@ impl<
             for (query_index, &(column, at)) in self.advice_queries.iter().enumerate() {
                 queries.push(EvaluationQuery::new(
                     self.rotate_omega(sgate, ctx, at).unwrap(),
+                    format!("advice{}", query_index),
                     &advice_commitments[column],
                     &advice_evals[query_index],
                 ))
@@ -321,6 +323,7 @@ impl<
         for (query_index, &(column, at)) in self.fixed_queries.iter().enumerate() {
             queries.push(EvaluationQuery::<'a, S, P>::new(
                 self.rotate_omega(sgate, ctx, at).unwrap(),
+                format!("query{}", query_index),
                 &self.fixed_commitments[column],
                 &self.fixed_evals[query_index],
             ))
@@ -413,27 +416,33 @@ impl<
         pgate: &PGate,
     ) -> Result<MultiOpenProof<'a, S, P>, Error> {
         let proofs = self.get_point_schemas(ctx, sgate, pgate)?;
-        let (mut w_x, mut w_g) = {
-            let s = &proofs[0].s;
-            let w = CommitQuery {
-                c: Some(proofs[0].w),
-                v: None,
-            };
-            (
-                commit!(w),
-                scalar!(proofs[0].point) * commit!(w) + s.clone(),
-            )
-        };
-        for p in &proofs[1..] {
+
+        let one = sgate.one(ctx)?;
+        let zero = sgate.zero(ctx)?;
+        let neg_one = &(sgate.minus(ctx, &zero, &one)?);
+
+        let mut w_x = None;
+        let mut w_g = None;
+
+        for (i, p) in proofs.into_iter().enumerate() {
             let s = &p.s;
             let w = CommitQuery {
+                key: format!("w{}", i),
                 c: Some(p.w),
                 v: None,
             };
-            w_x = scalar!(self.u) * w_x + commit!(w);
-            w_g = scalar!(self.u) * w_g + scalar!(p.point) * commit!(w) + s.clone();
+            w_x = w_x.map_or(Some(commit!(w)), |w_x| {
+                Some(scalar!(self.u) * w_x + commit!(w))
+            });
+            w_g = w_g.map_or(Some(scalar!(p.point) * commit!(w) + s.clone()), |w_g| {
+                Some(scalar!(self.u) * w_g + scalar!(p.point) * commit!(w) + s.clone())
+            });
         }
-        Ok(MultiOpenProof { w_x, w_g })
+
+        Ok(MultiOpenProof {
+            w_x: w_x.unwrap(),
+            w_g: w_g.unwrap(),
+        })
     }
 }
 
@@ -1114,20 +1123,24 @@ mod tests {
         let guard = param.batch_multi_open_proofs(&mut (), &sg, &pg).unwrap();
 
         let (left_s, left_e) = guard.w_x.eval(&sg, &pg, &mut ()).unwrap();
-        let left_s = left_e.map_or(Ok(left_s.unwrap()), |left_e| {
-            let one = pg.one(&mut ())?;
-            let left_es = pg.scalar_mul(&mut (), &left_e, &one)?;
-            pg.add(&mut (), &left_s.unwrap(), &left_es)
-        });
+        let left_s = left_e
+            .map_or(Ok(left_s.unwrap()), |left_e| {
+                let one = pg.one(&mut ())?;
+                let left_es = pg.scalar_mul(&mut (), &left_e, &one)?;
+                pg.add(&mut (), &left_s.unwrap(), &left_es)
+            })
+            .unwrap();
         let (right_s, right_e) = guard.w_g.eval(&sg, &pg, &mut ()).unwrap();
-        let right_s = right_e.map_or(Ok(right_s.unwrap()), |right_e| {
-            let one = pg.one(&mut ())?;
-            let right_es = pg.scalar_mul(&mut (), &right_e, &one)?;
-            pg.minus(&mut (), &right_s.unwrap(), &right_es)
-        });
+        let right_s = right_e
+            .map_or(Ok(right_s.unwrap()), |right_e| {
+                let one = pg.one(&mut ())?;
+                let right_es = pg.scalar_mul(&mut (), &right_e, &one)?;
+                pg.minus(&mut (), &right_s.unwrap(), &right_es)
+            })
+            .unwrap();
 
-        let p1 = Bn256::pairing(&left_s.unwrap().to_affine(), &params_verifier.s_g2);
-        let p2 = Bn256::pairing(&right_s.unwrap().to_affine(), &params_verifier.g2);
+        let p1 = Bn256::pairing(&left_s.to_affine(), &params_verifier.s_g2);
+        let p2 = Bn256::pairing(&right_s.to_affine(), &params_verifier.g2);
 
         assert_eq!(p1, p2);
     }

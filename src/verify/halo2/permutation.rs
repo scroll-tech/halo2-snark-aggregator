@@ -35,20 +35,26 @@ pub struct Evaluated<C, S, P, Error> {
     pub(in crate::verify::halo2) _m: PhantomData<(C, Error)>,
 }
 
-impl<'a, S: Clone, P: Clone> CommonEvaluated<'a, S, P> {
+impl<'a, S: Clone, P: Clone + Debug> CommonEvaluated<'a, S, P> {
     pub(in crate::verify::halo2) fn queries(&self, x: &'a S) -> Vec<EvaluationQuery<'a, S, P>> {
         // Open permutation commitments for each permutation argument at x
         self.permutation_commitments
             .iter()
             .zip(self.permutation_evals.iter())
-            .map(|(commitment, eval)| {
-                EvaluationQuery::<'a, S, P>::new(x.clone(), &commitment, &eval)
+            .enumerate()
+            .map(|(i, (commitment, eval))| {
+                EvaluationQuery::<'a, S, P>::new(
+                    x.clone(),
+                    format!("permutation_commitments{}", i),
+                    &commitment,
+                    &eval,
+                )
             })
             .collect()
     }
 }
 
-impl<'a, C, S: Clone + Debug, P: Clone, Error: Debug> Evaluated<C, S, P, Error> {
+impl<'a, C, S: Clone + Debug, P: Clone + Debug, Error: Debug> Evaluated<C, S, P, Error> {
     pub(in crate::verify::halo2) fn expressions<T>(
         &'a self,
         sgate: &'a (impl ContextGroup<C, S, S, T, Error> + ContextRing<C, S, S, Error>),
@@ -146,26 +152,29 @@ impl<'a, C, S: Clone + Debug, P: Clone, Error: Debug> Evaluated<C, S, P, Error> 
         x_last: &'a S,
     ) -> impl Iterator<Item = EvaluationQuery<'a, S, P>> {
         iter::empty()
-            .chain(self.sets.iter().flat_map(|set| {
+            .chain(self.sets.iter().enumerate().flat_map(|(i, set)| {
                 iter::empty()
                     // FIXME: double check eval or prev-eval
                     // Open permutation product commitments at x and \omega^{-1} x
                     // Open permutation product commitments at x and \omega x
                     .chain(Some(EvaluationQuery::new(
                         self.x.clone(),
+                        format!("permutation_product_commitment{}", i),
                         &set.permutation_product_commitment,
                         &set.permutation_product_eval,
                     )))
                     .chain(Some(EvaluationQuery::new(
                         x_next.clone(),
+                        format!("permutation_product_commitment{}", i),
                         &set.permutation_product_commitment,
                         &set.permutation_product_next_eval,
                     )))
             }))
             // Open it at \omega^{last} x for all but the last set
-            .chain(self.sets.iter().rev().skip(1).flat_map(|set| {
+            .chain(self.sets.iter().enumerate().rev().skip(1).flat_map(|(i, set)| {
                 Some(EvaluationQuery::new(
                     x_last.clone(),
+                    format!("permutation_product_commitment{}", i),
                     &set.permutation_product_commitment,
                     &set.permutation_product_last_eval.as_ref().unwrap(),
                 ))
@@ -179,11 +188,7 @@ mod tests {
     use crate::schema::ast::ArrayOpAdd;
     use crate::{
         arith::code::FieldCode,
-        schema::{
-            ast::{CommitQuery, SchemaItem},
-            utils::VerifySetupHelper,
-            EvaluationQuery,
-        },
+        schema::utils::VerifySetupHelper,
         verify::{halo2::tests::mul_circuit_builder::*, plonk::bn_to_field},
     };
     use halo2_proofs::arithmetic::CurveAffine;

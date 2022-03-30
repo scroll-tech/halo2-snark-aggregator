@@ -133,66 +133,82 @@ impl<'a, C, S: Clone, P: Clone, Error: Debug> PlonkVerifierParams<'a, C, S, P, E
         let zero = &_zero;
         let one = &_one;
         let a = CommitQuery {
+            key: "a".to_string(),
             c: Some(self.commits.a),
             v: Some(self.evals.a_xi),
         };
         let b = CommitQuery {
+            key: "b".to_string(),
             c: Some(self.commits.b),
             v: Some(self.evals.b_xi),
         };
         let c = CommitQuery {
+            key: "c".to_string(),
             c: Some(self.commits.c),
             v: Some(self.evals.c_xi),
         };
         let qm = CommitQuery::<S, P> {
+            key: "qm".to_string(),
             c: Some(self.params.q_m),
             v: None,
         };
         let ql = CommitQuery::<S, P> {
+            key: "ql".to_string(),
             c: Some(self.params.q_l),
             v: None,
         };
         let qr = CommitQuery::<S, P> {
+            key: "qr".to_string(),
             c: Some(self.params.q_r),
             v: None,
         };
         let qo = CommitQuery::<S, P> {
+            key: "qo".to_string(),
             c: Some(self.params.q_o),
             v: None,
         };
         let qc = CommitQuery::<S, P> {
+            key: "qc".to_string(),
             c: Some(self.params.q_c),
             v: None,
         };
         let z = CommitQuery::<S, P> {
+            key: "z".to_string(),
             c: Some(self.commits.z),
             v: None,
         };
         let zxi = CommitQuery::<S, P> {
+            key: "zxi".to_string(),
             c: Some(self.commits.z),
             v: Some(self.evals.z_xiw),
         };
         let sigma1 = CommitQuery::<S, P> {
+            key: "sigma".to_string(),
             c: None,
             v: Some(self.evals.sigma1_xi),
         };
         let sigma2 = CommitQuery::<S, P> {
+            key: "sigma2".to_string(),
             c: None,
             v: Some(self.evals.sigma2_xi),
         };
         let sigma3 = CommitQuery::<S, P> {
+            key: "sigma3".to_string(),
             c: Some(self.params.sigma3),
             v: None,
         };
         let tl = CommitQuery::<S, P> {
+            key: "tl".to_string(),
             c: Some(self.commits.tl),
             v: None,
         };
         let tm = CommitQuery::<S, P> {
+            key: "tm".to_string(),
             c: Some(self.commits.tm),
             v: None,
         };
         let th = CommitQuery::<S, P> {
+            key: "th".to_string(),
             c: Some(self.commits.th),
             v: None,
         };
@@ -253,6 +269,7 @@ impl<'a, C, S: Clone, P: Clone, Error: Debug> PlonkVerifierParams<'a, C, S, P, E
         sgate: &SGate,
     ) -> Result<EvaluationProof<'a, S, P>, Error> {
         let zxi = CommitQuery::<S, P> {
+            key: "zxi".to_string(),
             c: Some(self.commits.z),
             v: Some(self.evals.z_xiw),
         };
@@ -302,26 +319,28 @@ impl<
     ) -> Result<MultiOpenProof<'a, S, P>, Error> {
         let mut proofs = self.get_point_schemas(ctx, sgate, pgate)?;
         proofs.reverse();
-        let (mut w_x, mut w_g) = {
-            let s = &proofs[0].s;
-            let w = CommitQuery {
-                c: Some(proofs[0].w),
-                v: None,
-            };
-            (
-                commit!(w),
-                scalar!(proofs[0].point) * commit!(w) + s.clone(),
-            )
-        };
-        let _ = proofs[1..].iter().map(|p| {
+
+        let mut w_x = None;
+        let mut w_g = None;
+
+        for (i, p) in proofs.into_iter().enumerate() {
             let s = &p.s;
             let w = CommitQuery {
+                key: format!("w{}", i),
                 c: Some(p.w),
                 v: None,
             };
-            w_x = scalar!(self.u) * w_x.clone() + commit!(w);
-            w_g = scalar!(self.u) * w_g.clone() + scalar!(p.point) * commit!(w) + s.clone();
-        });
-        Ok(MultiOpenProof { w_x, w_g })
+            w_x = w_x.map_or(Some(commit!(w)), |w_x| {
+                Some(scalar!(self.u) * w_x + commit!(w))
+            });
+            w_g = w_g.map_or(Some(scalar!(p.point) * commit!(w) + s.clone()), |w_g| {
+                Some(scalar!(self.u) * w_g + scalar!(p.point) * commit!(w) + s.clone())
+            });
+        };
+
+        Ok(MultiOpenProof {
+            w_x: w_x.unwrap(),
+            w_g: w_g.unwrap(),
+        })
     }
 }
