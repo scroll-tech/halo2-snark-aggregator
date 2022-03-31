@@ -350,7 +350,7 @@ impl<
 impl<
         'a,
         C,
-        S: Field + Ord,
+        S : Field,
         P: Clone + Debug,
         TS: FieldExt,
         TP,
