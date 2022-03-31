@@ -36,7 +36,7 @@ impl<'a, S: Clone, P: Clone> EvaluationQuery<'a, S, P> {
 
 pub trait SchemaGenerator<
     'a,
-    C: Clone,
+    C,
     S: Clone,
     P: Clone,
     TS,
