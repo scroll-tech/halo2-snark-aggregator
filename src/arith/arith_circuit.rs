@@ -13,6 +13,7 @@ use halo2_proofs::{
     arithmetic::{CurveAffine, FieldExt},
     plonk::Error,
 };
+use group::ff::Field;
 
 impl<'a, 'b, 'c, C: CurveAffine>
     ContextGroup<
@@ -79,8 +80,14 @@ impl<'a, 'b, 'c, C: CurveAffine>
         EccCircuitOps::assign_constant_point_from_scalar(self, ctx, C::ScalarExt::from(1u64))
     }
 
-    fn to_value(&self, _: &AssignedPoint<C, C::ScalarExt>) -> Result<C, Error> {
-        unimplemented!()
+    fn to_value(&self, p: &AssignedPoint<C, C::ScalarExt>) -> Result<C, Error> {
+        if p.z.value == C::ScalarExt::zero() {
+            Ok(C::identity())
+        } else {
+            let x = self.0.integer_gate.get_w(&p.x)?;
+            let y = self.0.integer_gate.get_w(&p.y)?;
+            Ok(C::from_xy(x, y).unwrap())
+        }
     }
 
     fn from_var(

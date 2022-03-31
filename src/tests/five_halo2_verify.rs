@@ -13,7 +13,7 @@ use crate::verify::halo2::tests::mul_circuit_builder::MyCircuit;
 use crate::verify::halo2::verify::VerifierParams;
 use group::ff::Field;
 use group::Curve;
-use halo2_proofs::arithmetic::{CurveAffine, Engine};
+use halo2_proofs::arithmetic::{CurveAffine, Engine, FieldExt};
 use halo2_proofs::plonk::{create_proof, keygen_pk, keygen_vk, VerifyingKey};
 use halo2_proofs::poly::commitment::{Params, ParamsVerifier};
 use halo2_proofs::transcript::{Blake2bRead, Blake2bWrite, Challenge255};
@@ -68,7 +68,7 @@ impl TestFiveColumnHalo2VerifyCircuitCircuit<G1Affine> {
         base_gate: &FiveColumnBaseGate<Fr>,
         r: &mut RegionAux<'_, '_, Fr>,
     ) -> Result<(), Error> {
-        const K: u32 = 5;
+        const K: u32 = 18;
         let public_inputs_size = 1;
         let u = bn_to_field::<Fr>(&BigUint::from_bytes_be(b"0"));
 

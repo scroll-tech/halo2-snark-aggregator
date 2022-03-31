@@ -11,7 +11,7 @@ use group::ff::{Field, PrimeField};
 use halo2_proofs::{arithmetic::CurveAffine, plonk::Error};
 use num_bigint::BigUint;
 
-pub struct NativeEccCircuit<'a, C: CurveAffine>(EccCircuit<'a, C, C::ScalarExt>);
+pub struct NativeEccCircuit<'a, C: CurveAffine>(pub EccCircuit<'a, C, C::ScalarExt>);
 
 impl<'a, C: CurveAffine> NativeEccCircuit<'a, C> {
     pub fn new(integer_gate: &'a dyn IntegerCircuitOps<C::Base, C::ScalarExt>) -> Self {

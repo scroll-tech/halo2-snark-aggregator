@@ -859,4 +859,10 @@ impl<'a, W: BaseExt, N: FieldExt> IntegerCircuitOps<W, N> for FiveColumnIntegerC
             },
         ))
     }
+
+    fn get_w(&self, a: &AssignedInteger<W, N>) -> Result<W, Error> {
+        let w_modulus = &self.helper.w_modulus;
+        let limb_modulus = &self.helper.limb_modulus;
+        Ok(a.w(limb_modulus, w_modulus))
+    }
 }

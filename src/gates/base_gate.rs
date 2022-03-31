@@ -19,7 +19,8 @@ pub struct AssignedValue<N: FieldExt> {
     pub value: N,
 }
 
-impl<N :FieldExt> PartialEq for AssignedValue<N> {
+// TODO
+impl<N: FieldExt> PartialEq for AssignedValue<N> {
     fn eq(&self, other: &Self) -> bool {
         self.value == other.value
     }

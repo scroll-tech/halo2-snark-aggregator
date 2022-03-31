@@ -234,6 +234,7 @@ pub trait IntegerCircuitOps<W: BaseExt, N: FieldExt> {
         a: &AssignedInteger<W, N>,
         b: &AssignedInteger<W, N>,
     ) -> Result<AssignedInteger<W, N>, Error>;
+    fn get_w(&self, a: &AssignedInteger<W, N>) -> Result<W, Error>;
 }
 
 pub struct IntegerCircuit<'a, W: BaseExt, N: FieldExt, const LIMBS: usize, const LIMB_WIDTH: usize>
