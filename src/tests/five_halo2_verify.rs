@@ -114,27 +114,24 @@ impl TestFiveColumnHalo2VerifyCircuitCircuit<G1Affine> {
         let (left_s, left_e) = guard.w_x.eval(base_gate, ecc_gate, r)?;
         let (right_s, right_e) = guard.w_g.eval(base_gate, ecc_gate, r)?;
 
-        // TODO: from_constant? from_var?
-        let left_s = ecc_gate.from_constant(r, left_s.unwrap().to_affine())?;
-        let left_s = left_e.map_or(Ok(left_s), |left_e| {
-            let one = ecc_gate.one(r)?;
+        let left_s: Result<Option<AssignedPoint<G1Affine, Fr>>, Error> =
+            left_e.map_or(Ok(left_s.clone()), |left_e| {
+                let one = ecc_gate.one(r)?;
 
-            let left_e = base_gate.from_constant(r, left_e)?;
-            let left_es = ecc_gate.scalar_mul(r, &left_e, &one)?;
-            ecc_gate.add(r, &left_s, &left_es)
-        });
+                let left_es = ecc_gate.scalar_mul(r, &left_e, &one)?;
+                Ok(Some(ecc_gate.add(r, &left_s.unwrap(), &left_es)?))
+            });
 
-        let right_s = ecc_gate.from_constant(r, right_s.unwrap().to_affine())?;
-        let right_s = right_e.map_or(Ok(right_s), |right_e| {
-            let one = ecc_gate.one(r)?;
+        let right_s: Result<Option<AssignedPoint<G1Affine, Fr>>, Error> =
+            right_e.map_or(Ok(right_s.clone()), |right_e| {
+                let one = ecc_gate.one(r)?;
 
-            let right_e = base_gate.from_constant(r, right_e)?;
-            let right_es = ecc_gate.scalar_mul(r, &right_e, &one)?;
-            ecc_gate.minus(r, &right_s, &right_es)
-        });
+                let right_es = ecc_gate.scalar_mul(r, &right_e, &one)?;
+                Ok(Some(ecc_gate.minus(r, &right_s.unwrap(), &right_es)?))
+            });
 
-        let left_s = ecc_gate.to_value(&left_s.unwrap())?;
-        let right_s = ecc_gate.to_value(&right_s.unwrap())?;
+        let left_s = ecc_gate.to_value(&left_s.unwrap().unwrap())?;
+        let right_s = ecc_gate.to_value(&right_s.unwrap().unwrap())?;
 
         let p1 = Bn256::pairing(&left_s, &params_verifier.s_g2);
         let p2 = Bn256::pairing(&right_s, &params_verifier.g2);

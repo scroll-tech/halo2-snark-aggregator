@@ -19,6 +19,12 @@ pub struct AssignedValue<N: FieldExt> {
     pub value: N,
 }
 
+impl<N :FieldExt> PartialEq for AssignedValue<N> {
+    fn eq(&self, other: &Self) -> bool {
+        self.value == other.value
+    }
+}
+
 impl<N: FieldExt> From<&AssignedCondition<N>> for AssignedValue<N> {
     fn from(v: &AssignedCondition<N>) -> Self {
         AssignedValue {

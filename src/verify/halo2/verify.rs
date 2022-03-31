@@ -350,7 +350,7 @@ impl<
 impl<
         'a,
         C,
-        S : Field,
+        S: Clone + Debug + PartialEq,
         P: Clone + Debug,
         TS: FieldExt,
         TP,
@@ -366,7 +366,6 @@ impl<
         _pgate: &PGate,
     ) -> Result<Vec<EvaluationProof<'a, S, P>>, Error> {
         let queries = self.queries(sgate, ctx)?;
-
         let mut points: Vec<(S, Vec<_>)> = vec![];
         for query in queries.into_iter() {
             let mut found = None;
@@ -1007,7 +1006,7 @@ mod tests {
     use group::Group;
     use halo2_proofs::arithmetic::MillerLoopResult;
     use num_bigint::BigUint;
-    use pairing_bn256::bn256::{Fr};
+    use pairing_bn256::bn256::Fr;
 
     #[test]
     fn test_ctx_evaluate() {
