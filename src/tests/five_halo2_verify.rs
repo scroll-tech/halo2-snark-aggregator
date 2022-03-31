@@ -1,3 +1,5 @@
+use crate::arith::api::ContextGroup;
+use crate::circuits::ecc_circuit::AssignedPoint;
 use crate::circuits::five::integer_circuit::FiveColumnIntegerCircuit;
 use crate::circuits::native_ecc_circuit::NativeEccCircuit;
 use crate::field::bn_to_field;
@@ -5,20 +7,23 @@ use crate::gates::base_gate::RegionAux;
 use crate::gates::five::base_gate::{FiveColumnBaseGate, FiveColumnBaseGateConfig};
 use crate::gates::five::range_gate::FiveColumnRangeGate;
 use crate::gates::range_gate::RangeGateConfig;
+use crate::schema::ast::{EvaluationAST, MultiOpenProof};
+use crate::schema::SchemaGenerator;
 use crate::verify::halo2::tests::mul_circuit_builder::MyCircuit;
 use crate::verify::halo2::verify::VerifierParams;
 use group::ff::Field;
-use halo2_proofs::arithmetic::CurveAffine;
-use halo2_proofs::plonk::VerifyingKey;
+use group::Curve;
+use halo2_proofs::arithmetic::{CurveAffine, Engine};
+use halo2_proofs::plonk::{create_proof, keygen_pk, keygen_vk, VerifyingKey};
 use halo2_proofs::poly::commitment::{Params, ParamsVerifier};
-use halo2_proofs::transcript::Challenge255;
+use halo2_proofs::transcript::{Blake2bRead, Blake2bWrite, Challenge255};
 use halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner},
     dev::MockProver,
     plonk::{Circuit, ConstraintSystem, Error},
 };
 use num_bigint::BigUint;
-use pairing_bn256::bn256::{Bn256, Fq, Fr, G1Affine};
+use pairing_bn256::bn256::{Bn256, Fq, Fr, G1Affine, G1};
 use rand::SeedableRng;
 use rand_pcg::Pcg32;
 use rand_xorshift::XorShiftRng;
@@ -63,21 +68,15 @@ impl TestFiveColumnHalo2VerifyCircuitCircuit<G1Affine> {
         base_gate: &FiveColumnBaseGate<Fr>,
         r: &mut RegionAux<'_, '_, Fr>,
     ) -> Result<(), Error> {
-        use crate::verify::halo2::verify::IVerifierParams;
-        use halo2_proofs::plonk::{create_proof, keygen_pk, keygen_vk};
-        use halo2_proofs::transcript::{Blake2bRead, Blake2bWrite};
+        const K: u32 = 5;
+        let public_inputs_size = 1;
+        let u = bn_to_field::<Fr>(&BigUint::from_bytes_be(b"0"));
 
         let circuit = MyCircuit::<Fr> {
             a: Some(Fr::from(1)),
             b: Some(Fr::from(1)),
         };
 
-        let u = bn_to_field::<Fr>(&BigUint::from_bytes_be(
-            b"2bf0d643e52e5e03edec5e060a6e2d57014425cbf7344f2846771ef22efffdfc",
-        ));
-
-        const K: u32 = 5;
-        let public_inputs_size = 1;
         let params: Params<G1Affine> =
             Params::<G1Affine>::unsafe_setup_rng::<Bn256, _>(K, Pcg32::seed_from_u64(42));
         let params_verifier: ParamsVerifier<Bn256> = params.verifier(public_inputs_size).unwrap();
@@ -110,7 +109,37 @@ impl TestFiveColumnHalo2VerifyCircuitCircuit<G1Affine> {
             &mut transcript,
         )?;
 
-        let _queries = params.queries(base_gate, r)?;
+        let guard = params.batch_multi_open_proofs(r, base_gate, ecc_gate)?;
+
+        let (left_s, left_e) = guard.w_x.eval(base_gate, ecc_gate, r)?;
+        let (right_s, right_e) = guard.w_g.eval(base_gate, ecc_gate, r)?;
+
+        // TODO: from_constant? from_var?
+        let left_s = ecc_gate.from_constant(r, left_s.unwrap().to_affine())?;
+        let left_s = left_e.map_or(Ok(left_s), |left_e| {
+            let one = ecc_gate.one(r)?;
+
+            let left_e = base_gate.from_constant(r, left_e)?;
+            let left_es = ecc_gate.scalar_mul(r, &left_e, &one)?;
+            ecc_gate.add(r, &left_s, &left_es)
+        });
+
+        let right_s = ecc_gate.from_constant(r, right_s.unwrap().to_affine())?;
+        let right_s = right_e.map_or(Ok(right_s), |right_e| {
+            let one = ecc_gate.one(r)?;
+
+            let right_e = base_gate.from_constant(r, right_e)?;
+            let right_es = ecc_gate.scalar_mul(r, &right_e, &one)?;
+            ecc_gate.minus(r, &right_s, &right_es)
+        });
+
+        let left_s = ecc_gate.to_value(&left_s.unwrap())?;
+        let right_s = ecc_gate.to_value(&right_s.unwrap())?;
+
+        let p1 = Bn256::pairing(&left_s, &params_verifier.s_g2);
+        let p2 = Bn256::pairing(&right_s, &params_verifier.g2);
+
+        assert_eq!(p1, p2);
 
         Ok(())
     }

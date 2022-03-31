@@ -1007,7 +1007,7 @@ mod tests {
     use group::Group;
     use halo2_proofs::arithmetic::MillerLoopResult;
     use num_bigint::BigUint;
-    use pairing_bn256::bn256::{Fr, G1Affine, G1};
+    use pairing_bn256::bn256::{Fr};
 
     #[test]
     fn test_ctx_evaluate() {
@@ -1113,8 +1113,7 @@ mod tests {
         let (sg, pg, params_verifier, param) = build_verifier_params(false).unwrap();
 
         let guard = param.batch_multi_open_proofs(&mut (), &sg, &pg).unwrap();
-        let s_g2_prepared = <Bn256 as MultiMillerLoop>::G2Prepared::from(params_verifier.s_g2);
-        let n_g2_prepared = <Bn256 as MultiMillerLoop>::G2Prepared::from(-params_verifier.g2);
+
         let (left_s, left_e) = guard.w_x.eval(&sg, &pg, &mut ()).unwrap();
         let left_s = left_e.map_or(Ok(left_s.unwrap()), |left_e| {
             let one = pg.one(&mut ())?;
@@ -1128,13 +1127,9 @@ mod tests {
             pg.minus(&mut (), &right_s.unwrap(), &right_es)
         });
 
-        assert!(bool::from(
-            Bn256::multi_miller_loop(&[
-                (&left_s.unwrap().to_affine(), &s_g2_prepared),
-                (&right_s.unwrap().to_affine(), &n_g2_prepared)
-            ])
-            .final_exponentiation()
-            .is_identity()
-        ));
+        let p1 = Bn256::pairing(&left_s.unwrap().to_affine(), &params_verifier.s_g2);
+        let p2 = Bn256::pairing(&right_s.unwrap().to_affine(), &params_verifier.g2);
+
+        assert_eq!(p1, p2);
     }
 }
