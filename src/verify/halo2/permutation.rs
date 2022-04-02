@@ -67,84 +67,75 @@ impl<'a, C, S: Clone + Debug, P: Clone + Debug, Error: Debug> Evaluated<C, S, P,
         beta: &'a S,
         gamma: &'a S,
         x: &'a S,
-    ) -> Result<impl Iterator<Item = S> + 'a, Error> {
+    ) -> Result<Vec<S>, Error> {
+        let mut res = vec![];
         let one = &sgate.one(ctx)?;
 
         //let left = arith_in_ctx!([sgate, ctx] z_wx * (a_x + beta) * (s_x + gamma));
 
-        Ok(iter::empty()
-            // Enforce only for the first set.
-            // l_0(X) * (1 - z_0(X)) = 0
-            .chain(self.sets.first().map(|first_set| {
-                let z_x = &first_set.permutation_product_eval;
-                arith_in_ctx!([sgate, ctx] l_0 * (one - z_x)).unwrap()
-            }))
-            // Enforce only for the last set.
-            // l_last(X) * (z_l(X)^2 - z_l(X)) = 0
-            .chain(self.sets.last().map(|last_set| {
-                let z_x = &last_set.permutation_product_eval;
-                arith_in_ctx!([sgate, ctx] l_last * (z_x * z_x - z_x)).unwrap()
-            }))
-            // Except for the first set, enforce.
-            // l_0(X) * (z_i(X) - z_{i-1}(\omega^(last) X)) = 0
-            .chain({
-                // mutable borrow ctx, can not use closure!
-                let mut v = vec![];
-                for (set, last_set) in self.sets.iter().skip(1).zip(self.sets.iter()) {
-                    let s = &set.permutation_product_eval;
-                    let prev_last = &last_set.permutation_product_last_eval.as_ref().unwrap();
-                    v.push(arith_in_ctx!([sgate, ctx](s - prev_last) * l_0).unwrap());
-                }
-                v
-            })
-            // And for all the sets we enforce:
-            // (1 - (l_last(X) + l_blind(X))) * (
-            //   z_i(\omega X) \prod (p(X) + \beta s_i(X) + \gamma)
-            // - z_i(X) \prod (p(X) + \delta^i \beta X + \gamma)
-            // )
-            .chain({
-                let mut v = vec![];
-                for (chunk_index, ((set, evals), permutation_evals)) in self
-                    .sets
-                    .iter()
-                    .zip(self.evals.chunks(self.chunk_len))
-                    .zip(common.permutation_evals.chunks(self.chunk_len))
-                    .enumerate()
-                {
-                    let one = &sgate.one(ctx).unwrap();
-                    let mut left = set.permutation_product_next_eval.clone();
-                    let mut right = set.permutation_product_eval.clone();
+        // Enforce only for the first set.
+        // l_0(X) * (1 - z_0(X)) = 0
+        for first_set in self.sets.first() {
+            let z_x = &first_set.permutation_product_eval;
+            res.push(arith_in_ctx!([sgate, ctx] l_0 * (one - z_x))?);
+        }
 
-                    let delta_pow = if chunk_index == 0 {
-                        one.clone()
-                    } else {
-                        sgate
-                            .pow_constant(ctx, delta, (chunk_index * self.chunk_len) as u32)
-                            .unwrap()
-                    };
-                    let delta_pow = &delta_pow;
-                    let mut d = arith_in_ctx!([sgate, ctx] beta * x * delta_pow).unwrap();
+        // Enforce only for the last set.
+        // l_last(X) * (z_l(X)^2 - z_l(X)) = 0
+        for last_set in self.sets.last() {
+            let z_x = &last_set.permutation_product_eval;
+            res.push(arith_in_ctx!([sgate, ctx] l_last * (z_x * z_x - z_x))?);
+        }
 
-                    for (eval, permutation_eval) in evals.iter().zip(permutation_evals) {
-                        let delta_current = &d;
-                        let l_current = &left;
-                        let r_current = &right;
-                        left = arith_in_ctx!(
-                            [sgate, ctx](eval + beta * permutation_eval + gamma) * l_current
-                        )
+        // Except for the first set, enforce.
+        // l_0(X) * (z_i(X) - z_{i-1}(\omega^(last) X)) = 0
+        for (set, last_set) in self.sets.iter().skip(1).zip(self.sets.iter()) {
+            let s = &set.permutation_product_eval;
+            let prev_last = last_set.permutation_product_last_eval.as_ref().unwrap();
+            res.push(arith_in_ctx!([sgate, ctx](s - prev_last) * l_0)?);
+        }
+
+        // And for all the sets we enforce:
+        // (1 - (l_last(X) + l_blind(X))) * (
+        //   z_i(\omega X) \prod (p(X) + \beta s_i(X) + \gamma)
+        // - z_i(X) \prod (p(X) + \delta^i \beta X + \gamma)
+        // )
+        for (chunk_index, ((set, evals), permutation_evals)) in self
+            .sets
+            .iter()
+            .zip(self.evals.chunks(self.chunk_len))
+            .zip(common.permutation_evals.chunks(self.chunk_len))
+            .enumerate()
+        {
+            let mut left = set.permutation_product_next_eval.clone();
+            let mut right = set.permutation_product_eval.clone();
+
+            let delta_pow = if chunk_index == 0 {
+                one.clone()
+            } else {
+                sgate
+                    .pow_constant(ctx, delta, (chunk_index * self.chunk_len) as u32)
+                    .unwrap()
+            };
+            let delta_pow = &delta_pow;
+            let mut d = arith_in_ctx!([sgate, ctx] beta * x * delta_pow).unwrap();
+
+            for (eval, permutation_eval) in evals.iter().zip(permutation_evals) {
+                let delta_current = &d;
+                let l_current = &left;
+                let r_current = &right;
+                left =
+                    arith_in_ctx!([sgate, ctx](eval + beta * permutation_eval + gamma) * l_current)
                         .unwrap();
-                        right =
-                            arith_in_ctx!([sgate, ctx](eval + delta_current + gamma) * r_current)
-                                .unwrap();
-                        d = arith_in_ctx!([sgate, ctx] delta * delta_current).unwrap();
-                    }
-                    let (l, r) = (&left, &right);
-                    v.push(
-                        arith_in_ctx!([sgate, ctx](l - r) * (one - (l_last + l_blind))).unwrap(),
-                    );
-                }
-                v
-            }))
+                right =
+                    arith_in_ctx!([sgate, ctx](eval + delta_current + gamma) * r_current).unwrap();
+                d = arith_in_ctx!([sgate, ctx] delta * delta_current).unwrap();
+            }
+            let (l, r) = (&left, &right);
+            res.push(arith_in_ctx!([sgate, ctx](l - r) * (one - (l_last + l_blind))).unwrap());
+        }
+
+        Ok(res)
     }
     pub(in crate::verify::halo2) fn queries(
         &'a self,
@@ -171,14 +162,21 @@ impl<'a, C, S: Clone + Debug, P: Clone + Debug, Error: Debug> Evaluated<C, S, P,
                     )))
             }))
             // Open it at \omega^{last} x for all but the last set
-            .chain(self.sets.iter().enumerate().rev().skip(1).flat_map(|(i, set)| {
-                Some(EvaluationQuery::new(
-                    x_last.clone(),
-                    format!("permutation_product_commitment{}", i),
-                    &set.permutation_product_commitment,
-                    &set.permutation_product_last_eval.as_ref().unwrap(),
-                ))
-            }))
+            .chain(
+                self.sets
+                    .iter()
+                    .enumerate()
+                    .rev()
+                    .skip(1)
+                    .flat_map(|(i, set)| {
+                        Some(EvaluationQuery::new(
+                            x_last.clone(),
+                            format!("permutation_product_commitment{}", i),
+                            &set.permutation_product_commitment,
+                            &set.permutation_product_last_eval.as_ref().unwrap(),
+                        ))
+                    }),
+            )
     }
 }
 

@@ -1,7 +1,7 @@
-use super::verify::Evaluable;
 use crate::arith::api::{ContextGroup, ContextRing};
 use crate::schema::utils::VerifySetupHelper;
 use crate::schema::EvaluationQuery;
+use crate::verify::halo2::verify::evaluate::Evaluable;
 use crate::{arith_in_ctx, infix2postfix};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Expression;
@@ -36,7 +36,7 @@ pub struct Evaluated<C, S, P, Error> {
 
 impl<'a, C, S: Clone + Debug, P: Clone + Debug, Error: Debug> Evaluated<C, S, P, Error> {
     pub(in crate::verify::halo2) fn expressions<T: FieldExt>(
-        &'a self,
+        &self,
         sgate: &(impl ContextGroup<C, S, S, T, Error> + ContextRing<C, S, S, Error>),
         ctx: &'a mut C,
         fixed_evals: &'a Vec<&'a S>,
@@ -50,7 +50,9 @@ impl<'a, C, S: Clone + Debug, P: Clone + Debug, Error: Debug> Evaluated<C, S, P,
         gamma: &'a S,
     ) -> Result<impl Iterator<Item = S>, Error> {
         let _one = sgate.one(ctx)?;
+        let _zero = sgate.zero(ctx)?;
         let one = &_one;
+        let zero = &_zero;
         let z_wx = &self.product_next_eval;
         let z_x = &self.product_eval;
         let a_x = &self.permuted_input_eval;
@@ -70,10 +72,11 @@ impl<'a, C, S: Clone + Debug, P: Clone + Debug, Error: Debug> Evaluated<C, S, P,
                     &|n| fixed_evals[n].clone(),
                     &|n| advice_evals[n].clone(),
                     &|n| instance_evals[n].clone(),
+                    zero,
                 )
             })
-            .collect();
-        let input_eval = &sgate.mult_and_add(ctx, input_evals.iter(), theta);
+            .collect::<Result<Vec<_>, _>>()?;
+        let input_eval = &sgate.mult_and_add(ctx, input_evals, theta)?;
 
         let table_evals: Vec<S> = self
             .table_expressions
@@ -85,10 +88,12 @@ impl<'a, C, S: Clone + Debug, P: Clone + Debug, Error: Debug> Evaluated<C, S, P,
                     &|n| fixed_evals[n].clone(),
                     &|n| advice_evals[n].clone(),
                     &|n| instance_evals[n].clone(),
+                    zero,
                 )
             })
-            .collect();
-        let table_eval = &sgate.mult_and_add(ctx, table_evals.iter(), theta);
+            .collect::<Result<Vec<_>, _>>()?;
+        let table_eval = &sgate.mult_and_add(ctx, table_evals, theta)?;
+
         Ok(iter::empty()
             .chain(
                 // l_0(X) * (1 - z'(X)) = 0

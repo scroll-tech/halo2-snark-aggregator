@@ -31,10 +31,10 @@ impl<'a, C, S: Clone + Debug, P: Clone + Debug, Error: Debug> Evaluated<'a, C, S
         random_commitment: &'a P,
         random_eval: &'a S,
         expect_commitments: Vec<&'a P>,
-    ) -> Evaluated<'a, C, S, P, Error> {
+    ) -> Result<Evaluated<'a, C, S, P, Error>, Error> {
         let one = &sgate.one(ctx).unwrap();
-        let expected_h_eval = &sgate.mult_and_add(ctx, expressions.iter(), y);
-        let expected_h_eval = arith_in_ctx!([sgate, ctx] expected_h_eval / (xn - one)).unwrap();
+        let expected_h_eval = &sgate.mult_and_add(ctx, expressions, y)?;
+        let expected_h_eval = arith_in_ctx!([sgate, ctx] expected_h_eval / (xn - one))?;
 
         let h_commitment: SchemaItem<S, P> = expect_commitments
             .iter()
@@ -49,13 +49,13 @@ impl<'a, C, S: Clone + Debug, P: Clone + Debug, Error: Debug> Evaluated<'a, C, S
             })
             .reduce(|acc, commitment| scalar!(xn) * acc + commitment)
             .unwrap();
-        Evaluated {
+        Ok(Evaluated {
             h_commitment,
             expected_h_eval,
             random_eval,
             random_commitment,
             _m: PhantomData,
-        }
+        })
     }
 
     pub(in crate::verify::halo2) fn queries(&self, x: &'a S) -> Vec<EvaluationQuery<'a, S, P>> {

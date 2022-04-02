@@ -110,25 +110,25 @@ macro_rules! arith_in_ctx {
 //note: to `arith_in_ctx! (@ pfx [h, r] (a a) (+ a +))`
   (@pfx [$s:tt, $c:tt] ($a:expr, $b:expr, $($stack:tt,)*) (+ $($tail:tt)*)) => {
       {
-        let r = &$s.add($c, $a, $b).unwrap();
+        let r = &$s.add($c, $a, $b)?;
         arith_in_ctx! (@pfx [$s, $c] (r, $($stack,)*) ($($tail)*))
       }
   };
   (@pfx [$s:tt, $c:tt] ($a:expr, $b:expr, $($stack:tt,)*) (- $($tail:tt)*)) => {
       {
-        let r = &$s.minus($c, $b, $a).unwrap();
+        let r = &$s.minus($c, $b, $a)?;
         arith_in_ctx!(@pfx [$s, $c] (r, $($stack,)*) ($($tail)*))
       }
   };
   (@pfx [$s:tt, $c:tt] ($a:expr, $b:expr, $($stack:tt,)*) (* $($tail:tt)*)) => {
       {
-        let eval = &$s.mul($c, $b, $a).unwrap();
+        let eval = &$s.mul($c, $b, $a)?;
         arith_in_ctx!(@pfx [$s, $c] (eval, $($stack,)*) ($($tail)*))
       }
   };
   (@pfx [$s:tt, $c:tt] ($a:expr, $b:expr, $($stack:tt,)*) (/ $($tail:tt)*)) => {
       {
-        let eval = &$s.div($c, $b, $a).unwrap();
+        let eval = &$s.div($c, $b, $a)?;
         arith_in_ctx!(@pfx [$s, $c] (eval, $($stack,)*) ($($tail)*))
       }
   };
@@ -209,7 +209,7 @@ mod test_marco {
     }
 
     #[test]
-    fn test_singleton() {
+    fn test_singleton() -> Result<(), ()> {
         let gate = Gate {
             one: W { t: 1 },
             zero: W { t: 0 },
@@ -239,5 +239,6 @@ mod test_marco {
         assert_eq!(a1.t, -1);
         let a1 = arith_in_ctx!([gate, r](c * b * b) / (c + c)).unwrap();
         assert_eq!(a1.t, 2);
+        Ok(())
     }
 }

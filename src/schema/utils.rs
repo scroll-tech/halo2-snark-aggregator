@@ -32,12 +32,7 @@ pub trait VerifySetupHelper<'a, C, S, T, Error: Debug> {
         l: i32,
     ) -> Result<Vec<S>, Error>;
     fn commit_instance(&self, ctx: &mut C, wits: Vec<S>, ls: Vec<S>) -> Result<S, Error>;
-    fn mult_and_add(
-        &'a self,
-        ctx: &'a mut C,
-        wits: impl Iterator<Item = &'a S> + Clone,
-        y: &'a S,
-    ) -> S;
+    fn mult_and_add(&'a self, ctx: &'a mut C, wits: Vec<S>, y: &'a S) -> Result<S, Error>;
 }
 
 impl<
@@ -80,25 +75,27 @@ impl<
         let r1 = &wits[0];
         let r2 = &ls[0];
         let mut r = arith_in_ctx!([self, ctx] r1 * r2)?;
-        wits.iter().zip(ls.iter()).skip(1).for_each(|(x, y)| {
+        for (x, y) in wits.iter().zip(ls.iter()).skip(1) {
             let prev = &r;
-            r = arith_in_ctx!([self, ctx] prev + (x * y)).unwrap();
-        });
+            r = arith_in_ctx!([self, ctx] prev + (x * y))?;
+        }
         Ok(r)
     }
 
     /* TODO, this needs optimize in circuits */
-    fn mult_and_add(
-        &'a self,
-        ctx: &'a mut C,
-        wits: impl Iterator<Item = &'a S> + Clone,
-        y: &'a S,
-    ) -> S {
+    fn mult_and_add(&'a self, ctx: &'a mut C, wits: Vec<S>, y: &'a S) -> Result<S, Error> {
         let mut wits = wits.clone();
-        let r1 = wits.next().unwrap().clone();
-        wits.fold(r1, |e, v| {
-            let e = &e;
-            arith_in_ctx!([self, ctx] e * y + v).unwrap()
-        })
+        let mut r1 = None;
+        for v in wits {
+            if r1.is_none() {
+                r1 = Some(v);
+            } else {
+                let e = r1.as_ref().unwrap();
+                let v = &v;
+                let r = arith_in_ctx!([self, ctx] e * y + v)?;
+                r1 = Some(r);
+            }
+        }
+        Ok(r1.unwrap())
     }
 }

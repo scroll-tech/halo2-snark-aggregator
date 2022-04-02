@@ -1,3 +1,5 @@
+use self::evaluate::Evaluable;
+
 use super::{lookup, permutation, vanish};
 use crate::arith::api::{ContextGroup, ContextRing, PowConstant};
 use crate::arith::code::{FieldCode, PointCode};
@@ -20,86 +22,11 @@ use pairing_bn256::bn256::{Fr as Fp, G1Affine};
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
+pub(crate) mod evaluate;
+
 pub struct PlonkCommonSetup {
     pub l: u32,
     pub n: u32,
-}
-
-pub trait Evaluable<
-    C,
-    S,
-    T,
-    Error: Debug,
-    SGate: ContextGroup<C, S, S, T, Error> + ContextRing<C, S, S, Error>,
->
-{
-    fn ctx_evaluate(
-        &self,
-        sgate: &SGate,
-        ctx: &mut C,
-        fixed: &impl Fn(usize) -> S,
-        advice: &impl Fn(usize) -> S,
-        instance: &impl Fn(usize) -> S,
-    ) -> S;
-}
-
-impl<
-        C,
-        S: Clone,
-        T: FieldExt,
-        Error: Debug,
-        SGate: ContextGroup<C, S, S, T, Error> + ContextRing<C, S, S, Error>,
-    > Evaluable<C, S, T, Error, SGate> for Expression<S>
-{
-    fn ctx_evaluate(
-        &self,
-        sgate: &SGate,
-        ctx: &mut C,
-        fixed: &impl Fn(usize) -> S,
-        advice: &impl Fn(usize) -> S,
-        instance: &impl Fn(usize) -> S,
-    ) -> S {
-        match self {
-            Expression::Constant(scalar) => scalar.clone(),
-            Expression::Selector(_selector) => {
-                panic!("virtual selectors are removed during optimization")
-            }
-            Expression::Fixed {
-                query_index,
-                column_index: _,
-                rotation: _,
-            } => fixed(*query_index),
-            Expression::Advice {
-                query_index,
-                column_index: _,
-                rotation: _,
-            } => advice(*query_index),
-            Expression::Instance {
-                query_index,
-                column_index: _,
-                rotation: _,
-            } => instance(*query_index),
-            Expression::Negated(a) => {
-                let a = &a.ctx_evaluate(sgate, ctx, fixed, advice, instance);
-                let zero = &sgate.zero(ctx).unwrap();
-                arith_in_ctx!([sgate, ctx] zero - a).unwrap()
-            }
-            Expression::Sum(a, b) => {
-                let a = &a.ctx_evaluate(sgate, ctx, fixed, advice, instance);
-                let b = &b.ctx_evaluate(sgate, ctx, fixed, advice, instance);
-                arith_in_ctx!([sgate, ctx] a + b).unwrap()
-            }
-            Expression::Product(a, b) => {
-                let a = &a.ctx_evaluate(sgate, ctx, fixed, advice, instance);
-                let b = &b.ctx_evaluate(sgate, ctx, fixed, advice, instance);
-                arith_in_ctx!([sgate, ctx] a * b).unwrap()
-            }
-            Expression::Scaled(a, f) => {
-                let a = &a.ctx_evaluate(sgate, ctx, fixed, advice, instance);
-                arith_in_ctx!([sgate, ctx] f * a).unwrap()
-            }
-        }
-    }
 }
 
 pub struct VerifierParams<C, S: Clone, P: Clone, Error: Debug> {
@@ -209,6 +136,7 @@ impl<
         let l_last = &(ls[0]);
         let l_0 = &ls[self.common.l as usize];
         let l_blind = &sgate.add_array(ctx, ls[1..(self.common.l as usize)].iter().collect())?;
+        let zero = sgate.zero(ctx)?;
 
         let pcommon = permutation::CommonEvaluated {
             permutation_evals: &self.permutation_evals,
@@ -232,30 +160,31 @@ impl<
                         &|n| self.fixed_evals[n].clone(),
                         &|n| advice_evals[n].clone(),
                         &|n| instance_evals[n].clone(),
-                    ));
+                        &zero,
+                    )?);
                 }
             }
-            let p = permutation
-                .expressions(
-                    //vk,
-                    //&vk.cs.permutation,
-                    //&permutations_common,
-                    //fixed_evals,
-                    //advice_evals,
-                    //instance_evals,
-                    sgate,
-                    ctx,
-                    &pcommon,
-                    l_0,
-                    l_last,
-                    l_blind,
-                    &self.delta,
-                    &self.beta,
-                    &self.gamma,
-                    x,
-                )
-                .unwrap();
-            expression.extend(p);
+
+            let mut p = permutation.expressions(
+                //vk,
+                //&vk.cs.permutation,
+                //&permutations_common,
+                //fixed_evals,
+                //advice_evals,
+                //instance_evals,
+                sgate,
+                ctx,
+                &pcommon,
+                l_0,
+                l_last,
+                l_blind,
+                &self.delta,
+                &self.beta,
+                &self.gamma,
+                x,
+            )?;
+            expression.append(&mut p);
+
             for i in 0..lookups.len() {
                 let l = lookups[i]
                     .expressions(
@@ -341,7 +270,7 @@ impl<
             &self.random_commitment,
             &self.random_eval,
             self.vanish_commitments.iter().map(|ele| ele).collect(),
-        );
+        )?;
         //vanishing.verify(expressions, y, xn)
         let mut vanish = vanish.queries(x);
         queries.append(&mut vanish);
@@ -1012,14 +941,13 @@ mod tests {
         arith::code::FieldCode,
         verify::{halo2::tests::mul_circuit_builder::build_verifier_params, plonk::bn_to_field},
     };
-    use group::Group;
-    use halo2_proofs::arithmetic::MillerLoopResult;
     use num_bigint::BigUint;
     use pairing_bn256::bn256::Fr;
 
     #[test]
     fn test_ctx_evaluate() {
         let sgate = FieldCode::<Fr>::default();
+        let zero = sgate.zero(&mut ()).unwrap();
 
         let (_, _, _, params) = build_verifier_params(true).unwrap();
 
@@ -1029,15 +957,18 @@ mod tests {
             .zip(params.instance_evals.iter())
             .for_each(|(advice_evals, instance_evals)| {
                 params.gates.iter().for_each(|gate| {
-                    gate.iter().for_each(|poly| {
-                        let res = poly.ctx_evaluate(
-                            &sgate,
-                            &mut (),
-                            &|n| params.fixed_evals[n],
-                            &|n| advice_evals[n],
-                            &|n| instance_evals[n],
-                        );
-                        let expected = poly.evaluate(
+                    gate.into_iter().for_each(|poly| {
+                        let res = poly
+                            .ctx_evaluate(
+                                &sgate,
+                                &mut (),
+                                &|n| params.fixed_evals[n],
+                                &|n| advice_evals[n],
+                                &|n| instance_evals[n],
+                                &zero,
+                            )
+                            .unwrap();
+                        let expected: Fr = poly.evaluate(
                             &|scalar| scalar,
                             &|_| panic!("virtual selectors are removed during optimization"),
                             &|n, _, _| params.fixed_evals[n],
