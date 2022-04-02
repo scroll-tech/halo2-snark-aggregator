@@ -481,8 +481,9 @@ mod tests {
                 lookup
                     .queries(&params.x, &params.x_inv, &params.x_next)
                     .zip(expected.iter())
-                    .for_each(|(q, expected)| {
-                        //assert_eq!(q, *expected);
+                    .for_each(|(_q, _expected)| {
+                        // TODO: add keys to pass the assertion
+                        // assert_eq!(q, *expected);
                     });
             })
         })

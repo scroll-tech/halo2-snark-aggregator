@@ -84,7 +84,6 @@ impl<
 
     /* TODO, this needs optimize in circuits */
     fn mult_and_add(&'a self, ctx: &'a mut C, wits: Vec<S>, y: &'a S) -> Result<S, Error> {
-        let mut wits = wits.clone();
         let mut r1 = None;
         for v in wits {
             if r1.is_none() {

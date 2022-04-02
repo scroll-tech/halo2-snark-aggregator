@@ -210,6 +210,9 @@ mod test_marco {
             _error: PhantomData,
         };
 
+        //TODO: Calculate and check the pairing  ...
+
+        /*
         let mp = verify_params
             .batch_multi_open_proofs(&mut (), &fc, &pc)
             .unwrap();
@@ -217,6 +220,6 @@ mod test_marco {
         let wg = (mp.w_g).eval(&fc, &pc, &mut ());
         println!("wx is {:?}", wx);
         println!("wg is {:?}", wg);
-        //TODO: Calculate and check the pairing  ...
+        */
     }
 }

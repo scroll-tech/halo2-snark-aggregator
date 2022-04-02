@@ -1,15 +1,13 @@
 use self::evaluate::Evaluable;
-
-use super::{lookup, permutation, vanish};
+use super::{lookup, permutation};
 use crate::arith::api::{ContextGroup, ContextRing, PowConstant};
 use crate::arith::code::{FieldCode, PointCode};
-use crate::schema::ast::{ArrayOpAdd, CommitQuery, EvaluationAST, MultiOpenProof, SchemaItem};
-use crate::schema::utils::VerifySetupHelper;
-use crate::schema::{EvaluationProof, EvaluationQuery, SchemaGenerator};
+use crate::schema::ast::{CommitQuery, EvaluationAST, MultiOpenProof, SchemaItem};
+use crate::schema::{EvaluationProof, SchemaGenerator};
 use crate::verify::halo2::permutation::Evaluated;
 use crate::verify::halo2::permutation::EvaluatedSet;
+use crate::verify::halo2::verify::query::IVerifierParams;
 use crate::{arith_in_ctx, infix2postfix};
-use crate::{commit, scalar};
 use group::Curve;
 use halo2_proofs::arithmetic::{CurveAffine, Engine, Field, FieldExt, MultiMillerLoop};
 use halo2_proofs::plonk::{Expression, VerifyingKey};
@@ -23,6 +21,11 @@ use std::fmt::Debug;
 use std::marker::PhantomData;
 
 pub(crate) mod evaluate;
+pub(crate) mod query;
+pub(crate) mod multiopen;
+
+#[cfg(test)]
+mod tests;
 
 pub struct PlonkCommonSetup {
     pub l: u32,
@@ -68,336 +71,30 @@ pub struct VerifierParams<C, S: Clone, P: Clone, Error: Debug> {
     pub _error: PhantomData<Error>,
 }
 
-pub trait IVerifierParams<
-    'a,
+fn rotate_omega<
     C,
     S: Clone,
+    Error,
     T: FieldExt,
-    P: Clone,
-    Error: Debug,
     SGate: ContextGroup<C, S, S, T, Error> + ContextRing<C, S, S, Error>,
->
-{
-    fn rotate_omega(&self, sgate: &'a SGate, ctx: &'a mut C, at: i32) -> Result<S, Error>;
-    fn queries(
-        &'a self,
-        sgate: &SGate,
-        ctx: &mut C,
-    ) -> Result<Vec<EvaluationQuery<'a, S, P>>, Error>;
-}
+>(
+    sgate: &SGate,
+    ctx: &mut C,
+    x: &S,
+    omega: T,
+    at: i32,
+) -> Result<S, Error> {
+    let (base, exp) = if at < 0 {
+        (omega.invert().unwrap(), [(-at) as u64, 0, 0, 0])
+    } else {
+        (omega, [at as u64, 0, 0, 0])
+    };
+    let omega_at = &sgate.from_constant(ctx, base.pow_vartime(exp))?;
 
-impl<
-        'a,
-        C,
-        S: Clone + Debug,
-        T: FieldExt,
-        P: Clone + Debug,
-        Error: Debug,
-        SGate: ContextGroup<C, S, S, T, Error> + ContextRing<C, S, S, Error>,
-    > IVerifierParams<'a, C, S, T, P, Error, SGate> for VerifierParams<C, S, P, Error>
-{
-    fn rotate_omega(&self, sgate: &'a SGate, ctx: &'a mut C, at: i32) -> Result<S, Error> {
-        let x = &self.x;
-        if at < 0 {
-            let omega_at = &sgate.from_constant(
-                ctx,
-                sgate
-                    .to_value(&self.omega)?
-                    .invert()
-                    .unwrap()
-                    .pow_vartime([(-at) as u64, 0, 0, 0]),
-            )?;
-            arith_in_ctx!([sgate, ctx] x * omega_at)
-        } else {
-            let omega_at = &sgate.from_constant(
-                ctx,
-                sgate
-                    .to_value(&self.omega)?
-                    .pow_vartime([at as u64, 0, 0, 0]),
-            )?;
-            arith_in_ctx!([sgate, ctx] x * omega_at)
-        }
-    }
-
-    fn queries(
-        &'a self,
-        sgate: &SGate,
-        ctx: &mut C,
-    ) -> Result<Vec<EvaluationQuery<'a, S, P>>, Error> {
-        let x = &self.x;
-        let ls = sgate.get_lagrange_commits(
-            ctx,
-            x,
-            &self.xn,
-            &self.omega,
-            self.common.n,
-            self.common.l as i32,
-        )?;
-        let l_last = &(ls[0]);
-        let l_0 = &ls[self.common.l as usize];
-        let l_blind = &sgate.add_array(ctx, ls[1..(self.common.l as usize)].iter().collect())?;
-        let zero = sgate.zero(ctx)?;
-
-        let pcommon = permutation::CommonEvaluated {
-            permutation_evals: &self.permutation_evals,
-            permutation_commitments: &self.permutation_commitments,
-        };
-
-        let mut expression = vec![];
-
-        /* All calculation relies on ctx thus FnMut for map does not work anymore */
-        for k in 0..self.advice_evals.len() {
-            let advice_evals = &self.advice_evals[k];
-            let instance_evals = &self.instance_evals[k];
-            let permutation = &self.permutation_evaluated[k];
-            let lookups = &self.lookup_evaluated[k];
-            for i in 0..self.gates.len() {
-                for j in 0..self.gates[i].len() {
-                    let poly = &self.gates[i][j];
-                    expression.push(poly.ctx_evaluate(
-                        sgate,
-                        ctx,
-                        &|n| self.fixed_evals[n].clone(),
-                        &|n| advice_evals[n].clone(),
-                        &|n| instance_evals[n].clone(),
-                        &zero,
-                    )?);
-                }
-            }
-
-            let mut p = permutation.expressions(
-                //vk,
-                //&vk.cs.permutation,
-                //&permutations_common,
-                //fixed_evals,
-                //advice_evals,
-                //instance_evals,
-                sgate,
-                ctx,
-                &pcommon,
-                l_0,
-                l_last,
-                l_blind,
-                &self.delta,
-                &self.beta,
-                &self.gamma,
-                x,
-            )?;
-            expression.append(&mut p);
-
-            for i in 0..lookups.len() {
-                let l = lookups[i]
-                    .expressions(
-                        sgate,
-                        ctx,
-                        &self.fixed_evals.iter().map(|ele| ele).collect(),
-                        &instance_evals.iter().map(|ele| ele).collect(),
-                        &advice_evals.iter().map(|ele| ele).collect(),
-                        l_0,
-                        l_last,
-                        l_blind,
-                        //argument,
-                        &self.theta,
-                        &self.beta,
-                        &self.gamma,
-                    )
-                    .unwrap();
-                expression.extend(l);
-            }
-        }
-
-        let mut queries = vec![];
-        for (
-            (
-                (((instance_commitments, instance_evals), advice_commitments), advice_evals),
-                permutation,
-            ),
-            lookups,
-        ) in self
-            .instance_commitments
-            .iter()
-            .zip(self.instance_evals.iter())
-            .zip(self.advice_commitments.iter())
-            .zip(self.advice_evals.iter())
-            .zip(self.permutation_evaluated.iter())
-            .zip(self.lookup_evaluated.iter())
-        {
-            for (query_index, &(column, at)) in self.instance_queries.iter().enumerate() {
-                queries.push(EvaluationQuery::new(
-                    self.rotate_omega(sgate, ctx, at).unwrap(),
-                    format!("instance{}", query_index),
-                    &instance_commitments[column],
-                    &instance_evals[query_index],
-                ))
-            }
-
-            for (query_index, &(column, at)) in self.advice_queries.iter().enumerate() {
-                queries.push(EvaluationQuery::new(
-                    self.rotate_omega(sgate, ctx, at).unwrap(),
-                    format!("advice{}", query_index),
-                    &advice_commitments[column],
-                    &advice_evals[query_index],
-                ))
-            }
-
-            queries.append(&mut permutation.queries(&self.x_next, &self.x_last).collect()); // tested
-            queries.append(
-                &mut lookups
-                    .iter()
-                    .flat_map(move |p| p.queries(x, &self.x_inv, &self.x_next))
-                    .collect(),
-            );
-        }
-
-        for (query_index, &(column, at)) in self.fixed_queries.iter().enumerate() {
-            queries.push(EvaluationQuery::<'a, S, P>::new(
-                self.rotate_omega(sgate, ctx, at).unwrap(),
-                format!("query{}", query_index),
-                &self.fixed_commitments[column],
-                &self.fixed_evals[query_index],
-            ))
-        }
-
-        let mut pcommon = pcommon.queries(x);
-        queries.append(&mut pcommon);
-
-        let vanish = vanish::Evaluated::new(
-            sgate,
-            ctx,
-            expression,
-            &self.y,
-            &self.xn,
-            &self.random_commitment,
-            &self.random_eval,
-            self.vanish_commitments.iter().map(|ele| ele).collect(),
-        )?;
-        //vanishing.verify(expressions, y, xn)
-        let mut vanish = vanish.queries(x);
-        queries.append(&mut vanish);
-
-        Ok(queries)
-    }
-}
-
-impl<
-        'a,
-        C,
-        S: Clone + Debug + PartialEq,
-        P: Clone + Debug,
-        TS: FieldExt,
-        TP,
-        Error: Debug,
-        SGate: ContextGroup<C, S, S, TS, Error> + ContextRing<C, S, S, Error>,
-        PGate: ContextGroup<C, S, P, TP, Error>,
-    > SchemaGenerator<'a, C, S, P, TS, TP, Error, SGate, PGate> for VerifierParams<C, S, P, Error>
-{
-    fn get_point_schemas(
-        &'a self,
-        ctx: &mut C,
-        sgate: &SGate,
-        _pgate: &PGate,
-    ) -> Result<Vec<EvaluationProof<'a, S, P>>, Error> {
-        let queries = self.queries(sgate, ctx)?;
-        let mut points: Vec<(S, Vec<_>)> = vec![];
-        for query in queries.into_iter() {
-            let mut found = None;
-            for point in points.iter_mut() {
-                if point.0 == query.point {
-                    found = Some(&mut point.1);
-                }
-            }
-            match found {
-                Some(v) => v.push(query.s),
-                _ => points.push((query.point, vec![query.s])),
-            }
-        }
-
-        assert_eq!(self.w.len(), points.len());
-
-        points
-            .into_iter()
-            .enumerate()
-            .map(|(i, p)| {
-                let point = p.0;
-                let queries = p.1;
-                let mut acc = None;
-
-                for q in queries.into_iter() {
-                    acc = match acc {
-                        Some(acc) => Some(scalar!(self.v) * acc + q),
-                        _ => Some(q),
-                    };
-                }
-
-                Ok(EvaluationProof {
-                    s: acc.unwrap(),
-                    point,
-                    w: &self.w[i],
-                })
-            })
-            .collect()
-    }
-
-    fn batch_multi_open_proofs(
-        &'a self,
-        ctx: &mut C,
-        sgate: &SGate,
-        pgate: &PGate,
-    ) -> Result<MultiOpenProof<'a, S, P>, Error> {
-        let proofs = self.get_point_schemas(ctx, sgate, pgate)?;
-
-        let one = sgate.one(ctx)?;
-        let zero = sgate.zero(ctx)?;
-        let neg_one = &(sgate.minus(ctx, &zero, &one)?);
-
-        let mut w_x = None;
-        let mut w_g = None;
-
-        for (i, p) in proofs.into_iter().enumerate() {
-            let s = &p.s;
-            let w = CommitQuery {
-                key: format!("w{}", i),
-                c: Some(p.w),
-                v: None,
-            };
-            w_x = w_x.map_or(Some(commit!(w)), |w_x| {
-                Some(scalar!(self.u) * w_x + commit!(w))
-            });
-            w_g = w_g.map_or(Some(scalar!(p.point) * commit!(w) + s.clone()), |w_g| {
-                Some(scalar!(self.u) * w_g + scalar!(p.point) * commit!(w) + s.clone())
-            });
-        }
-
-        Ok(MultiOpenProof {
-            w_x: w_x.unwrap(),
-            w_g: w_g.unwrap(),
-        })
-    }
+    arith_in_ctx!([sgate, ctx] x * omega_at)
 }
 
 impl<'a, CTX, S: Clone + Debug, P: Clone, Error: Debug> VerifierParams<CTX, S, P, Error> {
-    fn rotate_omega<
-        ScalarExt: FieldExt,
-        SGate: ContextGroup<CTX, S, S, ScalarExt, Error> + ContextRing<CTX, S, S, Error>,
-    >(
-        sgate: &'a SGate,
-        ctx: &'a mut CTX,
-        x: &S,
-        omega: ScalarExt,
-        at: i32,
-    ) -> Result<S, Error> {
-        if at < 0 {
-            let omega_at = &sgate.from_constant(
-                ctx,
-                omega.invert().unwrap().pow_vartime([(-at) as u64, 0, 0, 0]),
-            )?;
-            arith_in_ctx!([sgate, ctx] x * omega_at)
-        } else {
-            let omega_at = &sgate.from_constant(ctx, omega.pow_vartime([at as u64, 0, 0, 0]))?;
-            arith_in_ctx!([sgate, ctx] x * omega_at)
-        }
-    }
-
     fn from_expression<
         C: MultiMillerLoop,
         SGate: ContextGroup<CTX, S, S, <C::G1Affine as CurveAffine>::ScalarExt, Error>
@@ -614,9 +311,9 @@ impl<'a, CTX, S: Clone + Debug, P: Clone, Error: Debug> VerifierParams<CTX, S, P
         // satisfied with high probability.
         let x: ChallengeScalar<<C as Engine>::G1Affine, T> = transcript.squeeze_challenge_scalar();
         let x = sgate.from_var(ctx, *x)?;
-        let x_next = Self::rotate_omega(sgate, ctx, &x, omega, 1)?;
-        let x_last = Self::rotate_omega(sgate, ctx, &x, omega, -(l as i32))?;
-        let x_inv = Self::rotate_omega(sgate, ctx, &x, omega, -1)?;
+        let x_next = rotate_omega(sgate, ctx, &x, omega, 1)?;
+        let x_last = rotate_omega(sgate, ctx, &x, omega, -(l as i32))?;
+        let x_inv = rotate_omega(sgate, ctx, &x, omega, -1)?;
         let xn = sgate.pow_constant(ctx, &x, n)?;
 
         let instance_evals = (0..num_proofs)
@@ -932,147 +629,4 @@ pub fn sanity_check_fn(
             assert_eq!(commit.unwrap().to_affine(), expected_commitment);
             // TODO: compare q.s with e.commitment and eval
         })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::{
-        arith::code::FieldCode,
-        verify::{halo2::tests::mul_circuit_builder::build_verifier_params, plonk::bn_to_field},
-    };
-    use num_bigint::BigUint;
-    use pairing_bn256::bn256::Fr;
-
-    #[test]
-    fn test_ctx_evaluate() {
-        let sgate = FieldCode::<Fr>::default();
-        let zero = sgate.zero(&mut ()).unwrap();
-
-        let (_, _, _, params) = build_verifier_params(true).unwrap();
-
-        params
-            .advice_evals
-            .iter()
-            .zip(params.instance_evals.iter())
-            .for_each(|(advice_evals, instance_evals)| {
-                params.gates.iter().for_each(|gate| {
-                    gate.into_iter().for_each(|poly| {
-                        let res = poly
-                            .ctx_evaluate(
-                                &sgate,
-                                &mut (),
-                                &|n| params.fixed_evals[n],
-                                &|n| advice_evals[n],
-                                &|n| instance_evals[n],
-                                &zero,
-                            )
-                            .unwrap();
-                        let expected: Fr = poly.evaluate(
-                            &|scalar| scalar,
-                            &|_| panic!("virtual selectors are removed during optimization"),
-                            &|n, _, _| params.fixed_evals[n],
-                            &|n, _, _| advice_evals[n],
-                            &|n, _, _| instance_evals[n],
-                            &|a| -a,
-                            &|a, b| a + &b,
-                            &|a, b| a * &b,
-                            &|a, scalar| a * &scalar,
-                        );
-                        assert_eq!(res, expected);
-                    })
-                })
-            });
-    }
-
-    #[test]
-    fn test_rotate_omega() {
-        let (_, _, _, param) = build_verifier_params(true).unwrap();
-        assert_eq!(
-            param.x,
-            bn_to_field(
-                &BigUint::parse_bytes(
-                    b"0c4490cdcf6545e3e7b951799adab8efd7e0812cf59bb1fde0cb826e5b51448b",
-                    16
-                )
-                .unwrap()
-            )
-        );
-        assert_eq!(
-            param.x_next,
-            bn_to_field(
-                &BigUint::parse_bytes(
-                    b"1a23d5660f0fd2ff2bb5d01c2b69499da64c863234fd8474d2715a59acf918df",
-                    16
-                )
-                .unwrap()
-            )
-        );
-        assert_eq!(
-            param.x_last,
-            bn_to_field(
-                &BigUint::parse_bytes(
-                    b"0fa7d2a74c9c0c7aee15a51c6213e9cd05eaa928d4ff3e0e0621552b885c4c08",
-                    16
-                )
-                .unwrap()
-            )
-        );
-        assert_eq!(
-            param.x_inv,
-            bn_to_field(
-                &BigUint::parse_bytes(
-                    b"18e61e79f9a7becf4090148dd6321acd9f0da0df20b2e26069a360842598beac",
-                    16
-                )
-                .unwrap()
-            )
-        );
-        assert_eq!(
-            param.xn,
-            bn_to_field(
-                &BigUint::parse_bytes(
-                    b"0918f0797719cd0667a1689f6fd167dbfa8ddd0ac5218125c08598dadef28e70",
-                    16
-                )
-                .unwrap()
-            )
-        );
-    }
-
-    #[test]
-    fn test_verify_queries() {
-        let _ = build_verifier_params(true).unwrap();
-    }
-
-    #[test]
-    fn test_multi_open() {
-        use pairing_bn256::bn256::Bn256;
-
-        let (sg, pg, params_verifier, param) = build_verifier_params(false).unwrap();
-
-        let guard = param.batch_multi_open_proofs(&mut (), &sg, &pg).unwrap();
-
-        let (left_s, left_e) = guard.w_x.eval(&sg, &pg, &mut ()).unwrap();
-        let left_s = left_e
-            .map_or(Ok(left_s.unwrap()), |left_e| {
-                let one = pg.one(&mut ())?;
-                let left_es = pg.scalar_mul(&mut (), &left_e, &one)?;
-                pg.add(&mut (), &left_s.unwrap(), &left_es)
-            })
-            .unwrap();
-        let (right_s, right_e) = guard.w_g.eval(&sg, &pg, &mut ()).unwrap();
-        let right_s = right_e
-            .map_or(Ok(right_s.unwrap()), |right_e| {
-                let one = pg.one(&mut ())?;
-                let right_es = pg.scalar_mul(&mut (), &right_e, &one)?;
-                pg.minus(&mut (), &right_s.unwrap(), &right_es)
-            })
-            .unwrap();
-
-        let p1 = Bn256::pairing(&left_s.to_affine(), &params_verifier.s_g2);
-        let p2 = Bn256::pairing(&right_s.to_affine(), &params_verifier.g2);
-
-        assert_eq!(p1, p2);
-    }
 }
