@@ -21,8 +21,8 @@ use std::fmt::Debug;
 use std::marker::PhantomData;
 
 pub(crate) mod evaluate;
-pub(crate) mod query;
 pub(crate) mod multiopen;
+pub(crate) mod query;
 
 #[cfg(test)]
 mod tests;
@@ -94,99 +94,86 @@ fn rotate_omega<
     arith_in_ctx!([sgate, ctx] x * omega_at)
 }
 
-impl<'a, CTX, S: Clone + Debug, P: Clone, Error: Debug> VerifierParams<CTX, S, P, Error> {
-    fn from_expression<
-        C: MultiMillerLoop,
-        SGate: ContextGroup<CTX, S, S, <C::G1Affine as CurveAffine>::ScalarExt, Error>
-            + ContextRing<CTX, S, S, Error>,
-        PGate: ContextGroup<CTX, S, P, C::G1Affine, Error>,
-    >(
-        sgate: &'a SGate,
-        pgate: &'a PGate,
-        ctx: &mut CTX,
-        expr: Expression<<C::G1Affine as CurveAffine>::ScalarExt>,
-    ) -> Result<Expression<S>, Error> {
-        Ok(match expr {
-            Expression::Constant(c) => Expression::Constant(sgate.from_constant(ctx, c)?),
-            Expression::Selector(s) => Expression::Selector(s),
-            Expression::Fixed {
-                query_index,
-                column_index,
-                rotation,
-            } => Expression::Fixed {
-                query_index,
-                column_index,
-                rotation,
-            },
-            Expression::Advice {
-                query_index,
-                column_index,
-                rotation,
-            } => Expression::Advice {
-                query_index,
-                column_index,
-                rotation,
-            },
-            Expression::Instance {
-                query_index,
-                column_index,
-                rotation,
-            } => Expression::Instance {
-                query_index,
-                column_index,
-                rotation,
-            },
-            Expression::Negated(b) => {
-                Expression::Negated(Box::<Expression<S>>::new(Self::from_expression::<
-                    C,
-                    SGate,
-                    PGate,
-                >(
-                    sgate, pgate, ctx, *b
-                )?))
-            }
-            Expression::Sum(b1, b2) => Expression::Sum(
-                Box::<Expression<S>>::new(Self::from_expression::<C, SGate, PGate>(
-                    sgate, pgate, ctx, *b1,
-                )?),
-                Box::<Expression<S>>::new(Self::from_expression::<C, SGate, PGate>(
-                    sgate, pgate, ctx, *b2,
-                )?),
-            ),
-            Expression::Product(b1, b2) => Expression::Product(
-                Box::<Expression<S>>::new(Self::from_expression::<C, SGate, PGate>(
-                    sgate, pgate, ctx, *b1,
-                )?),
-                Box::<Expression<S>>::new(Self::from_expression::<C, SGate, PGate>(
-                    sgate, pgate, ctx, *b2,
-                )?),
-            ),
-            Expression::Scaled(b, f) => Expression::Scaled(
-                Box::<Expression<S>>::new(Self::from_expression::<C, SGate, PGate>(
-                    sgate, pgate, ctx, *b,
-                )?),
-                sgate.from_constant(ctx, f)?,
-            ),
-        })
-    }
+fn convert_expression<
+    A: CurveAffine,
+    C,
+    S: Clone + Debug,
+    P: Clone,
+    Error: Debug,
+    SGate: ContextGroup<C, S, S, A::ScalarExt, Error> + ContextRing<C, S, S, Error>,
+    PGate: ContextGroup<C, S, P, A, Error>,
+>(
+    sgate: &SGate,
+    pgate: &PGate,
+    ctx: &mut C,
+    expr: Expression<A::ScalarExt>,
+) -> Result<Expression<S>, Error> {
+    Ok(match expr {
+        Expression::Constant(c) => Expression::Constant(sgate.from_constant(ctx, c)?),
+        Expression::Selector(s) => Expression::Selector(s),
+        Expression::Fixed {
+            query_index,
+            column_index,
+            rotation,
+        } => Expression::Fixed {
+            query_index,
+            column_index,
+            rotation,
+        },
+        Expression::Advice {
+            query_index,
+            column_index,
+            rotation,
+        } => Expression::Advice {
+            query_index,
+            column_index,
+            rotation,
+        },
+        Expression::Instance {
+            query_index,
+            column_index,
+            rotation,
+        } => Expression::Instance {
+            query_index,
+            column_index,
+            rotation,
+        },
+        Expression::Negated(b) => Expression::Negated(Box::<Expression<S>>::new(
+            convert_expression(sgate, pgate, ctx, *b)?,
+        )),
+        Expression::Sum(b1, b2) => Expression::Sum(
+            Box::<Expression<S>>::new(convert_expression(sgate, pgate, ctx, *b1)?),
+            Box::<Expression<S>>::new(convert_expression(sgate, pgate, ctx, *b2)?),
+        ),
+        Expression::Product(b1, b2) => Expression::Product(
+            Box::<Expression<S>>::new(convert_expression(sgate, pgate, ctx, *b1)?),
+            Box::<Expression<S>>::new(convert_expression(sgate, pgate, ctx, *b2)?),
+        ),
+        Expression::Scaled(b, f) => Expression::Scaled(
+            Box::<Expression<S>>::new(convert_expression(sgate, pgate, ctx, *b)?),
+            sgate.from_constant(ctx, f)?,
+        ),
+    })
+}
 
+impl<'a, C, S: Clone + Debug, P: Clone, Error: Debug> VerifierParams<C, S, P, Error> {
     pub fn from_transcript<
-        C: MultiMillerLoop,
-        E: EncodedChallenge<C::G1Affine>,
-        T: TranscriptRead<C::G1Affine, E>,
-        SGate: ContextGroup<CTX, S, S, <C::G1Affine as CurveAffine>::ScalarExt, Error>
-            + ContextRing<CTX, S, S, Error>,
-        PGate: ContextGroup<CTX, S, P, C::G1Affine, Error>,
+        M: MultiMillerLoop,
+        E: EncodedChallenge<M::G1Affine>,
+        T: TranscriptRead<M::G1Affine, E>,
+        SGate: ContextGroup<C, S, S, <M::G1Affine as CurveAffine>::ScalarExt, Error>
+            + ContextRing<C, S, S, Error>,
+        PGate: ContextGroup<C, S, P, M::G1Affine, Error>,
     >(
         sgate: &'a SGate,
         pgate: &'a PGate,
-        ctx: &mut CTX,
-        xi: <C::G1Affine as CurveAffine>::ScalarExt,
-        instances: &[&[&[C::Scalar]]],
-        vk: &VerifyingKey<C::G1Affine>,
-        params: &ParamsVerifier<C>,
+        ctx: &mut C,
+        xi: <M::G1Affine as CurveAffine>::ScalarExt,
+        instances: &[&[&[M::Scalar]]],
+        vk: &VerifyingKey<M::G1Affine>,
+        params: &ParamsVerifier<M>,
         transcript: &mut T,
-    ) -> Result<VerifierParams<CTX, S, P, Error>, Error> {
+    ) -> Result<VerifierParams<C, S, P, Error>, Error> {
         for instances in instances.iter() {
             assert!(instances.len() == vk.cs.num_instance_columns)
         }
@@ -242,7 +229,7 @@ impl<'a, CTX, S: Clone + Debug, P: Clone, Error: Debug> VerifierParams<CTX, S, P
 
         // TODO: Put hash process of theta into circuit
         // Sample theta challenge for keeping lookup columns linearly independent
-        let theta: ChallengeScalar<<C as Engine>::G1Affine, T> =
+        let theta: ChallengeScalar<<M as Engine>::G1Affine, T> =
             transcript.squeeze_challenge_scalar();
         let theta = sgate.from_var(ctx, *theta)?;
 
@@ -259,12 +246,12 @@ impl<'a, CTX, S: Clone + Debug, P: Clone, Error: Debug> VerifierParams<CTX, S, P
             .unwrap();
 
         // Sample beta challenge
-        let beta: ChallengeScalar<<C as Engine>::G1Affine, T> =
+        let beta: ChallengeScalar<<M as Engine>::G1Affine, T> =
             transcript.squeeze_challenge_scalar();
         let beta = sgate.from_var(ctx, *beta)?;
 
         // Sample gamma challenge
-        let gamma: ChallengeScalar<<C as Engine>::G1Affine, T> =
+        let gamma: ChallengeScalar<<M as Engine>::G1Affine, T> =
             transcript.squeeze_challenge_scalar();
         let gamma = sgate.from_constant(ctx, *gamma)?;
 
@@ -292,7 +279,7 @@ impl<'a, CTX, S: Clone + Debug, P: Clone, Error: Debug> VerifierParams<CTX, S, P
         let random_commitment = pgate.from_var(ctx, random_poly_commitment)?;
 
         // Sample y challenge, which keeps the gates linearly independent.
-        let y: ChallengeScalar<<C as Engine>::G1Affine, T> = transcript.squeeze_challenge_scalar();
+        let y: ChallengeScalar<<M as Engine>::G1Affine, T> = transcript.squeeze_challenge_scalar();
         let y = sgate.from_var(ctx, *y)?;
 
         let h_commitments =
@@ -309,7 +296,7 @@ impl<'a, CTX, S: Clone + Debug, P: Clone, Error: Debug> VerifierParams<CTX, S, P
 
         // Sample x challenge, which is used to ensure the circuit is
         // satisfied with high probability.
-        let x: ChallengeScalar<<C as Engine>::G1Affine, T> = transcript.squeeze_challenge_scalar();
+        let x: ChallengeScalar<<M as Engine>::G1Affine, T> = transcript.squeeze_challenge_scalar();
         let x = sgate.from_var(ctx, *x)?;
         let x_next = rotate_omega(sgate, ctx, &x, omega, 1)?;
         let x_last = rotate_omega(sgate, ctx, &x, omega, -(l as i32))?;
@@ -441,7 +428,7 @@ impl<'a, CTX, S: Clone + Debug, P: Clone, Error: Debug> VerifierParams<CTX, S, P
                                 .input_expressions
                                 .iter()
                                 .map(|expr| {
-                                    Self::from_expression::<C, SGate, PGate>(
+                                    convert_expression(
                                         sgate,
                                         pgate,
                                         ctx,
@@ -453,7 +440,7 @@ impl<'a, CTX, S: Clone + Debug, P: Clone, Error: Debug> VerifierParams<CTX, S, P
                                 .table_expressions
                                 .iter()
                                 .map(|expr| {
-                                    Self::from_expression::<C, SGate, PGate>(
+                                    convert_expression(
                                         sgate,
                                         pgate,
                                         ctx,
@@ -494,8 +481,8 @@ impl<'a, CTX, S: Clone + Debug, P: Clone, Error: Debug> VerifierParams<CTX, S, P
             .map(|&affine| pgate.from_constant(ctx, affine))
             .collect::<Result<Vec<_>, Error>>()?;
 
-        let v: ChallengeScalar<<C as Engine>::G1Affine, T> = transcript.squeeze_challenge_scalar();
-        let u: ChallengeScalar<<C as Engine>::G1Affine, T> = transcript.squeeze_challenge_scalar();
+        let v: ChallengeScalar<<M as Engine>::G1Affine, T> = transcript.squeeze_challenge_scalar();
+        let u: ChallengeScalar<<M as Engine>::G1Affine, T> = transcript.squeeze_challenge_scalar();
 
         let mut w = vec![];
         let mut stop = false;
@@ -509,7 +496,7 @@ impl<'a, CTX, S: Clone + Debug, P: Clone, Error: Debug> VerifierParams<CTX, S, P
             }
         }
 
-        Ok(VerifierParams::<CTX, S, P, Error> {
+        Ok(VerifierParams::<C, S, P, Error> {
             gates: vk
                 .cs
                 .gates
@@ -518,7 +505,7 @@ impl<'a, CTX, S: Clone + Debug, P: Clone, Error: Debug> VerifierParams<CTX, S, P
                     gate.polys
                         .iter()
                         .map(|expr| {
-                            Self::from_expression::<C, SGate, PGate>(
+                            convert_expression(
                                 sgate,
                                 pgate,
                                 ctx,
@@ -574,7 +561,7 @@ impl<'a, CTX, S: Clone + Debug, P: Clone, Error: Debug> VerifierParams<CTX, S, P
             theta,
             delta: sgate.from_constant(
                 ctx,
-                <<C::G1Affine as CurveAffine>::ScalarExt as FieldExt>::DELTA,
+                <<M::G1Affine as CurveAffine>::ScalarExt as FieldExt>::DELTA,
             )?,
             x,
             x_next,
