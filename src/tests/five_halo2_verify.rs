@@ -16,7 +16,7 @@ use group::Curve;
 use halo2_proofs::arithmetic::{CurveAffine, Engine, FieldExt};
 use halo2_proofs::plonk::{create_proof, keygen_pk, keygen_vk, VerifyingKey};
 use halo2_proofs::poly::commitment::{Params, ParamsVerifier};
-use halo2_proofs::transcript::{Blake2bRead, Blake2bWrite, Challenge255};
+use halo2_proofs::transcript::{PoseidonRead, PoseidonWrite, Challenge255};
 use halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner},
     dev::MockProver,
@@ -86,7 +86,7 @@ impl TestFiveColumnHalo2VerifyCircuitCircuit<G1Affine> {
         let vk = keygen_vk(&params, &circuit).expect("keygen_vk should not fail");
         let pk = keygen_pk(&params, vk, &circuit).expect("keygen_pk should not fail");
 
-        let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
+        let mut transcript = PoseidonWrite::<_, _, Challenge255<_>>::init(vec![]);
 
         let instance = Fr::one();
         create_proof(
@@ -99,7 +99,7 @@ impl TestFiveColumnHalo2VerifyCircuitCircuit<G1Affine> {
         )
         .expect("proof generation should not fail");
         let proof = transcript.finalize();
-        let mut transcript = Blake2bRead::<_, G1Affine, Challenge255<G1Affine>>::init(&proof[..]);
+        let mut transcript = PoseidonRead::<_, G1Affine, Challenge255<G1Affine>>::init(&proof[..]);
 
         let params = VerifierParams::from_transcript(
             base_gate,

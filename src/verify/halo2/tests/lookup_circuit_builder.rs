@@ -103,7 +103,7 @@ pub(in crate) fn build_verifier_params(
     halo2_proofs::plonk::Error,
 > {
     use halo2_proofs::poly::commitment::Params;
-    use halo2_proofs::transcript::{Blake2bRead, Blake2bWrite};
+    use halo2_proofs::transcript::{PoseidonRead, PoseidonWrite};
     use pairing_bn256::bn256::Fr as Fp;
 
     let fc = FieldCode::<<G1Affine as CurveAffine>::ScalarExt>::default();
@@ -131,7 +131,7 @@ pub(in crate) fn build_verifier_params(
     let vk = keygen_vk(&params, &circuit).expect("keygen_vk should not fail");
     let pk = keygen_pk(&params, vk, &circuit).expect("keygen_pk should not fail");
 
-    let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
+    let mut transcript = PoseidonWrite::<_, _, Challenge255<_>>::init(vec![]);
 
     let lookup = &vec![Fp::from(0), Fp::from(2)];
 
@@ -148,7 +148,7 @@ pub(in crate) fn build_verifier_params(
     let proof = transcript.finalize();
     let instances: &[&[&[Fp]]] = &[&[lookup]];
 
-    let mut transcript = Blake2bRead::<_, G1Affine, Challenge255<G1Affine>>::init(&proof[..]);
+    let mut transcript = PoseidonRead::<_, G1Affine, Challenge255<G1Affine>>::init(&proof[..]);
 
     let params = VerifierParams::from_transcript::<Bn256, _, _, _, _>(
         &fc,
@@ -163,7 +163,7 @@ pub(in crate) fn build_verifier_params(
     .unwrap();
 
     let strategy = SingleVerifier::new(&params_verifier);
-    let mut transcript = Blake2bRead::<_, _, Challenge255<_>>::init(&proof[..]);
+    let mut transcript = PoseidonRead::<_, _, Challenge255<_>>::init(&proof[..]);
 
     if sanity_check {
         assert!(verify_proof_check(
