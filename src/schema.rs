@@ -22,7 +22,6 @@ pub struct EvaluationQuery<'a, S: Clone, P: Clone> {
 
 impl<'a, S: Clone, P: Clone + Debug> EvaluationQuery<'a, S, P> {
     pub fn new(point: S, key: String, c: &'a P, v: &'a S) -> Self {
-        println!("{}, {:?}", key, c);
         let s = CommitQuery {
             key,
             c: Some(c),

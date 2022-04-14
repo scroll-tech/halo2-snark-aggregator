@@ -193,15 +193,9 @@ impl<
         let mut acc = None;
         let mut s = None;
 
-        println!("");
-        println!("start!===========================");
         for p in p_vec {
             let base = p.1;
             let scalar = p.2;
-            println!("");
-            println!("key {:?}", p.0);
-            println!("base {:?}", base);
-            println!("scalar {:?}", scalar);
             match &base {
                 Some(base) => {
                     let p_res = scalar.map_or_else(
