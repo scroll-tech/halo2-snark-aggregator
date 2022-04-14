@@ -1,22 +1,22 @@
 [package]
-name = "halo2ecc"
+name = "halo2-snark-aggregator"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+cfg-if = "0.1"
+chrono = "0.4.19"
+group = "0.11"
+halo2_proofs = { git = "https://git@github.com/junyu0312/halo2", branch = "export_symbol", default-features = true }
 num-bigint = { version = "0.4", features = ["rand"] }
 num-integer = "0.1"
 num-traits = "0.2"
-rand_pcg = "0.3.1"
-rand = "0.8"
-group = "0.11"
-subtle = { version = "2.3", default-features = false }
-cfg-if = "0.1"
-halo2_proofs = { git = "https://git@github.com/junyu0312/halo2", branch = "export_symbol", features = [] }
 pairing_bn256 = { git = "https://github.com/appliedzkp/pairing" }
-chrono = "0.4.19"
-rand_core = { version = "0.6", default-features = false }
+rand = "0.8"
+rand_core = "0.6"
+rand_pcg = "0.3.1"
 rand_xorshift = "0.3"
+subtle = "2.3"
 
 [features]
 default = []

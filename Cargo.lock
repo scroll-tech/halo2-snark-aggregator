@@ -177,24 +177,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "halo2_proofs"
-version = "0.1.0-beta.1"
-source = "git+https://git@github.com/junyu0312/halo2?branch=export_symbol#6c2d1a5d3696f293025202c2adcd14cc2c709981"
-dependencies = [
- "blake2b_simd",
- "bumpalo",
- "cfg-if 0.1.10",
- "ff",
- "group",
- "pairing_bn256",
- "rand",
- "rand_core",
- "rayon",
- "subtle",
-]
-
-[[package]]
-name = "halo2ecc"
+name = "halo2-snark-aggregator"
 version = "0.1.0"
 dependencies = [
  "cfg-if 0.1.10",
@@ -209,6 +192,26 @@ dependencies = [
  "rand_core",
  "rand_pcg",
  "rand_xorshift",
+ "subtle",
+]
+
+[[package]]
+name = "halo2_proofs"
+version = "0.1.0-beta.1"
+source = "git+https://git@github.com/junyu0312/halo2?branch=export_symbol#a8687c40000885815ec5fba7a70b5105494fcef3"
+dependencies = [
+ "blake2b_simd",
+ "bumpalo",
+ "cfg-if 0.1.10",
+ "ff",
+ "group",
+ "num-bigint",
+ "num-integer",
+ "pairing_bn256",
+ "poseidon",
+ "rand",
+ "rand_core",
+ "rayon",
  "subtle",
 ]
 
@@ -286,13 +289,23 @@ dependencies = [
 [[package]]
 name = "pairing_bn256"
 version = "0.1.0"
-source = "git+https://github.com/appliedzkp/pairing#58986019b8bc7ad9c81c861c6acd8940b5eb1f66"
+source = "git+https://github.com/appliedzkp/pairing#37218794db1ad2e4ce58d29ec22c68238ad556a7"
 dependencies = [
  "ff",
  "group",
  "rand",
  "rand_core",
  "static_assertions",
+ "subtle",
+]
+
+[[package]]
+name = "poseidon"
+version = "0.1.0"
+source = "git+https://github.com/appliedzkp/poseidon.git#59c2439317930bc24a2a962ed36ba6a8b04e8b4b"
+dependencies = [
+ "group",
+ "pairing_bn256",
  "subtle",
 ]
 
