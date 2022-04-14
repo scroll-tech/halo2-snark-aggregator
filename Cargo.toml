@@ -2,6 +2,7 @@
 name = "halo2-snark-aggregator"
 version = "0.1.0"
 edition = "2021"
+authors = ["zhangjunyu <junyu92@gmail.com>"]
 
 [dependencies]
 cfg-if = "0.1"
