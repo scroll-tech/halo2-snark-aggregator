@@ -289,7 +289,7 @@ dependencies = [
 [[package]]
 name = "pairing_bn256"
 version = "0.1.0"
-source = "git+https://github.com/appliedzkp/pairing#37218794db1ad2e4ce58d29ec22c68238ad556a7"
+source = "git+https://github.com/appliedzkp/pairing#58986019b8bc7ad9c81c861c6acd8940b5eb1f66"
 dependencies = [
  "ff",
  "group",
