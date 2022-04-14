@@ -85,6 +85,25 @@ impl<C: CurveAffine> ContextGroup<(), C::ScalarExt, C::CurveExt, C, ()> for Poin
         let c = c.to_curve();
         Ok(c)
     }
+
+    fn mul_add_constant(
+        &self,
+        _: &mut (),
+        _: &C::ScalarExt,
+        _: &C::CurveExt,
+        _: C,
+    ) -> Result<C::CurveExt, ()> {
+        unreachable!()
+    }
+
+    fn sum_with_constant(
+        &self,
+        _: &mut (),
+        _: Vec<(&C::ScalarExt, C)>,
+        _: C,
+    ) -> Result<C::CurveExt, ()> {
+        unreachable!()
+    }
 }
 
 impl<F: FieldExt> ContextGroup<(), F, F, F, ()> for FieldCode<F> {
@@ -125,6 +144,18 @@ impl<F: FieldExt> ContextGroup<(), F, F, F, ()> for FieldCode<F> {
 
     fn from_var(&self, _ctx: &mut (), c: F) -> Result<F, ()> {
         Ok(c)
+    }
+
+    fn mul_add_constant(&self, _ctx: &mut (), lhs: &F, rhs: &F, c: F) -> Result<F, ()> {
+        Ok((*lhs) * (*rhs) + c)
+    }
+
+    fn sum_with_constant(&self, _ctx: &mut (), a: Vec<(&F, F)>, c: F) -> Result<F, ()> {
+        let mut acc = c;
+        for (x, coeff) in a {
+            acc = acc + (*x) * coeff
+        }
+        Ok(acc)
     }
 }
 

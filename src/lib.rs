@@ -8,6 +8,7 @@ pub mod gates;
 pub mod arith;
 mod schema;
 pub mod verify;
+pub mod hash;
 
 #[cfg(test)]
 mod tests;

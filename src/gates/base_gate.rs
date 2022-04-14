@@ -213,6 +213,18 @@ pub trait BaseGateOps<N: FieldExt> {
         self.sum_with_constant(r, vec![(a, one), (b, one)], zero)
     }
 
+    fn add_constant(
+        &self,
+        r: &mut RegionAux<'_, '_, N>,
+        a: &AssignedValue<N>,
+        c: N,
+    ) -> Result<AssignedValue<N>, Error> {
+        assert!(self.var_columns() >= 3);
+
+        let one = N::one();
+        self.sum_with_constant(r, vec![(a, one)], c)
+    }
+
     fn sub(
         &self,
         r: &mut RegionAux<'_, '_, N>,
@@ -248,6 +260,35 @@ pub trait BaseGateOps<N: FieldExt> {
         )?;
 
         Ok(cells[2])
+    }
+
+    fn mul_add_constant(
+        &self,
+        r: &mut RegionAux<'_, '_, N>,
+        a: &AssignedValue<N>,
+        b: &AssignedValue<N>,
+        c: N,
+    ) -> Result<AssignedValue<N>, Error> {
+        assert!(self.var_columns() >= 4);
+        assert!(self.mul_columns() >= 1);
+
+        let one = N::one();
+        let zero = N::zero();
+
+        let d = a.value * b.value + c;
+
+        let cells = self.one_line(
+            r,
+            vec![
+                pair!(a, zero),
+                pair!(b, zero),
+                pair!(d, -one),
+            ],
+            c,
+            (vec![one], zero),
+        )?;
+
+        Ok(cells[3])
     }
 
     fn mul_add(

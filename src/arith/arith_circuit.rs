@@ -9,11 +9,11 @@ use crate::{
         five::base_gate::FiveColumnBaseGate,
     },
 };
+use group::ff::Field;
 use halo2_proofs::{
     arithmetic::{CurveAffine, FieldExt},
     plonk::Error,
 };
-use group::ff::Field;
 
 impl<'a, 'b, 'c, C: CurveAffine>
     ContextGroup<
@@ -97,6 +97,25 @@ impl<'a, 'b, 'c, C: CurveAffine>
     ) -> Result<AssignedPoint<C, C::ScalarExt>, Error> {
         EccCircuitOps::assign_point(self, ctx, c.to_curve())
     }
+
+    fn mul_add_constant(
+        &self,
+        _: &mut RegionAux<'a, 'b, C::ScalarExt>,
+        _: &AssignedValue<C::ScalarExt>,
+        _: &AssignedPoint<C, C::ScalarExt>,
+        _: C,
+    ) -> Result<AssignedPoint<C, C::ScalarExt>, Error> {
+        unreachable!()
+    }
+
+    fn sum_with_constant(
+        &self,
+        _: &mut RegionAux<'a, 'b, C::ScalarExt>,
+        _: Vec<(&AssignedValue<C::ScalarExt>, C)>,
+        _: C,
+    ) -> Result<AssignedPoint<C, C::ScalarExt>, Error> {
+        unreachable!()
+    }
 }
 
 impl<'a, 'b, N: FieldExt>
@@ -156,6 +175,25 @@ impl<'a, 'b, N: FieldExt>
 
     fn from_var(&self, ctx: &mut RegionAux<'a, 'b, N>, c: N) -> Result<AssignedValue<N>, Error> {
         BaseGateOps::assign(self, ctx, c)
+    }
+
+    fn mul_add_constant(
+        &self,
+        ctx: &mut RegionAux<'a, 'b, N>,
+        lhs: &AssignedValue<N>,
+        rhs: &AssignedValue<N>,
+        c: N,
+    ) -> Result<AssignedValue<N>, Error> {
+        BaseGateOps::mul_add_constant(self, ctx, lhs, rhs, c)
+    }
+
+    fn sum_with_constant(
+        &self,
+        ctx: &mut RegionAux<'a, 'b, N>,
+        a: Vec<(&AssignedValue<N>, N)>,
+        c: N,
+    ) -> Result<AssignedValue<N>, Error> {
+        BaseGateOps::sum_with_constant(self, ctx, a, c)
     }
 }
 

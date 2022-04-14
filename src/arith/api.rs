@@ -14,6 +14,11 @@ pub trait ContextGroup<C, S, B, T, Error> {
         Ok(v)
     }
     fn to_value(&self, v: &B) -> Result<T, Error>;
+
+    // keep for optimization opportunity
+    fn mul_add_constant(&self, ctx: &mut C, lhs: &S, rhs: &B, c: T) -> Result<B, Error>;
+    // element can go with coeff
+    fn sum_with_constant(&self, ctx: &mut C, a: Vec<(&S, T)>, c: T) -> Result<B, Error>;
 }
 
 // Context Arithment Group under Context C, Scalar Group S and Base Group B
@@ -190,6 +195,14 @@ mod test_marco {
 
         fn from_var(&self, _ctx: &mut (), c: i32) -> Result<W, ()> {
             Ok(W { t: c })
+        }
+
+        fn mul_add_constant(&self, _: &mut (), _: &W, _: &W, _: i32) -> Result<W, ()> {
+            todo!()
+        }
+
+        fn sum_with_constant(&self, _: &mut (), _: Vec<(&W, i32)>, _: i32) -> Result<W, ()> {
+            todo!()
         }
     }
 
