@@ -1,13 +1,13 @@
 use super::*;
 use crate::{
-    arith::code::FieldCode,
-    verify::{halo2::tests::mul_circuit_builder::build_verifier_params, plonk::bn_to_field},
+    arith::code::FieldCode, verify::halo2::{tests::mul_circuit_builder::build_verifier_params},
 };
-use num_bigint::BigUint;
 use pairing_bn256::bn256::Fr;
 
 #[test]
 fn test_ctx_evaluate() {
+    use crate::verify::halo2::verify::evaluate::Evaluable;
+
     let sgate = FieldCode::<Fr>::default();
     let zero = sgate.zero(&mut ()).unwrap();
 
@@ -47,6 +47,7 @@ fn test_ctx_evaluate() {
         });
 }
 
+#[cfg(feature = "black2b")]
 #[test]
 fn test_rotate_omega() {
     let (_, _, _, param) = build_verifier_params(true).unwrap();

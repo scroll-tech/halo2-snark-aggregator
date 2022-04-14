@@ -170,6 +170,7 @@ impl<'a, C, S: Clone + Debug, P: Clone + Debug, Error: Debug> Evaluated<C, S, P,
     }
 }
 
+#[cfg(feature = "black2b")]
 #[cfg(test)]
 mod tests {
     use num_bigint::BigUint;

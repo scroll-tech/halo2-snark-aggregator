@@ -7,23 +7,22 @@ use crate::gates::base_gate::RegionAux;
 use crate::gates::five::base_gate::{FiveColumnBaseGate, FiveColumnBaseGateConfig};
 use crate::gates::five::range_gate::FiveColumnRangeGate;
 use crate::gates::range_gate::RangeGateConfig;
-use crate::schema::ast::{EvaluationAST, MultiOpenProof};
+use crate::schema::ast::EvaluationAST;
 use crate::schema::SchemaGenerator;
 use crate::verify::halo2::tests::mul_circuit_builder::MyCircuit;
 use crate::verify::halo2::verify::VerifierParams;
 use group::ff::Field;
-use group::Curve;
-use halo2_proofs::arithmetic::{CurveAffine, Engine, FieldExt};
+use halo2_proofs::arithmetic::{CurveAffine, Engine};
 use halo2_proofs::plonk::{create_proof, keygen_pk, keygen_vk, VerifyingKey};
 use halo2_proofs::poly::commitment::{Params, ParamsVerifier};
-use halo2_proofs::transcript::{PoseidonRead, PoseidonWrite, Challenge255};
+use halo2_proofs::transcript::{Challenge255, PoseidonRead, PoseidonWrite};
 use halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner},
     dev::MockProver,
     plonk::{Circuit, ConstraintSystem, Error},
 };
 use num_bigint::BigUint;
-use pairing_bn256::bn256::{Bn256, Fq, Fr, G1Affine, G1};
+use pairing_bn256::bn256::{Bn256, Fq, Fr, G1Affine};
 use rand::SeedableRng;
 use rand_pcg::Pcg32;
 use rand_xorshift::XorShiftRng;
@@ -51,7 +50,6 @@ struct TestFiveColumnHalo2VerifyCircuitCircuit<C: CurveAffine> {
     _phantom_w: PhantomData<C>,
     _phantom_n: PhantomData<Fr>,
 }
-
 
 const COMMON_RANGE_BITS: usize = 17usize;
 const K: u32 = 22u32;

@@ -1,15 +1,14 @@
-use self::evaluate::Evaluable;
 use super::{lookup, permutation};
 use crate::arith::api::{ContextGroup, ContextRing, PowConstant};
 use crate::arith::code::{FieldCode, PointCode};
-use crate::schema::ast::{CommitQuery, EvaluationAST, MultiOpenProof, SchemaItem};
-use crate::schema::{EvaluationProof, SchemaGenerator};
+use crate::schema::ast::EvaluationAST;
+use crate::schema::SchemaGenerator;
 use crate::verify::halo2::permutation::Evaluated;
 use crate::verify::halo2::permutation::EvaluatedSet;
 use crate::verify::halo2::verify::query::IVerifierParams;
 use crate::{arith_in_ctx, infix2postfix};
 use group::Curve;
-use halo2_proofs::arithmetic::{CurveAffine, Engine, Field, FieldExt, MultiMillerLoop};
+use halo2_proofs::arithmetic::{CurveAffine, Engine, FieldExt, MultiMillerLoop};
 use halo2_proofs::plonk::{Expression, VerifyingKey};
 use halo2_proofs::poly::commitment::ParamsVerifier;
 use halo2_proofs::poly::multiopen::{CommitmentReference, VerifierQuery};
@@ -427,26 +426,12 @@ impl<'a, C, S: Clone + Debug, P: Clone, Error: Debug> VerifierParams<C, S, P, Er
                             input_expressions: argument
                                 .input_expressions
                                 .iter()
-                                .map(|expr| {
-                                    convert_expression(
-                                        sgate,
-                                        pgate,
-                                        ctx,
-                                        expr.clone(),
-                                    )
-                                })
+                                .map(|expr| convert_expression(sgate, pgate, ctx, expr.clone()))
                                 .collect::<Result<Vec<_>, _>>()?,
                             table_expressions: argument
                                 .table_expressions
                                 .iter()
-                                .map(|expr| {
-                                    convert_expression(
-                                        sgate,
-                                        pgate,
-                                        ctx,
-                                        expr.clone(),
-                                    )
-                                })
+                                .map(|expr| convert_expression(sgate, pgate, ctx, expr.clone()))
                                 .collect::<Result<Vec<_>, _>>()?,
                             committed: crate::verify::halo2::lookup::Committed {
                                 permuted: crate::verify::halo2::lookup::PermutationCommitments {
@@ -504,14 +489,7 @@ impl<'a, C, S: Clone + Debug, P: Clone, Error: Debug> VerifierParams<C, S, P, Er
                 .map(|gate| {
                     gate.polys
                         .iter()
-                        .map(|expr| {
-                            convert_expression(
-                                sgate,
-                                pgate,
-                                ctx,
-                                expr.clone(),
-                            )
-                        })
+                        .map(|expr| convert_expression(sgate, pgate, ctx, expr.clone()))
                         .collect::<Result<Vec<_>, Error>>()
                 })
                 .collect::<Result<Vec<_>, Error>>()?,

@@ -182,20 +182,13 @@ impl<'a, C, S: Clone + Debug, P: Clone + Debug, Error: Debug> Evaluated<C, S, P,
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::schema::ast::ArrayOpAdd;
-    use crate::{
-        arith::code::FieldCode,
-        schema::utils::VerifySetupHelper,
-        verify::{halo2::tests::mul_circuit_builder::*, plonk::bn_to_field},
-    };
-    use halo2_proofs::arithmetic::CurveAffine;
-    use num_bigint::BigUint;
-    use pairing_bn256::bn256::Fr;
-    use pairing_bn256::bn256::{G1Affine, G1};
-
+    #[cfg(feature = "black2b")]
     #[test]
     fn test_permutation_pcommon() {
+        use crate::verify::{halo2::tests::mul_circuit_builder::*, plonk::bn_to_field};
+        use halo2_proofs::arithmetic::CurveAffine;
+        use num_bigint::BigUint;
+        use pairing_bn256::bn256::G1Affine;
         let (_, _, _, params) = build_verifier_params(true).unwrap();
 
         let res: Vec<<G1Affine as CurveAffine>::ScalarExt> = vec![
@@ -255,11 +248,24 @@ mod tests {
 
     #[test]
     fn test_permutation_queries() {
+        use crate::verify::halo2::tests::mul_circuit_builder::build_verifier_params;
+
         let _ = build_verifier_params(true).unwrap();
     }
 
+    #[cfg(feature = "black2b")]
     #[test]
     fn test_permutation_expressions() {
+        use super::*;
+        use crate::schema::ast::ArrayOpAdd;
+        use crate::{
+            arith::code::FieldCode,
+            schema::utils::VerifySetupHelper,
+            verify::{halo2::tests::mul_circuit_builder::*, plonk::bn_to_field},
+        };
+        use num_bigint::BigUint;
+        use pairing_bn256::bn256::Fr;
+
         let (_, _, _, param) = build_verifier_params(true).unwrap();
         let sgate = FieldCode::<Fr>::default();
 

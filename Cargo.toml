@@ -19,4 +19,8 @@ rand_xorshift = "0.3"
 subtle = "2.3"
 
 [features]
-default = []
+default = ["poseidon", "halo2"]
+poseidon = []
+blake2b = []
+halo2 = []
+plonk = []
