@@ -21,7 +21,7 @@ use std::marker::PhantomData;
 
 pub(crate) mod evaluate;
 pub(crate) mod multiopen;
-pub(crate) mod query;
+pub mod query;
 
 #[cfg(test)]
 mod tests;
