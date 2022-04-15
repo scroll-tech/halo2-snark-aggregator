@@ -55,14 +55,14 @@ impl<'a, 'b, 'c, C: CurveAffine>
         &self,
         ctx: &mut RegionAux<'a, 'b, C::ScalarExt>,
     ) -> Result<AssignedPoint<C, C::ScalarExt>, Error> {
-        EccCircuitOps::assign_constant_point_from_scalar(self, ctx, C::ScalarExt::from(0u64))
+        EccCircuitOps::assign_constant_point_from_scalar(self, ctx, C::ScalarExt::from(1u64))
     }
 
     fn zero(
         &self,
         ctx: &mut RegionAux<'a, 'b, C::ScalarExt>,
     ) -> Result<AssignedPoint<C, C::ScalarExt>, Error> {
-        EccCircuitOps::assign_constant_point_from_scalar(self, ctx, C::ScalarExt::from(1u64))
+        EccCircuitOps::assign_constant_point_from_scalar(self, ctx, C::ScalarExt::from(0u64))
     }
 
     fn from_constant(
@@ -81,7 +81,7 @@ impl<'a, 'b, 'c, C: CurveAffine>
     }
 
     fn to_value(&self, p: &AssignedPoint<C, C::ScalarExt>) -> Result<C, Error> {
-        if p.z.value == C::ScalarExt::zero() {
+        if p.z.value == C::ScalarExt::one() {
             Ok(C::identity())
         } else {
             let x = self.0.integer_gate.get_w(&p.x)?;

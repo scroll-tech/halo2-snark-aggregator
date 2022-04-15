@@ -314,9 +314,18 @@ pub trait EccCircuitOps<C: CurveAffine, N: FieldExt, const WINDOW_SIZE: usize = 
 
         let base_gate = self.base_gate();
         let integer_gate = self.integer_gate();
-        let x = integer_gate.assign_w(r, &x)?;
-        let y = integer_gate.assign_w(r, &y)?;
+        let mut x = integer_gate.assign_w(r, &x)?;
+        let mut y = integer_gate.assign_w(r, &y)?;
         let z = base_gate.assign(r, z)?;
+
+        // Constrain y^2 = x^3 + b
+        let b = integer_gate.assign_constant(r, C::b())?;
+        let mut y2 = integer_gate.square(r, &mut y)?;
+        let mut x2 = integer_gate.square(r, &mut x)?;
+        let x3 = integer_gate.mul(r, &mut x2, &mut x)?;
+        let mut right = integer_gate.add(r, &x3, &b)?;
+        let eq = integer_gate.is_equal(r, &mut y2, &mut right)?;
+        base_gate.assert_true(r, &eq)?;
 
         Ok(AssignedPoint::new(x, y, z.into()))
     }

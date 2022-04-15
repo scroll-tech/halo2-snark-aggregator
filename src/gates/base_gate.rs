@@ -179,23 +179,67 @@ pub trait BaseGateOps<N: FieldExt> {
         elems: Vec<(&AssignedValue<N>, N)>,
         constant: N,
     ) -> Result<AssignedValue<N>, Error> {
-        assert!(elems.len() <= self.var_columns() - 1);
-
-        let one = N::one();
+        let columns = self.var_columns();
         let zero = N::zero();
+        let one = N::one();
+        let mut acc: Option<N> = None;
+        let mut curr = 0;
 
-        let sum = elems
+        // Util `rest size + acc cell + sum cell` can be placed into one line.
+        while elems.len() - curr + acc.map_or(0usize, |_| 1usize) + 1usize > columns {
+            // The first line doesn't have acc cell.
+            let line_len = self.var_columns() - acc.map_or(0usize, |_| 1usize);
+            let line = &elems[curr..curr + line_len];
+            curr += line_len;
+
+            let line_sum = line
+                .iter()
+                .fold(zero, |acc, (v, coeff)| acc + v.value * coeff);
+
+            if acc.is_none() {
+                self.one_line(
+                    r,
+                    line.iter().map(|(v, coeff)| pair!(*v, *coeff)).collect(),
+                    zero,
+                    (vec![], -one),
+                )?;
+            } else {
+                self.one_line_with_last_base(
+                    r,
+                    line.iter().map(|(v, coeff)| pair!(*v, *coeff)).collect(),
+                    pair!(acc.unwrap(), one),
+                    zero,
+                    (vec![], -one),
+                )?;
+            }
+
+            acc = Some(acc.unwrap_or(zero) + line_sum);
+        }
+
+        let sum = (&elems[curr..])
             .iter()
-            .fold(constant, |acc, (v, coeff)| acc + v.value * coeff);
+            .fold(constant, |acc, (v, coeff)| acc + v.value * coeff)
+            + acc.unwrap_or(zero);
+
         let mut schemas_pairs = vec![pair!(sum, -one)];
         schemas_pairs.append(
-            &mut elems
-                .into_iter()
-                .map(|(v, coeff)| pair!(v, coeff))
+            &mut (&elems[curr..])
+                .iter()
+                .map(|(v, coeff)| pair!(*v, *coeff))
                 .collect(),
         );
 
-        let cells = self.one_line(r, schemas_pairs, constant, (vec![], zero))?;
+        let cells = if acc.is_none() {
+            self.one_line(r, schemas_pairs, constant, (vec![], zero))?
+        } else {
+            self.one_line_with_last_base(
+                r,
+                schemas_pairs,
+                pair!(acc.unwrap(), one),
+                constant,
+                (vec![], zero),
+            )?
+        };
 
         Ok(cells[0])
     }
@@ -279,16 +323,12 @@ pub trait BaseGateOps<N: FieldExt> {
 
         let cells = self.one_line(
             r,
-            vec![
-                pair!(a, zero),
-                pair!(b, zero),
-                pair!(d, -one),
-            ],
+            vec![pair!(a, zero), pair!(b, zero), pair!(d, -one)],
             c,
             (vec![one], zero),
         )?;
 
-        Ok(cells[3])
+        Ok(cells[2])
     }
 
     fn mul_add(
@@ -603,6 +643,22 @@ pub trait BaseGateOps<N: FieldExt> {
         let b = b.into();
         let c = self.bisec(r, cond, &a, &b)?;
         Ok(c.into())
+    }
+
+    fn assert_true(
+        &self,
+        r: &mut RegionAux<'_, '_, N>,
+        a: &AssignedCondition<N>,
+    ) -> Result<(), Error> {
+        self.assert_constant(r, &a.into(), N::one())
+    }
+
+    fn assert_false(
+        &self,
+        r: &mut RegionAux<'_, '_, N>,
+        a: &AssignedCondition<N>,
+    ) -> Result<(), Error> {
+        self.assert_constant(r, &a.into(), N::zero())
     }
 }
 

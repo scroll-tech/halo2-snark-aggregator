@@ -2,20 +2,23 @@ use crate::arith::api::ContextGroup;
 use crate::circuits::ecc_circuit::AssignedPoint;
 use crate::circuits::five::integer_circuit::FiveColumnIntegerCircuit;
 use crate::circuits::native_ecc_circuit::NativeEccCircuit;
+use crate::circuits::transcript_encode_circuit::PoseidonEncode;
 use crate::field::bn_to_field;
-use crate::gates::base_gate::RegionAux;
+use crate::gates::base_gate::{AssignedValue, RegionAux};
 use crate::gates::five::base_gate::{FiveColumnBaseGate, FiveColumnBaseGateConfig};
 use crate::gates::five::range_gate::FiveColumnRangeGate;
 use crate::gates::range_gate::RangeGateConfig;
 use crate::schema::ast::EvaluationAST;
 use crate::schema::SchemaGenerator;
 use crate::verify::halo2::tests::mul_circuit_builder::MyCircuit;
+use crate::verify::halo2::verify::transcript::PoseidonTranscriptRead;
 use crate::verify::halo2::verify::VerifierParams;
 use group::ff::Field;
-use halo2_proofs::arithmetic::{CurveAffine, Engine};
+use group::Group;
+use halo2_proofs::arithmetic::{CurveAffine, MillerLoopResult, MultiMillerLoop};
 use halo2_proofs::plonk::{create_proof, keygen_pk, keygen_vk, VerifyingKey};
 use halo2_proofs::poly::commitment::{Params, ParamsVerifier};
-use halo2_proofs::transcript::{Challenge255, PoseidonRead, PoseidonWrite};
+use halo2_proofs::transcript::{Challenge255, PoseidonWrite};
 use halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner},
     dev::MockProver,
@@ -97,7 +100,37 @@ impl TestFiveColumnHalo2VerifyCircuitCircuit<G1Affine> {
         )
         .expect("proof generation should not fail");
         let proof = transcript.finalize();
-        let mut transcript = PoseidonRead::<_, G1Affine, Challenge255<G1Affine>>::init(&proof[..]);
+
+        /*
+            let mut transcript = PoseidonRead::<_, G1Affine, Challenge255<G1Affine>>::init(&proof[..]);
+
+            let params = VerifierParams::from_transcript_pure::<Bn256, _, _, _, _>(
+                base_gate,
+                ecc_gate,
+                r,
+                u,
+                &[&[&[instance]]],
+                pk.get_vk(),
+                &params_verifier,
+                &mut transcript,
+            )
+            .unwrap();
+        */
+
+        let mut transcript = PoseidonTranscriptRead::<
+            _,
+            G1Affine,
+            RegionAux<'_, '_, Fr>,
+            AssignedValue<Fr>,
+            AssignedPoint<G1Affine, Fr>,
+            Error,
+            FiveColumnBaseGate<Fr>,
+            NativeEccCircuit<'_, G1Affine>,
+            PoseidonEncode,
+            9usize,
+            8usize,
+        >::new(&proof[..], r, base_gate, 8usize, 33usize)
+        .unwrap();
 
         let params = VerifierParams::from_transcript(
             base_gate,
@@ -108,36 +141,41 @@ impl TestFiveColumnHalo2VerifyCircuitCircuit<G1Affine> {
             pk.get_vk() as &VerifyingKey<G1Affine>,
             &params_verifier,
             &mut transcript,
-        )?;
+        )
+        .unwrap();
 
         let guard = params.batch_multi_open_proofs(r, base_gate, ecc_gate)?;
 
         let (left_s, left_e) = guard.w_x.eval(base_gate, ecc_gate, r)?;
         let (right_s, right_e) = guard.w_g.eval(base_gate, ecc_gate, r)?;
 
-        let left_s: Result<Option<AssignedPoint<G1Affine, Fr>>, Error> =
-            left_e.map_or(Ok(left_s.clone()), |left_e| {
-                let one = ecc_gate.one(r)?;
+        let one = ecc_gate.one(r)?;
+        let left_final = if left_e.is_none() {
+            left_s.unwrap()
+        } else {
+            let left_es = ecc_gate.scalar_mul(r, &left_e.unwrap(), &one)?;
+            ecc_gate.add(r, &left_s.unwrap(), &left_es)?
+        };
 
-                let left_es = ecc_gate.scalar_mul(r, &left_e, &one)?;
-                Ok(Some(ecc_gate.add(r, &left_s.unwrap(), &left_es)?))
-            });
+        let right_final = {
+            let right_es = ecc_gate.scalar_mul(r, &right_e.unwrap(), &one)?;
+            ecc_gate.minus(r, &right_s.unwrap(), &right_es)?
+        };
 
-        let right_s: Result<Option<AssignedPoint<G1Affine, Fr>>, Error> =
-            right_e.map_or(Ok(right_s.clone()), |right_e| {
-                let one = ecc_gate.one(r)?;
+        let left = ecc_gate.to_value(&left_final)?;
+        let right = ecc_gate.to_value(&right_final)?;
 
-                let right_es = ecc_gate.scalar_mul(r, &right_e, &one)?;
-                Ok(Some(ecc_gate.minus(r, &right_s.unwrap(), &right_es)?))
-            });
-
-        let left_s = ecc_gate.to_value(&left_s.unwrap().unwrap())?;
-        let right_s = ecc_gate.to_value(&right_s.unwrap().unwrap())?;
-
-        let p1 = Bn256::pairing(&left_s, &params_verifier.s_g2);
-        let p2 = Bn256::pairing(&right_s, &params_verifier.g2);
-
-        assert_eq!(p1, p2);
+        let s_g2_prepared = <Bn256 as MultiMillerLoop>::G2Prepared::from(params_verifier.s_g2);
+        let n_g2_prepared = <Bn256 as MultiMillerLoop>::G2Prepared::from(-params_verifier.g2);
+        let success = bool::from(
+            <Bn256 as MultiMillerLoop>::multi_miller_loop(&[
+                (&left, &s_g2_prepared),
+                (&right, &n_g2_prepared),
+            ])
+            .final_exponentiation()
+            .is_identity(),
+        );
+        assert!(success);
 
         Ok(())
     }
@@ -212,5 +250,6 @@ fn test_five_column_halo2_verify() {
         Ok(prover) => prover,
         Err(e) => panic!("{:#?}", e),
     };
+
     assert_eq!(prover.verify(), Ok(()));
 }

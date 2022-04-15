@@ -337,7 +337,7 @@ pub(in crate) fn build_verifier_params(
     let instances: &[&[&[Fp]]] = &[&[&[instance]]];
     let mut transcript = PoseidonRead::<_, G1Affine, Challenge255<G1Affine>>::init(&proof[..]);
 
-    let params = VerifierParams::from_transcript::<Bn256, _, _, _, _>(
+    let params = VerifierParams::from_transcript_pure::<Bn256, _, _, _, _>(
         &fc,
         &pc,
         ctx,

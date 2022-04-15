@@ -5,10 +5,11 @@ edition = "2021"
 authors = ["zhangjunyu <junyu92@gmail.com>"]
 
 [dependencies]
+blake2b_simd = "1"
 cfg-if = "0.1"
 chrono = "0.4.19"
 group = "0.11"
-halo2_proofs = { git = "https://github.com/junyu0312/halo2", rev = "3f6196fed5a61b7f86eb56848b4193d7a7b830d9", default-features = true }
+halo2_proofs = { path = "../halo2/halo2_proofs", default-features = true }
 num-bigint = { version = "0.4", features = ["rand"] }
 num-integer = "0.1"
 num-traits = "0.2"

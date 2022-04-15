@@ -89,6 +89,7 @@ impl<
             w_x = w_x.map_or(Some(commit!(w)), |w_x| {
                 Some(scalar!(self.u) * w_x + commit!(w))
             });
+
             w_g = w_g.map_or(Some(scalar!(p.point) * commit!(w) + s.clone()), |w_g| {
                 Some(scalar!(self.u) * w_g + scalar!(p.point) * commit!(w) + s.clone())
             });
