@@ -151,7 +151,7 @@ impl<A: ArithField, const T: usize, const RATE: usize> Poseidon<A, T, RATE> {
     pub fn new(ctx: &mut A::Context, chip: &A, r_f: usize, r_p: usize) -> Result<Self, A::Error> {
         let init_state = State::<A::Value, T>::default()
             .words()
-            .iter()
+            .into_iter()
             .map(|x| chip.assign_const(ctx, x))
             .collect::<Result<Vec<A::Assigned>, _>>()?;
 

@@ -1,9 +1,12 @@
 use super::common::ArithCommon;
 use halo2_proofs::arithmetic::Field;
 use halo2_proofs::arithmetic::FieldExt;
+use std::fmt::Debug;
 
-pub trait ArithField: ArithCommon<Self::Value, Self::Error> {
+pub trait ArithField: ArithCommon<Self::Context, Self::Value, Self::Assigned, Self::Error> {
+    type Context;
     type Value: FieldExt;
+    type Assigned: Clone + Debug;
     type Error;
 
     fn mul(
@@ -50,4 +53,27 @@ pub trait ArithField: ArithCommon<Self::Value, Self::Error> {
         b: &Self::Assigned,
         c: Self::Value,
     ) -> Result<Self::Assigned, Self::Error>;
+
+    fn pow_constant(
+        &self,
+        ctx: &mut Self::Context,
+        base: &Self::Assigned,
+        exponent: u32,
+    ) -> Result<Self::Assigned, Self::Error> {
+        assert!(exponent >= 1);
+        let mut acc = base.clone();
+        let mut second_bit = 1;
+        while second_bit <= exponent {
+            second_bit <<= 1;
+        }
+        second_bit >>= 2;
+        while second_bit > 0 {
+            acc = self.square(ctx, &acc)?;
+            if exponent & second_bit != 0 {
+                acc = self.mul(ctx, &acc, base)?;
+            }
+            second_bit >>= 1;
+        }
+        Ok(acc)
+    }
 }

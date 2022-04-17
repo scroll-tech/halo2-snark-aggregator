@@ -1,6 +1,6 @@
-use crate::arith::ecc::ArithEcc;
+use crate::arith::ecc::ArithECC;
 
-pub trait TranscriptRead<A: ArithEcc> {
+pub trait TranscriptRead<A: ArithECC> {
     fn read_point(
         &mut self,
         ctx: &mut A::Context,
@@ -36,7 +36,7 @@ pub trait TranscriptRead<A: ArithEcc> {
         &mut self,
         ctx: &mut A::Context,
         schip: &A::ScalarChip,
-        s: &A::ScalarChip,
+        s: &A::AssignedScalar,
     ) -> Result<(), A::Error>;
 
     fn squeeze_challenge_scalar(

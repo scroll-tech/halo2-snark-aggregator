@@ -1,26 +1,13 @@
 use std::fmt::Debug;
 
-pub trait ArithCommon<Value: Clone + PartialEq + Debug, Error> {
-    type Context;
-    type Assigned: Clone + Debug;
+pub trait ArithCommon<Context, Value: Clone + PartialEq + Debug, Assigned: Clone + Debug, Error> {
+    fn add(&self, ctx: &mut Context, a: &Assigned, b: &Assigned) -> Result<Assigned, Error>;
+    fn sub(&self, ctx: &mut Context, a: &Assigned, b: &Assigned) -> Result<Assigned, Error>;
 
-    fn add(
-        &self,
-        ctx: &mut Self::Context,
-        a: &Self::Assigned,
-        b: &Self::Assigned,
-    ) -> Result<Self::Assigned, Error>;
-    fn sub(
-        &self,
-        ctx: &mut Self::Context,
-        a: &Self::Assigned,
-        b: &Self::Assigned,
-    ) -> Result<Self::Assigned, Error>;
+    fn assign_zero(&self, ctx: &mut Context) -> Result<Assigned, Error>;
+    fn assign_one(&self, ctx: &mut Context) -> Result<Assigned, Error>;
 
-    fn assign_zero(&self, ctx: &mut Self::Context) -> Result<Self::Assigned, Error>;
-    fn assign_one(&self, ctx: &mut Self::Context) -> Result<Self::Assigned, Error>;
-
-    fn assign_const(&self, ctx: &mut Self::Context, c: &Value) -> Result<Self::Assigned, Error>;
-    fn assign_var(&self, ctx: &mut Self::Context, v: &Value) -> Result<Self::Assigned, Error>;
-    fn to_value(&self, v: &Self::Assigned) -> Result<Value, Error>;
+    fn assign_const(&self, ctx: &mut Context, c: Value) -> Result<Assigned, Error>;
+    fn assign_var(&self, ctx: &mut Context, v: Value) -> Result<Assigned, Error>;
+    fn to_value(&self, v: &Assigned) -> Result<Value, Error>;
 }

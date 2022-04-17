@@ -1,25 +1,34 @@
 use halo2_proofs::arithmetic::{CurveAffine, FieldExt};
 
 use super::{common::ArithCommon, field::ArithField};
+use std::fmt::Debug;
 
-pub trait ArithEcc: ArithCommon<Self::Point, Self::Error> {
+pub trait ArithECC:
+    ArithCommon<Self::Context, Self::Point, Self::AssignedPoint, Self::Error>
+{
+    type Context;
+
     type Point: CurveAffine;
+    type AssignedPoint: Clone + Debug;
+    type Scalar;
+    type AssignedScalar: Clone + Debug;
+    type Native;
+    type AssignedNative: Clone + Debug;
+
     type Error;
-    type AssignedPoint = Self::Assigned;
 
-    type ScalarChip: ArithField<Error = Self::Error>;
-    type Scalar: FieldExt = <Self::ScalarChip as ArithField>::Value;
-    type AssignedScalar = <Self::ScalarChip as ArithCommon<
-        <<Self as ArithEcc>::ScalarChip as ArithField>::Value,
-        Self::Error,
-    >>::Assigned;
-
-    type NativeChip: ArithField<Error = Self::Error>;
-    type Native = <Self::NativeChip as ArithField>::Value;
-    type AssignedNative = <Self::NativeChip as ArithCommon<
-        <<Self as ArithEcc>::NativeChip as ArithField>::Value,
-        Self::Error,
-    >>::Assigned;
+    type ScalarChip: ArithField<
+        Context = Self::Context,
+        Value = Self::Scalar,
+        Assigned = Self::AssignedScalar,
+        Error = Self::Error,
+    >;
+    type NativeChip: ArithField<
+        Context = Self::Context,
+        Value = Self::Native,
+        Assigned = Self::AssignedNative,
+        Error = Self::Error,
+    >;
 
     fn scalar_mul(
         &self,

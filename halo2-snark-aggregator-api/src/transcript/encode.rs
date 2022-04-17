@@ -1,6 +1,6 @@
-use crate::arith::ecc::ArithEcc;
+use crate::arith::ecc::ArithECC;
 
-pub trait Encode<A: ArithEcc> {
+pub trait Encode<A: ArithECC> {
     fn encode_point(
         ctx: &mut A::Context,
         schip: &A::ScalarChip,
