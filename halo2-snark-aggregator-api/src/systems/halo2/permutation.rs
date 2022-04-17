@@ -1,4 +1,4 @@
-use crate::arith::ecc::ArithECC;
+use crate::arith::ecc::ArithEccChip;
 
 pub struct Committed<P> {
     permutation_product_commitments: Vec<P>,
@@ -20,7 +20,7 @@ pub struct CommonEvaluated<'a, S, P> {
 }
 
 #[derive(Debug)]
-pub struct Evaluated<A: ArithECC> {
+pub struct Evaluated<A: ArithEccChip> {
     pub(in crate::systems::halo2) x: A::AssignedScalar,
     pub(in crate::systems::halo2) sets: Vec<EvaluatedSet<A::AssignedScalar, A::AssignedPoint>>,
     pub(in crate::systems::halo2) evals: Vec<A::AssignedScalar>,

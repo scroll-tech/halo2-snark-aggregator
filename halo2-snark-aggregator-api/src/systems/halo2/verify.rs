@@ -5,7 +5,7 @@ use super::{
     permutation,
 };
 use crate::{
-    arith::{common::ArithCommon, ecc::ArithECC, field::ArithField},
+    arith::{common::ArithCommonChip, ecc::ArithEccChip, field::ArithFieldChip},
     transcript::read::TranscriptRead,
 };
 use group::Curve;
@@ -22,7 +22,7 @@ pub struct PlonkCommonSetup {
     pub n: u32,
 }
 
-pub struct VerifierParams<A: ArithECC> {
+pub struct VerifierParams<A: ArithEccChip> {
     pub gates: Vec<Vec<Expression<A::AssignedScalar>>>,
     pub common: PlonkCommonSetup,
 
@@ -57,12 +57,16 @@ pub struct VerifierParams<A: ArithECC> {
     pub v: A::AssignedScalar,
     pub xi: A::AssignedScalar,
     pub omega: A::AssignedScalar,
+
+    pub zero: A::AssignedScalar,
+    pub one: A::AssignedScalar,
+    pub n: A::AssignedScalar,
 }
 
 struct VerifierParamsBuilder<
     'a,
     E: MultiMillerLoop,
-    A: ArithECC<Point = E::G1Affine>,
+    A: ArithEccChip<Point = E::G1Affine>,
     T: TranscriptRead<A>,
 > {
     ctx: &'a mut A::Context,
@@ -79,7 +83,7 @@ struct VerifierParamsBuilder<
 impl<
         'a,
         E: MultiMillerLoop,
-        A: ArithECC<
+        A: ArithEccChip<
             Point = E::G1Affine,
             Scalar = <E::G1Affine as CurveAffine>::ScalarExt,
             Native = <E::G1Affine as CurveAffine>::ScalarExt,
@@ -529,6 +533,16 @@ impl<
                 .schip
                 .assign_const(self.ctx, self.vk.domain.get_omega())?,
             w,
+            zero: self
+                .schip
+                .assign_const(self.ctx, <E::G1Affine as CurveAffine>::ScalarExt::zero())?,
+            one: self
+                .schip
+                .assign_const(self.ctx, <E::G1Affine as CurveAffine>::ScalarExt::one())?,
+            n: self.schip.assign_const(
+                self.ctx,
+                <E::G1Affine as CurveAffine>::ScalarExt::from(n as u64),
+            )?,
         })
     }
 }

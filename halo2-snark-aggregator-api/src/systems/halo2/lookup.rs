@@ -1,6 +1,6 @@
 use halo2_proofs::plonk::Expression;
 
-use crate::arith::ecc::ArithECC;
+use crate::arith::ecc::ArithEccChip;
 
 #[derive(Debug)]
 pub struct PermutationCommitments<P> {
@@ -15,7 +15,7 @@ pub struct Committed<P> {
 }
 
 #[derive(Debug)]
-pub struct Evaluated<A: ArithECC> {
+pub struct Evaluated<A: ArithEccChip> {
     pub(in crate::systems::halo2) input_expressions: Vec<Expression<A::AssignedScalar>>,
     pub(in crate::systems::halo2) table_expressions: Vec<Expression<A::AssignedScalar>>,
     pub(in crate::systems::halo2) committed: Committed<A::AssignedPoint>,

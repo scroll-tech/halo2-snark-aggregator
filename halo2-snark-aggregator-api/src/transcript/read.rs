@@ -1,6 +1,6 @@
-use crate::arith::ecc::ArithECC;
+use crate::arith::ecc::ArithEccChip;
 
-pub trait TranscriptRead<A: ArithECC> {
+pub trait TranscriptRead<A: ArithEccChip> {
     fn read_point(
         &mut self,
         ctx: &mut A::Context,

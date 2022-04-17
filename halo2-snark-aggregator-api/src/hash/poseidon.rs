@@ -1,18 +1,18 @@
-use crate::arith::field::ArithField;
+use crate::arith::field::ArithFieldChip;
 use halo2_proofs::arithmetic::Field;
 use poseidon::{SparseMDSMatrix, Spec, State};
 
-struct PoseidonState<A: ArithField, const T: usize, const RATE: usize> {
-    s: [A::Assigned; T],
+struct PoseidonState<A: ArithFieldChip, const T: usize, const RATE: usize> {
+    s: [A::AssignedValue; T],
 }
 
-impl<A: ArithField, const T: usize, const RATE: usize> PoseidonState<A, T, RATE> {
+impl<A: ArithFieldChip, const T: usize, const RATE: usize> PoseidonState<A, T, RATE> {
     fn x_power5_with_constant(
         ctx: &mut A::Context,
         chip: &A,
-        x: &A::Assigned,
+        x: &A::AssignedValue,
         constant: A::Value,
-    ) -> Result<A::Assigned, A::Error> {
+    ) -> Result<A::AssignedValue, A::Error> {
         let x2 = chip.mul(ctx, x, x)?;
         let x4 = chip.mul(ctx, &x2, &x2)?;
         chip.mul_add_constant(ctx, &x, &x4, constant.clone())
@@ -46,7 +46,7 @@ impl<A: ArithField, const T: usize, const RATE: usize> PoseidonState<A, T, RATE>
         &mut self,
         ctx: &mut A::Context,
         chip: &A,
-        inputs: Vec<A::Assigned>,
+        inputs: Vec<A::AssignedValue>,
         pre_constants: &[A::Value; T],
     ) -> Result<(), A::Error> {
         assert!(inputs.len() < T);
@@ -141,19 +141,19 @@ impl<A: ArithField, const T: usize, const RATE: usize> PoseidonState<A, T, RATE>
     }
 }
 
-pub struct Poseidon<A: ArithField, const T: usize, const RATE: usize> {
+pub struct Poseidon<A: ArithFieldChip, const T: usize, const RATE: usize> {
     state: PoseidonState<A, T, RATE>,
     spec: Spec<A::Value, T, RATE>,
-    absorbing: Vec<A::Assigned>,
+    absorbing: Vec<A::AssignedValue>,
 }
 
-impl<A: ArithField, const T: usize, const RATE: usize> Poseidon<A, T, RATE> {
+impl<A: ArithFieldChip, const T: usize, const RATE: usize> Poseidon<A, T, RATE> {
     pub fn new(ctx: &mut A::Context, chip: &A, r_f: usize, r_p: usize) -> Result<Self, A::Error> {
         let init_state = State::<A::Value, T>::default()
             .words()
             .into_iter()
             .map(|x| chip.assign_const(ctx, x))
-            .collect::<Result<Vec<A::Assigned>, _>>()?;
+            .collect::<Result<Vec<A::AssignedValue>, _>>()?;
 
         Ok(Self {
             spec: Spec::new(r_f, r_p),
@@ -164,11 +164,11 @@ impl<A: ArithField, const T: usize, const RATE: usize> Poseidon<A, T, RATE> {
         })
     }
 
-    pub fn update(&mut self, elements: &[A::Assigned]) {
+    pub fn update(&mut self, elements: &[A::AssignedValue]) {
         self.absorbing.extend_from_slice(elements);
     }
 
-    pub fn squeeze(&mut self, ctx: &mut A::Context, chip: &A) -> Result<A::Assigned, A::Error> {
+    pub fn squeeze(&mut self, ctx: &mut A::Context, chip: &A) -> Result<A::AssignedValue, A::Error> {
         let mut input_elements = vec![];
         input_elements.append(&mut self.absorbing);
 
@@ -190,7 +190,7 @@ impl<A: ArithField, const T: usize, const RATE: usize> Poseidon<A, T, RATE> {
         &mut self,
         ctx: &mut A::Context,
         chip: &A,
-        inputs: Vec<A::Assigned>,
+        inputs: Vec<A::AssignedValue>,
     ) -> Result<(), A::Error> {
         let r_f = self.spec.r_f / 2;
         let mds = &self.spec.mds_matrices.mds.rows();

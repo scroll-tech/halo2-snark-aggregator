@@ -1,32 +1,31 @@
+use super::{common::ArithCommonChip, field::ArithFieldChip};
 use halo2_proofs::arithmetic::{CurveAffine, FieldExt};
-
-use super::{common::ArithCommon, field::ArithField};
 use std::fmt::Debug;
 
-pub trait ArithECC:
-    ArithCommon<Self::Context, Self::Point, Self::AssignedPoint, Self::Error>
+pub trait ArithEccChip:
+    ArithCommonChip<Self::Context, Self::Point, Self::AssignedPoint, Self::Error>
 {
     type Context;
 
     type Point: CurveAffine;
     type AssignedPoint: Clone + Debug;
-    type Scalar;
+    type Scalar: FieldExt;
     type AssignedScalar: Clone + Debug;
-    type Native;
+    type Native: FieldExt;
     type AssignedNative: Clone + Debug;
 
     type Error;
 
-    type ScalarChip: ArithField<
+    type ScalarChip: ArithFieldChip<
         Context = Self::Context,
         Value = Self::Scalar,
-        Assigned = Self::AssignedScalar,
+        AssignedValue = Self::AssignedScalar,
         Error = Self::Error,
     >;
-    type NativeChip: ArithField<
+    type NativeChip: ArithFieldChip<
         Context = Self::Context,
         Value = Self::Native,
-        Assigned = Self::AssignedNative,
+        AssignedValue = Self::AssignedNative,
         Error = Self::Error,
     >;
 
