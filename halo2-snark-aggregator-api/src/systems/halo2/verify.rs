@@ -245,7 +245,6 @@ impl<
                         permutation_product_eval,
                         permutation_product_next_eval,
                         permutation_product_last_eval,
-                        chunk_len: self.vk.cs.degree() - 2,
                     });
                 }
 

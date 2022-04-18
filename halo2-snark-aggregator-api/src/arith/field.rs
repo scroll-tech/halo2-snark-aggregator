@@ -53,13 +53,17 @@ pub trait ArithFieldChip:
         b: &Self::AssignedField,
         c: Self::Value,
     ) -> Result<Self::AssignedField, Self::Error>;
+
     fn mul_add(
         &self,
         ctx: &mut Self::Context,
         a: &Self::AssignedField,
         b: &Self::AssignedField,
         c: &Self::AssignedField,
-    ) -> Result<Self::AssignedField, Self::Error>;
+    ) -> Result<Self::AssignedField, Self::Error> {
+        let t = self.mul(ctx, a, b)?;
+        self.add(ctx, &t, c)
+    }
 
     fn mul_add_accumulate(
         &self,
