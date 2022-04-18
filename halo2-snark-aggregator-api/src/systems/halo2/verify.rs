@@ -263,6 +263,137 @@ impl<
         })
     }
 
+    fn build_permutation_evaluated(
+        &mut self,
+        x: &<A as ArithEccChip>::AssignedScalar,
+        permutations_committed: Vec<Vec<<A as ArithEccChip>::AssignedPoint>>,
+        advice_evals: &Vec<Vec<<A as ArithEccChip>::AssignedScalar>>,
+        instance_evals: &Vec<Vec<<A as ArithEccChip>::AssignedScalar>>,
+        fixed_evals: &Vec<<A as ArithEccChip>::AssignedScalar>,
+    ) -> Result<Vec<permutation::Evaluated<A>>, A::Error> {
+        let permutation_evaluated_sets = permutations_committed
+            .into_iter()
+            .map(|permutation| {
+                let mut sets = vec![];
+
+                let mut iter = permutation.into_iter();
+                while let Some(permutation_product_commitment) = iter.next() {
+                    let permutation_product_eval = self.load_scalar()?;
+                    let permutation_product_next_eval = self.load_scalar()?;
+                    let permutation_product_last_eval = if iter.len() > 0 {
+                        Some(self.load_scalar()?)
+                    } else {
+                        None
+                    };
+
+                    sets.push(permutation::EvaluatedSet {
+                        permutation_product_commitment,
+                        permutation_product_eval,
+                        permutation_product_next_eval,
+                        permutation_product_last_eval,
+                        chunk_len: self.vk.cs.degree() - 2,
+                    });
+                }
+
+                Ok(sets)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let permutation_evaluated_evals: Vec<Vec<<A as ArithEccChip>::AssignedScalar>> =
+            advice_evals
+                .iter()
+                .zip(instance_evals.iter())
+                .map(|(advice_evals, instance_evals)| {
+                    self.vk
+                        .cs
+                        .permutation
+                        .columns
+                        .chunks(self.vk.cs.degree() - 2)
+                        .map(|columns| {
+                            columns
+                                .iter()
+                                .map(|column| match column.column_type() {
+                                    halo2_proofs::plonk::Any::Advice => advice_evals
+                                        [self.vk.cs.get_any_query_index(*column, Rotation::cur())]
+                                    .clone(),
+                                    halo2_proofs::plonk::Any::Fixed => fixed_evals
+                                        [self.vk.cs.get_any_query_index(*column, Rotation::cur())]
+                                    .clone(),
+                                    halo2_proofs::plonk::Any::Instance => instance_evals
+                                        [self.vk.cs.get_any_query_index(*column, Rotation::cur())]
+                                    .clone(),
+                                })
+                                .collect::<Vec<_>>()
+                        })
+                        .collect::<Vec<_>>()
+                        .concat()
+                })
+                .collect::<Vec<_>>();
+
+        let permutation_evaluated = permutation_evaluated_sets
+            .into_iter()
+            .zip(permutation_evaluated_evals.into_iter())
+            .map(
+                |(permutation_evaluated_set, permutation_evaluated_eval)| permutation::Evaluated {
+                    x: x.clone(),
+                    sets: permutation_evaluated_set,
+                    evals: permutation_evaluated_eval,
+                    chunk_len: self.vk.cs.degree() - 2,
+                },
+            )
+            .collect();
+
+        Ok(permutation_evaluated)
+    }
+
+    fn build_lookup_evaluated(
+        &mut self,
+        lookups_permuted: Vec<Vec<PermutationCommitments<<A as ArithEccChip>::AssignedPoint>>>,
+        lookups_committed: Vec<Vec<<A as ArithEccChip>::AssignedPoint>>,
+    ) -> Result<Vec<Vec<lookup::Evaluated<A>>>, A::Error> {
+        let lookup_evaluated = lookups_permuted
+            .into_iter()
+            .zip(lookups_committed.into_iter())
+            .map(|(permuted, product_commitment)| {
+                permuted
+                    .into_iter()
+                    .zip(product_commitment.into_iter())
+                    .zip(self.vk.cs.lookups.iter())
+                    .map(|((permuted, product_commitment), argument)| {
+                        let product_eval = self.load_scalar()?;
+                        let product_next_eval = self.load_scalar()?;
+                        let permuted_input_eval = self.load_scalar()?;
+                        let permuted_input_inv_eval = self.load_scalar()?;
+                        let permuted_table_eval = self.load_scalar()?;
+                        Ok(lookup::Evaluated {
+                            input_expressions: argument
+                                .input_expressions
+                                .iter()
+                                .map(|expr| self.convert_expression(expr.clone()))
+                                .collect::<Result<Vec<_>, _>>()?,
+                            table_expressions: argument
+                                .table_expressions
+                                .iter()
+                                .map(|expr| self.convert_expression(expr.clone()))
+                                .collect::<Result<Vec<_>, _>>()?,
+                            committed: lookup::Committed {
+                                permuted,
+                                product_commitment,
+                            },
+                            product_eval,
+                            product_next_eval,
+                            permuted_input_eval,
+                            permuted_input_inv_eval,
+                            permuted_table_eval,
+                        })
+                    })
+                    .collect::<Result<Vec<_>, _>>()
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(lookup_evaluated)
+    }
+
     pub fn build_params(mut self) -> Result<VerifierParams<A>, A::Error> {
         self.init_transcript()?;
 
@@ -334,118 +465,17 @@ impl<
         let fixed_evals = self.load_n_scalars(self.vk.cs.fixed_queries.len())?;
 
         let random_eval = self.load_scalar()?;
+
         let permutation_evals = self.load_n_scalars(self.vk.permutation.commitments.len())?;
+        let permutation_evaluated = self.build_permutation_evaluated(
+            &x,
+            permutations_committed,
+            &advice_evals,
+            &instance_evals,
+            &fixed_evals,
+        )?;
 
-        let permutation_evaluated_sets = permutations_committed
-            .into_iter()
-            .map(|permutation| {
-                let mut sets = vec![];
-
-                let mut iter = permutation.into_iter();
-                while let Some(permutation_product_commitment) = iter.next() {
-                    let permutation_product_eval = self.load_scalar()?;
-                    let permutation_product_next_eval = self.load_scalar()?;
-                    let permutation_product_last_eval = if iter.len() > 0 {
-                        Some(self.load_scalar()?)
-                    } else {
-                        None
-                    };
-
-                    sets.push(permutation::EvaluatedSet {
-                        permutation_product_commitment,
-                        permutation_product_eval,
-                        permutation_product_next_eval,
-                        permutation_product_last_eval,
-                        chunk_len: self.vk.cs.degree() - 2,
-                    });
-                }
-
-                Ok(sets)
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-
-        let permutation_evaluated_evals = advice_evals
-            .iter()
-            .zip(instance_evals.iter())
-            .map(|(advice_evals, instance_evals)| {
-                self.vk
-                    .cs
-                    .permutation
-                    .columns
-                    .chunks(self.vk.cs.degree() - 2)
-                    .map(|columns| {
-                        columns
-                            .iter()
-                            .map(|column| match column.column_type() {
-                                halo2_proofs::plonk::Any::Advice => advice_evals
-                                    [self.vk.cs.get_any_query_index(*column, Rotation::cur())]
-                                .clone(),
-                                halo2_proofs::plonk::Any::Fixed => fixed_evals
-                                    [self.vk.cs.get_any_query_index(*column, Rotation::cur())]
-                                .clone(),
-                                halo2_proofs::plonk::Any::Instance => instance_evals
-                                    [self.vk.cs.get_any_query_index(*column, Rotation::cur())]
-                                .clone(),
-                            })
-                            .collect::<Vec<_>>()
-                    })
-                    .collect::<Vec<_>>()
-                    .concat()
-            })
-            .collect::<Vec<_>>();
-
-        let permutation_evaluated = permutation_evaluated_sets
-            .into_iter()
-            .zip(permutation_evaluated_evals.into_iter())
-            .map(
-                |(permutation_evaluated_set, permutation_evaluated_eval)| permutation::Evaluated {
-                    x: x.clone(),
-                    sets: permutation_evaluated_set,
-                    evals: permutation_evaluated_eval,
-                    chunk_len: self.vk.cs.degree() - 2,
-                },
-            )
-            .collect();
-
-        let lookup_evaluated = lookups_permuted
-            .into_iter()
-            .zip(lookups_committed.into_iter())
-            .map(|(permuted, product_commitment)| {
-                permuted
-                    .into_iter()
-                    .zip(product_commitment.into_iter())
-                    .zip(self.vk.cs.lookups.iter())
-                    .map(|((permuted, product_commitment), argument)| {
-                        let product_eval = self.load_scalar()?;
-                        let product_next_eval = self.load_scalar()?;
-                        let permuted_input_eval = self.load_scalar()?;
-                        let permuted_input_inv_eval = self.load_scalar()?;
-                        let permuted_table_eval = self.load_scalar()?;
-                        Ok(lookup::Evaluated {
-                            input_expressions: argument
-                                .input_expressions
-                                .iter()
-                                .map(|expr| self.convert_expression(expr.clone()))
-                                .collect::<Result<Vec<_>, _>>()?,
-                            table_expressions: argument
-                                .table_expressions
-                                .iter()
-                                .map(|expr| self.convert_expression(expr.clone()))
-                                .collect::<Result<Vec<_>, _>>()?,
-                            committed: lookup::Committed {
-                                permuted,
-                                product_commitment,
-                            },
-                            product_eval,
-                            product_next_eval,
-                            permuted_input_eval,
-                            permuted_input_inv_eval,
-                            permuted_table_eval,
-                        })
-                    })
-                    .collect::<Result<Vec<_>, _>>()
-            })
-            .collect::<Result<Vec<_>, _>>()?;
+        let lookup_evaluated = self.build_lookup_evaluated(lookups_permuted, lookups_committed)?;
 
         let fixed_commitments = self
             .vk
