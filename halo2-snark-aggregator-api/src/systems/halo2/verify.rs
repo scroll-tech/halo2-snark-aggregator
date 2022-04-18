@@ -1,67 +1,21 @@
-use std::vec;
-
+use super::params::{PlonkCommonSetup, VerifierParams};
 use super::{
     lookup::{self, PermutationCommitments},
     permutation,
 };
-use crate::{
-    arith::{common::ArithCommonChip, ecc::ArithEccChip, field::ArithFieldChip},
-    transcript::read::TranscriptRead,
-};
+use crate::arith::{common::ArithCommonChip, ecc::ArithEccChip, field::ArithFieldChip};
+use crate::transcript::read::TranscriptRead;
 use group::Curve;
-use halo2_proofs::arithmetic::{Field, FieldExt};
+use group::Group;
+use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::arithmetic::{Field, MillerLoopResult};
 use halo2_proofs::{arithmetic::BaseExt, poly::Rotation};
 use halo2_proofs::{
     arithmetic::{CurveAffine, MultiMillerLoop},
     plonk::{Expression, VerifyingKey},
     poly::commitment::ParamsVerifier,
 };
-
-pub struct PlonkCommonSetup {
-    pub l: u32,
-    pub n: u32,
-}
-
-pub struct VerifierParams<A: ArithEccChip> {
-    pub gates: Vec<Vec<Expression<A::AssignedScalar>>>,
-    pub common: PlonkCommonSetup,
-
-    pub lookup_evaluated: Vec<Vec<lookup::Evaluated<A>>>,
-    pub permutation_evaluated: Vec<permutation::Evaluated<A>>,
-    pub instance_commitments: Vec<Vec<A::AssignedPoint>>,
-    pub instance_evals: Vec<Vec<A::AssignedScalar>>,
-    pub instance_queries: Vec<(usize, i32)>,
-    pub advice_commitments: Vec<Vec<A::AssignedPoint>>,
-    pub advice_evals: Vec<Vec<A::AssignedScalar>>,
-    pub advice_queries: Vec<(usize, i32)>,
-    pub fixed_commitments: Vec<A::AssignedPoint>,
-    pub fixed_evals: Vec<A::AssignedScalar>,
-    pub fixed_queries: Vec<(usize, i32)>,
-    pub permutation_commitments: Vec<A::AssignedPoint>,
-    pub permutation_evals: Vec<A::AssignedScalar>,
-    pub vanish_commitments: Vec<A::AssignedPoint>,
-    pub random_commitment: A::AssignedPoint,
-    pub w: Vec<A::AssignedPoint>,
-    pub random_eval: A::AssignedScalar,
-    pub beta: A::AssignedScalar,
-    pub gamma: A::AssignedScalar,
-    pub theta: A::AssignedScalar,
-    pub delta: A::AssignedScalar,
-    pub x: A::AssignedScalar,
-    pub x_next: A::AssignedScalar,
-    pub x_last: A::AssignedScalar,
-    pub x_inv: A::AssignedScalar,
-    pub xn: A::AssignedScalar,
-    pub y: A::AssignedScalar,
-    pub u: A::AssignedScalar,
-    pub v: A::AssignedScalar,
-    pub xi: A::AssignedScalar,
-    pub omega: A::AssignedScalar,
-
-    pub zero: A::AssignedScalar,
-    pub one: A::AssignedScalar,
-    pub n: A::AssignedScalar,
-}
+use std::vec;
 
 pub struct VerifierParamsBuilder<
     'a,
@@ -578,4 +532,80 @@ impl<
             )?,
         })
     }
+}
+
+pub fn verify_single_proof_in_chip<
+    E: MultiMillerLoop,
+    A: ArithEccChip<
+        Point = E::G1Affine,
+        Scalar = <E::G1Affine as CurveAffine>::ScalarExt,
+        Native = <E::G1Affine as CurveAffine>::ScalarExt,
+    >,
+    T: TranscriptRead<A>,
+>(
+    ctx: &mut A::Context,
+    nchip: &A::NativeChip,
+    schip: &A::ScalarChip,
+    pchip: &A,
+    xi: <E::G1Affine as CurveAffine>::ScalarExt,
+    instances: &[&[&[E::Scalar]]],
+    vk: &VerifyingKey<E::G1Affine>,
+    params: &ParamsVerifier<E>,
+    transcript: &mut T,
+    params_verifier: Option<ParamsVerifier<E>>,
+) -> Result<(E::G1Affine, E::G1Affine), A::Error> {
+    let params_builder = VerifierParamsBuilder {
+        ctx,
+        nchip,
+        schip,
+        pchip,
+        xi,
+        instances,
+        vk,
+        params,
+        transcript,
+    };
+
+    let params = params_builder.build_params()?;
+    let guard = params.batch_multi_open_proofs(ctx, schip)?;
+
+    let (left_s, left_e) = guard.w_x.eval::<_, A>(ctx, schip, pchip, &params.one)?;
+    let (right_s, right_e) = guard.w_g.eval::<_, A>(ctx, schip, pchip, &params.one)?;
+
+    let generator = pchip.assign_one(ctx)?;
+    let left = match left_e {
+        None => left_s,
+        Some(eval) => {
+            let s = pchip.scalar_mul(ctx, &eval, &generator)?;
+            pchip.add(ctx, &left_s, &s)?
+        }
+    };
+    let right = match right_e {
+        None => right_s,
+        Some(eval) => {
+            let s = pchip.scalar_mul(ctx, &eval, &generator)?;
+            pchip.add(ctx, &right_s, &s)?
+        }
+    };
+
+    // TODO:
+    // 1. expose left and right
+    // 2. aggrate
+
+    let left = pchip.to_value(&left)?;
+    let right = pchip.to_value(&right)?;
+
+    if params_verifier.is_some() {
+        let params_verifier = params_verifier.unwrap();
+        let s_g2_prepared = E::G2Prepared::from(params_verifier.s_g2);
+        let n_g2_prepared = E::G2Prepared::from(-params_verifier.g2);
+        let success = bool::from(
+            E::multi_miller_loop(&[(&left, &s_g2_prepared), (&right, &n_g2_prepared)])
+                .final_exponentiation()
+                .is_identity(),
+        );
+        assert!(success);
+    }
+
+    Ok((left, right))
 }

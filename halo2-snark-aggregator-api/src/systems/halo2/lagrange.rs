@@ -1,4 +1,4 @@
-use super::verify::VerifierParams;
+use super::params::VerifierParams;
 use crate::arith::ast::FieldArithHelper;
 use crate::{
     arith::{ecc::ArithEccChip, field::ArithFieldChip},

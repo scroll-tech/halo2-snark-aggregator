@@ -5,9 +5,6 @@ use crate::arith::ast::FieldArithHelper;
 use crate::arith::field::ArithFieldChip;
 use crate::{arith::ecc::ArithEccChip, arith_ast};
 
-pub struct Committed<P> {
-    permutation_product_commitments: Vec<P>,
-}
 
 #[derive(Debug)]
 pub struct EvaluatedSet<A: ArithEccChip> {
@@ -15,7 +12,6 @@ pub struct EvaluatedSet<A: ArithEccChip> {
     pub(in crate::systems::halo2) permutation_product_eval: A::AssignedScalar,
     pub(in crate::systems::halo2) permutation_product_next_eval: A::AssignedScalar,
     pub(in crate::systems::halo2) permutation_product_last_eval: Option<A::AssignedScalar>,
-    pub(in crate::systems::halo2) chunk_len: usize,
 }
 
 #[derive(Debug)]
