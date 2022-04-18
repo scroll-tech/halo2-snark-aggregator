@@ -70,6 +70,7 @@ struct VerifierParamsBuilder<
     T: TranscriptRead<A>,
 > {
     ctx: &'a mut A::Context,
+    nchip: &'a A::NativeChip,
     schip: &'a A::ScalarChip,
     pchip: &'a A,
     xi: <E::G1Affine as CurveAffine>::ScalarExt,
@@ -105,7 +106,7 @@ impl<
         let scalar = E::Scalar::from_bytes_wide(hasher.finalize().as_array());
         let assigned_scalar = self.schip.assign_const(self.ctx, scalar)?;
         self.transcript
-            .common_scalar(self.ctx, self.schip, &assigned_scalar)?;
+            .common_scalar(self.ctx, self.nchip, self.schip, &assigned_scalar)?;
         Ok(())
     }
 
@@ -127,7 +128,7 @@ impl<
                         let p = self.params.commit_lagrange(instance.to_vec()).to_affine();
                         let p = self.pchip.assign_var(self.ctx, p)?;
                         self.transcript
-                            .common_point(self.ctx, self.schip, self.pchip, &p)?;
+                            .common_point(self.ctx, self.nchip, self.schip, self.pchip, &p)?;
                         Ok(p)
                     })
                     .collect::<Result<Vec<A::AssignedPoint>, A::Error>>()
@@ -136,7 +137,8 @@ impl<
     }
 
     fn load_point(&mut self) -> Result<A::AssignedPoint, A::Error> {
-        self.transcript.read_point(self.ctx, self.schip, self.pchip)
+        self.transcript
+            .read_point(self.ctx, self.nchip, self.schip, self.pchip)
     }
 
     fn load_n_points(&mut self, n: usize) -> Result<Vec<A::AssignedPoint>, A::Error> {
@@ -162,7 +164,8 @@ impl<
     }
 
     fn load_scalar(&mut self) -> Result<A::AssignedScalar, A::Error> {
-        self.transcript.read_scalar(self.ctx, self.schip)
+        self.transcript
+            .read_scalar(self.ctx, self.nchip, self.schip)
     }
 
     fn load_n_scalars(&mut self, n: usize) -> Result<Vec<A::AssignedScalar>, A::Error> {
@@ -189,7 +192,7 @@ impl<
 
     fn squeeze_challenge_scalar(&mut self) -> Result<A::AssignedScalar, A::Error> {
         self.transcript
-            .squeeze_challenge_scalar(self.ctx, self.schip)
+            .squeeze_challenge_scalar(self.ctx, self.nchip, self.schip)
     }
 
     fn rotate_omega(

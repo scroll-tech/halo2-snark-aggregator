@@ -141,13 +141,13 @@ impl<A: ArithFieldChip, const T: usize, const RATE: usize> PoseidonState<A, T, R
     }
 }
 
-pub struct Poseidon<A: ArithFieldChip, const T: usize, const RATE: usize> {
+pub struct PoseidonChip<A: ArithFieldChip, const T: usize, const RATE: usize> {
     state: PoseidonState<A, T, RATE>,
     spec: Spec<A::Value, T, RATE>,
     absorbing: Vec<A::AssignedValue>,
 }
 
-impl<A: ArithFieldChip, const T: usize, const RATE: usize> Poseidon<A, T, RATE> {
+impl<A: ArithFieldChip, const T: usize, const RATE: usize> PoseidonChip<A, T, RATE> {
     pub fn new(ctx: &mut A::Context, chip: &A, r_f: usize, r_p: usize) -> Result<Self, A::Error> {
         let init_state = State::<A::Value, T>::default()
             .words()
@@ -168,7 +168,11 @@ impl<A: ArithFieldChip, const T: usize, const RATE: usize> Poseidon<A, T, RATE> 
         self.absorbing.extend_from_slice(elements);
     }
 
-    pub fn squeeze(&mut self, ctx: &mut A::Context, chip: &A) -> Result<A::AssignedValue, A::Error> {
+    pub fn squeeze(
+        &mut self,
+        ctx: &mut A::Context,
+        chip: &A,
+    ) -> Result<A::AssignedValue, A::Error> {
         let mut input_elements = vec![];
         input_elements.append(&mut self.absorbing);
 
