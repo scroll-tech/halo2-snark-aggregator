@@ -551,7 +551,7 @@ pub fn verify_single_proof_in_chip<
     vk: &VerifyingKey<E::G1Affine>,
     params: &ParamsVerifier<E>,
     transcript: &mut T,
-    params_verifier: Option<ParamsVerifier<E>>,
+    check: bool,
 ) -> Result<(E::G1Affine, E::G1Affine), A::Error> {
     let params_builder = VerifierParamsBuilder {
         ctx,
@@ -565,11 +565,15 @@ pub fn verify_single_proof_in_chip<
         transcript,
     };
 
-    let params = params_builder.build_params()?;
-    let guard = params.batch_multi_open_proofs(ctx, schip)?;
+    let chip_params = params_builder.build_params()?;
+    let guard = chip_params.batch_multi_open_proofs(ctx, schip)?;
 
-    let (left_s, left_e) = guard.w_x.eval::<_, A>(ctx, schip, pchip, &params.one)?;
-    let (right_s, right_e) = guard.w_g.eval::<_, A>(ctx, schip, pchip, &params.one)?;
+    let (left_s, left_e) = guard
+        .w_x
+        .eval::<_, A>(ctx, schip, pchip, &chip_params.one)?;
+    let (right_s, right_e) = guard
+        .w_g
+        .eval::<_, A>(ctx, schip, pchip, &chip_params.one)?;
 
     let generator = pchip.assign_one(ctx)?;
     let left = match left_e {
@@ -594,10 +598,9 @@ pub fn verify_single_proof_in_chip<
     let left = pchip.to_value(&left)?;
     let right = pchip.to_value(&right)?;
 
-    if params_verifier.is_some() {
-        let params_verifier = params_verifier.unwrap();
-        let s_g2_prepared = E::G2Prepared::from(params_verifier.s_g2);
-        let n_g2_prepared = E::G2Prepared::from(-params_verifier.g2);
+    if check {
+        let s_g2_prepared = E::G2Prepared::from(params.s_g2);
+        let n_g2_prepared = E::G2Prepared::from(-params.g2);
         let success = bool::from(
             E::multi_miller_loop(&[(&left, &s_g2_prepared), (&right, &n_g2_prepared)])
                 .final_exponentiation()
