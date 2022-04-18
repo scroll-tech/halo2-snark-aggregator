@@ -4,44 +4,42 @@ use halo2_proofs::arithmetic::FieldExt;
 use std::fmt::Debug;
 
 pub trait ArithFieldChip:
-    ArithCommonChip<Self::Context, Self::Value, Self::AssignedValue, Self::Error>
+    ArithCommonChip<Value = Self::Field, AssignedValue = Self::AssignedField>
 {
-    type Context;
-    type Value: FieldExt;
-    type AssignedValue: Clone + Debug;
-    type Error;
+    type Field: FieldExt;
+    type AssignedField: Clone + Debug;
 
     fn mul(
         &self,
         ctx: &mut Self::Context,
-        a: &Self::AssignedValue,
-        b: &Self::AssignedValue,
-    ) -> Result<Self::AssignedValue, Self::Error>;
+        a: &Self::AssignedField,
+        b: &Self::AssignedField,
+    ) -> Result<Self::AssignedField, Self::Error>;
     fn div(
         &self,
         ctx: &mut Self::Context,
-        a: &Self::AssignedValue,
-        b: &Self::AssignedValue,
-    ) -> Result<Self::AssignedValue, Self::Error>;
+        a: &Self::AssignedField,
+        b: &Self::AssignedField,
+    ) -> Result<Self::AssignedField, Self::Error>;
     fn square(
         &self,
         ctx: &mut Self::Context,
-        a: &Self::AssignedValue,
-    ) -> Result<Self::AssignedValue, Self::Error>;
+        a: &Self::AssignedField,
+    ) -> Result<Self::AssignedField, Self::Error>;
 
     // keep for optimization opportunity
     fn sum_with_coeff_and_constant(
         &self,
         ctx: &mut Self::Context,
-        a_with_coeff: Vec<(&Self::AssignedValue, Self::Value)>,
+        a_with_coeff: Vec<(&Self::AssignedField, Self::Value)>,
         b: Self::Value,
-    ) -> Result<Self::AssignedValue, Self::Error>;
+    ) -> Result<Self::AssignedField, Self::Error>;
     fn sum_with_constant(
         &self,
         ctx: &mut Self::Context,
-        a: Vec<&Self::AssignedValue>,
+        a: Vec<&Self::AssignedField>,
         b: Self::Value,
-    ) -> Result<Self::AssignedValue, Self::Error> {
+    ) -> Result<Self::AssignedField, Self::Error> {
         self.sum_with_coeff_and_constant(
             ctx,
             a.into_iter().map(|x| (x, Self::Value::one())).collect(),
@@ -51,17 +49,17 @@ pub trait ArithFieldChip:
     fn mul_add_constant(
         &self,
         ctx: &mut Self::Context,
-        a: &Self::AssignedValue,
-        b: &Self::AssignedValue,
+        a: &Self::AssignedField,
+        b: &Self::AssignedField,
         c: Self::Value,
-    ) -> Result<Self::AssignedValue, Self::Error>;
+    ) -> Result<Self::AssignedField, Self::Error>;
 
     fn pow_constant(
         &self,
         ctx: &mut Self::Context,
-        base: &Self::AssignedValue,
+        base: &Self::AssignedField,
         exponent: u32,
-    ) -> Result<Self::AssignedValue, Self::Error> {
+    ) -> Result<Self::AssignedField, Self::Error> {
         assert!(exponent >= 1);
         let mut acc = base.clone();
         let mut second_bit = 1;
