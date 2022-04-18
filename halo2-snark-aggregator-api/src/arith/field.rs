@@ -53,6 +53,28 @@ pub trait ArithFieldChip:
         b: &Self::AssignedField,
         c: Self::Value,
     ) -> Result<Self::AssignedField, Self::Error>;
+    fn mul_add(
+        &self,
+        ctx: &mut Self::Context,
+        a: &Self::AssignedField,
+        b: &Self::AssignedField,
+        c: &Self::AssignedField,
+    ) -> Result<Self::AssignedField, Self::Error>;
+
+    fn mul_add_accumulate(
+        &self,
+        ctx: &mut Self::Context,
+        a: Vec<&Self::AssignedField>,
+        b: &Self::AssignedField,
+    ) -> Result<Self::AssignedField, Self::Error> {
+        let mut acc = (*a.first().unwrap()).clone();
+
+        for v in a.into_iter().skip(1) {
+            acc = self.mul_add(ctx, &acc, b, v)?;
+        }
+
+        Ok(acc)
+    }
 
     fn pow_constant(
         &self,

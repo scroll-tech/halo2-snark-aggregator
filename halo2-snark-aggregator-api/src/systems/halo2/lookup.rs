@@ -1,6 +1,10 @@
+use super::expression::Evaluable;
+use crate::arith::ast::FieldArithHelper;
+use crate::arith::field::ArithFieldChip;
+use crate::systems::halo2::evaluation::EvaluationQuery;
+use crate::{arith::ecc::ArithEccChip, arith_ast};
 use halo2_proofs::plonk::Expression;
-
-use crate::arith::ecc::ArithEccChip;
+use std::iter;
 
 #[derive(Debug)]
 pub struct PermutationCommitments<P> {
@@ -24,4 +28,142 @@ pub struct Evaluated<A: ArithEccChip> {
     pub(in crate::systems::halo2) permuted_input_eval: A::AssignedScalar,
     pub(in crate::systems::halo2) permuted_input_inv_eval: A::AssignedScalar,
     pub(in crate::systems::halo2) permuted_table_eval: A::AssignedScalar,
+}
+
+impl<A: ArithEccChip> Evaluated<A> {
+    pub fn expressions(
+        &self,
+        ctx: &mut A::Context,
+        schip: &A::ScalarChip,
+        fixed_evals: &Vec<A::AssignedScalar>,
+        instance_evals: &Vec<A::AssignedScalar>,
+        advice_evals: &Vec<A::AssignedScalar>,
+        l_0: &A::AssignedScalar,
+        l_last: &A::AssignedScalar,
+        l_blind: &A::AssignedScalar,
+        theta: &A::AssignedScalar,
+        beta: &A::AssignedScalar,
+        gamma: &A::AssignedScalar,
+        zero: &A::AssignedScalar,
+        one: &A::AssignedScalar,
+    ) -> Result<Vec<A::AssignedScalar>, A::Error> {
+        let z_wx = &self.product_next_eval;
+        let z_x = &self.product_eval;
+        let a_x = &self.permuted_input_eval;
+        let s_x = &self.permuted_table_eval;
+        let a_invwx = &self.permuted_input_inv_eval;
+        let product_eval = &self.product_eval;
+
+        let left = &arith_ast!(z_wx * (a_x + beta) * (s_x + gamma)).eval(ctx, schip)?;
+
+        let input_evals = self
+            .input_expressions
+            .iter()
+            .map(|expression| {
+                Evaluable::<A>::chip_evaluate(
+                    expression,
+                    ctx,
+                    schip,
+                    &|n| fixed_evals[n].clone(),
+                    &|n| advice_evals[n].clone(),
+                    &|n| instance_evals[n].clone(),
+                    zero,
+                )
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let input_eval = &schip.mul_add_accumulate(ctx, input_evals.iter().collect(), theta)?;
+
+        let table_evals = self
+            .table_expressions
+            .iter()
+            .map(|expression| {
+                Evaluable::<A>::chip_evaluate(
+                    expression,
+                    ctx,
+                    schip,
+                    &|n| fixed_evals[n].clone(),
+                    &|n| advice_evals[n].clone(),
+                    &|n| instance_evals[n].clone(),
+                    zero,
+                )
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let table_eval = &schip.mul_add_accumulate(ctx, table_evals.iter().collect(), theta)?;
+
+        Ok(iter::empty()
+            .chain(
+                // l_0(X) * (1 - z'(X)) = 0
+                arith_ast!(l_0 * (one - z_x)).eval(ctx, schip),
+            )
+            .chain(
+                // l_last(X) * (z(X)^2 - z(X)) = 0
+                arith_ast!(l_last * (z_x * z_x - z_x)).eval(ctx, schip),
+            )
+            .chain(
+                // (1 - (l_last(X) + l_blind(X))) * (
+                //   z(\omega X) (a'(X) + \beta) (s'(X) + \gamma)
+                //   - z(X) (\theta^{m-1} a_0(X) + ... + a_{m-1}(X) + \beta) (\theta^{m-1} s_0(X) + ... + s_{m-1}(X) + \gamma)
+                // ) = 0
+                arith_ast!(
+                    (left - product_eval * (input_eval + beta) * (table_eval + gamma))
+                        * (one - (l_last + l_blind))
+                )
+                .eval(ctx, schip), //active rows
+            )
+            .chain(
+                // l_0(X) * (a'(X) - s'(X)) = 0
+                arith_ast!(l_0 * (a_x - s_x)).eval(ctx, schip),
+            )
+            .chain(
+                // (1 - (l_last(X) + l_blind(X))) * (a′(X) − s′(X))⋅(a′(X) − a′(\omega^{-1} X)) = 0
+                arith_ast!((a_x - s_x) * (a_x - a_invwx) * (one - (l_last + l_blind)))
+                    .eval(ctx, schip),
+            )
+            .collect())
+    }
+
+    pub fn queries(
+        &self,
+        x: &A::AssignedScalar,
+        x_inv: &A::AssignedScalar,
+        x_next: &A::AssignedScalar,
+    ) -> Vec<EvaluationQuery<A>> {
+        iter::empty()
+            // Open lookup product commitment at x
+            .chain(Some(EvaluationQuery::new(
+                "product_commitment".to_string(),
+                x.clone(),
+                self.committed.product_commitment.clone(),
+                self.product_eval.clone(),
+            )))
+            // Open lookup input commitments at x
+            .chain(Some(EvaluationQuery::new(
+                "permuted_input_commitment".to_string(),
+                x.clone(),
+                self.committed.permuted.permuted_input_commitment.clone(),
+                self.permuted_input_eval.clone(),
+            )))
+            // Open lookup table commitments at x
+            .chain(Some(EvaluationQuery::new(
+                "permuted_table_commitment".to_string(),
+                x.clone(),
+                self.committed.permuted.permuted_table_commitment.clone(),
+                self.permuted_table_eval.clone(),
+            )))
+            // Open lookup input commitments at \omega^{-1} x
+            .chain(Some(EvaluationQuery::new(
+                "permuted_input_commitment".to_string(),
+                x_inv.clone(),
+                self.committed.permuted.permuted_input_commitment.clone(),
+                self.permuted_input_inv_eval.clone(),
+            )))
+            // Open lookup product commitment at \omega x
+            .chain(Some(EvaluationQuery::new(
+                "product_commitment".to_string(),
+                x_next.clone(),
+                self.committed.product_commitment.clone(),
+                self.product_next_eval.clone(),
+            )))
+            .collect()
+    }
 }

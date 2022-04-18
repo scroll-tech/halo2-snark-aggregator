@@ -8,30 +8,69 @@ pub struct CommitQuery<P, S> {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum EvaluationSchema<A: ArithEccChip> {
-    Commit(CommitQuery<A::AssignedPoint, A::AssignedScalar>),
-    Eval(CommitQuery<A::AssignedPoint, A::AssignedScalar>),
-    Scalar(A::AssignedScalar),
-    Add(Box<EvaluationSchema<A>>, Box<EvaluationSchema<A>>),
-    Mul(Box<EvaluationSchema<A>>, Box<EvaluationSchema<A>>),
+pub enum EvaluationQuerySchema<P, S> {
+    Commitment(CommitQuery<P, S>),
+    Eval(CommitQuery<P, S>),
+    Scalar(S),
+    Add(
+        Box<EvaluationQuerySchema<P, S>>,
+        Box<EvaluationQuerySchema<P, S>>,
+    ),
+    Mul(
+        Box<EvaluationQuerySchema<P, S>>,
+        Box<EvaluationQuerySchema<P, S>>,
+    ),
+}
+
+impl<P, S> std::ops::Add for EvaluationQuerySchema<P, S> {
+    type Output = Self;
+    fn add(self, other: Self) -> Self {
+        EvaluationQuerySchema::Add(Box::new(self), Box::new(other))
+    }
+}
+
+impl<P, S> std::ops::Mul for EvaluationQuerySchema<P, S> {
+    type Output = Self;
+    fn mul(self, other: Self) -> Self {
+        EvaluationQuerySchema::Mul(Box::new(self), Box::new(other))
+    }
 }
 
 pub struct EvaluationProof<A: ArithEccChip> {
     pub point: A::AssignedScalar,
-    pub s: EvaluationSchema<A>,
+    pub s: EvaluationQuerySchema<A::AssignedPoint, A::AssignedScalar>,
     pub w: A::AssignedPoint,
 }
 
-impl<A: ArithEccChip> std::ops::Add for EvaluationSchema<A> {
-    type Output = Self;
-    fn add(self, other: Self) -> Self {
-        EvaluationSchema::Add(Box::new(self), Box::new(other))
-    }
+#[derive(Clone, Debug, PartialEq)]
+pub struct EvaluationQuery<A: ArithEccChip> {
+    pub point: A::AssignedScalar,
+    pub s: EvaluationQuerySchema<A::AssignedPoint, A::AssignedScalar>,
 }
 
-impl<A: ArithEccChip> std::ops::Mul for EvaluationSchema<A> {
-    type Output = Self;
-    fn mul(self, other: Self) -> Self {
-        EvaluationSchema::Mul(Box::new(self), Box::new(other))
+impl<A: ArithEccChip> EvaluationQuery<A> {
+    pub fn new(
+        key: String,
+        point: A::AssignedScalar,
+        commitment: A::AssignedPoint,
+        eval: A::AssignedScalar,
+    ) -> Self {
+        let s = CommitQuery {
+            key,
+            commitment: Some(commitment),
+            eval: Some(eval),
+        };
+
+        EvaluationQuery {
+            point,
+            s: EvaluationQuerySchema::Commitment(s.clone()) + EvaluationQuerySchema::Eval(s),
+        }
+    }
+
+    pub fn new_from_query(
+        point: A::AssignedScalar,
+        s: EvaluationQuerySchema<A::AssignedPoint, A::AssignedScalar>,
+    ) -> Self {
+        EvaluationQuery { point, s }
     }
 }
