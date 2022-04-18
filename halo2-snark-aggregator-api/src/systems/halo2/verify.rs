@@ -587,7 +587,7 @@ pub fn verify_single_proof_in_chip<
         None => right_s,
         Some(eval) => {
             let s = pchip.scalar_mul(ctx, &eval, &generator)?;
-            pchip.add(ctx, &right_s, &s)?
+            pchip.sub(ctx, &right_s, &s)?
         }
     };
 
