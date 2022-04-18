@@ -63,7 +63,7 @@ pub struct VerifierParams<A: ArithEccChip> {
     pub n: A::AssignedScalar,
 }
 
-struct VerifierParamsBuilder<
+pub struct VerifierParamsBuilder<
     'a,
     E: MultiMillerLoop,
     A: ArithEccChip<Point = E::G1Affine>,
