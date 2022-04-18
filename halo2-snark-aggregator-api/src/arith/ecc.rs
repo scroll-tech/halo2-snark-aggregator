@@ -3,10 +3,8 @@ use halo2_proofs::arithmetic::{CurveAffine, FieldExt};
 use std::fmt::Debug;
 
 pub trait ArithEccChip:
-    ArithCommonChip<Self::Context, Self::Point, Self::AssignedPoint, Self::Error>
+    ArithCommonChip<Value = Self::Point, AssignedValue = Self::AssignedPoint>
 {
-    type Context;
-
     type Point: CurveAffine;
     type AssignedPoint: Clone + Debug;
     type Scalar: FieldExt;
@@ -14,18 +12,16 @@ pub trait ArithEccChip:
     type Native: FieldExt;
     type AssignedNative: Clone + Debug;
 
-    type Error;
-
     type ScalarChip: ArithFieldChip<
         Context = Self::Context,
-        Value = Self::Scalar,
-        AssignedValue = Self::AssignedScalar,
+        Field = Self::Scalar,
+        AssignedField = Self::AssignedScalar,
         Error = Self::Error,
     >;
     type NativeChip: ArithFieldChip<
         Context = Self::Context,
-        Value = Self::Native,
-        AssignedValue = Self::AssignedNative,
+        Field = Self::Native,
+        AssignedField = Self::AssignedNative,
         Error = Self::Error,
     >;
 
