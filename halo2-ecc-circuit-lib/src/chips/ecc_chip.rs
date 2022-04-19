@@ -60,12 +60,12 @@ impl<C: CurveAffine, N: FieldExt> AssignedPoint<C, N> {
 }
 
 pub struct EccChip<'a, C: CurveAffine, N: FieldExt> {
-    pub integer_gate: &'a dyn IntegerChipOps<C::Base, N>,
+    pub integer_chip: &'a dyn IntegerChipOps<C::Base, N>,
 }
 
 impl<'a, C: CurveAffine, N: FieldExt> EccChip<'a, C, N> {
-    pub fn new(integer_gate: &'a dyn IntegerChipOps<C::Base, N>) -> Self {
-        Self { integer_gate }
+    pub fn new(integer_chip: &'a dyn IntegerChipOps<C::Base, N>) -> Self {
+        Self { integer_chip }
     }
 }
 
@@ -73,12 +73,12 @@ const WINDOW_SIZE: usize = 4usize;
 
 pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
     type AssignedScalar;
-    fn integer_gate(&self) -> &dyn IntegerChipOps<C::Base, N>;
+    fn integer_chip(&self) -> &dyn IntegerChipOps<C::Base, N>;
     fn base_gate(&self) -> &dyn BaseGateOps<N> {
-        self.integer_gate().base_gate()
+        self.integer_chip().base_gate()
     }
     fn range_gate(&self) -> &dyn RangeGateOps<C::Base, N> {
-        self.integer_gate().range_gate()
+        self.integer_chip().range_gate()
     }
     fn decompose_scalar(
         &self,
@@ -147,12 +147,12 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
             Some(_) => None,
             None => {
                 // 3 * x ^ 2 / 2 * y
-                let integer_gate = self.integer_gate();
-                let mut x_square = integer_gate.square(ctx, &mut a.x)?;
-                let mut numerator = integer_gate.mul_small_constant(ctx, &mut x_square, 3usize)?;
-                let mut denominator = integer_gate.mul_small_constant(ctx, &mut a.y, 2usize)?;
+                let integer_chip = self.integer_chip();
+                let mut x_square = integer_chip.square(ctx, &mut a.x)?;
+                let mut numerator = integer_chip.mul_small_constant(ctx, &mut x_square, 3usize)?;
+                let mut denominator = integer_chip.mul_small_constant(ctx, &mut a.y, 2usize)?;
 
-                let (z, v) = integer_gate.div(ctx, &mut numerator, &mut denominator)?;
+                let (z, v) = integer_chip.div(ctx, &mut numerator, &mut denominator)?;
                 Some(AssignedCurvature { v, z })
             }
         };
@@ -174,8 +174,8 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
         b: &AssignedCurvature<C, N>,
     ) -> Result<AssignedCurvature<C, N>, Error> {
         let base_gate = self.base_gate();
-        let integer_gate = self.integer_gate();
-        let v = integer_gate.bisec(ctx, cond, &a.v, &b.v)?;
+        let integer_chip = self.integer_chip();
+        let v = integer_chip.bisec(ctx, cond, &a.v, &b.v)?;
         let z = base_gate.bisec_cond(ctx, cond, &a.z, &b.z)?;
 
         Ok(AssignedCurvature::new(v, z))
@@ -188,9 +188,9 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
         b: &AssignedPoint<C, N>,
     ) -> Result<AssignedPoint<C, N>, Error> {
         let base_gate = self.base_gate();
-        let integer_gate = self.integer_gate();
-        let x = integer_gate.bisec(ctx, cond, &a.x, &b.x)?;
-        let y = integer_gate.bisec(ctx, cond, &a.y, &b.y)?;
+        let integer_chip = self.integer_chip();
+        let x = integer_chip.bisec(ctx, cond, &a.x, &b.x)?;
+        let y = integer_chip.bisec(ctx, cond, &a.y, &b.y)?;
         let z = base_gate.bisec_cond(ctx, cond, &a.z, &b.z)?;
 
         Ok(AssignedPoint::new(x, y, z))
@@ -203,9 +203,9 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
         b: &mut AssignedPoint<C, N>,
     ) -> Result<AssignedPoint<C, N>, Error> {
         let base_gate = self.base_gate();
-        let integer_gate = self.integer_gate();
-        let x = integer_gate.bisec(ctx, cond, &a.x, &b.x)?;
-        let y = integer_gate.bisec(ctx, cond, &a.y, &b.y)?;
+        let integer_chip = self.integer_chip();
+        let x = integer_chip.bisec(ctx, cond, &a.x, &b.x)?;
+        let y = integer_chip.bisec(ctx, cond, &a.y, &b.y)?;
         let z = base_gate.bisec_cond(ctx, cond, &a.z, &b.z)?;
 
         let c_a = self.curvature(ctx, a)?;
@@ -221,22 +221,22 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
         a: &AssignedPoint<C, N>,
         b: &AssignedPoint<C, N>,
     ) -> Result<AssignedPoint<C, N>, Error> {
-        let integer_gate = self.integer_gate();
+        let integer_chip = self.integer_chip();
 
         let l = &mut lambda.v;
 
         // cx = lambda ^ 2 - a.x - b.x
         let cx = {
-            let l_square = integer_gate.square(ctx, l)?;
-            let t = integer_gate.sub(ctx, &l_square, &a.x)?;
-            let t = integer_gate.sub(ctx, &t, &b.x)?;
+            let l_square = integer_chip.square(ctx, l)?;
+            let t = integer_chip.sub(ctx, &l_square, &a.x)?;
+            let t = integer_chip.sub(ctx, &t, &b.x)?;
             t
         };
 
         let cy = {
-            let mut t = integer_gate.sub(ctx, &a.x, &cx)?;
-            let t = integer_gate.mul(ctx, &mut t, l)?;
-            let t = integer_gate.sub(ctx, &t, &a.y)?;
+            let mut t = integer_chip.sub(ctx, &a.x, &cx)?;
+            let t = integer_chip.mul(ctx, &mut t, l)?;
+            let t = integer_chip.sub(ctx, &t, &a.y)?;
             t
         };
         Ok(AssignedPoint::new(cx, cy, lambda.z))
@@ -248,13 +248,13 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
         b: &AssignedPoint<C, N>,
     ) -> Result<AssignedPoint<C, N>, Error> {
         let base_gate = self.base_gate();
-        let integer_gate = self.integer_gate();
+        let integer_chip = self.integer_chip();
 
-        let mut diff_x = integer_gate.sub(ctx, &a.x, &b.x)?;
-        let mut diff_y = integer_gate.sub(ctx, &a.y, &b.y)?;
-        let (x_eq, tangent) = integer_gate.div(ctx, &mut diff_y, &mut diff_x)?;
+        let mut diff_x = integer_chip.sub(ctx, &a.x, &b.x)?;
+        let mut diff_y = integer_chip.sub(ctx, &a.y, &b.y)?;
+        let (x_eq, tangent) = integer_chip.div(ctx, &mut diff_y, &mut diff_x)?;
 
-        let y_eq = integer_gate.is_zero(ctx, &mut diff_y)?;
+        let y_eq = integer_chip.is_zero(ctx, &mut diff_y)?;
         let eq = base_gate.and(ctx, &x_eq, &y_eq)?;
 
         let tangent = AssignedCurvature::new(tangent, x_eq);
@@ -293,9 +293,9 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
         let z = N::conditional_select(&N::zero(), &N::one(), c.to_affine().is_identity());
 
         let base_gate = self.base_gate();
-        let integer_gate = self.integer_gate();
-        let x = integer_gate.assign_constant(ctx, x)?;
-        let y = integer_gate.assign_constant(ctx, y)?;
+        let integer_chip = self.integer_chip();
+        let x = integer_chip.assign_constant(ctx, x)?;
+        let y = integer_chip.assign_constant(ctx, y)?;
         let z = base_gate.assign_constant(ctx, z)?;
 
         Ok(AssignedPoint::new(x, y, z.into()))
@@ -315,18 +315,18 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
         let z = N::conditional_select(&N::zero(), &N::one(), c.to_affine().is_identity());
 
         let base_gate = self.base_gate();
-        let integer_gate = self.integer_gate();
-        let mut x = integer_gate.assign_w(ctx, &x)?;
-        let mut y = integer_gate.assign_w(ctx, &y)?;
+        let integer_chip = self.integer_chip();
+        let mut x = integer_chip.assign_w(ctx, &x)?;
+        let mut y = integer_chip.assign_w(ctx, &y)?;
         let z = base_gate.assign(ctx, z)?;
 
         // Constrain y^2 = x^3 + b
-        let b = integer_gate.assign_constant(ctx, C::b())?;
-        let mut y2 = integer_gate.square(ctx, &mut y)?;
-        let mut x2 = integer_gate.square(ctx, &mut x)?;
-        let x3 = integer_gate.mul(ctx, &mut x2, &mut x)?;
-        let mut right = integer_gate.add(ctx, &x3, &b)?;
-        let eq = integer_gate.is_equal(ctx, &mut y2, &mut right)?;
+        let b = integer_chip.assign_constant(ctx, C::b())?;
+        let mut y2 = integer_chip.square(ctx, &mut y)?;
+        let mut x2 = integer_chip.square(ctx, &mut x)?;
+        let x3 = integer_chip.mul(ctx, &mut x2, &mut x)?;
+        let mut right = integer_chip.add(ctx, &x3, &b)?;
+        let eq = integer_chip.is_equal(ctx, &mut y2, &mut right)?;
         base_gate.assert_true(ctx, &eq)?;
 
         Ok(AssignedPoint::new(x, y, z.into()))
@@ -348,7 +348,7 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
         self.assign_point(ctx, p)
     }
     fn assign_identity(&self, ctx: &mut Context<N>) -> Result<AssignedPoint<C, N>, Error> {
-        let zero = self.integer_gate().assign_constant(ctx, C::Base::zero())?;
+        let zero = self.integer_chip().assign_constant(ctx, C::Base::zero())?;
         let one = self.base_gate().assign_constant(ctx, N::one())?;
 
         Ok(AssignedPoint::new_with_curvature(
@@ -367,9 +367,9 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
         let one = N::one();
 
         let base_gate = self.base_gate();
-        let integer_gate = self.integer_gate();
-        let eq_x = integer_gate.is_equal(ctx, &mut a.x, &mut b.x)?;
-        let eq_y = integer_gate.is_equal(ctx, &mut a.y, &mut b.y)?;
+        let integer_chip = self.integer_chip();
+        let eq_x = integer_chip.is_equal(ctx, &mut a.x, &mut b.x)?;
+        let eq_y = integer_chip.is_equal(ctx, &mut a.y, &mut b.y)?;
         let eq_z = base_gate.xnor(ctx, &eq_x, &eq_y)?;
         let eq_xy = base_gate.and(ctx, &eq_x, &eq_y)?;
         let eq_xyz = base_gate.and(ctx, &eq_xy, &eq_z)?;
@@ -385,7 +385,7 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
         a: &AssignedPoint<C, N>,
     ) -> Result<AssignedPoint<C, N>, Error> {
         let x = a.x.clone();
-        let y = self.integer_gate().neg(ctx, &a.y)?;
+        let y = self.integer_chip().neg(ctx, &a.y)?;
         let z = a.z.clone();
 
         Ok(AssignedPoint::new(x, y, z))

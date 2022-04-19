@@ -14,8 +14,8 @@ use num_bigint::BigUint;
 pub struct NativeEccChip<'a, C: CurveAffine>(pub EccChip<'a, C, C::ScalarExt>);
 
 impl<'a, C: CurveAffine> NativeEccChip<'a, C> {
-    pub fn new(integer_gate: &'a dyn IntegerChipOps<C::Base, C::ScalarExt>) -> Self {
-        NativeEccChip(EccChip::new(integer_gate))
+    pub fn new(integer_chip: &'a dyn IntegerChipOps<C::Base, C::ScalarExt>) -> Self {
+        NativeEccChip(EccChip::new(integer_chip))
     }
 
     fn decompose_bits<const WINDOW_SIZE: usize>(
@@ -37,8 +37,8 @@ impl<'a, C: CurveAffine> NativeEccChip<'a, C> {
 const WINDOW_SIZE: usize = 4usize;
 
 impl<'a, C: CurveAffine> EccChipOps<C, C::ScalarExt> for NativeEccChip<'a, C> {
-    fn integer_gate(&self) -> &dyn IntegerChipOps<C::Base, C::ScalarExt> {
-        self.0.integer_gate
+    fn integer_chip(&self) -> &dyn IntegerChipOps<C::Base, C::ScalarExt> {
+        self.0.integer_chip
     }
 
     fn decompose_scalar(
