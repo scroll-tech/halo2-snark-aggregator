@@ -1,2 +1,3 @@
-mod test_circuit;
+pub(crate) mod test_circuit;
 mod verify;
+mod transcript_encode;

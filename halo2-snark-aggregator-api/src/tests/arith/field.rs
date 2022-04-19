@@ -1,25 +1,28 @@
+use std::marker::PhantomData;
 use crate::arith::{common::ArithCommonChip, field::ArithFieldChip};
 use halo2_proofs::arithmetic::FieldExt;
 
-pub(crate) struct MockFieldChip<F: FieldExt> {
+pub(crate) struct MockFieldChip<F: FieldExt, E> {
     zero: F,
     one: F,
+    _data: PhantomData<E>,
 }
 
-impl<F: FieldExt> Default for MockFieldChip<F> {
+impl<F: FieldExt, E> Default for MockFieldChip<F, E> {
     fn default() -> Self {
         Self {
             zero: F::zero(),
             one: F::one(),
+            _data: PhantomData,
         }
     }
 }
 
-impl<F: FieldExt> ArithCommonChip for MockFieldChip<F> {
+impl<F: FieldExt, E> ArithCommonChip for MockFieldChip<F, E> {
     type Context = ();
     type Value = F;
     type AssignedValue = F;
-    type Error = ();
+    type Error = E;
 
     fn add(
         &self,
@@ -68,7 +71,7 @@ impl<F: FieldExt> ArithCommonChip for MockFieldChip<F> {
     }
 }
 
-impl<F: FieldExt> ArithFieldChip for MockFieldChip<F> {
+impl<F: FieldExt, E> ArithFieldChip for MockFieldChip<F, E> {
     type Field = F;
     type AssignedField = F;
 
