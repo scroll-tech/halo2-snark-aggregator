@@ -22,17 +22,17 @@ impl<N: FieldExt> BaseGateOps<N> for FiveColumnBaseGate<N> {
 
     fn one_line(
         &self,
-        r: &mut Context<'_, N>,
+        ctx: &mut Context<'_, N>,
         base_coeff_pairs: Vec<(ValueSchema<N>, N)>,
         constant: N,
         mul_next_coeffs: (Vec<N>, N),
     ) -> Result<Vec<AssignedValue<N>>, Error> {
-        self.one_line(r, base_coeff_pairs, constant, mul_next_coeffs)
+        self.one_line(ctx, base_coeff_pairs, constant, mul_next_coeffs)
     }
 
     fn bisec(
         &self,
-        r: &mut Context<'_, N>,
+        ctx: &mut Context<'_, N>,
         cond: &AssignedCondition<N>,
         a: &AssignedValue<N>,
         b: &AssignedValue<N>,
@@ -43,7 +43,7 @@ impl<N: FieldExt> BaseGateOps<N> for FiveColumnBaseGate<N> {
         let cond_v: AssignedValue<N> = cond.into();
         let c = cond.value * a.value + (one - cond.value) * b.value;
         let cells = self.one_line(
-            r,
+            ctx,
             vec![
                 pair!(&cond_v, zero),
                 pair!(a, zero),

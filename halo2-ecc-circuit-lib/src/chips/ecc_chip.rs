@@ -82,26 +82,26 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
     }
     fn decompose_scalar(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         s: &Self::AssignedScalar,
     ) -> Result<Vec<[AssignedCondition<N>; WINDOW_SIZE]>, Error>;
     fn mul(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         a: &mut AssignedPoint<C, N>,
         s: &Self::AssignedScalar,
     ) -> Result<AssignedPoint<C, N>, Error> {
         assert!(WINDOW_SIZE >= 1usize);
-        let windows_in_be = self.decompose_scalar(r, s)?;
-        let identity = self.assign_identity(r)?;
+        let windows_in_be = self.decompose_scalar(ctx, s)?;
+        let identity = self.assign_identity(ctx)?;
         let mut candidates = vec![identity, a.clone()];
 
         for i in 2..(1 << WINDOW_SIZE) {
-            let ai = self.add(r, &mut candidates[i - 1], a)?;
+            let ai = self.add(ctx, &mut candidates[i - 1], a)?;
             candidates.push(ai)
         }
 
-        let pick_candidate = |r: &mut Context<N>,
+        let pick_candidate = |ctx: &mut Context<N>,
                               bits_in_le: &[AssignedCondition<N>; WINDOW_SIZE]|
          -> Result<AssignedPoint<C, N>, Error> {
             let mut curr_candidates = candidates.clone();
@@ -114,7 +114,7 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
                     let a0 = it.next().ok_or(Error::Synthesis)?;
                     let a1 = it.next().ok_or(Error::Synthesis)?;
 
-                    let cell = self.bisec_point_with_curvature(r, &bit, a1, a0)?;
+                    let cell = self.bisec_point_with_curvature(ctx, &bit, a1, a0)?;
                     next_candidates.push(cell);
                 }
                 curr_candidates = next_candidates;
@@ -124,14 +124,14 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
         };
 
         if let Some((first, pendings)) = windows_in_be.split_first() {
-            let mut acc = pick_candidate(r, first)?;
+            let mut acc = pick_candidate(ctx, first)?;
             for bits_in_le in pendings {
                 for _ in 0..WINDOW_SIZE {
-                    acc = self.double(r, &mut acc)?;
+                    acc = self.double(ctx, &mut acc)?;
                 }
 
-                let mut curr = pick_candidate(r, bits_in_le)?;
-                acc = self.add(r, &mut curr, &acc)?;
+                let mut curr = pick_candidate(ctx, bits_in_le)?;
+                acc = self.add(ctx, &mut curr, &acc)?;
             }
             Ok(acc)
         } else {
@@ -140,7 +140,7 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
     }
     fn curvature<'a>(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         a: &'a mut AssignedPoint<C, N>,
     ) -> Result<&'a mut AssignedCurvature<C, N>, Error> {
         let new_curvature = match &a.curvature {
@@ -148,11 +148,11 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
             None => {
                 // 3 * x ^ 2 / 2 * y
                 let integer_gate = self.integer_gate();
-                let mut x_square = integer_gate.square(r, &mut a.x)?;
-                let mut numerator = integer_gate.mul_small_constant(r, &mut x_square, 3usize)?;
-                let mut denominator = integer_gate.mul_small_constant(r, &mut a.y, 2usize)?;
+                let mut x_square = integer_gate.square(ctx, &mut a.x)?;
+                let mut numerator = integer_gate.mul_small_constant(ctx, &mut x_square, 3usize)?;
+                let mut denominator = integer_gate.mul_small_constant(ctx, &mut a.y, 2usize)?;
 
-                let (z, v) = integer_gate.div(r, &mut numerator, &mut denominator)?;
+                let (z, v) = integer_gate.div(ctx, &mut numerator, &mut denominator)?;
                 Some(AssignedCurvature { v, z })
             }
         };
@@ -168,55 +168,55 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
     }
     fn bisec_curvature(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         cond: &AssignedCondition<N>,
         a: &AssignedCurvature<C, N>,
         b: &AssignedCurvature<C, N>,
     ) -> Result<AssignedCurvature<C, N>, Error> {
         let base_gate = self.base_gate();
         let integer_gate = self.integer_gate();
-        let v = integer_gate.bisec(r, cond, &a.v, &b.v)?;
-        let z = base_gate.bisec_cond(r, cond, &a.z, &b.z)?;
+        let v = integer_gate.bisec(ctx, cond, &a.v, &b.v)?;
+        let z = base_gate.bisec_cond(ctx, cond, &a.z, &b.z)?;
 
         Ok(AssignedCurvature::new(v, z))
     }
     fn bisec_point(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         cond: &AssignedCondition<N>,
         a: &AssignedPoint<C, N>,
         b: &AssignedPoint<C, N>,
     ) -> Result<AssignedPoint<C, N>, Error> {
         let base_gate = self.base_gate();
         let integer_gate = self.integer_gate();
-        let x = integer_gate.bisec(r, cond, &a.x, &b.x)?;
-        let y = integer_gate.bisec(r, cond, &a.y, &b.y)?;
-        let z = base_gate.bisec_cond(r, cond, &a.z, &b.z)?;
+        let x = integer_gate.bisec(ctx, cond, &a.x, &b.x)?;
+        let y = integer_gate.bisec(ctx, cond, &a.y, &b.y)?;
+        let z = base_gate.bisec_cond(ctx, cond, &a.z, &b.z)?;
 
         Ok(AssignedPoint::new(x, y, z))
     }
     fn bisec_point_with_curvature(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         cond: &AssignedCondition<N>,
         a: &mut AssignedPoint<C, N>,
         b: &mut AssignedPoint<C, N>,
     ) -> Result<AssignedPoint<C, N>, Error> {
         let base_gate = self.base_gate();
         let integer_gate = self.integer_gate();
-        let x = integer_gate.bisec(r, cond, &a.x, &b.x)?;
-        let y = integer_gate.bisec(r, cond, &a.y, &b.y)?;
-        let z = base_gate.bisec_cond(r, cond, &a.z, &b.z)?;
+        let x = integer_gate.bisec(ctx, cond, &a.x, &b.x)?;
+        let y = integer_gate.bisec(ctx, cond, &a.y, &b.y)?;
+        let z = base_gate.bisec_cond(ctx, cond, &a.z, &b.z)?;
 
-        let c_a = self.curvature(r, a)?;
-        let c_b = self.curvature(r, b)?;
-        let c = self.bisec_curvature(r, cond, c_a, c_b)?;
+        let c_a = self.curvature(ctx, a)?;
+        let c_b = self.curvature(ctx, b)?;
+        let c = self.bisec_curvature(ctx, cond, c_a, c_b)?;
 
         Ok(AssignedPoint::new_with_curvature(x, y, z, Some(c)))
     }
     fn lambda_to_point(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         lambda: &mut AssignedCurvature<C, N>,
         a: &AssignedPoint<C, N>,
         b: &AssignedPoint<C, N>,
@@ -227,60 +227,60 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
 
         // cx = lambda ^ 2 - a.x - b.x
         let cx = {
-            let l_square = integer_gate.square(r, l)?;
-            let t = integer_gate.sub(r, &l_square, &a.x)?;
-            let t = integer_gate.sub(r, &t, &b.x)?;
+            let l_square = integer_gate.square(ctx, l)?;
+            let t = integer_gate.sub(ctx, &l_square, &a.x)?;
+            let t = integer_gate.sub(ctx, &t, &b.x)?;
             t
         };
 
         let cy = {
-            let mut t = integer_gate.sub(r, &a.x, &cx)?;
-            let t = integer_gate.mul(r, &mut t, l)?;
-            let t = integer_gate.sub(r, &t, &a.y)?;
+            let mut t = integer_gate.sub(ctx, &a.x, &cx)?;
+            let t = integer_gate.mul(ctx, &mut t, l)?;
+            let t = integer_gate.sub(ctx, &t, &a.y)?;
             t
         };
         Ok(AssignedPoint::new(cx, cy, lambda.z))
     }
     fn add(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         a: &mut AssignedPoint<C, N>,
         b: &AssignedPoint<C, N>,
     ) -> Result<AssignedPoint<C, N>, Error> {
         let base_gate = self.base_gate();
         let integer_gate = self.integer_gate();
 
-        let mut diff_x = integer_gate.sub(r, &a.x, &b.x)?;
-        let mut diff_y = integer_gate.sub(r, &a.y, &b.y)?;
-        let (x_eq, tangent) = integer_gate.div(r, &mut diff_y, &mut diff_x)?;
+        let mut diff_x = integer_gate.sub(ctx, &a.x, &b.x)?;
+        let mut diff_y = integer_gate.sub(ctx, &a.y, &b.y)?;
+        let (x_eq, tangent) = integer_gate.div(ctx, &mut diff_y, &mut diff_x)?;
 
-        let y_eq = integer_gate.is_zero(r, &mut diff_y)?;
-        let eq = base_gate.and(r, &x_eq, &y_eq)?;
+        let y_eq = integer_gate.is_zero(ctx, &mut diff_y)?;
+        let eq = base_gate.and(ctx, &x_eq, &y_eq)?;
 
         let tangent = AssignedCurvature::new(tangent, x_eq);
-        let curvature = self.curvature(r, a)?;
-        let mut lambda = self.bisec_curvature(r, &eq, &curvature, &tangent)?;
+        let curvature = self.curvature(ctx, a)?;
+        let mut lambda = self.bisec_curvature(ctx, &eq, &curvature, &tangent)?;
 
-        let p = self.lambda_to_point(r, &mut lambda, a, b)?;
-        let p = self.bisec_point(r, &a.z, b, &p)?;
-        let p = self.bisec_point(r, &b.z, a, &p)?;
+        let p = self.lambda_to_point(ctx, &mut lambda, a, b)?;
+        let p = self.bisec_point(ctx, &a.z, b, &p)?;
+        let p = self.bisec_point(ctx, &b.z, a, &p)?;
 
         Ok(p)
     }
     fn double(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         a: &mut AssignedPoint<C, N>,
     ) -> Result<AssignedPoint<C, N>, Error> {
         let base_gate = self.base_gate();
-        let curvature = self.curvature(r, a)?;
-        let mut p = self.lambda_to_point(r, &mut curvature.clone(), a, a)?;
-        p.z = base_gate.bisec_cond(r, &a.z, &a.z, &p.z)?;
+        let curvature = self.curvature(ctx, a)?;
+        let mut p = self.lambda_to_point(ctx, &mut curvature.clone(), a, a)?;
+        p.z = base_gate.bisec_cond(ctx, &a.z, &a.z, &p.z)?;
         Ok(p)
     }
     fn assign_constant_point(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         c: C::CurveExt,
     ) -> Result<AssignedPoint<C, N>, Error> {
         let coordinates = c.to_affine().coordinates();
@@ -294,15 +294,15 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
 
         let base_gate = self.base_gate();
         let integer_gate = self.integer_gate();
-        let x = integer_gate.assign_constant(r, x)?;
-        let y = integer_gate.assign_constant(r, y)?;
-        let z = base_gate.assign_constant(r, z)?;
+        let x = integer_gate.assign_constant(ctx, x)?;
+        let y = integer_gate.assign_constant(ctx, y)?;
+        let z = base_gate.assign_constant(ctx, z)?;
 
         Ok(AssignedPoint::new(x, y, z.into()))
     }
     fn assign_point(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         c: C::CurveExt,
     ) -> Result<AssignedPoint<C, N>, Error> {
         let coordinates = c.to_affine().coordinates();
@@ -316,40 +316,40 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
 
         let base_gate = self.base_gate();
         let integer_gate = self.integer_gate();
-        let mut x = integer_gate.assign_w(r, &x)?;
-        let mut y = integer_gate.assign_w(r, &y)?;
-        let z = base_gate.assign(r, z)?;
+        let mut x = integer_gate.assign_w(ctx, &x)?;
+        let mut y = integer_gate.assign_w(ctx, &y)?;
+        let z = base_gate.assign(ctx, z)?;
 
         // Constrain y^2 = x^3 + b
-        let b = integer_gate.assign_constant(r, C::b())?;
-        let mut y2 = integer_gate.square(r, &mut y)?;
-        let mut x2 = integer_gate.square(r, &mut x)?;
-        let x3 = integer_gate.mul(r, &mut x2, &mut x)?;
-        let mut right = integer_gate.add(r, &x3, &b)?;
-        let eq = integer_gate.is_equal(r, &mut y2, &mut right)?;
-        base_gate.assert_true(r, &eq)?;
+        let b = integer_gate.assign_constant(ctx, C::b())?;
+        let mut y2 = integer_gate.square(ctx, &mut y)?;
+        let mut x2 = integer_gate.square(ctx, &mut x)?;
+        let x3 = integer_gate.mul(ctx, &mut x2, &mut x)?;
+        let mut right = integer_gate.add(ctx, &x3, &b)?;
+        let eq = integer_gate.is_equal(ctx, &mut y2, &mut right)?;
+        base_gate.assert_true(ctx, &eq)?;
 
         Ok(AssignedPoint::new(x, y, z.into()))
     }
     fn assign_constant_point_from_scalar(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         scalar: C::ScalarExt,
     ) -> Result<AssignedPoint<C, N>, Error> {
         let p: C::CurveExt = C::generator() * scalar;
-        self.assign_constant_point(r, p)
+        self.assign_constant_point(ctx, p)
     }
     fn assign_point_from_scalar(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         scalar: C::ScalarExt,
     ) -> Result<AssignedPoint<C, N>, Error> {
         let p: C::CurveExt = C::generator() * scalar;
-        self.assign_point(r, p)
+        self.assign_point(ctx, p)
     }
-    fn assign_identity(&self, r: &mut Context<N>) -> Result<AssignedPoint<C, N>, Error> {
-        let zero = self.integer_gate().assign_constant(r, C::Base::zero())?;
-        let one = self.base_gate().assign_constant(r, N::one())?;
+    fn assign_identity(&self, ctx: &mut Context<N>) -> Result<AssignedPoint<C, N>, Error> {
+        let zero = self.integer_gate().assign_constant(ctx, C::Base::zero())?;
+        let one = self.base_gate().assign_constant(ctx, N::one())?;
 
         Ok(AssignedPoint::new_with_curvature(
             zero.clone(),
@@ -360,7 +360,7 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
     }
     fn assert_equal(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         a: &mut AssignedPoint<C, N>,
         b: &mut AssignedPoint<C, N>,
     ) -> Result<(), Error> {
@@ -368,35 +368,35 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
 
         let base_gate = self.base_gate();
         let integer_gate = self.integer_gate();
-        let eq_x = integer_gate.is_equal(r, &mut a.x, &mut b.x)?;
-        let eq_y = integer_gate.is_equal(r, &mut a.y, &mut b.y)?;
-        let eq_z = base_gate.xnor(r, &eq_x, &eq_y)?;
-        let eq_xy = base_gate.and(r, &eq_x, &eq_y)?;
-        let eq_xyz = base_gate.and(r, &eq_xy, &eq_z)?;
+        let eq_x = integer_gate.is_equal(ctx, &mut a.x, &mut b.x)?;
+        let eq_y = integer_gate.is_equal(ctx, &mut a.y, &mut b.y)?;
+        let eq_z = base_gate.xnor(ctx, &eq_x, &eq_y)?;
+        let eq_xy = base_gate.and(ctx, &eq_x, &eq_y)?;
+        let eq_xyz = base_gate.and(ctx, &eq_xy, &eq_z)?;
 
-        let is_both_identity = base_gate.and(r, &a.z, &b.z)?;
-        let eq = base_gate.or(r, &eq_xyz, &is_both_identity)?;
+        let is_both_identity = base_gate.and(ctx, &a.z, &b.z)?;
+        let eq = base_gate.or(ctx, &eq_xyz, &is_both_identity)?;
 
-        base_gate.assert_constant(r, &eq.into(), one)
+        base_gate.assert_constant(ctx, &eq.into(), one)
     }
     fn neg(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         a: &AssignedPoint<C, N>,
     ) -> Result<AssignedPoint<C, N>, Error> {
         let x = a.x.clone();
-        let y = self.integer_gate().neg(r, &a.y)?;
+        let y = self.integer_gate().neg(ctx, &a.y)?;
         let z = a.z.clone();
 
         Ok(AssignedPoint::new(x, y, z))
     }
     fn sub(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         a: &mut AssignedPoint<C, N>,
         b: &AssignedPoint<C, N>,
     ) -> Result<AssignedPoint<C, N>, Error> {
-        let mut neg_b = self.neg(r, b)?;
-        self.add(r, a, &mut neg_b)
+        let mut neg_b = self.neg(ctx, b)?;
+        self.add(ctx, a, &mut neg_b)
     }
 }

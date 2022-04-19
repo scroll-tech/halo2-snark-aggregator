@@ -50,27 +50,27 @@ impl<'a, W: BaseExt, N: FieldExt> FiveColumnIntegerChip<'a, W, N> {
 
     fn is_pure_zero(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         a: &AssignedInteger<W, N>,
     ) -> Result<AssignedCondition<N>, Error> {
         let zero = N::zero();
         let one = N::one();
         let sum = self.base_gate().sum_with_constant(
-            r,
+            ctx,
             a.limbs_le.iter().map(|v| (v, one)).collect(),
             zero,
         )?;
-        let is_zero = self.base_gate().is_zero(r, &sum)?;
+        let is_zero = self.base_gate().is_zero(ctx, &sum)?;
         Ok(is_zero)
     }
 
     fn is_pure_w_modulus(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         a: &mut AssignedInteger<W, N>,
     ) -> Result<AssignedCondition<N>, Error> {
         let one = N::one();
-        let native_a = self.native(r, a)?;
+        let native_a = self.native(ctx, a)?;
 
         if PREREQUISITE_CHECK {
             let bn_one = BigUint::from(1u64);
@@ -83,23 +83,23 @@ impl<'a, W: BaseExt, N: FieldExt> FiveColumnIntegerChip<'a, W, N> {
         // TO OPTIMIZE: the two can be merged.
         let native_diff =
             self.base_gate()
-                .sum_with_constant(r, vec![(&native_a, one)], -self.helper.w_native)?;
-        let is_native_eq = self.base_gate().is_zero(r, &native_diff)?;
+                .sum_with_constant(ctx, vec![(&native_a, one)], -self.helper.w_native)?;
+        let is_native_eq = self.base_gate().is_zero(ctx, &native_diff)?;
 
         // TO OPTIMIZE: the two can be merged.
         let limb0_diff = self.base_gate().sum_with_constant(
-            r,
+            ctx,
             vec![(&a.limbs_le[0], one)],
             -bn_to_field::<N>(&self.helper.w_modulus_limbs_le[0]),
         )?;
-        let is_limb0_eq = self.base_gate().is_zero(r, &limb0_diff)?;
+        let is_limb0_eq = self.base_gate().is_zero(ctx, &limb0_diff)?;
 
-        self.base_gate().and(r, &is_native_eq, &is_limb0_eq)
+        self.base_gate().and(ctx, &is_native_eq, &is_limb0_eq)
     }
 
     fn add_constraints_for_mul_equation_on_limb0(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         a: &AssignedInteger<W, N>,
         b: &AssignedInteger<W, N>,
         d: &Vec<AssignedValue<N>>,
@@ -145,7 +145,7 @@ impl<'a, W: BaseExt, N: FieldExt> FiveColumnIntegerChip<'a, W, N> {
             // e.g. l1 = a1 * b0 + a0 * b1 - d1 * w0 - d0 * w1
             // ...
             let l = self.base_gate().mul_add_with_next_line(
-                r,
+                ctx,
                 (0..pos + 1)
                     .map(|i| {
                         (
@@ -195,13 +195,13 @@ impl<'a, W: BaseExt, N: FieldExt> FiveColumnIntegerChip<'a, W, N> {
         let v1 = u1 * self.helper.limb_modulus_exps[2].invert().unwrap();
         let (v1_h, v1_l) = field_to_bn(&v1).div_rem(&self.helper.limb_modulus);
 
-        let v0_h = self.assign_n_floor_leading_limb(r, bn_to_field(&v0_h))?;
-        let v0_l = self.assign_nonleading_limb(r, bn_to_field(&v0_l))?;
-        let v1_h = self.assign_n_floor_leading_limb(r, bn_to_field(&v1_h))?;
-        let v1_l = self.assign_nonleading_limb(r, bn_to_field(&v1_l))?;
+        let v0_h = self.assign_n_floor_leading_limb(ctx, bn_to_field(&v0_h))?;
+        let v0_l = self.assign_nonleading_limb(ctx, bn_to_field(&v0_l))?;
+        let v1_h = self.assign_n_floor_leading_limb(ctx, bn_to_field(&v1_h))?;
+        let v1_l = self.assign_nonleading_limb(ctx, bn_to_field(&v1_l))?;
 
         let u0 = self.base_gate().sum_with_constant(
-            r,
+            ctx,
             vec![
                 (&limbs[0], one),
                 (&limbs[1], self.helper.limb_modulus_on_n.clone()),
@@ -212,7 +212,7 @@ impl<'a, W: BaseExt, N: FieldExt> FiveColumnIntegerChip<'a, W, N> {
         )?;
 
         self.base_gate().one_line_add(
-            r,
+            ctx,
             vec![
                 pair!(&u0, -one),
                 pair!(&v0_l, self.helper.limb_modulus_exps[2]),
@@ -222,7 +222,7 @@ impl<'a, W: BaseExt, N: FieldExt> FiveColumnIntegerChip<'a, W, N> {
         )?;
 
         let u1 = self.base_gate().sum_with_constant(
-            r,
+            ctx,
             vec![
                 (&limbs[2], one),
                 (&limbs[3], self.helper.limb_modulus_on_n.clone()),
@@ -232,7 +232,7 @@ impl<'a, W: BaseExt, N: FieldExt> FiveColumnIntegerChip<'a, W, N> {
             zero,
         )?;
         self.base_gate().one_line_add(
-            r,
+            ctx,
             vec![
                 pair!(&u1, one),
                 pair!(&v0_l, self.helper.limb_modulus_exps[0]),
@@ -248,7 +248,7 @@ impl<'a, W: BaseExt, N: FieldExt> FiveColumnIntegerChip<'a, W, N> {
 
     fn add_constraints_for_mul_equation_on_native(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         a: &mut AssignedInteger<W, N>,
         b: &mut AssignedInteger<W, N>,
         d: &Vec<AssignedValue<N>>,
@@ -257,17 +257,17 @@ impl<'a, W: BaseExt, N: FieldExt> FiveColumnIntegerChip<'a, W, N> {
         let zero = N::zero();
         let one = N::one();
 
-        let a_native = self.native(r, a)?;
-        let b_native = self.native(r, b)?;
+        let a_native = self.native(ctx, a)?;
+        let b_native = self.native(ctx, b)?;
         let d_native = self.base_gate().sum_with_constant(
-            r,
+            ctx,
             d.iter().zip(self.helper.limb_modulus_exps).collect(),
             zero,
         )?;
-        let rem_native = self.native(r, rem)?;
+        let rem_native = self.native(ctx, rem)?;
 
         self.base_gate().one_line(
-            r,
+            ctx,
             vec![
                 pair!(a_native, zero),
                 pair!(b_native, zero),
@@ -283,7 +283,7 @@ impl<'a, W: BaseExt, N: FieldExt> FiveColumnIntegerChip<'a, W, N> {
 
     fn add_constraints_for_square_equation_on_native(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         a: &mut AssignedInteger<W, N>,
         d: &Vec<AssignedValue<N>>,
         rem: &mut AssignedInteger<W, N>,
@@ -291,16 +291,16 @@ impl<'a, W: BaseExt, N: FieldExt> FiveColumnIntegerChip<'a, W, N> {
         let zero = N::zero();
         let one = N::one();
 
-        let a_native = self.native(r, a)?;
+        let a_native = self.native(ctx, a)?;
         let d_native = self.base_gate().sum_with_constant(
-            r,
+            ctx,
             d.iter().zip(self.helper.limb_modulus_exps).collect(),
             zero,
         )?;
-        let rem_native = self.native(r, rem)?;
+        let rem_native = self.native(ctx, rem)?;
 
         self.base_gate().one_line(
-            r,
+            ctx,
             vec![
                 pair!(a_native, zero),
                 pair!(a_native, zero),
@@ -316,7 +316,7 @@ impl<'a, W: BaseExt, N: FieldExt> FiveColumnIntegerChip<'a, W, N> {
 }
 
 impl<'a, W: BaseExt, N: FieldExt> IntegerChipOps<W, N> for FiveColumnIntegerChip<'a, W, N> {
-    fn assign_nonleading_limb(&self, r: &mut Context<N>, n: N) -> Result<AssignedValue<N>, Error> {
+    fn assign_nonleading_limb(&self, ctx: &mut Context<N>, n: N) -> Result<AssignedValue<N>, Error> {
         let zero = N::zero();
         let one = N::one();
 
@@ -327,18 +327,18 @@ impl<'a, W: BaseExt, N: FieldExt> IntegerChipOps<W, N> for FiveColumnIntegerChip
 
         let cells = self
             .range_gate
-            .one_line_in_common_range(r, schema, zero, (vec![], zero))?;
+            .one_line_in_common_range(ctx, schema, zero, (vec![], zero))?;
         Ok(cells[VAR_COLUMNS - 1])
     }
 
     fn assign_n_floor_leading_limb(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         n: N,
     ) -> Result<AssignedValue<N>, Error> {
         let leading_limb_bits = self.helper.n_floor_bits as usize % LIMB_COMMON_WIDTH;
         if leading_limb_bits == 0 {
-            self.assign_nonleading_limb(r, n)
+            self.assign_nonleading_limb(ctx, n)
         } else {
             let zero = N::zero();
             let one = N::one();
@@ -353,7 +353,7 @@ impl<'a, W: BaseExt, N: FieldExt> IntegerChipOps<W, N> for FiveColumnIntegerChip
             schema.push(pair!(n, -one));
 
             let cells = self.range_gate.one_line_in_n_floor_leading_range(
-                r,
+                ctx,
                 schema,
                 zero,
                 (vec![], zero),
@@ -364,12 +364,12 @@ impl<'a, W: BaseExt, N: FieldExt> IntegerChipOps<W, N> for FiveColumnIntegerChip
 
     fn assign_w_ceil_leading_limb(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         n: N,
     ) -> Result<AssignedValue<N>, Error> {
         let leading_limb_bits = self.helper.w_ceil_bits as usize % LIMB_COMMON_WIDTH;
         if leading_limb_bits == 0 {
-            self.assign_nonleading_limb(r, n)
+            self.assign_nonleading_limb(ctx, n)
         } else {
             let zero = N::zero();
             let one = N::one();
@@ -383,7 +383,7 @@ impl<'a, W: BaseExt, N: FieldExt> IntegerChipOps<W, N> for FiveColumnIntegerChip
             schema.push(pair!(n, -one));
 
             let cells = self.range_gate.one_line_in_w_ceil_leading_range(
-                r,
+                ctx,
                 schema,
                 zero,
                 (vec![], zero),
@@ -392,10 +392,10 @@ impl<'a, W: BaseExt, N: FieldExt> IntegerChipOps<W, N> for FiveColumnIntegerChip
         }
     }
 
-    fn assign_d_leading_limb(&self, r: &mut Context<N>, n: N) -> Result<AssignedValue<N>, Error> {
+    fn assign_d_leading_limb(&self, ctx: &mut Context<N>, n: N) -> Result<AssignedValue<N>, Error> {
         let leading_limb_bits = self.helper.d_bits as usize % LIMB_COMMON_WIDTH;
         if leading_limb_bits == 0 {
-            self.assign_nonleading_limb(r, n)
+            self.assign_nonleading_limb(ctx, n)
         } else {
             let zero = N::zero();
             let one = N::one();
@@ -411,21 +411,21 @@ impl<'a, W: BaseExt, N: FieldExt> IntegerChipOps<W, N> for FiveColumnIntegerChip
 
             let cells =
                 self.range_gate
-                    .one_line_in_d_leading_range(r, schema, zero, (vec![], zero))?;
+                    .one_line_in_d_leading_range(ctx, schema, zero, (vec![], zero))?;
             Ok(cells[VAR_COLUMNS - 1])
         }
     }
 
-    fn assign_d(&self, r: &mut Context<N>, v: &BigUint) -> Result<Vec<AssignedValue<N>>, Error> {
+    fn assign_d(&self, ctx: &mut Context<N>, v: &BigUint) -> Result<Vec<AssignedValue<N>>, Error> {
         let limbs_value_le = self.helper.bn_to_limb_n_le(v);
 
         let mut limbs = vec![];
 
         for (i, limb) in limbs_value_le.into_iter().rev().enumerate() {
             let cell = if i == 0 {
-                self.assign_d_leading_limb(r, limb)?
+                self.assign_d_leading_limb(ctx, limb)?
             } else {
-                self.assign_nonleading_limb(r, limb)?
+                self.assign_nonleading_limb(ctx, limb)?
             };
             limbs.push(cell);
         }
@@ -435,16 +435,16 @@ impl<'a, W: BaseExt, N: FieldExt> IntegerChipOps<W, N> for FiveColumnIntegerChip
         Ok(limbs.try_into().unwrap())
     }
 
-    fn assign_w(&self, r: &mut Context<N>, v: &W) -> Result<AssignedInteger<W, N>, Error> {
+    fn assign_w(&self, ctx: &mut Context<N>, v: &W) -> Result<AssignedInteger<W, N>, Error> {
         let limbs_value_le = self.helper.w_to_limb_n_le(v);
 
         let mut limbs = vec![];
 
         for (i, limb) in limbs_value_le.into_iter().rev().enumerate() {
             let cell = if i == 0 {
-                self.assign_w_ceil_leading_limb(r, limb)?
+                self.assign_w_ceil_leading_limb(ctx, limb)?
             } else {
-                self.assign_nonleading_limb(r, limb)?
+                self.assign_nonleading_limb(ctx, limb)?
             };
             limbs.push(cell);
         }
@@ -456,7 +456,7 @@ impl<'a, W: BaseExt, N: FieldExt> IntegerChipOps<W, N> for FiveColumnIntegerChip
 
     fn assign_integer(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         v: &BigUint,
     ) -> Result<Vec<AssignedValue<N>>, Error> {
         let limbs_value_le = self.helper.bn_to_limb_n_le(v);
@@ -464,14 +464,14 @@ impl<'a, W: BaseExt, N: FieldExt> IntegerChipOps<W, N> for FiveColumnIntegerChip
         let mut limbs = vec![];
 
         for limb in limbs_value_le {
-            let cell = self.assign_nonleading_limb(r, limb)?;
+            let cell = self.assign_nonleading_limb(ctx, limb)?;
             limbs.push(cell);
         }
 
         Ok(limbs.try_into().unwrap())
     }
 
-    fn reduce(&self, r: &mut Context<N>, a: &mut AssignedInteger<W, N>) -> Result<(), Error> {
+    fn reduce(&self, ctx: &mut Context<N>, a: &mut AssignedInteger<W, N>) -> Result<(), Error> {
         if a.overflows == 0 {
             return Ok(());
         }
@@ -525,10 +525,10 @@ impl<'a, W: BaseExt, N: FieldExt> IntegerChipOps<W, N> for FiveColumnIntegerChip
         let v = u.div_floor(&self.helper.limb_modulus);
 
         // 1. Add range check for (d, v).
-        let mut rem = self.assign_w(r, &bn_to_field(&rem))?;
+        let mut rem = self.assign_w(ctx, &bn_to_field(&rem))?;
         let (d, v) = {
             let cells = self.range_gate.one_line_in_common_range(
-                r,
+                ctx,
                 vec![
                     pair!(bn_to_field::<N>(&d), zero),
                     pair!(bn_to_field::<N>(&v), zero),
@@ -540,10 +540,10 @@ impl<'a, W: BaseExt, N: FieldExt> IntegerChipOps<W, N> for FiveColumnIntegerChip
         };
 
         // 2. Add constrains native.
-        let rem_native = self.native(r, &mut rem)?;
-        let a_native = self.native(r, a)?;
+        let rem_native = self.native(ctx, &mut rem)?;
+        let a_native = self.native(ctx, a)?;
         self.base_gate().one_line_add(
-            r,
+            ctx,
             vec![
                 pair!(a_native, -one),
                 pair!(&d, self.helper.w_native),
@@ -554,7 +554,7 @@ impl<'a, W: BaseExt, N: FieldExt> IntegerChipOps<W, N> for FiveColumnIntegerChip
 
         // 3. Add constrains on limb[0].
         self.base_gate().one_line_add(
-            r,
+            ctx,
             vec![
                 pair!(&d, bn_to_field(&self.helper.w_modulus_limbs_le[0])),
                 pair!(&rem.limbs_le[0], one),
@@ -573,11 +573,11 @@ impl<'a, W: BaseExt, N: FieldExt> IntegerChipOps<W, N> for FiveColumnIntegerChip
 
     fn conditionally_reduce(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         a: &mut AssignedInteger<W, N>,
     ) -> Result<(), Error> {
         if a.overflows >= OVERFLOW_THRESHOLD {
-            self.reduce(r, a)
+            self.reduce(ctx, a)
         } else {
             Ok(())
         }
@@ -585,7 +585,7 @@ impl<'a, W: BaseExt, N: FieldExt> IntegerChipOps<W, N> for FiveColumnIntegerChip
 
     fn native<'c>(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         a: &'c mut AssignedInteger<W, N>,
     ) -> Result<&'c AssignedValue<N>, Error> {
         let new_native = match &mut a.native {
@@ -595,7 +595,7 @@ impl<'a, W: BaseExt, N: FieldExt> IntegerChipOps<W, N> for FiveColumnIntegerChip
                 let schemas = a.limbs_le.iter().zip(self.helper.limb_modulus_exps);
                 let cell = self
                     .base_gate()
-                    .sum_with_constant(r, schemas.collect(), zero)?;
+                    .sum_with_constant(ctx, schemas.collect(), zero)?;
                 Some(cell)
             }
         };
@@ -613,44 +613,44 @@ impl<'a, W: BaseExt, N: FieldExt> IntegerChipOps<W, N> for FiveColumnIntegerChip
 
     fn assert_equal(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         a: &AssignedInteger<W, N>,
         b: &AssignedInteger<W, N>,
     ) -> Result<(), Error> {
         // TODO: can be optimized.
         let zero = N::zero();
-        let mut diff = self.sub(r, a, b)?;
-        self.reduce(r, &mut diff)?;
+        let mut diff = self.sub(ctx, a, b)?;
+        self.reduce(ctx, &mut diff)?;
 
-        let diff_native = self.native(r, &mut diff)?;
-        self.base_gate().assert_constant(r, diff_native, zero)?;
+        let diff_native = self.native(ctx, &mut diff)?;
+        self.base_gate().assert_constant(ctx, diff_native, zero)?;
         self.base_gate()
-            .assert_constant(r, &diff.limbs_le[0], zero)?;
+            .assert_constant(ctx, &diff.limbs_le[0], zero)?;
         Ok(())
     }
 
     fn add(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         a: &AssignedInteger<W, N>,
         b: &AssignedInteger<W, N>,
     ) -> Result<AssignedInteger<W, N>, Error> {
         let mut limbs = vec![];
 
         for i in 0..LIMBS {
-            let value = self.base_gate().add(r, &a.limbs_le[i], &b.limbs_le[i])?;
+            let value = self.base_gate().add(ctx, &a.limbs_le[i], &b.limbs_le[i])?;
             limbs.push(value)
         }
 
         let mut res =
             AssignedInteger::new(limbs.try_into().unwrap(), a.overflows + b.overflows + 1);
-        self.conditionally_reduce(r, &mut res)?;
+        self.conditionally_reduce(ctx, &mut res)?;
         Ok(res)
     }
 
     fn sub(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         a: &AssignedInteger<W, N>,
         b: &AssignedInteger<W, N>,
     ) -> Result<AssignedInteger<W, N>, Error> {
@@ -660,7 +660,7 @@ impl<'a, W: BaseExt, N: FieldExt> IntegerChipOps<W, N> for FiveColumnIntegerChip
         let mut limbs = vec![];
         for i in 0..LIMBS {
             let cell = self.base_gate().sum_with_constant(
-                r,
+                ctx,
                 vec![(&a.limbs_le[i], one), (&b.limbs_le[i], -one)],
                 bn_to_field(&upper_limbs[i]),
             )?;
@@ -669,13 +669,13 @@ impl<'a, W: BaseExt, N: FieldExt> IntegerChipOps<W, N> for FiveColumnIntegerChip
 
         let overflow = a.overflows + (b.overflows + 1) + 1;
         let mut res = AssignedInteger::new(limbs.try_into().unwrap(), overflow);
-        self.conditionally_reduce(r, &mut res)?;
+        self.conditionally_reduce(ctx, &mut res)?;
         Ok(res)
     }
 
     fn neg(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         a: &AssignedInteger<W, N>,
     ) -> Result<AssignedInteger<W, N>, Error> {
         let one = N::one();
@@ -684,7 +684,7 @@ impl<'a, W: BaseExt, N: FieldExt> IntegerChipOps<W, N> for FiveColumnIntegerChip
         let mut limbs = vec![];
         for i in 0..LIMBS {
             let cell = self.base_gate().sum_with_constant(
-                r,
+                ctx,
                 vec![(&a.limbs_le[i], -one)],
                 bn_to_field(&upper_limbs[i]),
             )?;
@@ -693,13 +693,13 @@ impl<'a, W: BaseExt, N: FieldExt> IntegerChipOps<W, N> for FiveColumnIntegerChip
 
         let overflow = a.overflows + 1;
         let mut res = AssignedInteger::new(limbs.try_into().unwrap(), overflow);
-        self.conditionally_reduce(r, &mut res)?;
+        self.conditionally_reduce(ctx, &mut res)?;
         Ok(res)
     }
 
     fn mul(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         a: &mut AssignedInteger<W, N>,
         b: &mut AssignedInteger<W, N>,
     ) -> Result<AssignedInteger<W, N>, Error> {
@@ -707,48 +707,48 @@ impl<'a, W: BaseExt, N: FieldExt> IntegerChipOps<W, N> for FiveColumnIntegerChip
         let b_bn = b.bn(&self.helper.limb_modulus);
         let (d, rem) = (a_bn * b_bn).div_rem(&self.helper.w_modulus);
 
-        let mut rem = self.assign_w(r, &bn_to_field(&rem))?;
-        let d = self.assign_d(r, &d)?;
+        let mut rem = self.assign_w(ctx, &bn_to_field(&rem))?;
+        let d = self.assign_d(ctx, &d)?;
 
-        self.add_constraints_for_mul_equation_on_limb0(r, a, b, &d, &mut rem)?;
-        self.add_constraints_for_mul_equation_on_native(r, a, b, &d, &mut rem)?;
+        self.add_constraints_for_mul_equation_on_limb0(ctx, a, b, &d, &mut rem)?;
+        self.add_constraints_for_mul_equation_on_native(ctx, a, b, &d, &mut rem)?;
 
         Ok(rem)
     }
 
     fn square(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         a: &mut AssignedInteger<W, N>,
     ) -> Result<AssignedInteger<W, N>, Error> {
         let a_bn = a.bn(&self.helper.limb_modulus);
         let (d, rem) = (&a_bn * &a_bn).div_rem(&self.helper.w_modulus);
 
-        let mut rem = self.assign_w(r, &bn_to_field(&rem))?;
-        let d = self.assign_d(r, &d)?;
+        let mut rem = self.assign_w(ctx, &bn_to_field(&rem))?;
+        let d = self.assign_d(ctx, &d)?;
 
-        self.add_constraints_for_mul_equation_on_limb0(r, a, a, &d, &mut rem)?;
-        self.add_constraints_for_square_equation_on_native(r, a, &d, &mut rem)?;
+        self.add_constraints_for_mul_equation_on_limb0(ctx, a, a, &d, &mut rem)?;
+        self.add_constraints_for_square_equation_on_native(ctx, a, &d, &mut rem)?;
 
         Ok(rem)
     }
 
     fn div(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         a: &mut AssignedInteger<W, N>,
         b: &mut AssignedInteger<W, N>,
     ) -> Result<(AssignedCondition<N>, AssignedInteger<W, N>), Error> {
-        let is_b_zero = self.is_zero(r, b)?;
-        let a_coeff = self.base_gate().not(r, &is_b_zero)?;
+        let is_b_zero = self.is_zero(ctx, b)?;
+        let a_coeff = self.base_gate().not(ctx, &is_b_zero)?;
 
         // Find (c, d) that b * c = d * w + reduce_a,
         // Call reduce on `a` because if b = 1, we cannot find such (c, d), c < w_ceil and d >= 0
         // This can be optimized in the future.
-        self.reduce(r, a)?;
+        self.reduce(ctx, a)?;
         let mut limbs_le = vec![];
         for i in 0..LIMBS {
-            let cell = self.base_gate().mul(r, &a.limbs_le[i], &a_coeff.into())?;
+            let cell = self.base_gate().mul(ctx, &a.limbs_le[i], &a_coeff.into())?;
             limbs_le.push(cell);
         }
         let mut a = AssignedInteger::new(limbs_le.try_into().unwrap(), a.overflows);
@@ -764,20 +764,20 @@ impl<'a, W: BaseExt, N: FieldExt> IntegerChipOps<W, N> for FiveColumnIntegerChip
 
         let (d, _) = (c_bn * b_bn - a_bn).div_rem(w_modulus);
 
-        let mut c = self.assign_w(r, &c)?;
-        let d = self.assign_d(r, &d)?;
+        let mut c = self.assign_w(ctx, &c)?;
+        let d = self.assign_d(ctx, &d)?;
 
-        self.add_constraints_for_mul_equation_on_limb0(r, b, &mut c, &d, &mut a)?;
-        self.add_constraints_for_mul_equation_on_native(r, b, &mut c, &d, &mut a)?;
+        self.add_constraints_for_mul_equation_on_limb0(ctx, b, &mut c, &d, &mut a)?;
+        self.add_constraints_for_mul_equation_on_native(ctx, b, &mut c, &d, &mut a)?;
         Ok((is_b_zero, c))
     }
 
-    fn assign_constant(&self, r: &mut Context<N>, w: W) -> Result<AssignedInteger<W, N>, Error> {
+    fn assign_constant(&self, ctx: &mut Context<N>, w: W) -> Result<AssignedInteger<W, N>, Error> {
         let limbs_value = self.helper.w_to_limb_n_le(&w);
 
         let mut limbs = vec![];
         for limb in limbs_value {
-            let cell = self.base_gate().assign_constant(r, limb)?;
+            let cell = self.base_gate().assign_constant(ctx, limb)?;
             limbs.push(cell);
         }
 
@@ -786,19 +786,19 @@ impl<'a, W: BaseExt, N: FieldExt> IntegerChipOps<W, N> for FiveColumnIntegerChip
 
     fn is_zero(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         a: &mut AssignedInteger<W, N>,
     ) -> Result<AssignedCondition<N>, Error> {
-        self.reduce(r, a)?;
-        let is_zero = self.is_pure_zero(r, &a)?;
-        let is_w_modulus = self.is_pure_w_modulus(r, a)?;
+        self.reduce(ctx, a)?;
+        let is_zero = self.is_pure_zero(ctx, &a)?;
+        let is_w_modulus = self.is_pure_w_modulus(ctx, a)?;
 
-        self.base_gate().or(r, &is_zero, &is_w_modulus)
+        self.base_gate().or(ctx, &is_zero, &is_w_modulus)
     }
 
     fn mul_small_constant(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         a: &mut AssignedInteger<W, N>,
         b: usize,
     ) -> Result<AssignedInteger<W, N>, Error> {
@@ -807,13 +807,13 @@ impl<'a, W: BaseExt, N: FieldExt> IntegerChipOps<W, N> for FiveColumnIntegerChip
         let zero = N::zero();
 
         if a.overflows * b >= OVERFLOW_LIMIT {
-            self.reduce(r, a)?;
+            self.reduce(ctx, a)?;
         }
 
         let mut limbs = vec![];
         for i in 0..LIMBS {
             let cell = self.base_gate().sum_with_constant(
-                r,
+                ctx,
                 vec![(&a.limbs_le[i], N::from(b as u64))],
                 zero,
             )?;
@@ -821,7 +821,7 @@ impl<'a, W: BaseExt, N: FieldExt> IntegerChipOps<W, N> for FiveColumnIntegerChip
         }
 
         let mut res = AssignedInteger::new(limbs.try_into().unwrap(), a.overflows * b);
-        self.conditionally_reduce(r, &mut res)?;
+        self.conditionally_reduce(ctx, &mut res)?;
         Ok(res)
     }
 
@@ -835,7 +835,7 @@ impl<'a, W: BaseExt, N: FieldExt> IntegerChipOps<W, N> for FiveColumnIntegerChip
 
     fn bisec(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         cond: &AssignedCondition<N>,
         a: &AssignedInteger<W, N>,
         b: &AssignedInteger<W, N>,
@@ -843,7 +843,7 @@ impl<'a, W: BaseExt, N: FieldExt> IntegerChipOps<W, N> for FiveColumnIntegerChip
         let base_gate = self.base_gate();
         let mut limbs = vec![];
         for i in 0..LIMBS {
-            let cell = base_gate.bisec(r, cond, &a.limbs_le[i], &b.limbs_le[i])?;
+            let cell = base_gate.bisec(ctx, cond, &a.limbs_le[i], &b.limbs_le[i])?;
             limbs.push(cell);
         }
         Ok(AssignedInteger::new(

@@ -57,7 +57,7 @@ impl<C: CurveAffine> TestFiveColumnNativeEccChipCircuit<C> {
     fn setup_test_add(
         &self,
         ecc_gate: &NativeEccChip<'_, C>,
-        r: &mut Context<'_, C::ScalarExt>,
+        ctx: &mut Context<'_, C::ScalarExt>,
     ) -> Result<(), Error> {
         let s1 = Self::random();
         let s2 = Self::random();
@@ -66,20 +66,20 @@ impl<C: CurveAffine> TestFiveColumnNativeEccChipCircuit<C> {
         let s4 = s1 + s1;
         let identity = C::ScalarExt::zero();
 
-        let pi = ecc_gate.assign_constant_point_from_scalar(r, identity)?;
-        let mut p1 = ecc_gate.assign_constant_point_from_scalar(r, s1)?;
-        let p2 = ecc_gate.assign_constant_point_from_scalar(r, s2)?;
+        let pi = ecc_gate.assign_constant_point_from_scalar(ctx, identity)?;
+        let mut p1 = ecc_gate.assign_constant_point_from_scalar(ctx, s1)?;
+        let p2 = ecc_gate.assign_constant_point_from_scalar(ctx, s2)?;
 
-        let mut p1_ = ecc_gate.add(r, &mut p1, &pi)?;
-        ecc_gate.assert_equal(r, &mut p1, &mut p1_)?;
+        let mut p1_ = ecc_gate.add(ctx, &mut p1, &pi)?;
+        ecc_gate.assert_equal(ctx, &mut p1, &mut p1_)?;
 
-        let mut p3 = ecc_gate.assign_constant_point_from_scalar(r, s3)?;
-        let mut p3_ = ecc_gate.add(r, &mut p1, &p2)?;
-        ecc_gate.assert_equal(r, &mut p3, &mut p3_)?;
+        let mut p3 = ecc_gate.assign_constant_point_from_scalar(ctx, s3)?;
+        let mut p3_ = ecc_gate.add(ctx, &mut p1, &p2)?;
+        ecc_gate.assert_equal(ctx, &mut p3, &mut p3_)?;
 
-        let mut p4 = ecc_gate.assign_constant_point_from_scalar(r, s4)?;
-        let mut p4_ = ecc_gate.add(r, &mut p1.clone(), &p1)?;
-        ecc_gate.assert_equal(r, &mut p4, &mut p4_)?;
+        let mut p4 = ecc_gate.assign_constant_point_from_scalar(ctx, s4)?;
+        let mut p4_ = ecc_gate.add(ctx, &mut p1.clone(), &p1)?;
+        ecc_gate.assert_equal(ctx, &mut p4, &mut p4_)?;
 
         Ok(())
     }
@@ -87,7 +87,7 @@ impl<C: CurveAffine> TestFiveColumnNativeEccChipCircuit<C> {
     fn setup_test_sub(
         &self,
         ecc_gate: &NativeEccChip<'_, C>,
-        r: &mut Context<'_, C::ScalarExt>,
+        ctx: &mut Context<'_, C::ScalarExt>,
     ) -> Result<(), Error> {
         let s1 = Self::random();
         let s2 = Self::random();
@@ -95,19 +95,19 @@ impl<C: CurveAffine> TestFiveColumnNativeEccChipCircuit<C> {
         let s3 = s1 - s2;
         let identity = C::ScalarExt::zero();
 
-        let mut pi = ecc_gate.assign_constant_point_from_scalar(r, identity)?;
-        let mut p1 = ecc_gate.assign_constant_point_from_scalar(r, s1)?;
-        let p2 = ecc_gate.assign_constant_point_from_scalar(r, s2)?;
+        let mut pi = ecc_gate.assign_constant_point_from_scalar(ctx, identity)?;
+        let mut p1 = ecc_gate.assign_constant_point_from_scalar(ctx, s1)?;
+        let p2 = ecc_gate.assign_constant_point_from_scalar(ctx, s2)?;
 
-        let mut p1_ = ecc_gate.sub(r, &mut p1, &pi)?;
-        ecc_gate.assert_equal(r, &mut p1, &mut p1_)?;
+        let mut p1_ = ecc_gate.sub(ctx, &mut p1, &pi)?;
+        ecc_gate.assert_equal(ctx, &mut p1, &mut p1_)?;
 
-        let mut p3 = ecc_gate.assign_constant_point_from_scalar(r, s3)?;
-        let mut p3_ = ecc_gate.sub(r, &mut p1, &p2)?;
-        ecc_gate.assert_equal(r, &mut p3, &mut p3_)?;
+        let mut p3 = ecc_gate.assign_constant_point_from_scalar(ctx, s3)?;
+        let mut p3_ = ecc_gate.sub(ctx, &mut p1, &p2)?;
+        ecc_gate.assert_equal(ctx, &mut p3, &mut p3_)?;
 
-        let mut p4_ = ecc_gate.sub(r, &mut p1.clone(), &p1)?;
-        ecc_gate.assert_equal(r, &mut pi, &mut p4_)?;
+        let mut p4_ = ecc_gate.sub(ctx, &mut p1.clone(), &p1)?;
+        ecc_gate.assert_equal(ctx, &mut pi, &mut p4_)?;
 
         Ok(())
     }
@@ -115,7 +115,7 @@ impl<C: CurveAffine> TestFiveColumnNativeEccChipCircuit<C> {
     fn setup_test_mul(
         &self,
         ecc_gate: &NativeEccChip<'_, C>,
-        r: &mut Context<'_, C::ScalarExt>,
+        ctx: &mut Context<'_, C::ScalarExt>,
     ) -> Result<(), Error> {
         let base_gate = ecc_gate.base_gate();
 
@@ -125,23 +125,23 @@ impl<C: CurveAffine> TestFiveColumnNativeEccChipCircuit<C> {
         let s3 = s1 * s2;
         let identity = C::ScalarExt::zero();
 
-        let mut p1 = ecc_gate.assign_constant_point_from_scalar(r, s1)?;
-        let s2 = base_gate.assign_constant(r, s2)?;
-        let mut pi = ecc_gate.assign_identity(r)?;
-        let si = base_gate.assign_constant(r, identity)?;
+        let mut p1 = ecc_gate.assign_constant_point_from_scalar(ctx, s1)?;
+        let s2 = base_gate.assign_constant(ctx, s2)?;
+        let mut pi = ecc_gate.assign_identity(ctx)?;
+        let si = base_gate.assign_constant(ctx, identity)?;
 
-        let mut p3 = ecc_gate.assign_constant_point_from_scalar(r, s3)?;
-        let mut p3_ = ecc_gate.mul(r, &mut p1, &s2)?;
-        ecc_gate.assert_equal(r, &mut p3, &mut p3_)?;
+        let mut p3 = ecc_gate.assign_constant_point_from_scalar(ctx, s3)?;
+        let mut p3_ = ecc_gate.mul(ctx, &mut p1, &s2)?;
+        ecc_gate.assert_equal(ctx, &mut p3, &mut p3_)?;
 
-        let mut pi_ = ecc_gate.mul(r, &mut p1, &si)?;
-        ecc_gate.assert_equal(r, &mut pi, &mut pi_)?;
+        let mut pi_ = ecc_gate.mul(ctx, &mut p1, &si)?;
+        ecc_gate.assert_equal(ctx, &mut pi, &mut pi_)?;
 
-        let mut pi_ = ecc_gate.mul(r, &mut pi, &s2)?;
-        ecc_gate.assert_equal(r, &mut pi, &mut pi_)?;
+        let mut pi_ = ecc_gate.mul(ctx, &mut pi, &s2)?;
+        ecc_gate.assert_equal(ctx, &mut pi, &mut pi_)?;
 
-        let mut pi_ = ecc_gate.mul(r, &mut pi, &si)?;
-        ecc_gate.assert_equal(r, &mut pi, &mut pi_)?;
+        let mut pi_ = ecc_gate.mul(ctx, &mut pi, &si)?;
+        ecc_gate.assert_equal(ctx, &mut pi, &mut pi_)?;
 
         Ok(())
     }
@@ -149,21 +149,21 @@ impl<C: CurveAffine> TestFiveColumnNativeEccChipCircuit<C> {
     fn setup_test_double(
         &self,
         ecc_gate: &NativeEccChip<'_, C>,
-        r: &mut Context<'_, C::ScalarExt>,
+        ctx: &mut Context<'_, C::ScalarExt>,
     ) -> Result<(), Error> {
         let s1 = Self::random();
         let s2 = s1 + s1;
         let identity = C::ScalarExt::zero();
 
-        let mut pi = ecc_gate.assign_constant_point_from_scalar(r, identity)?;
-        let mut p1 = ecc_gate.assign_constant_point_from_scalar(r, s1)?;
-        let mut p2 = ecc_gate.assign_constant_point_from_scalar(r, s2)?;
+        let mut pi = ecc_gate.assign_constant_point_from_scalar(ctx, identity)?;
+        let mut p1 = ecc_gate.assign_constant_point_from_scalar(ctx, s1)?;
+        let mut p2 = ecc_gate.assign_constant_point_from_scalar(ctx, s2)?;
 
-        let mut p2_ = ecc_gate.double(r, &mut p1)?;
-        ecc_gate.assert_equal(r, &mut p2, &mut p2_)?;
+        let mut p2_ = ecc_gate.double(ctx, &mut p1)?;
+        ecc_gate.assert_equal(ctx, &mut p2, &mut p2_)?;
 
-        let mut pi_ = ecc_gate.double(r, &mut pi)?;
-        ecc_gate.assert_equal(r, &mut pi, &mut pi_)?;
+        let mut pi_ = ecc_gate.double(ctx, &mut pi)?;
+        ecc_gate.assert_equal(ctx, &mut pi, &mut pi_)?;
 
         Ok(())
     }

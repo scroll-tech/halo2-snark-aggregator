@@ -43,7 +43,7 @@ impl<'a, C: CurveAffine> EccChipOps<C, C::ScalarExt> for NativeEccChip<'a, C> {
 
     fn decompose_scalar(
         &self,
-        r: &mut Context<C::ScalarExt>,
+        ctx: &mut Context<C::ScalarExt>,
         s: &AssignedValue<C::ScalarExt>,
     ) -> Result<Vec<[AssignedCondition<C::ScalarExt>; WINDOW_SIZE]>, Error> {
         let zero = C::ScalarExt::zero();
@@ -55,14 +55,14 @@ impl<'a, C: CurveAffine> EccChipOps<C, C::ScalarExt> for NativeEccChip<'a, C> {
 
         let s_bn = field_to_bn(&s.value);
 
-        let (bits, s_bn) = self.decompose_bits::<WINDOW_SIZE>(r, s_bn);
+        let (bits, s_bn) = self.decompose_bits::<WINDOW_SIZE>(ctx, s_bn);
         let bits = bits
             .into_iter()
             .enumerate()
             .map(|(i, v)| pair!(v, C::ScalarExt::from(1u64 << i)))
             .collect();
         let cells = base_gate.one_line_with_last_base(
-            r,
+            ctx,
             bits,
             pair!(s, -one),
             zero,
@@ -80,14 +80,14 @@ impl<'a, C: CurveAffine> EccChipOps<C, C::ScalarExt> for NativeEccChip<'a, C> {
         let mut s_bn = s_bn;
         for _ in 1..windows - 1 {
             let s_n: C::ScalarExt = bn_to_field(&s_bn);
-            let (bits, _s_bn) = self.decompose_bits::<WINDOW_SIZE>(r, s_bn);
+            let (bits, _s_bn) = self.decompose_bits::<WINDOW_SIZE>(ctx, s_bn);
             let bits = bits
                 .into_iter()
                 .enumerate()
                 .map(|(i, v)| pair!(v, C::ScalarExt::from(1u64 << i)))
                 .collect();
             let cells = base_gate.one_line_with_last_base(
-                r,
+                ctx,
                 bits,
                 pair!(s_n, -one),
                 zero,
@@ -105,14 +105,14 @@ impl<'a, C: CurveAffine> EccChipOps<C, C::ScalarExt> for NativeEccChip<'a, C> {
         }
 
         let s_n: C::ScalarExt = bn_to_field(&s_bn);
-        let (bits, _) = self.decompose_bits::<WINDOW_SIZE>(r, s_bn);
+        let (bits, _) = self.decompose_bits::<WINDOW_SIZE>(ctx, s_bn);
         let bits = bits
             .into_iter()
             .enumerate()
             .map(|(i, v)| pair!(v, C::ScalarExt::from(1u64 << i)))
             .collect();
         let cells =
-            base_gate.one_line_with_last_base(r, bits, pair!(s_n, -one), zero, (vec![], zero))?;
+            base_gate.one_line_with_last_base(ctx, bits, pair!(s_n, -one), zero, (vec![], zero))?;
         ret.push(
             cells[0..4]
                 .iter()
@@ -126,7 +126,7 @@ impl<'a, C: CurveAffine> EccChipOps<C, C::ScalarExt> for NativeEccChip<'a, C> {
 
         for window in &ret {
             for bit in window {
-                base_gate.assert_bit(r, &AssignedValue::from(bit))?;
+                base_gate.assert_bit(ctx, &AssignedValue::from(bit))?;
             }
         }
 

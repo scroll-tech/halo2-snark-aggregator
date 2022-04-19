@@ -54,7 +54,7 @@ impl<N: FieldExt> TestFiveColumnBaseGateCircuit<N> {
     fn setup_test_one_line(
         &self,
         base_gate: &FiveColumnBaseGate<N>,
-        r: &mut Context<'_, N>,
+        ctx: &mut Context<'_, N>,
     ) -> Result<(), Error> {
         let vars = [(); VAR_COLUMNS].map(|_| Self::random());
         let coeffs = [(); VAR_COLUMNS].map(|_| Self::random());
@@ -74,7 +74,7 @@ impl<N: FieldExt> TestFiveColumnBaseGateCircuit<N> {
         };
 
         base_gate.one_line(
-            r,
+            ctx,
             (0..VAR_COLUMNS)
                 .map(|i| pair!(vars[i], coeffs[i]))
                 .collect(),
@@ -83,7 +83,7 @@ impl<N: FieldExt> TestFiveColumnBaseGateCircuit<N> {
         )?;
 
         base_gate.one_line_with_last_base(
-            r,
+            ctx,
             vec![],
             pair!(next_var, N::zero()),
             N::zero(),
@@ -95,7 +95,7 @@ impl<N: FieldExt> TestFiveColumnBaseGateCircuit<N> {
     fn setup_test_sum_with_constant(
         &self,
         base_gate: &FiveColumnBaseGate<N>,
-        r: &mut Context<'_, N>,
+        ctx: &mut Context<'_, N>,
     ) -> Result<(), Error> {
         const NVARS: usize = VAR_COLUMNS - 1usize;
         const NCOEFFS: usize = VAR_COLUMNS - 1usize;
@@ -112,23 +112,23 @@ impl<N: FieldExt> TestFiveColumnBaseGateCircuit<N> {
 
         let mut assigned_vars = vec![];
         for i in 0..VAR_COLUMNS - 1 {
-            let c = base_gate.assign_constant(r, vars[i])?;
+            let c = base_gate.assign_constant(ctx, vars[i])?;
             assigned_vars.push(c);
         }
 
-        let assigned_result = base_gate.assign_constant(r, result)?;
+        let assigned_result = base_gate.assign_constant(ctx, result)?;
 
         let op_result =
-            base_gate.sum_with_constant(r, assigned_vars.iter().zip(coeffs).collect(), constant)?;
+            base_gate.sum_with_constant(ctx, assigned_vars.iter().zip(coeffs).collect(), constant)?;
 
-        base_gate.assert_equal(r, &assigned_result, &op_result)?;
+        base_gate.assert_equal(ctx, &assigned_result, &op_result)?;
         Ok(())
     }
 
     fn setup_test_add(
         &self,
         base_gate: &FiveColumnBaseGate<N>,
-        r: &mut Context<'_, N>,
+        ctx: &mut Context<'_, N>,
     ) -> Result<(), Error> {
         const NVARS: usize = 2usize;
         let vars = [(); NVARS].map(|_| Self::random());
@@ -136,22 +136,22 @@ impl<N: FieldExt> TestFiveColumnBaseGateCircuit<N> {
 
         let mut assigned_vars = vec![];
         for i in 0..NVARS {
-            let c = base_gate.assign_constant(r, vars[i])?;
+            let c = base_gate.assign_constant(ctx, vars[i])?;
             assigned_vars.push(c);
         }
 
-        let assigned_result = base_gate.assign_constant(r, result)?;
+        let assigned_result = base_gate.assign_constant(ctx, result)?;
 
-        let op_result = base_gate.add(r, &assigned_vars[0], &assigned_vars[1])?;
+        let op_result = base_gate.add(ctx, &assigned_vars[0], &assigned_vars[1])?;
 
-        base_gate.assert_equal(r, &assigned_result, &op_result)?;
+        base_gate.assert_equal(ctx, &assigned_result, &op_result)?;
         Ok(())
     }
 
     fn setup_test_mul(
         &self,
         base_gate: &FiveColumnBaseGate<N>,
-        r: &mut Context<'_, N>,
+        ctx: &mut Context<'_, N>,
     ) -> Result<(), Error> {
         const NVARS: usize = 2usize;
         let vars = [(); NVARS].map(|_| Self::random());
@@ -159,22 +159,22 @@ impl<N: FieldExt> TestFiveColumnBaseGateCircuit<N> {
 
         let mut assigned_vars = vec![];
         for i in 0..NVARS {
-            let c = base_gate.assign_constant(r, vars[i])?;
+            let c = base_gate.assign_constant(ctx, vars[i])?;
             assigned_vars.push(c);
         }
 
-        let assigned_result = base_gate.assign_constant(r, result)?;
+        let assigned_result = base_gate.assign_constant(ctx, result)?;
 
-        let op_result = base_gate.mul(r, &assigned_vars[0], &assigned_vars[1])?;
+        let op_result = base_gate.mul(ctx, &assigned_vars[0], &assigned_vars[1])?;
 
-        base_gate.assert_equal(r, &assigned_result, &op_result)?;
+        base_gate.assert_equal(ctx, &assigned_result, &op_result)?;
         Ok(())
     }
 
     fn setup_test_mul_add(
         &self,
         base_gate: &FiveColumnBaseGate<N>,
-        r: &mut Context<'_, N>,
+        ctx: &mut Context<'_, N>,
     ) -> Result<(), Error> {
         const NVARS: usize = 3usize;
         const NCOEFFS: usize = 1usize;
@@ -184,28 +184,28 @@ impl<N: FieldExt> TestFiveColumnBaseGateCircuit<N> {
 
         let mut assigned_vars = vec![];
         for i in 0..NVARS {
-            let c = base_gate.assign_constant(r, vars[i])?;
+            let c = base_gate.assign_constant(ctx, vars[i])?;
             assigned_vars.push(c);
         }
 
-        let assigned_result = base_gate.assign_constant(r, result)?;
+        let assigned_result = base_gate.assign_constant(ctx, result)?;
 
         let op_result = base_gate.mul_add(
-            r,
+            ctx,
             &assigned_vars[0],
             &assigned_vars[1],
             &assigned_vars[2],
             coeffs[0],
         )?;
 
-        base_gate.assert_equal(r, &assigned_result, &op_result)?;
+        base_gate.assert_equal(ctx, &assigned_result, &op_result)?;
         Ok(())
     }
 
     fn setup_test_mul_add_with_next_line(
         &self,
         base_gate: &FiveColumnBaseGate<N>,
-        r: &mut Context<'_, N>,
+        ctx: &mut Context<'_, N>,
     ) -> Result<(), Error> {
         const NVARS: usize = 6usize;
         const NCOEFFS: usize = 2usize;
@@ -216,14 +216,14 @@ impl<N: FieldExt> TestFiveColumnBaseGateCircuit<N> {
 
         let mut assigned_vars = vec![];
         for i in 0..NVARS {
-            let c = base_gate.assign_constant(r, vars[i])?;
+            let c = base_gate.assign_constant(ctx, vars[i])?;
             assigned_vars.push(c);
         }
 
-        let assigned_result = base_gate.assign_constant(r, result)?;
+        let assigned_result = base_gate.assign_constant(ctx, result)?;
 
         let op_result = base_gate.mul_add_with_next_line(
-            r,
+            ctx,
             vec![
                 (
                     &assigned_vars[0],
@@ -240,14 +240,14 @@ impl<N: FieldExt> TestFiveColumnBaseGateCircuit<N> {
             ],
         )?;
 
-        base_gate.assert_equal(r, &assigned_result, &op_result)?;
+        base_gate.assert_equal(ctx, &assigned_result, &op_result)?;
         Ok(())
     }
 
     fn setup_test_invert_unsafe(
         &self,
         base_gate: &FiveColumnBaseGate<N>,
-        r: &mut Context<'_, N>,
+        ctx: &mut Context<'_, N>,
     ) -> Result<(), Error> {
         const NVARS: usize = 1usize;
         let vars = [(); NVARS].map(|_| {
@@ -262,15 +262,15 @@ impl<N: FieldExt> TestFiveColumnBaseGateCircuit<N> {
 
         let mut assigned_vars = vec![];
         for i in 0..NVARS {
-            let c = base_gate.assign_constant(r, vars[i])?;
+            let c = base_gate.assign_constant(ctx, vars[i])?;
             assigned_vars.push(c);
         }
 
-        let assigned_result = base_gate.assign_constant(r, result)?;
+        let assigned_result = base_gate.assign_constant(ctx, result)?;
 
-        let op_result = base_gate.invert_unsafe(r, &assigned_vars[0])?;
+        let op_result = base_gate.invert_unsafe(ctx, &assigned_vars[0])?;
 
-        base_gate.assert_equal(r, &assigned_result, &op_result)?;
+        base_gate.assert_equal(ctx, &assigned_result, &op_result)?;
 
         Ok(())
     }
@@ -278,7 +278,7 @@ impl<N: FieldExt> TestFiveColumnBaseGateCircuit<N> {
     fn setup_test_div_unsafe(
         &self,
         base_gate: &FiveColumnBaseGate<N>,
-        r: &mut Context<'_, N>,
+        ctx: &mut Context<'_, N>,
     ) -> Result<(), Error> {
         const NVARS: usize = 2usize;
         let vars = [(); NVARS].map(|_| {
@@ -293,15 +293,15 @@ impl<N: FieldExt> TestFiveColumnBaseGateCircuit<N> {
 
         let mut assigned_vars = vec![];
         for i in 0..NVARS {
-            let c = base_gate.assign_constant(r, vars[i])?;
+            let c = base_gate.assign_constant(ctx, vars[i])?;
             assigned_vars.push(c);
         }
 
-        let assigned_result = base_gate.assign_constant(r, result)?;
+        let assigned_result = base_gate.assign_constant(ctx, result)?;
 
-        let op_result = base_gate.div_unsafe(r, &assigned_vars[0], &assigned_vars[1])?;
+        let op_result = base_gate.div_unsafe(ctx, &assigned_vars[0], &assigned_vars[1])?;
 
-        base_gate.assert_equal(r, &assigned_result, &op_result)?;
+        base_gate.assert_equal(ctx, &assigned_result, &op_result)?;
         Ok(())
     }
 }

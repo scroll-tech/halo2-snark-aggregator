@@ -56,143 +56,143 @@ impl<W: BaseExt, N: FieldExt> TestFiveColumnIntegerChipCircuit<W, N> {
     fn setup_test_add(
         &self,
         integer_gate: &FiveColumnIntegerChip<'_, W, N>,
-        r: &mut Context<'_, N>,
+        ctx: &mut Context<'_, N>,
     ) -> Result<(), Error> {
         let a = Self::random();
         let b = Self::random();
         let c = a + b;
-        let assigned_a = integer_gate.assign_constant(r, a)?;
-        let assigned_b = integer_gate.assign_constant(r, b)?;
-        let assigned_c = integer_gate.assign_constant(r, c)?;
+        let assigned_a = integer_gate.assign_constant(ctx, a)?;
+        let assigned_b = integer_gate.assign_constant(ctx, b)?;
+        let assigned_c = integer_gate.assign_constant(ctx, c)?;
 
-        let res = integer_gate.add(r, &assigned_a, &assigned_b)?;
-        integer_gate.assert_equal(r, &assigned_c, &res)?;
+        let res = integer_gate.add(ctx, &assigned_a, &assigned_b)?;
+        integer_gate.assert_equal(ctx, &assigned_c, &res)?;
         Ok(())
     }
 
     fn setup_test_sub(
         &self,
         integer_gate: &FiveColumnIntegerChip<'_, W, N>,
-        r: &mut Context<'_, N>,
+        ctx: &mut Context<'_, N>,
     ) -> Result<(), Error> {
         let a = Self::random();
         let b = Self::random();
         let c = a - b;
 
-        let assigned_a = integer_gate.assign_constant(r, a)?;
-        let assigned_b = integer_gate.assign_constant(r, b)?;
-        let assigned_c = integer_gate.assign_constant(r, c)?;
+        let assigned_a = integer_gate.assign_constant(ctx, a)?;
+        let assigned_b = integer_gate.assign_constant(ctx, b)?;
+        let assigned_c = integer_gate.assign_constant(ctx, c)?;
 
-        let res = integer_gate.sub(r, &assigned_a, &assigned_b)?;
-        integer_gate.assert_equal(r, &assigned_c, &res)?;
+        let res = integer_gate.sub(ctx, &assigned_a, &assigned_b)?;
+        integer_gate.assert_equal(ctx, &assigned_c, &res)?;
         Ok(())
     }
 
     fn setup_test_neg(
         &self,
         integer_gate: &FiveColumnIntegerChip<'_, W, N>,
-        r: &mut Context<'_, N>,
+        ctx: &mut Context<'_, N>,
     ) -> Result<(), Error> {
         let a = Self::random();
         let c = -a;
 
-        let assigned_a = integer_gate.assign_constant(r, a)?;
-        let assigned_c = integer_gate.assign_constant(r, c)?;
+        let assigned_a = integer_gate.assign_constant(ctx, a)?;
+        let assigned_c = integer_gate.assign_constant(ctx, c)?;
 
-        let res = integer_gate.neg(r, &assigned_a)?;
-        integer_gate.assert_equal(r, &assigned_c, &res)?;
+        let res = integer_gate.neg(ctx, &assigned_a)?;
+        integer_gate.assert_equal(ctx, &assigned_c, &res)?;
         Ok(())
     }
 
     fn setup_test_mul(
         &self,
         integer_gate: &FiveColumnIntegerChip<'_, W, N>,
-        r: &mut Context<'_, N>,
+        ctx: &mut Context<'_, N>,
     ) -> Result<(), Error> {
         let a = Self::random();
         let b = Self::random();
         let c = a * b;
 
-        let mut assigned_a = integer_gate.assign_constant(r, a)?;
-        let mut assigned_b = integer_gate.assign_constant(r, b)?;
-        let assigned_c = integer_gate.assign_constant(r, c)?;
+        let mut assigned_a = integer_gate.assign_constant(ctx, a)?;
+        let mut assigned_b = integer_gate.assign_constant(ctx, b)?;
+        let assigned_c = integer_gate.assign_constant(ctx, c)?;
 
-        let res = integer_gate.mul(r, &mut assigned_a, &mut assigned_b)?;
-        integer_gate.assert_equal(r, &assigned_c, &res)?;
+        let res = integer_gate.mul(ctx, &mut assigned_a, &mut assigned_b)?;
+        integer_gate.assert_equal(ctx, &assigned_c, &res)?;
         Ok(())
     }
 
     fn setup_test_square(
         &self,
         integer_gate: &FiveColumnIntegerChip<'_, W, N>,
-        r: &mut Context<'_, N>,
+        ctx: &mut Context<'_, N>,
     ) -> Result<(), Error> {
         let a = Self::random();
         let c = a * a;
 
-        let mut assigned_a = integer_gate.assign_constant(r, a)?;
-        let assigned_c = integer_gate.assign_constant(r, c)?;
+        let mut assigned_a = integer_gate.assign_constant(ctx, a)?;
+        let assigned_c = integer_gate.assign_constant(ctx, c)?;
 
-        let res = integer_gate.square(r, &mut assigned_a)?;
-        integer_gate.assert_equal(r, &assigned_c, &res)?;
+        let res = integer_gate.square(ctx, &mut assigned_a)?;
+        integer_gate.assert_equal(ctx, &assigned_c, &res)?;
         Ok(())
     }
 
     fn setup_test_div(
         &self,
         integer_gate: &FiveColumnIntegerChip<'_, W, N>,
-        r: &mut Context<'_, N>,
+        ctx: &mut Context<'_, N>,
     ) -> Result<(), Error> {
         let a = Self::random();
         let b = Self::random();
         let b = b.invert().unwrap_or(W::one());
         let c = a * b.invert().unwrap();
 
-        let mut assigned_a = integer_gate.assign_constant(r, a)?;
-        let mut assigned_b = integer_gate.assign_constant(r, b)?;
-        let assigned_c = integer_gate.assign_constant(r, c)?;
-        let mut assigned_zero = integer_gate.assign_constant(r, W::zero())?;
+        let mut assigned_a = integer_gate.assign_constant(ctx, a)?;
+        let mut assigned_b = integer_gate.assign_constant(ctx, b)?;
+        let assigned_c = integer_gate.assign_constant(ctx, c)?;
+        let mut assigned_zero = integer_gate.assign_constant(ctx, W::zero())?;
 
-        let (cond, res) = integer_gate.div(r, &mut assigned_a, &mut assigned_b)?;
-        integer_gate.assert_equal(r, &assigned_c, &res)?;
+        let (cond, res) = integer_gate.div(ctx, &mut assigned_a, &mut assigned_b)?;
+        integer_gate.assert_equal(ctx, &assigned_c, &res)?;
         integer_gate
             .base_gate()
-            .assert_constant(r, &cond.into(), N::zero())?;
+            .assert_constant(ctx, &cond.into(), N::zero())?;
 
-        let (cond, res) = integer_gate.div(r, &mut assigned_a, &mut assigned_zero)?;
-        integer_gate.assert_equal(r, &assigned_zero, &res)?;
+        let (cond, res) = integer_gate.div(ctx, &mut assigned_a, &mut assigned_zero)?;
+        integer_gate.assert_equal(ctx, &assigned_zero, &res)?;
         integer_gate
             .base_gate()
-            .assert_constant(r, &cond.into(), N::one())?;
+            .assert_constant(ctx, &cond.into(), N::one())?;
         Ok(())
     }
 
     fn setup_test_is_zero(
         &self,
         integer_gate: &FiveColumnIntegerChip<'_, W, N>,
-        r: &mut Context<'_, N>,
+        ctx: &mut Context<'_, N>,
     ) -> Result<(), Error> {
         let a = Self::random();
         let b = Self::random();
         let b = if b == a { a + W::one() } else { b };
 
-        let assigned_a = integer_gate.assign_constant(r, a)?;
-        let assigned_b = integer_gate.assign_constant(r, b)?;
+        let assigned_a = integer_gate.assign_constant(ctx, a)?;
+        let assigned_b = integer_gate.assign_constant(ctx, b)?;
 
         let zero = N::zero();
         let one = N::one();
 
-        let mut vzero = integer_gate.sub(r, &assigned_a, &assigned_a)?;
-        let vtrue = integer_gate.is_zero(r, &mut vzero)?;
+        let mut vzero = integer_gate.sub(ctx, &assigned_a, &assigned_a)?;
+        let vtrue = integer_gate.is_zero(ctx, &mut vzero)?;
         integer_gate
             .base_gate()
-            .assert_constant(r, &(&vtrue).into(), one)?;
+            .assert_constant(ctx, &(&vtrue).into(), one)?;
 
-        let mut vnzero = integer_gate.sub(r, &assigned_a, &assigned_b)?;
-        let vfalse = integer_gate.is_zero(r, &mut vnzero)?;
+        let mut vnzero = integer_gate.sub(ctx, &assigned_a, &assigned_b)?;
+        let vfalse = integer_gate.is_zero(ctx, &mut vnzero)?;
         integer_gate
             .base_gate()
-            .assert_constant(r, &(&vfalse).into(), zero)?;
+            .assert_constant(ctx, &(&vfalse).into(), zero)?;
 
         Ok(())
     }

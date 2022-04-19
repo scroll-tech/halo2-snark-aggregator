@@ -130,101 +130,101 @@ impl<W: BaseExt, N: FieldExt, const LIMBS: usize, const LIMB_WIDTH: usize>
 pub trait IntegerChipOps<W: BaseExt, N: FieldExt> {
     fn base_gate(&self) -> &dyn BaseGateOps<N>;
     fn range_gate(&self) -> &dyn RangeGateOps<W, N>;
-    fn assign_nonleading_limb(&self, r: &mut Context<N>, n: N)
+    fn assign_nonleading_limb(&self, ctx: &mut Context<N>, n: N)
         -> Result<AssignedValue<N>, Error>;
     fn assign_w_ceil_leading_limb(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         n: N,
     ) -> Result<AssignedValue<N>, Error>;
     fn assign_n_floor_leading_limb(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         n: N,
     ) -> Result<AssignedValue<N>, Error>;
-    fn assign_d_leading_limb(&self, r: &mut Context<N>, n: N) -> Result<AssignedValue<N>, Error>;
-    fn assign_w(&self, r: &mut Context<N>, w: &W) -> Result<AssignedInteger<W, N>, Error>;
-    fn assign_d(&self, r: &mut Context<N>, v: &BigUint) -> Result<Vec<AssignedValue<N>>, Error>;
+    fn assign_d_leading_limb(&self, ctx: &mut Context<N>, n: N) -> Result<AssignedValue<N>, Error>;
+    fn assign_w(&self, ctx: &mut Context<N>, w: &W) -> Result<AssignedInteger<W, N>, Error>;
+    fn assign_d(&self, ctx: &mut Context<N>, v: &BigUint) -> Result<Vec<AssignedValue<N>>, Error>;
     fn assign_integer(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         v: &BigUint,
     ) -> Result<Vec<AssignedValue<N>>, Error>;
     fn conditionally_reduce(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         a: &mut AssignedInteger<W, N>,
     ) -> Result<(), Error>;
-    fn reduce(&self, r: &mut Context<N>, a: &mut AssignedInteger<W, N>) -> Result<(), Error>;
+    fn reduce(&self, ctx: &mut Context<N>, a: &mut AssignedInteger<W, N>) -> Result<(), Error>;
     fn native<'a>(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         a: &'a mut AssignedInteger<W, N>,
     ) -> Result<&'a AssignedValue<N>, Error>;
     fn add(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         a: &AssignedInteger<W, N>,
         b: &AssignedInteger<W, N>,
     ) -> Result<AssignedInteger<W, N>, Error>;
     fn sub(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         a: &AssignedInteger<W, N>,
         b: &AssignedInteger<W, N>,
     ) -> Result<AssignedInteger<W, N>, Error>;
     fn neg(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         a: &AssignedInteger<W, N>,
     ) -> Result<AssignedInteger<W, N>, Error>;
     fn mul(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         a: &mut AssignedInteger<W, N>,
         b: &mut AssignedInteger<W, N>,
     ) -> Result<AssignedInteger<W, N>, Error>;
     fn div(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         a: &mut AssignedInteger<W, N>,
         b: &mut AssignedInteger<W, N>,
     ) -> Result<(AssignedCondition<N>, AssignedInteger<W, N>), Error>;
     fn is_zero(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         a: &mut AssignedInteger<W, N>,
     ) -> Result<AssignedCondition<N>, Error>;
     fn is_equal(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         a: &mut AssignedInteger<W, N>,
         b: &mut AssignedInteger<W, N>,
     ) -> Result<AssignedCondition<N>, Error> {
-        let mut diff = self.sub(r, a, b)?;
-        self.is_zero(r, &mut diff)
+        let mut diff = self.sub(ctx, a, b)?;
+        self.is_zero(ctx, &mut diff)
     }
-    fn assign_constant(&self, r: &mut Context<N>, w: W) -> Result<AssignedInteger<W, N>, Error>;
+    fn assign_constant(&self, ctx: &mut Context<N>, w: W) -> Result<AssignedInteger<W, N>, Error>;
     fn assert_equal(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         a: &AssignedInteger<W, N>,
         b: &AssignedInteger<W, N>,
     ) -> Result<(), Error>;
     fn square(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         a: &mut AssignedInteger<W, N>,
     ) -> Result<AssignedInteger<W, N>, Error>;
     fn mul_small_constant(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         a: &mut AssignedInteger<W, N>,
         b: usize,
     ) -> Result<AssignedInteger<W, N>, Error>;
     fn bisec(
         &self,
-        r: &mut Context<N>,
+        ctx: &mut Context<N>,
         cond: &AssignedCondition<N>,
         a: &AssignedInteger<W, N>,
         b: &AssignedInteger<W, N>,
