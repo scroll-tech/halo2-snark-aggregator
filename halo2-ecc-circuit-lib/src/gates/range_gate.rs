@@ -9,7 +9,7 @@ use halo2_proofs::{
     plonk::{Error, Selector, TableColumn},
 };
 use num_bigint::BigUint;
-use std::{marker::PhantomData, rc::Rc};
+use std::marker::PhantomData;
 
 #[derive(Clone, Debug)]
 pub struct RangeGateConfig {
@@ -92,7 +92,7 @@ impl<
     ) -> Result<Vec<AssignedValue<N>>, Error> {
         self.config
             .common_range_selector
-            .enable(Rc::get_mut(&mut r.region).unwrap(), *r.offset)?;
+            .enable(r.region.as_mut(), *r.offset)?;
         let assigned_values =
             self.base_gate
                 .one_line(r, base_coeff_pairs, constant, mul_next_coeffs)?;
@@ -109,10 +109,10 @@ impl<
     ) -> Result<Vec<AssignedValue<N>>, Error> {
         self.config
             .common_range_selector
-            .enable(Rc::get_mut(&mut r.region).unwrap(), *r.offset)?;
+            .enable(r.region.as_mut(), *r.offset)?;
         self.config
             .w_ceil_leading_limb_range_selector
-            .enable(Rc::get_mut(&mut r.region).unwrap(), *r.offset)?;
+            .enable(r.region.as_mut(), *r.offset)?;
         let assigned_values =
             self.base_gate
                 .one_line(r, base_coeff_pairs, constant, mul_next_coeffs)?;
@@ -129,10 +129,10 @@ impl<
     ) -> Result<Vec<AssignedValue<N>>, Error> {
         self.config
             .common_range_selector
-            .enable(Rc::get_mut(&mut r.region).unwrap(), *r.offset)?;
+            .enable(r.region.as_mut(), *r.offset)?;
         self.config
             .n_floor_leading_limb_range_selector
-            .enable(Rc::get_mut(&mut r.region).unwrap(), *r.offset)?;
+            .enable(r.region.as_mut(), *r.offset)?;
         let assigned_values =
             self.base_gate
                 .one_line(r, base_coeff_pairs, constant, mul_next_coeffs)?;
@@ -149,10 +149,10 @@ impl<
     ) -> Result<Vec<AssignedValue<N>>, Error> {
         self.config
             .common_range_selector
-            .enable(Rc::get_mut(&mut r.region).unwrap(), *r.offset)?;
+            .enable(r.region.as_mut(), *r.offset)?;
         self.config
             .d_leading_limb_range_selector
-            .enable(Rc::get_mut(&mut r.region).unwrap(), *r.offset)?;
+            .enable(r.region.as_mut(), *r.offset)?;
         let assigned_values =
             self.base_gate
                 .one_line(r, base_coeff_pairs, constant, mul_next_coeffs)?;

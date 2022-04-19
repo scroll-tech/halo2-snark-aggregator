@@ -4,7 +4,7 @@ use halo2_proofs::{
     plonk::{Advice, Column, ConstraintSystem, Error, Fixed},
     poly::Rotation,
 };
-use std::{marker::PhantomData, rc::Rc};
+use std::marker::PhantomData;
 
 #[derive(Clone, Copy, Debug)]
 pub struct AssignedCondition<N: FieldExt> {
@@ -110,15 +110,15 @@ macro_rules! pair_empty {
 }
 
 pub struct Context<'a, N: FieldExt> {
-    pub region: Rc<Region<'a, N>>,
-    pub offset: Rc<usize>,
+    pub region: Box<Region<'a, N>>,
+    pub offset: Box<usize>,
 }
 
 impl<'a, N: FieldExt> Context<'a, N> {
     pub fn new(region: Region<'a, N>, offset: usize) -> Context<'a, N> {
         Context {
-            region: Rc::new(region),
-            offset: Rc::new(offset),
+            region: Box::new(region),
+            offset: Box::new(offset),
         }
     }
 }
@@ -724,8 +724,8 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize>
 
         base_coeff_pairs.resize_with(VAR_COLUMNS, || pair_empty!(N));
         for (i, (base, coeff)) in base_coeff_pairs.into_iter().enumerate() {
-            Rc::get_mut(&mut r.region)
-                .unwrap()
+            r.region
+                .as_mut()
                 .assign_fixed(
                     || format!("coeff_{}", i),
                     self.config.coeff[i],
@@ -734,8 +734,9 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize>
                 )?
                 .cell();
 
-            let cell = Rc::get_mut(&mut r.region)
-                .unwrap()
+            let cell = r
+                .region
+                .as_mut()
                 .assign_advice(
                     || format!("base_{}", i),
                     self.config.base[i],
@@ -744,7 +745,7 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize>
                 )?
                 .cell();
 
-            base.constrain_equal_conditionally(Rc::get_mut(&mut r.region).unwrap(), cell)?;
+            base.constrain_equal_conditionally(r.region.as_mut(), cell)?;
             cells.push(AssignedValue {
                 cell,
                 value: base.value(),
@@ -754,7 +755,7 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize>
         let (mut mul_coeffs, next) = mul_next_coeffs;
         mul_coeffs.resize_with(MUL_COLUMNS, || zero);
         for (i, mul_coeff) in mul_coeffs.into_iter().enumerate() {
-            Rc::get_mut(&mut r.region).unwrap().assign_fixed(
+            r.region.as_mut().assign_fixed(
                 || format!("mul_coeff_{}", i),
                 self.config.mul_coeff[i],
                 *r.offset,
@@ -762,20 +763,20 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize>
             )?;
         }
 
-        Rc::get_mut(&mut r.region).unwrap().assign_fixed(
+        r.region.as_mut().assign_fixed(
             || "constant",
             self.config.constant,
             *r.offset,
             || Ok(constant),
         )?;
-        Rc::get_mut(&mut r.region).unwrap().assign_fixed(
+        r.region.as_mut().assign_fixed(
             || "next_coeff",
             self.config.next_coeff,
             *r.offset,
             || Ok(next),
         )?;
 
-        *Rc::get_mut(&mut r.offset).unwrap() += 1;
+        *r.offset += 1;
 
         Ok(cells.try_into().unwrap())
     }
