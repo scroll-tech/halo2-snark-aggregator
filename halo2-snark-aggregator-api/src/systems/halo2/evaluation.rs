@@ -74,19 +74,20 @@ pub struct EvaluationQuery<A: ArithEccChip> {
 
 impl<A: ArithEccChip> EvaluationQuery<A> {
     pub fn new(
-        key: String,
+        point_key: String,
+        commitment_key: String,
         point: A::AssignedScalar,
         commitment: A::AssignedPoint,
         eval: A::AssignedScalar,
     ) -> Self {
         let s = CommitQuery {
-            key: key.clone(),
+            key: commitment_key,
             commitment: Some(commitment),
             eval: Some(eval),
         };
 
         EvaluationQuery {
-            key,
+            key: point_key,
             point,
             s: EvaluationQuerySchema::Commitment(s.clone()) + EvaluationQuerySchema::Eval(s),
         }

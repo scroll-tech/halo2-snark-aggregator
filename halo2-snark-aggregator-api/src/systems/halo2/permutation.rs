@@ -5,7 +5,6 @@ use crate::arith::ast::FieldArithHelper;
 use crate::arith::field::ArithFieldChip;
 use crate::{arith::ecc::ArithEccChip, arith_ast};
 
-
 #[derive(Debug)]
 pub struct EvaluatedSet<A: ArithEccChip> {
     pub(in crate::systems::halo2) permutation_product_commitment: A::AssignedPoint,
@@ -37,6 +36,7 @@ impl<'a, A: ArithEccChip> CommonEvaluated<'a, A> {
             .enumerate()
             .map(|(i, (commitment, eval))| {
                 EvaluationQuery::<A>::new(
+                    "x".to_string(),
                     format!("permutation_commitments{}", i),
                     x.clone(),
                     commitment.clone(),
@@ -77,7 +77,7 @@ impl<A: ArithEccChip> Evaluated<A> {
         // l_last(X) * (z_l(X)^2 - z_l(X)) = 0
         for last_set in self.sets.last() {
             let z_x = &last_set.permutation_product_eval;
-            res.push(arith_ast!(l_last * (z_x * z_x - z_x)).eval(ctx, schip)?);
+            res.push(arith_ast!(l_last * ((z_x * z_x) - z_x)).eval(ctx, schip)?);
         }
 
         // Except for the first set, enforce.
@@ -116,7 +116,7 @@ impl<A: ArithEccChip> Evaluated<A> {
                 let delta_current = &d;
                 let l_current = &left;
                 let r_current = &right;
-                left = arith_ast!((eval + beta * permutation_eval + gamma) * l_current)
+                left = arith_ast!((eval + (beta * permutation_eval) + gamma) * l_current)
                     .eval(ctx, schip)?;
                 right = arith_ast!((eval + delta_current + gamma) * r_current).eval(ctx, schip)?;
                 d = arith_ast!(delta * delta_current).eval(ctx, schip)?;
@@ -139,12 +139,14 @@ impl<A: ArithEccChip> Evaluated<A> {
                     // Open permutation product commitments at x and \omega^{-1} x
                     // Open permutation product commitments at x and \omega x
                     .chain(Some(EvaluationQuery::new(
+                        "x".to_string(),
                         format!("permutation_product_commitment{}", i),
                         self.x.clone(),
                         set.permutation_product_commitment.clone(),
                         set.permutation_product_eval.clone(),
                     )))
                     .chain(Some(EvaluationQuery::new(
+                        "x_next".to_string(),
                         format!("permutation_product_commitment{}", i),
                         x_next.clone(),
                         set.permutation_product_commitment.clone(),
@@ -160,6 +162,7 @@ impl<A: ArithEccChip> Evaluated<A> {
                     .skip(1)
                     .flat_map(|(i, set)| {
                         Some(EvaluationQuery::new(
+                            "x_last".to_string(),
                             format!("permutation_product_commitment{}", i),
                             x_last.clone(),
                             set.permutation_product_commitment.clone(),
