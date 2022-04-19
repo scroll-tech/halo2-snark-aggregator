@@ -57,7 +57,7 @@ impl<C: CurveAffine> TestFiveColumnNativeEccChipCircuit<C> {
     fn setup_test_add(
         &self,
         ecc_gate: &NativeEccChip<'_, C>,
-        r: &mut Context<'_, '_, C::ScalarExt>,
+        r: &mut Context<'_, C::ScalarExt>,
     ) -> Result<(), Error> {
         let s1 = Self::random();
         let s2 = Self::random();
@@ -87,7 +87,7 @@ impl<C: CurveAffine> TestFiveColumnNativeEccChipCircuit<C> {
     fn setup_test_sub(
         &self,
         ecc_gate: &NativeEccChip<'_, C>,
-        r: &mut Context<'_, '_, C::ScalarExt>,
+        r: &mut Context<'_, C::ScalarExt>,
     ) -> Result<(), Error> {
         let s1 = Self::random();
         let s2 = Self::random();
@@ -115,7 +115,7 @@ impl<C: CurveAffine> TestFiveColumnNativeEccChipCircuit<C> {
     fn setup_test_mul(
         &self,
         ecc_gate: &NativeEccChip<'_, C>,
-        r: &mut Context<'_, '_, C::ScalarExt>,
+        r: &mut Context<'_, C::ScalarExt>,
     ) -> Result<(), Error> {
         let base_gate = ecc_gate.base_gate();
 
@@ -142,13 +142,14 @@ impl<C: CurveAffine> TestFiveColumnNativeEccChipCircuit<C> {
 
         let mut pi_ = ecc_gate.mul(r, &mut pi, &si)?;
         ecc_gate.assert_equal(r, &mut pi, &mut pi_)?;
+
         Ok(())
     }
 
     fn setup_test_double(
         &self,
         ecc_gate: &NativeEccChip<'_, C>,
-        r: &mut Context<'_, '_, C::ScalarExt>,
+        r: &mut Context<'_, C::ScalarExt>,
     ) -> Result<(), Error> {
         let s1 = Self::random();
         let s2 = s1 + s1;
@@ -210,9 +211,9 @@ impl<C: CurveAffine> Circuit<C::ScalarExt> for TestFiveColumnNativeEccChipCircui
 
         layouter.assign_region(
             || "base",
-            |mut region| {
-                let mut base_offset = 0usize;
-                let mut aux = Context::new(&mut region, &mut base_offset);
+            |region| {
+                let base_offset = 0usize;
+                let mut aux = Context::new(region, base_offset);
                 let r = &mut aux;
                 let round = 1;
                 for _ in 0..round {

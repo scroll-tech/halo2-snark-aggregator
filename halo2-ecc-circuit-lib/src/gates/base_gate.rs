@@ -4,7 +4,7 @@ use halo2_proofs::{
     plonk::{Advice, Column, ConstraintSystem, Error, Fixed},
     poly::Rotation,
 };
-use std::marker::PhantomData;
+use std::{marker::PhantomData, rc::Rc};
 
 #[derive(Clone, Copy, Debug)]
 pub struct AssignedCondition<N: FieldExt> {
@@ -109,14 +109,17 @@ macro_rules! pair_empty {
     };
 }
 
-pub struct Context<'a, 'b, N: FieldExt> {
-    pub region: &'a mut Region<'b, N>,
-    pub offset: &'a mut usize,
+pub struct Context<'a, N: FieldExt> {
+    pub region: Rc<Region<'a, N>>,
+    pub offset: Rc<usize>,
 }
 
-impl<'a, 'b, N: FieldExt> Context<'a, 'b, N> {
-    pub fn new(region: &'a mut Region<'b, N>, offset: &'a mut usize) -> Context<'a, 'b, N> {
-        Context { region, offset }
+impl<'a, N: FieldExt> Context<'a, N> {
+    pub fn new(region: Region<'a, N>, offset: usize) -> Context<'a, N> {
+        Context {
+            region: Rc::new(region),
+            offset: Rc::new(offset),
+        }
     }
 }
 
@@ -135,7 +138,7 @@ pub trait BaseGateOps<N: FieldExt> {
 
     fn one_line(
         &self,
-        r: &mut Context<'_, '_, N>,
+        r: &mut Context<'_, N>,
         base_coeff_pairs: Vec<(ValueSchema<N>, N)>,
         constant: N,
         mul_next_coeffs: (Vec<N>, N),
@@ -143,7 +146,7 @@ pub trait BaseGateOps<N: FieldExt> {
 
     fn one_line_add(
         &self,
-        r: &mut Context<'_, '_, N>,
+        r: &mut Context<'_, N>,
         base_coeff_pairs: Vec<(ValueSchema<N>, N)>,
         constant: N,
     ) -> Result<Vec<AssignedValue<N>>, Error> {
@@ -152,7 +155,7 @@ pub trait BaseGateOps<N: FieldExt> {
 
     fn one_line_with_last_base<'a>(
         &self,
-        r: &mut Context<'_, '_, N>,
+        r: &mut Context<'_, N>,
         mut base_coeff_pairs: Vec<(ValueSchema<'a, N>, N)>,
         last: (ValueSchema<'a, N>, N),
         constant: N,
@@ -167,7 +170,7 @@ pub trait BaseGateOps<N: FieldExt> {
 
     fn sum_with_constant(
         &self,
-        r: &mut Context<'_, '_, N>,
+        r: &mut Context<'_, N>,
         elems: Vec<(&AssignedValue<N>, N)>,
         constant: N,
     ) -> Result<AssignedValue<N>, Error> {
@@ -238,7 +241,7 @@ pub trait BaseGateOps<N: FieldExt> {
 
     fn add(
         &self,
-        r: &mut Context<'_, '_, N>,
+        r: &mut Context<'_, N>,
         a: &AssignedValue<N>,
         b: &AssignedValue<N>,
     ) -> Result<AssignedValue<N>, Error> {
@@ -251,7 +254,7 @@ pub trait BaseGateOps<N: FieldExt> {
 
     fn add_constant(
         &self,
-        r: &mut Context<'_, '_, N>,
+        r: &mut Context<'_, N>,
         a: &AssignedValue<N>,
         c: N,
     ) -> Result<AssignedValue<N>, Error> {
@@ -263,7 +266,7 @@ pub trait BaseGateOps<N: FieldExt> {
 
     fn sub(
         &self,
-        r: &mut Context<'_, '_, N>,
+        r: &mut Context<'_, N>,
         a: &AssignedValue<N>,
         b: &AssignedValue<N>,
     ) -> Result<AssignedValue<N>, Error> {
@@ -276,7 +279,7 @@ pub trait BaseGateOps<N: FieldExt> {
 
     fn mul(
         &self,
-        r: &mut Context<'_, '_, N>,
+        r: &mut Context<'_, N>,
         a: &AssignedValue<N>,
         b: &AssignedValue<N>,
     ) -> Result<AssignedValue<N>, Error> {
@@ -300,7 +303,7 @@ pub trait BaseGateOps<N: FieldExt> {
 
     fn mul_add_constant(
         &self,
-        r: &mut Context<'_, '_, N>,
+        r: &mut Context<'_, N>,
         a: &AssignedValue<N>,
         b: &AssignedValue<N>,
         c: N,
@@ -325,7 +328,7 @@ pub trait BaseGateOps<N: FieldExt> {
 
     fn mul_add(
         &self,
-        r: &mut Context<'_, '_, N>,
+        r: &mut Context<'_, N>,
         a: &AssignedValue<N>,
         b: &AssignedValue<N>,
         c: &AssignedValue<N>,
@@ -356,7 +359,7 @@ pub trait BaseGateOps<N: FieldExt> {
 
     fn mul_add_with_next_line(
         &self,
-        r: &mut Context<'_, '_, N>,
+        r: &mut Context<'_, N>,
         ls: Vec<(&AssignedValue<N>, &AssignedValue<N>, &AssignedValue<N>, N)>,
     ) -> Result<AssignedValue<N>, Error> {
         assert!(self.var_columns() >= 4);
@@ -393,7 +396,7 @@ pub trait BaseGateOps<N: FieldExt> {
 
     fn invert_unsafe(
         &self,
-        r: &mut Context<'_, '_, N>,
+        r: &mut Context<'_, N>,
         a: &AssignedValue<N>,
     ) -> Result<AssignedValue<N>, Error> {
         let b = a.value.invert().unwrap();
@@ -413,7 +416,7 @@ pub trait BaseGateOps<N: FieldExt> {
 
     fn invert(
         &self,
-        r: &mut Context<'_, '_, N>,
+        r: &mut Context<'_, N>,
         a: &AssignedValue<N>,
     ) -> Result<(AssignedCondition<N>, AssignedValue<N>), Error> {
         let zero = N::zero();
@@ -442,7 +445,7 @@ pub trait BaseGateOps<N: FieldExt> {
 
     fn is_zero(
         &self,
-        r: &mut Context<'_, '_, N>,
+        r: &mut Context<'_, N>,
         a: &AssignedValue<N>,
     ) -> Result<AssignedCondition<N>, Error> {
         let (res, _) = self.invert(r, a)?;
@@ -451,7 +454,7 @@ pub trait BaseGateOps<N: FieldExt> {
 
     fn div_unsafe(
         &self,
-        r: &mut Context<'_, '_, N>,
+        r: &mut Context<'_, N>,
         a: &AssignedValue<N>,
         b: &AssignedValue<N>,
     ) -> Result<AssignedValue<N>, Error> {
@@ -470,7 +473,7 @@ pub trait BaseGateOps<N: FieldExt> {
         Ok(cells[1])
     }
 
-    fn assign_constant(&self, r: &mut Context<'_, '_, N>, v: N) -> Result<AssignedValue<N>, Error> {
+    fn assign_constant(&self, r: &mut Context<'_, N>, v: N) -> Result<AssignedValue<N>, Error> {
         let one = N::one();
 
         let cells = self.one_line_add(r, vec![pair!(v, -one)], v)?;
@@ -478,7 +481,7 @@ pub trait BaseGateOps<N: FieldExt> {
         Ok(cells[0])
     }
 
-    fn assign(&self, r: &mut Context<'_, '_, N>, v: N) -> Result<AssignedValue<N>, Error> {
+    fn assign(&self, r: &mut Context<'_, N>, v: N) -> Result<AssignedValue<N>, Error> {
         let zero = N::zero();
         let cells = self.one_line_add(r, vec![pair!(v, zero)], zero)?;
         Ok(cells[0])
@@ -486,7 +489,7 @@ pub trait BaseGateOps<N: FieldExt> {
 
     fn assert_equal(
         &self,
-        r: &mut Context<'_, '_, N>,
+        r: &mut Context<'_, N>,
         a: &AssignedValue<N>,
         b: &AssignedValue<N>,
     ) -> Result<(), Error> {
@@ -500,7 +503,7 @@ pub trait BaseGateOps<N: FieldExt> {
 
     fn assert_constant(
         &self,
-        r: &mut Context<'_, '_, N>,
+        r: &mut Context<'_, N>,
         a: &AssignedValue<N>,
         b: N,
     ) -> Result<(), Error> {
@@ -511,7 +514,7 @@ pub trait BaseGateOps<N: FieldExt> {
         Ok(())
     }
 
-    fn assert_bit(&self, r: &mut Context<'_, '_, N>, a: &AssignedValue<N>) -> Result<(), Error> {
+    fn assert_bit(&self, r: &mut Context<'_, N>, a: &AssignedValue<N>) -> Result<(), Error> {
         let zero = N::zero();
         let one = N::one();
 
@@ -527,7 +530,7 @@ pub trait BaseGateOps<N: FieldExt> {
 
     fn and(
         &self,
-        r: &mut Context<'_, '_, N>,
+        r: &mut Context<'_, N>,
         a: &AssignedCondition<N>,
         b: &AssignedCondition<N>,
     ) -> Result<AssignedCondition<N>, Error> {
@@ -538,7 +541,7 @@ pub trait BaseGateOps<N: FieldExt> {
 
     fn not(
         &self,
-        r: &mut Context<'_, '_, N>,
+        r: &mut Context<'_, N>,
         a: &AssignedCondition<N>,
     ) -> Result<AssignedCondition<N>, Error> {
         let one = N::one();
@@ -549,7 +552,7 @@ pub trait BaseGateOps<N: FieldExt> {
 
     fn or(
         &self,
-        r: &mut Context<'_, '_, N>,
+        r: &mut Context<'_, N>,
         a: &AssignedCondition<N>,
         b: &AssignedCondition<N>,
     ) -> Result<AssignedCondition<N>, Error> {
@@ -570,7 +573,7 @@ pub trait BaseGateOps<N: FieldExt> {
 
     fn xor(
         &self,
-        r: &mut Context<'_, '_, N>,
+        r: &mut Context<'_, N>,
         a: &AssignedCondition<N>,
         b: &AssignedCondition<N>,
     ) -> Result<AssignedCondition<N>, Error> {
@@ -592,7 +595,7 @@ pub trait BaseGateOps<N: FieldExt> {
 
     fn xnor(
         &self,
-        r: &mut Context<'_, '_, N>,
+        r: &mut Context<'_, N>,
         a: &AssignedCondition<N>,
         b: &AssignedCondition<N>,
     ) -> Result<AssignedCondition<N>, Error> {
@@ -614,7 +617,7 @@ pub trait BaseGateOps<N: FieldExt> {
 
     fn bisec(
         &self,
-        r: &mut Context<'_, '_, N>,
+        r: &mut Context<'_, N>,
         cond: &AssignedCondition<N>,
         a: &AssignedValue<N>,
         b: &AssignedValue<N>,
@@ -622,7 +625,7 @@ pub trait BaseGateOps<N: FieldExt> {
 
     fn bisec_cond(
         &self,
-        r: &mut Context<'_, '_, N>,
+        r: &mut Context<'_, N>,
         cond: &AssignedCondition<N>,
         a: &AssignedCondition<N>,
         b: &AssignedCondition<N>,
@@ -633,19 +636,11 @@ pub trait BaseGateOps<N: FieldExt> {
         Ok(c.into())
     }
 
-    fn assert_true(
-        &self,
-        r: &mut Context<'_, '_, N>,
-        a: &AssignedCondition<N>,
-    ) -> Result<(), Error> {
+    fn assert_true(&self, r: &mut Context<'_, N>, a: &AssignedCondition<N>) -> Result<(), Error> {
         self.assert_constant(r, &a.into(), N::one())
     }
 
-    fn assert_false(
-        &self,
-        r: &mut Context<'_, '_, N>,
-        a: &AssignedCondition<N>,
-    ) -> Result<(), Error> {
+    fn assert_false(&self, r: &mut Context<'_, N>, a: &AssignedCondition<N>) -> Result<(), Error> {
         self.assert_constant(r, &a.into(), N::zero())
     }
 }
@@ -716,7 +711,7 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize>
 
     pub fn one_line(
         &self,
-        r: &mut Context<'_, '_, N>,
+        r: &mut Context<'_, N>,
         mut base_coeff_pairs: Vec<(ValueSchema<N>, N)>,
         constant: N,
         mul_next_coeffs: (Vec<N>, N),
@@ -729,7 +724,8 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize>
 
         base_coeff_pairs.resize_with(VAR_COLUMNS, || pair_empty!(N));
         for (i, (base, coeff)) in base_coeff_pairs.into_iter().enumerate() {
-            r.region
+            Rc::get_mut(&mut r.region)
+                .unwrap()
                 .assign_fixed(
                     || format!("coeff_{}", i),
                     self.config.coeff[i],
@@ -738,8 +734,8 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize>
                 )?
                 .cell();
 
-            let cell = r
-                .region
+            let cell = Rc::get_mut(&mut r.region)
+                .unwrap()
                 .assign_advice(
                     || format!("base_{}", i),
                     self.config.base[i],
@@ -748,7 +744,7 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize>
                 )?
                 .cell();
 
-            base.constrain_equal_conditionally(r.region, cell)?;
+            base.constrain_equal_conditionally(Rc::get_mut(&mut r.region).unwrap(), cell)?;
             cells.push(AssignedValue {
                 cell,
                 value: base.value(),
@@ -758,7 +754,7 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize>
         let (mut mul_coeffs, next) = mul_next_coeffs;
         mul_coeffs.resize_with(MUL_COLUMNS, || zero);
         for (i, mul_coeff) in mul_coeffs.into_iter().enumerate() {
-            r.region.assign_fixed(
+            Rc::get_mut(&mut r.region).unwrap().assign_fixed(
                 || format!("mul_coeff_{}", i),
                 self.config.mul_coeff[i],
                 *r.offset,
@@ -766,20 +762,20 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize>
             )?;
         }
 
-        r.region.assign_fixed(
+        Rc::get_mut(&mut r.region).unwrap().assign_fixed(
             || "constant",
             self.config.constant,
             *r.offset,
             || Ok(constant),
         )?;
-        r.region.assign_fixed(
+        Rc::get_mut(&mut r.region).unwrap().assign_fixed(
             || "next_coeff",
             self.config.next_coeff,
             *r.offset,
             || Ok(next),
         )?;
 
-        *r.offset += 1;
+        *Rc::get_mut(&mut r.offset).unwrap() += 1;
 
         Ok(cells.try_into().unwrap())
     }

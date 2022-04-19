@@ -54,7 +54,7 @@ impl<N: FieldExt> TestFiveColumnBaseGateCircuit<N> {
     fn setup_test_one_line(
         &self,
         base_gate: &FiveColumnBaseGate<N>,
-        r: &mut Context<'_, '_, N>,
+        r: &mut Context<'_, N>,
     ) -> Result<(), Error> {
         let vars = [(); VAR_COLUMNS].map(|_| Self::random());
         let coeffs = [(); VAR_COLUMNS].map(|_| Self::random());
@@ -95,7 +95,7 @@ impl<N: FieldExt> TestFiveColumnBaseGateCircuit<N> {
     fn setup_test_sum_with_constant(
         &self,
         base_gate: &FiveColumnBaseGate<N>,
-        r: &mut Context<'_, '_, N>,
+        r: &mut Context<'_, N>,
     ) -> Result<(), Error> {
         const NVARS: usize = VAR_COLUMNS - 1usize;
         const NCOEFFS: usize = VAR_COLUMNS - 1usize;
@@ -128,7 +128,7 @@ impl<N: FieldExt> TestFiveColumnBaseGateCircuit<N> {
     fn setup_test_add(
         &self,
         base_gate: &FiveColumnBaseGate<N>,
-        r: &mut Context<'_, '_, N>,
+        r: &mut Context<'_, N>,
     ) -> Result<(), Error> {
         const NVARS: usize = 2usize;
         let vars = [(); NVARS].map(|_| Self::random());
@@ -151,7 +151,7 @@ impl<N: FieldExt> TestFiveColumnBaseGateCircuit<N> {
     fn setup_test_mul(
         &self,
         base_gate: &FiveColumnBaseGate<N>,
-        r: &mut Context<'_, '_, N>,
+        r: &mut Context<'_, N>,
     ) -> Result<(), Error> {
         const NVARS: usize = 2usize;
         let vars = [(); NVARS].map(|_| Self::random());
@@ -174,7 +174,7 @@ impl<N: FieldExt> TestFiveColumnBaseGateCircuit<N> {
     fn setup_test_mul_add(
         &self,
         base_gate: &FiveColumnBaseGate<N>,
-        r: &mut Context<'_, '_, N>,
+        r: &mut Context<'_, N>,
     ) -> Result<(), Error> {
         const NVARS: usize = 3usize;
         const NCOEFFS: usize = 1usize;
@@ -205,7 +205,7 @@ impl<N: FieldExt> TestFiveColumnBaseGateCircuit<N> {
     fn setup_test_mul_add_with_next_line(
         &self,
         base_gate: &FiveColumnBaseGate<N>,
-        r: &mut Context<'_, '_, N>,
+        r: &mut Context<'_, N>,
     ) -> Result<(), Error> {
         const NVARS: usize = 6usize;
         const NCOEFFS: usize = 2usize;
@@ -247,7 +247,7 @@ impl<N: FieldExt> TestFiveColumnBaseGateCircuit<N> {
     fn setup_test_invert_unsafe(
         &self,
         base_gate: &FiveColumnBaseGate<N>,
-        r: &mut Context<'_, '_, N>,
+        r: &mut Context<'_, N>,
     ) -> Result<(), Error> {
         const NVARS: usize = 1usize;
         let vars = [(); NVARS].map(|_| {
@@ -271,13 +271,14 @@ impl<N: FieldExt> TestFiveColumnBaseGateCircuit<N> {
         let op_result = base_gate.invert_unsafe(r, &assigned_vars[0])?;
 
         base_gate.assert_equal(r, &assigned_result, &op_result)?;
+
         Ok(())
     }
 
     fn setup_test_div_unsafe(
         &self,
         base_gate: &FiveColumnBaseGate<N>,
-        r: &mut Context<'_, '_, N>,
+        r: &mut Context<'_, N>,
     ) -> Result<(), Error> {
         const NVARS: usize = 2usize;
         let vars = [(); NVARS].map(|_| {
@@ -327,9 +328,9 @@ impl<N: FieldExt> Circuit<N> for TestFiveColumnBaseGateCircuit<N> {
 
         layouter.assign_region(
             || "base",
-            |mut region| {
-                let mut base_offset = 0usize;
-                let mut aux = Context::new(&mut region, &mut base_offset);
+            |region| {
+                let base_offset = 0usize;
+                let mut aux = Context::new(region, base_offset);
                 let r = &mut aux;
                 match self.test_case {
                     TestCase::OneLine => self.setup_test_one_line(&base_gate, r),

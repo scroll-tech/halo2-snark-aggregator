@@ -56,7 +56,7 @@ impl<W: BaseExt, N: FieldExt> TestFiveColumnIntegerChipCircuit<W, N> {
     fn setup_test_add(
         &self,
         integer_gate: &FiveColumnIntegerChip<'_, W, N>,
-        r: &mut Context<'_, '_, N>,
+        r: &mut Context<'_, N>,
     ) -> Result<(), Error> {
         let a = Self::random();
         let b = Self::random();
@@ -73,7 +73,7 @@ impl<W: BaseExt, N: FieldExt> TestFiveColumnIntegerChipCircuit<W, N> {
     fn setup_test_sub(
         &self,
         integer_gate: &FiveColumnIntegerChip<'_, W, N>,
-        r: &mut Context<'_, '_, N>,
+        r: &mut Context<'_, N>,
     ) -> Result<(), Error> {
         let a = Self::random();
         let b = Self::random();
@@ -91,7 +91,7 @@ impl<W: BaseExt, N: FieldExt> TestFiveColumnIntegerChipCircuit<W, N> {
     fn setup_test_neg(
         &self,
         integer_gate: &FiveColumnIntegerChip<'_, W, N>,
-        r: &mut Context<'_, '_, N>,
+        r: &mut Context<'_, N>,
     ) -> Result<(), Error> {
         let a = Self::random();
         let c = -a;
@@ -107,7 +107,7 @@ impl<W: BaseExt, N: FieldExt> TestFiveColumnIntegerChipCircuit<W, N> {
     fn setup_test_mul(
         &self,
         integer_gate: &FiveColumnIntegerChip<'_, W, N>,
-        r: &mut Context<'_, '_, N>,
+        r: &mut Context<'_, N>,
     ) -> Result<(), Error> {
         let a = Self::random();
         let b = Self::random();
@@ -125,7 +125,7 @@ impl<W: BaseExt, N: FieldExt> TestFiveColumnIntegerChipCircuit<W, N> {
     fn setup_test_square(
         &self,
         integer_gate: &FiveColumnIntegerChip<'_, W, N>,
-        r: &mut Context<'_, '_, N>,
+        r: &mut Context<'_, N>,
     ) -> Result<(), Error> {
         let a = Self::random();
         let c = a * a;
@@ -141,7 +141,7 @@ impl<W: BaseExt, N: FieldExt> TestFiveColumnIntegerChipCircuit<W, N> {
     fn setup_test_div(
         &self,
         integer_gate: &FiveColumnIntegerChip<'_, W, N>,
-        r: &mut Context<'_, '_, N>,
+        r: &mut Context<'_, N>,
     ) -> Result<(), Error> {
         let a = Self::random();
         let b = Self::random();
@@ -170,7 +170,7 @@ impl<W: BaseExt, N: FieldExt> TestFiveColumnIntegerChipCircuit<W, N> {
     fn setup_test_is_zero(
         &self,
         integer_gate: &FiveColumnIntegerChip<'_, W, N>,
-        r: &mut Context<'_, '_, N>,
+        r: &mut Context<'_, N>,
     ) -> Result<(), Error> {
         let a = Self::random();
         let b = Self::random();
@@ -236,9 +236,9 @@ impl<W: BaseExt, N: FieldExt> Circuit<N> for TestFiveColumnIntegerChipCircuit<W,
 
         layouter.assign_region(
             || "base",
-            |mut region| {
-                let mut base_offset = 0usize;
-                let mut aux = Context::new(&mut region, &mut base_offset);
+            |region| {
+                let base_offset = 0usize;
+                let mut aux = Context::new(region, base_offset);
                 let r = &mut aux;
                 let round = 100;
                 for _ in 0..round {
