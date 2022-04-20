@@ -5,14 +5,13 @@ edition = "2021"
 authors = ["zhangjunyu <junyu92@gmail.com>"]
 
 [dependencies]
-cfg-if = "0.1"
-chrono = "0.4.19"
 group = "0.11"
 halo2_proofs = { git = "https://github.com/junyu0312/halo2", rev = "3f6196fed5a61b7f86eb56848b4193d7a7b830d9", default-features = true }
-num-bigint = { version = "0.4", features = ["rand"] }
 num-integer = "0.1"
+num-bigint = { version = "0.4", features = ["rand"] }
+pairing_bn256 = { git = "https://github.com/appliedzkp/pairing" }
 
 [dev-dependencies]
+chrono = "0.4.19"
 rand = "0.8"
 rand_xorshift = "0.3"
-pairing_bn256 = { git = "https://github.com/appliedzkp/pairing" }

@@ -181,7 +181,6 @@ dependencies = [
 name = "halo2-ecc-circuit-lib"
 version = "0.1.0"
 dependencies = [
- "cfg-if 0.1.10",
  "chrono",
  "group",
  "halo2_proofs",

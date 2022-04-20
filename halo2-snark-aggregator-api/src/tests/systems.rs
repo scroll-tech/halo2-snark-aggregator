@@ -1,1 +1,1 @@
-mod halo2;
+pub mod halo2;
