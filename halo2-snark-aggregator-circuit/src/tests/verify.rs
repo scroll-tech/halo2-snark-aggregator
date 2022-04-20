@@ -17,17 +17,21 @@ use halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner},
     plonk::{Circuit, ConstraintSystem, Error},
 };
-use halo2_snark_aggregator_api::tests::systems::halo2::verify_single::test_verify_single_proof_in_chip;
+use halo2_snark_aggregator_api::tests::systems::halo2::{
+    verify_aggregation::test_verify_aggregation_proof_in_chip,
+    verify_single::test_verify_single_proof_in_chip,
+};
 use pairing_bn256::bn256::{Fq, Fr, G1Affine};
 use std::marker::PhantomData;
 
 enum TestCase {
-    Verify,
+    Single,
+    Aggregation,
 }
 
 impl Default for TestCase {
     fn default() -> TestCase {
-        TestCase::Verify
+        TestCase::Single
     }
 }
 
@@ -47,7 +51,7 @@ struct TestFiveColumnNativeEccChipCircuit<C: CurveAffine> {
 }
 
 impl TestFiveColumnNativeEccChipCircuit<G1Affine> {
-    fn setup_test_verify<'a>(
+    fn setup_single_proof_verify_test<'a>(
         &self,
         base_gate_config: BaseGateConfig<VAR_COLUMNS, MUL_COLUMNS>,
         ecc_chip: &NativeEccChip<G1Affine>,
@@ -57,6 +61,30 @@ impl TestFiveColumnNativeEccChipCircuit<G1Affine> {
         let scalar_base_gate = FiveColumnBaseGate::new(base_gate_config);
 
         test_verify_single_proof_in_chip::<
+            ScalarChip<_>,
+            ScalarChip<_>,
+            EccChip<G1Affine>,
+            PoseidonEncode<_>,
+        >(
+            &ScalarChip::new(native_base_gate),
+            &ScalarChip::new(scalar_base_gate),
+            &EccChip::new(ecc_chip),
+            ctx,
+        );
+
+        Ok(())
+    }
+
+    fn setup_aggregation_proof_verify_test<'a>(
+        &self,
+        base_gate_config: BaseGateConfig<VAR_COLUMNS, MUL_COLUMNS>,
+        ecc_chip: &NativeEccChip<G1Affine>,
+        ctx: &mut Context<'a, Fr>,
+    ) -> Result<(), Error> {
+        let native_base_gate = FiveColumnBaseGate::new(base_gate_config.clone());
+        let scalar_base_gate = FiveColumnBaseGate::new(base_gate_config);
+
+        test_verify_aggregation_proof_in_chip::<
             ScalarChip<_>,
             ScalarChip<_>,
             EccChip<G1Affine>,
@@ -118,9 +146,16 @@ impl Circuit<Fr> for TestFiveColumnNativeEccChipCircuit<G1Affine> {
                 let round = 1;
                 for _ in 0..round {
                     match self.test_case {
-                        TestCase::Verify => {
-                            self.setup_test_verify(config.base_gate_config.clone(), &ecc_gate, r)
-                        }
+                        TestCase::Single => self.setup_single_proof_verify_test(
+                            config.base_gate_config.clone(),
+                            &ecc_gate,
+                            r,
+                        ),
+                        TestCase::Aggregation => self.setup_aggregation_proof_verify_test(
+                            config.base_gate_config.clone(),
+                            &ecc_gate,
+                            r,
+                        ),
                     }?;
                 }
 
@@ -139,11 +174,27 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_five_column_verify() {
+    fn test_five_column_single_proof_verify() {
         //const K: u32 = (COMMON_RANGE_BITS + 2) as u32;
         const K: u32 = 22;
         let chip = TestFiveColumnNativeEccChipCircuit::<G1Affine> {
-            test_case: TestCase::Verify,
+            test_case: TestCase::Single,
+            _phantom_w: PhantomData,
+            _phantom_n: PhantomData,
+        };
+        let prover = match MockProver::run(K, &chip, vec![]) {
+            Ok(prover) => prover,
+            Err(e) => panic!("{:#?}", e),
+        };
+        assert_eq!(prover.verify(), Ok(()));
+    }
+
+    #[test]
+    fn test_five_column_aggregation_proof_verify() {
+        //const K: u32 = (COMMON_RANGE_BITS + 2) as u32;
+        const K: u32 = 22;
+        let chip = TestFiveColumnNativeEccChipCircuit::<G1Affine> {
+            test_case: TestCase::Aggregation,
             _phantom_w: PhantomData,
             _phantom_n: PhantomData,
         };
