@@ -11,6 +11,7 @@ pub struct PlonkCommonSetup {
 }
 
 pub struct VerifierParams<A: ArithEccChip> {
+    pub key: String,
     pub gates: Vec<Vec<Expression<A::AssignedScalar>>>,
     pub common: PlonkCommonSetup,
 
@@ -102,6 +103,7 @@ impl<Scalar: FieldExt, A: ArithEccChip<Scalar = Scalar>> VerifierParams<A> {
         let zero = &self.zero;
 
         let pcommon = permutation::CommonEvaluated {
+            key: self.key.clone(),
             permutation_evals: &self.permutation_evals,
             permutation_commitments: &self.permutation_commitments,
         };
@@ -175,7 +177,7 @@ impl<Scalar: FieldExt, A: ArithEccChip<Scalar = Scalar>> VerifierParams<A> {
             for (query_index, &(column, at)) in self.instance_queries.iter().enumerate() {
                 queries.push(EvaluationQuery::new(
                     self.gen_key_x_rotate_omega("x".to_string(), at),
-                    format!("instance_commitments{}", query_index),
+                    format!("{}_instance_commitments{}", self.key, query_index),
                     self.x_rotate_omega(ctx, schip, at)?,
                     instance_commitments[column].clone(),
                     instance_evals[query_index].clone(),
@@ -185,7 +187,7 @@ impl<Scalar: FieldExt, A: ArithEccChip<Scalar = Scalar>> VerifierParams<A> {
             for (query_index, &(column, at)) in self.advice_queries.iter().enumerate() {
                 queries.push(EvaluationQuery::new(
                     self.gen_key_x_rotate_omega("x".to_string(), at),
-                    format!("advice_commitments{}", query_index),
+                    format!("{}_advice_commitments{}", self.key, query_index),
                     self.x_rotate_omega(ctx, schip, at)?,
                     advice_commitments[column].clone(),
                     advice_evals[query_index].clone(),
@@ -202,9 +204,9 @@ impl<Scalar: FieldExt, A: ArithEccChip<Scalar = Scalar>> VerifierParams<A> {
         }
 
         for (query_index, &(column, at)) in self.fixed_queries.iter().enumerate() {
-            queries.push(EvaluationQuery::<A>::new(
+            queries.push(EvaluationQuery::new(
                 self.gen_key_x_rotate_omega("x".to_string(), at),
-                format!("fixed_commitments{}", query_index),
+                format!("{}_fixed_commitments{}", self.key, query_index),
                 self.x_rotate_omega(ctx, schip, at)?,
                 self.fixed_commitments[column].clone(),
                 self.fixed_evals[query_index].clone(),
@@ -224,6 +226,7 @@ impl<Scalar: FieldExt, A: ArithEccChip<Scalar = Scalar>> VerifierParams<A> {
             &self.random_eval,
             &self.vanish_commitments,
             &self.one,
+            self.key.clone(),
         )?;
         //vanishing.verify(expressions, y, xn)
         let mut vanish = vanish.queries(x);

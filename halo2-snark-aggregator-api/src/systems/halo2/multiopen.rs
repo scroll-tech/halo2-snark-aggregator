@@ -63,7 +63,7 @@ impl<A: ArithEccChip> VerifierParams<A> {
         for (i, p) in proofs.into_iter().enumerate() {
             let s = &p.s;
             let w = CommitQuery {
-                key: format!("w{}", i),
+                key: format!("{}_w{}", self.key, i),
                 commitment: Some(p.w.clone()),
                 eval: None,
             };

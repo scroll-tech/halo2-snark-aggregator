@@ -7,6 +7,7 @@ use crate::{
 use super::evaluation::{CommitQuery, EvaluationQuery, EvaluationQuerySchema};
 
 pub struct Evaluated<'a, A: ArithEccChip> {
+    key: String,
     h_commitment: EvaluationQuerySchema<A::AssignedPoint, A::AssignedScalar>,
     expected_h_eval: A::AssignedScalar,
     random_commitment: &'a A::AssignedPoint,
@@ -24,6 +25,7 @@ impl<'a, A: ArithEccChip> Evaluated<'a, A> {
         random_eval: &'a A::AssignedScalar,
         expect_commitments: &Vec<A::AssignedPoint>,
         one: &A::AssignedScalar,
+        key: String,
     ) -> Result<Evaluated<'a, A>, A::Error> {
         let expected_h_eval = &schip.mul_add_accumulate(ctx, expressions.iter().collect(), y)?;
         let expected_h_eval = arith_ast!(expected_h_eval / (xn - one)).eval(ctx, schip)?;
@@ -34,7 +36,7 @@ impl<'a, A: ArithEccChip> Evaluated<'a, A> {
             .enumerate()
             .map(|(i, c)| {
                 EvaluationQuerySchema::Commitment(CommitQuery {
-                    key: format!("h{}", i),
+                    key: format!("{}_h_commitment{}", key.clone(), i),
                     commitment: Some(c.clone()),
                     eval: None as Option<A::AssignedScalar>,
                 })
@@ -43,6 +45,7 @@ impl<'a, A: ArithEccChip> Evaluated<'a, A> {
             .unwrap();
 
         Ok(Evaluated {
+            key,
             h_commitment,
             expected_h_eval,
             random_eval,
@@ -60,7 +63,7 @@ impl<'a, A: ArithEccChip> Evaluated<'a, A> {
             ),
             EvaluationQuery::new(
                 "x".to_string(),
-                "random_commitment".to_string(),
+                format!("{}_random_commitment", self.key),
                 x.clone(),
                 self.random_commitment.clone(),
                 self.random_eval.clone(),

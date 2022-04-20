@@ -19,6 +19,7 @@ pub struct Committed<P> {
 
 #[derive(Debug)]
 pub struct Evaluated<A: ArithEccChip> {
+    pub(in crate::systems::halo2) key: String,
     pub(in crate::systems::halo2) input_expressions: Vec<Expression<A::AssignedScalar>>,
     pub(in crate::systems::halo2) table_expressions: Vec<Expression<A::AssignedScalar>>,
     pub(in crate::systems::halo2) committed: Committed<A::AssignedPoint>,
@@ -120,35 +121,35 @@ impl<A: ArithEccChip> Evaluated<A> {
         vec![
             EvaluationQuery::new(
                 "x".to_string(),
-                "product_commitment".to_string(),
+                format!("{}_product_commitment", self.key),
                 x.clone(),
                 self.committed.product_commitment.clone(),
                 self.product_eval.clone(),
             ),
             EvaluationQuery::new(
                 "x".to_string(),
-                "permuted_input_commitment".to_string(),
+                format!("{}_permuted_input_commitment", self.key),
                 x.clone(),
                 self.committed.permuted.permuted_input_commitment.clone(),
                 self.permuted_input_eval.clone(),
             ),
             EvaluationQuery::new(
                 "x".to_string(),
-                "permuted_table_commitment".to_string(),
+                format!("{}_permuted_table_commitment", self.key),
                 x.clone(),
                 self.committed.permuted.permuted_table_commitment.clone(),
                 self.permuted_table_eval.clone(),
             ),
             EvaluationQuery::new(
                 "x_inv".to_string(),
-                "permuted_input_commitment".to_string(),
+                format!("{}_permuted_input_commitment", self.key),
                 x_inv.clone(),
                 self.committed.permuted.permuted_input_commitment.clone(),
                 self.permuted_input_inv_eval.clone(),
             ),
             EvaluationQuery::new(
                 "x_next".to_string(),
-                "product_commitment".to_string(),
+                format!("{}_product_commitment", self.key),
                 x_next.clone(),
                 self.committed.product_commitment.clone(),
                 self.product_next_eval.clone(),

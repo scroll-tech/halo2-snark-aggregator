@@ -35,6 +35,7 @@ pub struct VerifierParamsBuilder<
     vk: &'a VerifyingKey<E::G1Affine>,
     params: &'a ParamsVerifier<E>,
     transcript: &'a mut T,
+    key: String,
 }
 
 // Follow the sequence of official halo2
@@ -295,6 +296,7 @@ impl<
                     sets: permutation_evaluated_set,
                     evals: permutation_evaluated_eval,
                     chunk_len: self.vk.cs.degree() - 2,
+                    key: self.key.clone(),
                 },
             )
             .collect();
@@ -341,6 +343,7 @@ impl<
                             permuted_input_eval,
                             permuted_input_inv_eval,
                             permuted_table_eval,
+                            key: self.key.clone(),
                         })
                     })
                     .collect::<Result<Vec<_>, _>>()
@@ -449,6 +452,7 @@ impl<
         }
 
         Ok(VerifierParams {
+            key: self.key.clone(),
             gates: self
                 .vk
                 .cs
@@ -554,6 +558,7 @@ pub fn verify_single_proof_no_eval<
     vk: &VerifyingKey<E::G1Affine>,
     params: &ParamsVerifier<E>,
     transcript: &mut T,
+    key: String,
 ) -> Result<MultiOpenProof<A>, A::Error> {
     let params_builder = VerifierParamsBuilder {
         ctx,
@@ -565,6 +570,7 @@ pub fn verify_single_proof_no_eval<
         vk,
         params,
         transcript,
+        key,
     };
 
     let chip_params = params_builder.build_params()?;
@@ -642,13 +648,12 @@ pub fn verify_single_proof_in_chip<
     transcript: &mut T,
 ) -> Result<(E::G1Affine, E::G1Affine), A::Error> {
     let proof = verify_single_proof_no_eval(
-        ctx, nchip, schip, pchip, xi, instances, vk, params, transcript,
+        ctx, nchip, schip, pchip, xi, instances, vk, params, transcript, "".to_owned(),
     )?;
     evaluate_multiopen_proof::<E, A, T>(ctx, schip, pchip, proof, params)
 }
 
 pub struct ProofData<
-    'a,
     E: MultiMillerLoop,
     A: ArithEccChip<
         Point = E::G1Affine,
@@ -658,12 +663,13 @@ pub struct ProofData<
     T: TranscriptRead<A>,
 > {
     pub xi: <E::G1Affine as CurveAffine>::ScalarExt,
-    pub instances: &'a [&'a [&'a [E::Scalar]]],
+    pub instances: Vec<Vec<Vec<E::Scalar>>>,
     pub transcript: T,
-    _phantom: PhantomData<A>,
+    pub key: String,
+    pub _phantom: PhantomData<A>,
 }
 
-pub fn verify_multi_proofs_in_chip<
+pub fn verify_aggregation_proofs_in_chip<
     E: MultiMillerLoop,
     A: ArithEccChip<
         Point = E::G1Affine,
@@ -671,7 +677,6 @@ pub fn verify_multi_proofs_in_chip<
         Native = <E::G1Affine as CurveAffine>::ScalarExt,
     >,
     T: TranscriptRead<A>,
-    const B: usize,
 >(
     ctx: &mut A::Context,
     nchip: &A::NativeChip,
@@ -679,22 +684,30 @@ pub fn verify_multi_proofs_in_chip<
     pchip: &A,
     vk: &VerifyingKey<E::G1Affine>,
     params: &ParamsVerifier<E>,
-    proofs: &mut [ProofData<'_, E, A, T>; B],
+    mut proofs: Vec<ProofData<E, A, T>>,
     transcript: &mut T,
 ) -> Result<(E::G1Affine, E::G1Affine), A::Error> {
     let multiopen_proofs: Vec<MultiOpenProof<A>> = proofs
         .iter_mut()
         .map(|proof| {
+            let instances1: Vec<Vec<&[E::Scalar]>> = proof
+                .instances
+                .iter()
+                .map(|x| x.iter().map(|y| &y[..]).collect())
+                .collect();
+            let instances2: Vec<&[&[E::Scalar]]> = instances1.iter().map(|x| &x[..]).collect();
+
             verify_single_proof_no_eval(
                 ctx,
                 nchip,
                 schip,
                 pchip,
                 proof.xi,
-                proof.instances,
+                &instances2[..],
                 vk,
                 params,
                 &mut proof.transcript,
+                proof.key.clone(),
             )
         })
         .collect::<Result<_, A::Error>>()?;
@@ -707,13 +720,15 @@ pub fn verify_multi_proofs_in_chip<
     }
 
     let aggregation_challenge = transcript.squeeze_challenge_scalar(ctx, nchip, schip)?;
+    println!("ac {:?}", schip.to_value(&aggregation_challenge)?);
+
     let mut acc: Option<MultiOpenProof<A>> = None;
     for proof in multiopen_proofs.into_iter() {
         acc = match acc {
             None => Some(proof),
-            Some(p) => Some(MultiOpenProof {
-                w_x: p.w_x * scalar!(aggregation_challenge) + proof.w_x,
-                w_g: p.w_g * scalar!(aggregation_challenge) + proof.w_g,
+            Some(acc) => Some(MultiOpenProof {
+                w_x: acc.w_x * scalar!(aggregation_challenge) + proof.w_x,
+                w_g: acc.w_g * scalar!(aggregation_challenge) + proof.w_g,
             }),
         }
     }

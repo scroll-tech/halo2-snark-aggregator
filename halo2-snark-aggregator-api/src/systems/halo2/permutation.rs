@@ -15,12 +15,14 @@ pub struct EvaluatedSet<A: ArithEccChip> {
 
 #[derive(Debug)]
 pub struct CommonEvaluated<'a, A: ArithEccChip> {
+    pub key: String,
     pub permutation_evals: &'a Vec<A::AssignedScalar>,
     pub permutation_commitments: &'a Vec<A::AssignedPoint>,
 }
 
 #[derive(Debug)]
 pub struct Evaluated<A: ArithEccChip> {
+    pub(in crate::systems::halo2) key: String,
     pub(in crate::systems::halo2) x: A::AssignedScalar,
     pub(in crate::systems::halo2) sets: Vec<EvaluatedSet<A>>,
     pub(in crate::systems::halo2) evals: Vec<A::AssignedScalar>,
@@ -35,9 +37,9 @@ impl<'a, A: ArithEccChip> CommonEvaluated<'a, A> {
             .zip(self.permutation_evals.iter())
             .enumerate()
             .map(|(i, (commitment, eval))| {
-                EvaluationQuery::<A>::new(
+                EvaluationQuery::new(
                     "x".to_string(),
-                    format!("permutation_commitments{}", i),
+                    format!("{}_permutation_commitments{}", self.key, i),
                     x.clone(),
                     commitment.clone(),
                     eval.clone(),
@@ -140,14 +142,14 @@ impl<A: ArithEccChip> Evaluated<A> {
                     // Open permutation product commitments at x and \omega x
                     .chain(Some(EvaluationQuery::new(
                         "x".to_string(),
-                        format!("permutation_product_commitment{}", i),
+                        format!("{}_permutation_product_commitment{}", self.key, i),
                         self.x.clone(),
                         set.permutation_product_commitment.clone(),
                         set.permutation_product_eval.clone(),
                     )))
                     .chain(Some(EvaluationQuery::new(
                         "x_next".to_string(),
-                        format!("permutation_product_commitment{}", i),
+                        format!("{}_permutation_product_commitment{}", self.key, i),
                         x_next.clone(),
                         set.permutation_product_commitment.clone(),
                         set.permutation_product_next_eval.clone(),
@@ -163,7 +165,7 @@ impl<A: ArithEccChip> Evaluated<A> {
                     .flat_map(|(i, set)| {
                         Some(EvaluationQuery::new(
                             "x_last".to_string(),
-                            format!("permutation_product_commitment{}", i),
+                            format!("{}_permutation_product_commitment{}", self.key, i),
                             x_last.clone(),
                             set.permutation_product_commitment.clone(),
                             set.permutation_product_last_eval.as_ref().unwrap().clone(),

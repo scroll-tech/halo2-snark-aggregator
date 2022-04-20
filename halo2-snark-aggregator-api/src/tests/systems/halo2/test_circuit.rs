@@ -311,10 +311,8 @@ impl<F: FieldExt> Circuit<F> for MyCircuit<F> {
     }
 }
 
-pub(crate) fn test_circuit_builder() -> MyCircuit<Fp> {
+pub(crate) fn test_circuit_builder(a: Fp, b: Fp) -> MyCircuit<Fp> {
     let constant = Fp::from(7);
-    let a = Fp::from(2);
-    let b = Fp::from(3);
 
     MyCircuit {
         constant,
