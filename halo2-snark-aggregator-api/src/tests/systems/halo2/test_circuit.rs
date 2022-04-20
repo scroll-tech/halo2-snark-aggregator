@@ -315,7 +315,6 @@ pub(crate) fn test_circuit_builder() -> MyCircuit<Fp> {
     let constant = Fp::from(7);
     let a = Fp::from(2);
     let b = Fp::from(3);
-    let c = constant * a.square() * b.square();
 
     MyCircuit {
         constant,

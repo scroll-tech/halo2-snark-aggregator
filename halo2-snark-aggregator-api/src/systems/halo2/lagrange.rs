@@ -25,8 +25,8 @@ impl<A: ArithEccChip> LagrangeGenerator<A> for VerifierParams<A> {
         let one = &self.one;
 
         let mut ws = vec![one.clone()];
-        for _ in 1..=self.common.l {
-            let wi = schip.mul(ctx, &one, &self.omega)?;
+        for i in 1..=self.common.l {
+            let wi = schip.mul(ctx, &ws[(i-1) as usize], &self.omega)?;
             ws.push(wi)
         }
 

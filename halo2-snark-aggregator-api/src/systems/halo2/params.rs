@@ -52,6 +52,22 @@ pub struct VerifierParams<A: ArithEccChip> {
 }
 
 impl<Scalar: FieldExt, A: ArithEccChip<Scalar = Scalar>> VerifierParams<A> {
+    fn gen_key_x_rotate_omega(&self, p: String, offset: i32) -> String {
+        let l = self.common.l;
+
+        if offset == 0 {
+            p
+        } else if offset == -1 {
+            format!("{}_inv", p)
+        } else if offset == 1 {
+            format!("{}_next", p)
+        } else if -(l as i32) == offset {
+            format!("{}_last", p)
+        } else {
+            format!("{}_rotate_{}", p, offset)
+        }
+    }
+
     fn x_rotate_omega(
         &self,
         ctx: &mut A::Context,
@@ -158,6 +174,7 @@ impl<Scalar: FieldExt, A: ArithEccChip<Scalar = Scalar>> VerifierParams<A> {
 
             for (query_index, &(column, at)) in self.instance_queries.iter().enumerate() {
                 queries.push(EvaluationQuery::new(
+                    self.gen_key_x_rotate_omega("x".to_string(), at),
                     format!("instance_commitments{}", query_index),
                     self.x_rotate_omega(ctx, schip, at)?,
                     instance_commitments[column].clone(),
@@ -167,6 +184,7 @@ impl<Scalar: FieldExt, A: ArithEccChip<Scalar = Scalar>> VerifierParams<A> {
 
             for (query_index, &(column, at)) in self.advice_queries.iter().enumerate() {
                 queries.push(EvaluationQuery::new(
+                    self.gen_key_x_rotate_omega("x".to_string(), at),
                     format!("advice_commitments{}", query_index),
                     self.x_rotate_omega(ctx, schip, at)?,
                     advice_commitments[column].clone(),
@@ -185,6 +203,7 @@ impl<Scalar: FieldExt, A: ArithEccChip<Scalar = Scalar>> VerifierParams<A> {
 
         for (query_index, &(column, at)) in self.fixed_queries.iter().enumerate() {
             queries.push(EvaluationQuery::<A>::new(
+                self.gen_key_x_rotate_omega("x".to_string(), at),
                 format!("fixed_commitments{}", query_index),
                 self.x_rotate_omega(ctx, schip, at)?,
                 self.fixed_commitments[column].clone(),
