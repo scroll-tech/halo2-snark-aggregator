@@ -182,20 +182,14 @@ name = "halo2-snark-aggregator-api"
 version = "0.1.0"
 dependencies = [
  "blake2b_simd",
- "cfg-if 0.1.10",
  "chrono",
  "group",
  "halo2_proofs",
- "num-bigint",
- "num-integer",
- "num-traits",
  "pairing_bn256",
  "poseidon 0.1.0 (git+https://github.com/appliedzkp/poseidon.git?branch=circuit)",
  "rand",
- "rand_core",
  "rand_pcg",
  "rand_xorshift",
- "subtle",
 ]
 
 [[package]]
