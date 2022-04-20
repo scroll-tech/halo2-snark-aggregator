@@ -9,6 +9,12 @@ use halo2_snark_aggregator_api::arith::{common::ArithCommonChip, field::ArithFie
 
 pub struct ScalarChip<'a, N: FieldExt>(FiveColumnBaseGate<N>, PhantomData<&'a N>);
 
+impl<'a, N: FieldExt> ScalarChip<'a, N> {
+    pub fn new(base_gate: FiveColumnBaseGate<N>) -> Self {
+        ScalarChip(base_gate, PhantomData)
+    }
+}
+
 impl<'a, N: FieldExt> ArithCommonChip for ScalarChip<'a, N> {
     type Context = Context<'a, N>;
     type Value = N;

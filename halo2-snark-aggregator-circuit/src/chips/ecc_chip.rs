@@ -12,8 +12,17 @@ use halo2_snark_aggregator_api::arith::{common::ArithCommonChip, ecc::ArithEccCh
 use std::marker::PhantomData;
 
 pub struct EccChip<'a, 'b, C: CurveAffine> {
-    pub chip: NativeEccChip<'a, C>,
+    pub chip: &'a NativeEccChip<'a, C>,
     _phantom: PhantomData<&'b C>,
+}
+
+impl<'a, 'b, C: CurveAffine> EccChip<'a, 'b, C> {
+    pub fn new(chip: &'a NativeEccChip<'a, C>) -> Self {
+        EccChip {
+            chip,
+            _phantom: PhantomData,
+        }
+    }
 }
 
 impl<'a, 'b, C: CurveAffine> ArithCommonChip for EccChip<'a, 'b, C> {

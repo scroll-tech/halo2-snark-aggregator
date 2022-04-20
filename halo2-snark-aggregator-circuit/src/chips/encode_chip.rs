@@ -21,7 +21,7 @@ impl<'a, 'b, C: CurveAffine> Encode<EccChip<'a, 'b, C>> for PoseidonEncode<EccCh
     ) -> Result<Vec<<EccChip<'a, 'b, C> as ArithEccChip>::AssignedNative>, Error> {
         let mut px = v.x.clone();
         let mut py = v.y.clone();
-        let x_native = EccChipOps::integer_chip(&pchip.chip).native(ctx, &mut px)?;
+        let x_native = EccChipOps::integer_chip(pchip.chip).native(ctx, &mut px)?;
         let y_native = if true {
             pchip.chip.integer_chip().native(ctx, &mut py)?
         } else {
