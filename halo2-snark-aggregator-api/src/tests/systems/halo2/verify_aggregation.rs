@@ -110,7 +110,6 @@ pub fn test_verify_aggregation_proof_in_chip<
         .unwrap();
 
         proof_data_list.push(ProofData {
-            xi: random(),
             instances,
             transcript,
             key: format!("p{}", i),

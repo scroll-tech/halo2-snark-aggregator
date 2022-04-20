@@ -87,7 +87,6 @@ pub fn test_verify_single_proof_in_chip<ScalarChip, NativeChip, EccChip, EncodeC
         nchip,
         schip,
         pchip,
-        Fp::zero(),
         instances,
         pk.get_vk(),
         params_verifier,

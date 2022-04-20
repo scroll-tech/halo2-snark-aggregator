@@ -30,7 +30,6 @@ pub struct VerifierParamsBuilder<
     nchip: &'a A::NativeChip,
     schip: &'a A::ScalarChip,
     pchip: &'a A,
-    xi: <E::G1Affine as CurveAffine>::ScalarExt,
     instances: &'a [&'a [&'a [E::Scalar]]],
     vk: &'a VerifyingKey<E::G1Affine>,
     params: &'a ParamsVerifier<E>,
@@ -521,7 +520,6 @@ impl<
             y,
             u,
             v,
-            xi: self.schip.assign_const(self.ctx, self.xi)?,
             omega: self
                 .schip
                 .assign_const(self.ctx, self.vk.domain.get_omega())?,
@@ -553,7 +551,6 @@ pub fn verify_single_proof_no_eval<
     nchip: &A::NativeChip,
     schip: &A::ScalarChip,
     pchip: &A,
-    xi: <E::G1Affine as CurveAffine>::ScalarExt,
     instances: &[&[&[E::Scalar]]],
     vk: &VerifyingKey<E::G1Affine>,
     params: &ParamsVerifier<E>,
@@ -565,7 +562,6 @@ pub fn verify_single_proof_no_eval<
         nchip,
         schip,
         pchip,
-        xi,
         instances,
         vk,
         params,
@@ -641,14 +637,13 @@ pub fn verify_single_proof_in_chip<
     nchip: &A::NativeChip,
     schip: &A::ScalarChip,
     pchip: &A,
-    xi: <E::G1Affine as CurveAffine>::ScalarExt,
     instances: &[&[&[E::Scalar]]],
     vk: &VerifyingKey<E::G1Affine>,
     params: &ParamsVerifier<E>,
     transcript: &mut T,
 ) -> Result<(E::G1Affine, E::G1Affine), A::Error> {
     let proof = verify_single_proof_no_eval(
-        ctx, nchip, schip, pchip, xi, instances, vk, params, transcript, "".to_owned(),
+        ctx, nchip, schip, pchip, instances, vk, params, transcript, "".to_owned(),
     )?;
     evaluate_multiopen_proof::<E, A, T>(ctx, schip, pchip, proof, params)
 }
@@ -662,7 +657,6 @@ pub struct ProofData<
     >,
     T: TranscriptRead<A>,
 > {
-    pub xi: <E::G1Affine as CurveAffine>::ScalarExt,
     pub instances: Vec<Vec<Vec<E::Scalar>>>,
     pub transcript: T,
     pub key: String,
@@ -702,7 +696,6 @@ pub fn verify_aggregation_proofs_in_chip<
                 nchip,
                 schip,
                 pchip,
-                proof.xi,
                 &instances2[..],
                 vk,
                 params,

@@ -44,7 +44,6 @@ pub struct VerifierParams<A: ArithEccChip> {
     pub y: A::AssignedScalar,
     pub u: A::AssignedScalar,
     pub v: A::AssignedScalar,
-    pub xi: A::AssignedScalar,
     pub omega: A::AssignedScalar,
 
     pub zero: A::AssignedScalar,
