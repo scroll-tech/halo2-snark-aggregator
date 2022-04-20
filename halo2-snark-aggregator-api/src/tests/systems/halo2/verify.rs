@@ -1,15 +1,11 @@
 #[cfg(test)]
 mod tests {
     use crate::{
-        systems::halo2::{
-            transcript::PoseidonTranscriptRead,
-            verify::{verify_single_proof_in_chip},
-        },
+        systems::halo2::{transcript::PoseidonTranscriptRead, verify::verify_single_proof_in_chip},
         tests::{
             arith::{ecc::MockEccChip, field::MockFieldChip},
             systems::halo2::{
-                test_circuit::{test_circuit_builder},
-                transcript_encode::PoseidonEncode,
+                test_circuit::test_circuit_builder, transcript_encode::PoseidonEncode,
             },
         },
     };
@@ -91,7 +87,6 @@ mod tests {
             pk.get_vk(),
             params_verifier,
             &mut transcript,
-            true,
         )
         .unwrap();
     }

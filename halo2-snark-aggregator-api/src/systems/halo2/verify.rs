@@ -1,9 +1,12 @@
+use super::evaluation::EvaluationQuerySchema;
+use super::multiopen::MultiOpenProof;
 use super::params::{PlonkCommonSetup, VerifierParams};
 use super::{
     lookup::{self, PermutationCommitments},
     permutation,
 };
 use crate::arith::{common::ArithCommonChip, ecc::ArithEccChip, field::ArithFieldChip};
+use crate::scalar;
 use crate::transcript::read::TranscriptRead;
 use group::Curve;
 use group::Group;
@@ -15,8 +18,8 @@ use halo2_proofs::{
     plonk::{Expression, VerifyingKey},
     poly::commitment::ParamsVerifier,
 };
+use std::marker::PhantomData;
 use std::vec;
-
 pub struct VerifierParamsBuilder<
     'a,
     E: MultiMillerLoop,
@@ -533,6 +536,92 @@ impl<
     }
 }
 
+pub fn verify_single_proof_no_eval<
+    E: MultiMillerLoop,
+    A: ArithEccChip<
+        Point = E::G1Affine,
+        Scalar = <E::G1Affine as CurveAffine>::ScalarExt,
+        Native = <E::G1Affine as CurveAffine>::ScalarExt,
+    >,
+    T: TranscriptRead<A>,
+>(
+    ctx: &mut A::Context,
+    nchip: &A::NativeChip,
+    schip: &A::ScalarChip,
+    pchip: &A,
+    xi: <E::G1Affine as CurveAffine>::ScalarExt,
+    instances: &[&[&[E::Scalar]]],
+    vk: &VerifyingKey<E::G1Affine>,
+    params: &ParamsVerifier<E>,
+    transcript: &mut T,
+) -> Result<MultiOpenProof<A>, A::Error> {
+    let params_builder = VerifierParamsBuilder {
+        ctx,
+        nchip,
+        schip,
+        pchip,
+        xi,
+        instances,
+        vk,
+        params,
+        transcript,
+    };
+
+    let chip_params = params_builder.build_params()?;
+    chip_params.batch_multi_open_proofs(ctx, schip)
+}
+
+fn evaluate_multiopen_proof<
+    E: MultiMillerLoop,
+    A: ArithEccChip<
+        Point = E::G1Affine,
+        Scalar = <E::G1Affine as CurveAffine>::ScalarExt,
+        Native = <E::G1Affine as CurveAffine>::ScalarExt,
+    >,
+    T: TranscriptRead<A>,
+>(
+    ctx: &mut A::Context,
+    schip: &A::ScalarChip,
+    pchip: &A,
+    proof: MultiOpenProof<A>,
+    params: &ParamsVerifier<E>,
+) -> Result<(E::G1Affine, E::G1Affine), A::Error> {
+    let one = schip.assign_one(ctx)?;
+
+    let (left_s, left_e) = proof.w_x.eval::<_, A>(ctx, schip, pchip, &one)?;
+    let (right_s, right_e) = proof.w_g.eval::<_, A>(ctx, schip, pchip, &one)?;
+
+    let generator = pchip.assign_one(ctx)?;
+    let left = match left_e {
+        None => left_s,
+        Some(eval) => {
+            let s = pchip.scalar_mul(ctx, &eval, &generator)?;
+            pchip.add(ctx, &left_s, &s)?
+        }
+    };
+    let right = match right_e {
+        None => right_s,
+        Some(eval) => {
+            let s = pchip.scalar_mul(ctx, &eval, &generator)?;
+            pchip.sub(ctx, &right_s, &s)?
+        }
+    };
+
+    let left = pchip.to_value(&left)?;
+    let right = pchip.to_value(&right)?;
+
+    let s_g2_prepared = E::G2Prepared::from(params.s_g2);
+    let n_g2_prepared = E::G2Prepared::from(-params.g2);
+    let success = bool::from(
+        E::multi_miller_loop(&[(&left, &s_g2_prepared), (&right, &n_g2_prepared)])
+            .final_exponentiation()
+            .is_identity(),
+    );
+    assert!(success);
+
+    Ok((left, right))
+}
+
 pub fn verify_single_proof_in_chip<
     E: MultiMillerLoop,
     A: ArithEccChip<
@@ -551,63 +640,84 @@ pub fn verify_single_proof_in_chip<
     vk: &VerifyingKey<E::G1Affine>,
     params: &ParamsVerifier<E>,
     transcript: &mut T,
-    check: bool,
 ) -> Result<(E::G1Affine, E::G1Affine), A::Error> {
-    let params_builder = VerifierParamsBuilder {
-        ctx,
-        nchip,
-        schip,
-        pchip,
-        xi,
-        instances,
-        vk,
-        params,
-        transcript,
-    };
+    let proof = verify_single_proof_no_eval(
+        ctx, nchip, schip, pchip, xi, instances, vk, params, transcript,
+    )?;
+    evaluate_multiopen_proof::<E, A, T>(ctx, schip, pchip, proof, params)
+}
 
-    let chip_params = params_builder.build_params()?;
-    let guard = chip_params.batch_multi_open_proofs(ctx, schip)?;
+pub struct ProofData<
+    'a,
+    E: MultiMillerLoop,
+    A: ArithEccChip<
+        Point = E::G1Affine,
+        Scalar = <E::G1Affine as CurveAffine>::ScalarExt,
+        Native = <E::G1Affine as CurveAffine>::ScalarExt,
+    >,
+    T: TranscriptRead<A>,
+> {
+    pub xi: <E::G1Affine as CurveAffine>::ScalarExt,
+    pub instances: &'a [&'a [&'a [E::Scalar]]],
+    pub transcript: T,
+    _phantom: PhantomData<A>,
+}
 
-    let (left_s, left_e) = guard
-        .w_x
-        .eval::<_, A>(ctx, schip, pchip, &chip_params.one)?;
-    let (right_s, right_e) = guard
-        .w_g
-        .eval::<_, A>(ctx, schip, pchip, &chip_params.one)?;
+pub fn verify_multi_proofs_in_chip<
+    E: MultiMillerLoop,
+    A: ArithEccChip<
+        Point = E::G1Affine,
+        Scalar = <E::G1Affine as CurveAffine>::ScalarExt,
+        Native = <E::G1Affine as CurveAffine>::ScalarExt,
+    >,
+    T: TranscriptRead<A>,
+    const B: usize,
+>(
+    ctx: &mut A::Context,
+    nchip: &A::NativeChip,
+    schip: &A::ScalarChip,
+    pchip: &A,
+    vk: &VerifyingKey<E::G1Affine>,
+    params: &ParamsVerifier<E>,
+    proofs: &mut [ProofData<'_, E, A, T>; B],
+    transcript: &mut T,
+) -> Result<(E::G1Affine, E::G1Affine), A::Error> {
+    let multiopen_proofs: Vec<MultiOpenProof<A>> = proofs
+        .iter_mut()
+        .map(|proof| {
+            verify_single_proof_no_eval(
+                ctx,
+                nchip,
+                schip,
+                pchip,
+                proof.xi,
+                proof.instances,
+                vk,
+                params,
+                &mut proof.transcript,
+            )
+        })
+        .collect::<Result<_, A::Error>>()?;
 
-    let generator = pchip.assign_one(ctx)?;
-    let left = match left_e {
-        None => left_s,
-        Some(eval) => {
-            let s = pchip.scalar_mul(ctx, &eval, &generator)?;
-            pchip.add(ctx, &left_s, &s)?
-        }
-    };
-    let right = match right_e {
-        None => right_s,
-        Some(eval) => {
-            let s = pchip.scalar_mul(ctx, &eval, &generator)?;
-            pchip.sub(ctx, &right_s, &s)?
-        }
-    };
-
-    // TODO:
-    // 1. expose left and right
-    // 2. aggrate
-
-    let left = pchip.to_value(&left)?;
-    let right = pchip.to_value(&right)?;
-
-    if check {
-        let s_g2_prepared = E::G2Prepared::from(params.s_g2);
-        let n_g2_prepared = E::G2Prepared::from(-params.g2);
-        let success = bool::from(
-            E::multi_miller_loop(&[(&left, &s_g2_prepared), (&right, &n_g2_prepared)])
-                .final_exponentiation()
-                .is_identity(),
-        );
-        assert!(success);
+    for proof in proofs.iter_mut() {
+        let scalar = proof
+            .transcript
+            .squeeze_challenge_scalar(ctx, nchip, schip)?;
+        transcript.common_scalar(ctx, nchip, schip, &scalar)?;
     }
 
-    Ok((left, right))
+    let aggregation_challenge = transcript.squeeze_challenge_scalar(ctx, nchip, schip)?;
+    let mut acc: Option<MultiOpenProof<A>> = None;
+    for proof in multiopen_proofs.into_iter() {
+        acc = match acc {
+            None => Some(proof),
+            Some(p) => Some(MultiOpenProof {
+                w_x: p.w_x * scalar!(aggregation_challenge) + proof.w_x,
+                w_g: p.w_g * scalar!(aggregation_challenge) + proof.w_g,
+            }),
+        }
+    }
+    let aggregated_proof = acc.unwrap();
+
+    evaluate_multiopen_proof::<E, A, T>(ctx, schip, pchip, aggregated_proof, params)
 }
