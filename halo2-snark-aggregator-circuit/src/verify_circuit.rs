@@ -1,5 +1,3 @@
-use crate::sample_circuit::NINSTANCES;
-
 use super::chips::{ecc_chip::EccChip, encode_chip::PoseidonEncode, scalar_chip::ScalarChip};
 use halo2_ecc_circuit_lib::{
     chips::native_ecc_chip::NativeEccChip,
@@ -269,7 +267,7 @@ fn load_sample_circuit_info<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>>(
     }
 
     // TODO: should get NINSTANCES from input
-    let sample_circuit_verifier_params = sample_circuit_params.verifier::<E>(NINSTANCES).unwrap();
+    let sample_circuit_verifier_params = sample_circuit_params.verifier::<E>(sample_circuit_vk.cs.num_instance_columns).unwrap();
 
     (
         sample_circuit_verifier_params,

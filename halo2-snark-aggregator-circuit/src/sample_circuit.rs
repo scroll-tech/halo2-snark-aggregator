@@ -430,5 +430,3 @@ pub(crate) fn sample_circuit_random_run<C: CurveAffine, E: MultiMillerLoop<G1Aff
         write!(fd, "{}", instances.to_string()).unwrap();
     }
 }
-
-pub const NINSTANCES: usize = 1usize;
