@@ -99,7 +99,7 @@ pub fn test_verify_aggregation_proof_in_chip<
     let mut proof_data_list: Vec<
         ProofData<Bn256, _, PoseidonTranscriptRead<_, G1Affine, _, EncodeChip, 9usize, 8usize>>,
     > = vec![];
-    for (i, instances) in n_instances.into_iter().enumerate() {
+    for (i, instances) in n_instances.iter().enumerate() {
         let transcript = PoseidonTranscriptRead::<_, G1Affine, _, EncodeChip, 9usize, 8usize>::new(
             &n_proof[i][..],
             ctx,

@@ -1,4 +1,4 @@
-use crate::chips::{ecc_chip::EccChip, encode_chip::PoseidonEncode, scalar_chip::ScalarChip};
+use super::super::chips::{ecc_chip::EccChip, encode_chip::PoseidonEncode, scalar_chip::ScalarChip};
 use halo2_ecc_circuit_lib::{
     chips::native_ecc_chip::NativeEccChip,
     five::{
@@ -66,8 +66,8 @@ impl TestFiveColumnNativeEccChipCircuit<G1Affine> {
             EccChip<G1Affine>,
             PoseidonEncode<_>,
         >(
-            &ScalarChip::new(native_base_gate),
-            &ScalarChip::new(scalar_base_gate),
+            &ScalarChip::new(&native_base_gate),
+            &ScalarChip::new(&scalar_base_gate),
             &EccChip::new(ecc_chip),
             ctx,
         );
@@ -90,8 +90,8 @@ impl TestFiveColumnNativeEccChipCircuit<G1Affine> {
             EccChip<G1Affine>,
             PoseidonEncode<_>,
         >(
-            &ScalarChip::new(native_base_gate),
-            &ScalarChip::new(scalar_base_gate),
+            &ScalarChip::new(&native_base_gate),
+            &ScalarChip::new(&scalar_base_gate),
             &EccChip::new(ecc_chip),
             ctx,
         );

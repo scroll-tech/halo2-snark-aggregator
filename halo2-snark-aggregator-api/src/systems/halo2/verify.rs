@@ -649,6 +649,7 @@ pub fn verify_single_proof_in_chip<
 }
 
 pub struct ProofData<
+    'a,
     E: MultiMillerLoop,
     A: ArithEccChip<
         Point = E::G1Affine,
@@ -657,7 +658,7 @@ pub struct ProofData<
     >,
     T: TranscriptRead<A>,
 > {
-    pub instances: Vec<Vec<Vec<E::Scalar>>>,
+    pub instances: &'a Vec<Vec<Vec<E::Scalar>>>,
     pub transcript: T,
     pub key: String,
     pub _phantom: PhantomData<A>,
@@ -713,7 +714,6 @@ pub fn verify_aggregation_proofs_in_chip<
     }
 
     let aggregation_challenge = transcript.squeeze_challenge_scalar(ctx, nchip, schip)?;
-    println!("ac {:?}", schip.to_value(&aggregation_challenge)?);
 
     let mut acc: Option<MultiOpenProof<A>> = None;
     for proof in multiopen_proofs.into_iter() {

@@ -93,8 +93,8 @@ impl<'a, 'b, C: CurveAffine> ArithEccChip for EccChip<'a, 'b, C> {
     type Native = C::ScalarExt;
     type AssignedNative = AssignedValue<C::ScalarExt>;
 
-    type ScalarChip = ScalarChip<'b, C::ScalarExt>;
-    type NativeChip = ScalarChip<'b, C::ScalarExt>;
+    type ScalarChip = ScalarChip<'a, 'b, C::ScalarExt>;
+    type NativeChip = ScalarChip<'a, 'b, C::ScalarExt>;
 
     fn scalar_mul(
         &self,

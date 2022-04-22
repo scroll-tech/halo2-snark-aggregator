@@ -7,16 +7,16 @@ use halo2_ecc_circuit_lib::{
 use halo2_proofs::{arithmetic::FieldExt, plonk::Error};
 use halo2_snark_aggregator_api::arith::{common::ArithCommonChip, field::ArithFieldChip};
 
-pub struct ScalarChip<'a, N: FieldExt>(FiveColumnBaseGate<N>, PhantomData<&'a N>);
+pub struct ScalarChip<'a, 'b, N: FieldExt>(&'a FiveColumnBaseGate<N>, PhantomData<&'b N>);
 
-impl<'a, N: FieldExt> ScalarChip<'a, N> {
-    pub fn new(base_gate: FiveColumnBaseGate<N>) -> Self {
+impl<'a, 'b, N: FieldExt> ScalarChip<'a, 'b, N> {
+    pub fn new(base_gate: &'a FiveColumnBaseGate<N>) -> Self {
         ScalarChip(base_gate, PhantomData)
     }
 }
 
-impl<'a, N: FieldExt> ArithCommonChip for ScalarChip<'a, N> {
-    type Context = Context<'a, N>;
+impl<'a, 'b, N: FieldExt> ArithCommonChip for ScalarChip<'a, 'b, N> {
+    type Context = Context<'b, N>;
     type Value = N;
     type AssignedValue = AssignedValue<N>;
     type Error = Error;
@@ -68,7 +68,7 @@ impl<'a, N: FieldExt> ArithCommonChip for ScalarChip<'a, N> {
     }
 }
 
-impl<'a, N: FieldExt> ArithFieldChip for ScalarChip<'a, N> {
+impl<'a, 'b, N: FieldExt> ArithFieldChip for ScalarChip<'a, 'b, N> {
     type Field = N;
     type AssignedField = AssignedValue<N>;
 
