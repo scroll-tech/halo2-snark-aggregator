@@ -41,4 +41,8 @@ pub fn main() {
     if args.command == "verify_run" {
         verify_circuit::verify_circuit_run::<G1Affine, Bn256>(folder.clone(), args.nproofs)
     }
+
+    if args.command == "verify_check" {
+        verify_circuit::verify_circuit_check::<G1Affine, Bn256>(folder.clone(), args.nproofs)
+    }
 }

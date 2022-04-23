@@ -10,8 +10,8 @@ use halo2_ecc_circuit_lib::{
 };
 use halo2_proofs::{
     arithmetic::{BaseExt, Field},
-    plonk::keygen_pk,
-    transcript::Challenge255,
+    plonk::{keygen_pk, verify_proof, SingleVerifier},
+    transcript::{Blake2bRead, Challenge255},
 };
 use halo2_proofs::{
     arithmetic::{CurveAffine, MultiMillerLoop},
@@ -190,6 +190,48 @@ fn verify_circuit_builder<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C>>(
     }
 }
 
+fn load_params<C: CurveAffine>(folder: &mut std::path::PathBuf, file_name: &str) -> Params<C> {
+    folder.push(file_name);
+    let mut fd = std::fs::File::open(folder.as_path()).unwrap();
+    folder.pop();
+    Params::<C>::read(&mut fd).unwrap()
+}
+
+fn load_transcript<C: CurveAffine>(folder: &mut std::path::PathBuf, file_name: &str) -> Vec<u8> {
+    folder.push(file_name);
+    let mut fd = std::fs::File::open(folder.as_path()).unwrap();
+    folder.pop();
+
+    let mut buf = vec![];
+    fd.read_to_end(&mut buf).unwrap();
+    buf
+}
+
+fn load_instances<E: MultiMillerLoop>(
+    folder: &mut std::path::PathBuf,
+    file_name: &str,
+) -> Vec<Vec<Vec<E::Scalar>>> {
+    folder.push(file_name);
+    let fd = std::fs::File::open(folder.as_path()).unwrap();
+    folder.pop();
+
+    let instances: Vec<Vec<Vec<Vec<u8>>>> = serde_json::from_reader(fd).unwrap();
+    instances
+        .into_iter()
+        .map(|l1| {
+            l1.into_iter()
+                .map(|l2| {
+                    l2.into_iter()
+                        .map(|buf| {
+                            <E::Scalar as BaseExt>::read(&mut std::io::Cursor::new(buf)).unwrap()
+                        })
+                        .collect()
+                })
+                .collect()
+        })
+        .collect()
+}
+
 fn load_sample_circuit_info<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>>(
     folder: &mut std::path::PathBuf,
     nproofs: usize,
@@ -200,22 +242,8 @@ fn load_sample_circuit_info<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>>(
     Vec<Vec<Vec<Vec<E::Scalar>>>>,
     Vec<Vec<u8>>,
 ) {
-    let sample_circuit_params = {
-        folder.push("sample_circuit.params");
-        let mut fd = std::fs::File::open(folder.as_path()).unwrap();
-        folder.pop();
-        Params::<C>::read(&mut fd).unwrap()
-    };
+    let sample_circuit_params = load_params(folder, "sample_circuit.params");
 
-    // We should read vkey from file, but we use a workaround due to issue https://github.com/zcash/halo2/issues/449
-    /*
-    let sample_circuit_vk = {
-        folder.push("sample_circuit.vkey");
-        let mut fd = std::fs::File::open(folder.as_path()).unwrap();
-        folder.pop();
-        VerifyingKey::<C>::read::<_, MyCircuit<C::ScalarExt>>(&mut fd, &params).unwrap()
-    };
-    */
     let sample_circuit_vk = {
         let sample_circuit = crate::sample_circuit::sample_circuit_builder(
             C::ScalarExt::zero(),
@@ -230,39 +258,11 @@ fn load_sample_circuit_info<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>>(
 
     for i in 0..nproofs {
         let index = if setup { 0usize } else { i };
-        let sample_circuit_transcript = {
-            folder.push(format!("sample_circuit_proof{}.data", index));
-            let mut fd = std::fs::File::open(folder.as_path()).unwrap();
-            folder.pop();
-
-            let mut buf = vec![];
-            fd.read_to_end(&mut buf).unwrap();
-            buf
-        };
+        let sample_circuit_transcript =
+            load_transcript::<C>(folder, &format!("sample_circuit_proof{}.data", index));
         sample_circuit_transcripts.push(sample_circuit_transcript);
-
-        let sample_circuit_instance: Vec<Vec<Vec<E::Scalar>>> = {
-            folder.push(format!("sample_circuit_instance{}.data", index));
-            let fd = std::fs::File::open(folder.as_path()).unwrap();
-            folder.pop();
-
-            let instances: Vec<Vec<Vec<Vec<u8>>>> = serde_json::from_reader(fd).unwrap();
-            instances
-                .into_iter()
-                .map(|l1| {
-                    l1.into_iter()
-                        .map(|l2| {
-                            l2.into_iter()
-                                .map(|buf| {
-                                    <E::Scalar as BaseExt>::read(&mut std::io::Cursor::new(buf))
-                                        .unwrap()
-                                })
-                                .collect()
-                        })
-                        .collect()
-                })
-                .collect()
-        };
+        let sample_circuit_instance: Vec<Vec<Vec<E::Scalar>>> =
+            load_instances::<E>(folder, &format!("sample_circuit_instance{}.data", index));
         sample_circuit_instances.push(sample_circuit_instance);
     }
 
@@ -337,22 +337,7 @@ pub(crate) fn verify_circuit_run<C: CurveAffine, E: MultiMillerLoop<G1Affine = C
         nproofs,
     );
 
-    let verify_circuit_params = {
-        folder.push("verify_circuit.params");
-        let mut fd = std::fs::File::open(folder.as_path()).unwrap();
-        folder.pop();
-        Params::<C>::read(&mut fd).unwrap()
-    };
-
-    // issue see https://github.com/zcash/halo2/issues/449
-    /*
-    let verify_circuit_vk = {
-        folder.push("verify_circuit_.vkey");
-        let mut fd = std::fs::File::open(folder.as_path()).unwrap();
-        folder.pop();
-        VerifyingKey::<C>::read::<_, MyCircuit<C::ScalarExt>>(&mut fd, &params).unwrap()
-    };
-    */
+    let verify_circuit_params = load_params::<C>(&mut folder, "verify_circuit.params");
     let verify_circuit_vk =
         keygen_vk(&verify_circuit_params, &verify_circuit).expect("keygen_vk should not fail");
     let verify_circuit_pk = keygen_pk(&verify_circuit_params, verify_circuit_vk, &verify_circuit)
@@ -396,7 +381,52 @@ pub(crate) fn verify_circuit_run<C: CurveAffine, E: MultiMillerLoop<G1Affine = C
                     .collect())
                 .collect::<Vec<Vec<Vec<u8>>>>())
             .collect::<Vec<Vec<Vec<Vec<u8>>>>>());
-        fd.write_all(&proof).unwrap();
-        fd.write_all(instances.to_string().as_bytes()).unwrap();
+        write!(fd, "{}", instances.to_string()).unwrap();
     }
+}
+
+pub(crate) fn verify_circuit_check<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>>(
+    mut folder: std::path::PathBuf,
+    nproofs: usize,
+) {
+    let verify_circuit_params = load_params::<C>(&mut folder, "verify_circuit.params");
+    let verify_circuit_instance = load_instances::<E>(&mut folder, "verify_circuit_instance.data");
+    let verify_circuit_transcript = load_transcript::<C>(&mut folder, "verify_circuit_proof.data");
+
+    let sample_circuit_info = load_sample_circuit_info::<C, E>(&mut folder, nproofs, false);
+    let verify_circuit = verify_circuit_builder(
+        &sample_circuit_info.0,
+        &sample_circuit_info.1,
+        &sample_circuit_info.2,
+        &sample_circuit_info.3,
+        nproofs,
+    );
+
+    let verify_circuit_vk =
+        keygen_vk(&verify_circuit_params, &verify_circuit).expect("keygen_vk should not fail");
+
+    let params = verify_circuit_params
+        .verifier::<E>(verify_circuit_vk.cs.num_instance_columns)
+        .unwrap();
+    let strategy = SingleVerifier::new(&params);
+
+    let verify_circuit_instance1: Vec<Vec<&[E::Scalar]>> = verify_circuit_instance
+        .iter()
+        .map(|x| x.iter().map(|y| &y[..]).collect())
+        .collect();
+    let verify_circuit_instance2: Vec<&[&[E::Scalar]]> =
+        verify_circuit_instance1.iter().map(|x| &x[..]).collect();
+
+    let mut transcript = Blake2bRead::<_, _, Challenge255<_>>::init(&verify_circuit_transcript[..]);
+
+    verify_proof(
+        &params,
+        &verify_circuit_vk,
+        strategy,
+        &verify_circuit_instance2[..],
+        &mut transcript,
+    )
+    .unwrap();
+
+    print!("verify check succeeds");
 }

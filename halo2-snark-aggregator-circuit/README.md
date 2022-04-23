@@ -19,11 +19,14 @@ cargo run --release -- --command verify_setup --nproofs 2 --folder-path ./output
 cargo run --release -- --command verify_run --nproofs 2 --folder-path ./output
 ```
 
+5. verify the proof of verify circuits generated in step 4.
+```
+cargo run --release -- --command verify_check --nproofs 2 --folder-path ./output
+```
+
 TODO:
-1. implement verify_check command to verify the proof generated in step 4
-2. expose the final pair as instances.
-3. see if we can load vkey from file instead of generating it again due to issue see https://github.com/zcash/halo2/issues/449, then verify circuit doesn't depend on concret circuit anymore.
-4. make sample circuit instance size configurable, i.e. NINSTANCES (see if we can just use vk.cs.num_instance_columns).
+1. expose the final pair as instances.
+2. see if we can load vkey from file instead of generating it again due to issue see https://github.com/zcash/halo2/issues/449, then verify circuit doesn't depend on concret circuit anymore.
 
 Args:
 args for services:
