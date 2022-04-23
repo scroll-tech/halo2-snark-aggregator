@@ -27,7 +27,7 @@ use halo2_snark_aggregator_api::systems::halo2::verify::verify_aggregation_proof
 use halo2_snark_aggregator_api::systems::halo2::{
     transcript::PoseidonTranscriptRead, verify::ProofData,
 };
-use rand::SeedableRng;
+use rand_core::OsRng;
 use serde_json::json;
 use std::{
     io::{Read, Write},
@@ -266,8 +266,9 @@ fn load_sample_circuit_info<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>>(
         sample_circuit_instances.push(sample_circuit_instance);
     }
 
-    // TODO: should get NINSTANCES from input
-    let sample_circuit_verifier_params = sample_circuit_params.verifier::<E>(sample_circuit_vk.cs.num_instance_columns).unwrap();
+    let sample_circuit_verifier_params = sample_circuit_params
+        .verifier::<E>(sample_circuit_vk.cs.num_instance_columns)
+        .unwrap();
 
     (
         sample_circuit_verifier_params,
@@ -300,14 +301,7 @@ pub(crate) fn verify_circuit_setup<C: CurveAffine, E: MultiMillerLoop<G1Affine =
         Params::<C>::read(&mut fd).unwrap()
     } else {
         // TODO: Do not use this setup in production
-        let time = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .expect("Time went backwards")
-            .as_micros();
-        let verify_circuit_params = Params::<C>::unsafe_setup_rng::<E, _>(
-            K,
-            rand_pcg::Pcg32::seed_from_u64(time.try_into().unwrap()),
-        );
+        let verify_circuit_params = Params::<C>::unsafe_setup::<E>(K);
 
         let mut fd = std::fs::File::create(folder.as_path()).unwrap();
         verify_circuit_params.write(&mut fd).unwrap();
@@ -334,12 +328,6 @@ pub(crate) fn verify_circuit_run<C: CurveAffine, E: MultiMillerLoop<G1Affine = C
     mut folder: std::path::PathBuf,
     nproofs: usize,
 ) {
-    let time = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .expect("Time went backwards")
-        .as_micros();
-    let pcg = rand_pcg::Pcg32::seed_from_u64(time.try_into().unwrap());
-
     let sample_circuit_info = load_sample_circuit_info::<C, E>(&mut folder, nproofs, false);
     let verify_circuit = verify_circuit_builder(
         &sample_circuit_info.0,
@@ -377,7 +365,7 @@ pub(crate) fn verify_circuit_run<C: CurveAffine, E: MultiMillerLoop<G1Affine = C
         &verify_circuit_pk,
         &[verify_circuit],
         instances,
-        pcg,
+        OsRng,
         &mut transcript,
     )
     .expect("proof generation should not fail");
