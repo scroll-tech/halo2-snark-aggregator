@@ -9,7 +9,7 @@ use halo2_proofs::{
     plonk::{Advice, Circuit, Column, ConstraintSystem, Error, Fixed, Instance, Selector},
     poly::{commitment::Params, Rotation},
 };
-use rand_core::SeedableRng;
+use rand_core::OsRng;
 use serde_json::json;
 use std::io::Write;
 use std::marker::PhantomData;
@@ -334,14 +334,7 @@ pub(crate) fn sample_circuit_setup<C: CurveAffine, E: MultiMillerLoop<G1Affine =
     mut folder: std::path::PathBuf,
 ) {
     // TODO: Do not use setup in production
-    let time = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .expect("Time went backwards")
-        .as_micros();
-    let params = Params::<C>::unsafe_setup_rng::<E, _>(
-        K,
-        rand_pcg::Pcg32::seed_from_u64(time.try_into().unwrap()),
-    );
+    let params = Params::<C>::unsafe_setup::<E>(K);
 
     let circuit = MyCircuit::default();
     let vk = keygen_vk(&params, &circuit).expect("keygen_vk should not fail");
@@ -365,14 +358,8 @@ pub(crate) fn sample_circuit_random_run<C: CurveAffine, E: MultiMillerLoop<G1Aff
     mut folder: std::path::PathBuf,
     index: usize,
 ) {
-    let time = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .expect("Time went backwards")
-        .as_micros();
-    let mut pcg = rand_pcg::Pcg32::seed_from_u64(time.try_into().unwrap());
-
-    let a = C::Scalar::random(&mut pcg);
-    let b = C::Scalar::random(&mut pcg);
+    let a = C::Scalar::random(OsRng);
+    let b = C::Scalar::random(OsRng);
     let circuit = sample_circuit_builder(a, b);
 
     let params = {
@@ -398,7 +385,7 @@ pub(crate) fn sample_circuit_random_run<C: CurveAffine, E: MultiMillerLoop<G1Aff
     let constant = C::ScalarExt::from(7);
     let instances: &[&[&[C::ScalarExt]]] = &[&[&[constant * a.square() * b.square()]]];
     let mut transcript = PoseidonWrite::<_, _, Challenge255<_>>::init(vec![]);
-    create_proof(&params, &pk, &[circuit], instances, pcg, &mut transcript)
+    create_proof(&params, &pk, &[circuit], instances, OsRng, &mut transcript)
         .expect("proof generation should not fail");
     let proof = transcript.finalize();
 
