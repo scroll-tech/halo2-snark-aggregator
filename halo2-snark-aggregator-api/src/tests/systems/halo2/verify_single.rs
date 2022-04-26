@@ -1,9 +1,8 @@
 use crate::{
     arith::{common::ArithCommonChip, ecc::ArithEccChip, field::ArithFieldChip},
     systems::halo2::{transcript::PoseidonTranscriptRead, verify::verify_single_proof_in_chip},
-    tests::{
-        systems::halo2::{test_circuit::test_circuit_builder},
-    }, transcript::encode::Encode,
+    tests::systems::halo2::test_circuit::test_circuit_builder,
+    transcript::encode::Encode,
 };
 use halo2_proofs::arithmetic::{CurveAffine, Field};
 use halo2_proofs::{
@@ -19,7 +18,12 @@ use rand_xorshift::XorShiftRng;
 
 const K: u32 = 10;
 
-pub fn test_verify_single_proof_in_chip<ScalarChip, NativeChip, EccChip, EncodeChip: Encode<EccChip>>(
+pub fn test_verify_single_proof_in_chip<
+    ScalarChip,
+    NativeChip,
+    EccChip,
+    EncodeChip: Encode<EccChip>,
+>(
     nchip: &NativeChip,
     schip: &ScalarChip,
     pchip: &EccChip,
@@ -98,9 +102,10 @@ pub fn test_verify_single_proof_in_chip<ScalarChip, NativeChip, EccChip, EncodeC
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{tests::{
-        systems::halo2::transcript_encode::PoseidonEncode,
-    }, mock::arith::{field::MockFieldChip, ecc::MockEccChip}};
+    use crate::mock::{
+        arith::{ecc::MockEccChip, field::MockFieldChip},
+        transcript_encode::PoseidonEncode,
+    };
     use halo2_proofs::plonk::Error;
 
     #[test]

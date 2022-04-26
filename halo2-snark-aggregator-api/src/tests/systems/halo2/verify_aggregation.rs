@@ -142,9 +142,10 @@ pub fn test_verify_aggregation_proof_in_chip<
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{tests::{
-        systems::halo2::transcript_encode::PoseidonEncode,
-    }, mock::arith::{field::MockFieldChip, ecc::MockEccChip}};
+    use crate::mock::{
+        arith::{ecc::MockEccChip, field::MockFieldChip},
+        transcript_encode::PoseidonEncode,
+    };
     use halo2_proofs::plonk::Error;
 
     #[test]
