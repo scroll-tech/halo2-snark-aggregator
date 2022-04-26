@@ -98,10 +98,9 @@ pub fn test_verify_single_proof_in_chip<ScalarChip, NativeChip, EccChip, EncodeC
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tests::{
-        arith::{ecc::MockEccChip, field::MockFieldChip},
+    use crate::{tests::{
         systems::halo2::transcript_encode::PoseidonEncode,
-    };
+    }, mock::arith::{field::MockFieldChip, ecc::MockEccChip}};
     use halo2_proofs::plonk::Error;
 
     #[test]

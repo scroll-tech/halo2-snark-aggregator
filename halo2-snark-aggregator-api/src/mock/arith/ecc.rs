@@ -4,7 +4,7 @@ use crate::arith::{common::ArithCommonChip, ecc::ArithEccChip};
 use group::{Curve, Group};
 use halo2_proofs::arithmetic::CurveAffine;
 
-pub(crate) struct MockEccChip<C: CurveAffine, E> {
+pub struct MockEccChip<C: CurveAffine, E> {
     zero: C::CurveExt,
     one: C::CurveExt,
     _data: PhantomData<E>,

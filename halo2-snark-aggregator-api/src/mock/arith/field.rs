@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 use crate::arith::{common::ArithCommonChip, field::ArithFieldChip};
 use halo2_proofs::arithmetic::FieldExt;
 
-pub(crate) struct MockFieldChip<F: FieldExt, E> {
+pub struct MockFieldChip<F: FieldExt, E> {
     zero: F,
     one: F,
     _data: PhantomData<E>,
