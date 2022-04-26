@@ -7,11 +7,11 @@ use halo2_snark_aggregator_api::{
 };
 use std::marker::PhantomData;
 
-pub struct PoseidonEncode<A: ArithEccChip> {
+pub struct PoseidonEncodeChip<A: ArithEccChip> {
     _phantom: PhantomData<A>,
 }
 
-impl<'a, 'b, C: CurveAffine> Encode<EccChip<'a, 'b, C>> for PoseidonEncode<EccChip<'a, 'b, C>> {
+impl<'a, 'b, C: CurveAffine> Encode<EccChip<'a, 'b, C>> for PoseidonEncodeChip<EccChip<'a, 'b, C>> {
     fn encode_point(
         ctx: &mut <EccChip<'a, 'b, C> as ArithCommonChip>::Context,
         _: &<EccChip<'a, 'b, C> as ArithEccChip>::NativeChip,

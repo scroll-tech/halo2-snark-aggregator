@@ -14,7 +14,7 @@ pub struct AssignedCondition<N: FieldExt> {
 
 #[derive(Clone, Copy, Debug)]
 pub struct AssignedValue<N: FieldExt> {
-    cell: Cell,
+    pub cell: Cell,
     pub value: N,
 }
 

@@ -587,7 +587,7 @@ fn evaluate_multiopen_proof<
     pchip: &A,
     proof: MultiOpenProof<A>,
     params: &ParamsVerifier<E>,
-) -> Result<(E::G1Affine, E::G1Affine), A::Error> {
+) -> Result<(A::AssignedPoint, A::AssignedPoint), A::Error> {
     let one = schip.assign_one(ctx)?;
 
     let (left_s, left_e) = proof.w_x.eval::<_, A>(ctx, schip, pchip, &one)?;
@@ -609,13 +609,13 @@ fn evaluate_multiopen_proof<
         }
     };
 
-    let left = pchip.to_value(&left)?;
-    let right = pchip.to_value(&right)?;
+    let left_v = pchip.to_value(&left)?;
+    let right_v = pchip.to_value(&right)?;
 
     let s_g2_prepared = E::G2Prepared::from(params.s_g2);
     let n_g2_prepared = E::G2Prepared::from(-params.g2);
     let success = bool::from(
-        E::multi_miller_loop(&[(&left, &s_g2_prepared), (&right, &n_g2_prepared)])
+        E::multi_miller_loop(&[(&left_v, &s_g2_prepared), (&right_v, &n_g2_prepared)])
             .final_exponentiation()
             .is_identity(),
     );
@@ -641,7 +641,7 @@ pub fn verify_single_proof_in_chip<
     vk: &VerifyingKey<E::G1Affine>,
     params: &ParamsVerifier<E>,
     transcript: &mut T,
-) -> Result<(E::G1Affine, E::G1Affine), A::Error> {
+) -> Result<(A::AssignedPoint, A::AssignedPoint), A::Error> {
     let proof = verify_single_proof_no_eval(
         ctx, nchip, schip, pchip, instances, vk, params, transcript, "".to_owned(),
     )?;
@@ -681,7 +681,7 @@ pub fn verify_aggregation_proofs_in_chip<
     params: &ParamsVerifier<E>,
     mut proofs: Vec<ProofData<E, A, T>>,
     transcript: &mut T,
-) -> Result<(E::G1Affine, E::G1Affine), A::Error> {
+) -> Result<(A::AssignedPoint, A::AssignedPoint), A::Error> {
     let multiopen_proofs: Vec<MultiOpenProof<A>> = proofs
         .iter_mut()
         .map(|proof| {

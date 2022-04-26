@@ -1,5 +1,5 @@
 use super::config::{PREREQUISITE_CHECK, VAR_COLUMNS};
-use crate::chips::integer_chip::{AssignedInteger, IntegerChip, IntegerChipOps};
+use crate::chips::integer_chip::{AssignedInteger, IntegerChip, IntegerChipOps, IntegerChipHelper};
 use crate::gates::base_gate::BaseGateOps;
 use crate::gates::range_gate::RangeGateOps;
 use crate::{
@@ -12,10 +12,10 @@ use halo2_proofs::plonk::Error;
 use num_bigint::BigUint;
 use num_integer::Integer;
 
-const LIMBS: usize = 4usize;
-const LIMB_COMMON_WIDTH_OF_COMMON_RANGE: usize = 4usize;
-const COMMON_RANGE_BITS: usize = 17usize;
-const LIMB_COMMON_WIDTH: usize = LIMB_COMMON_WIDTH_OF_COMMON_RANGE * COMMON_RANGE_BITS; // 68
+pub const LIMBS: usize = 4usize;
+pub const LIMB_COMMON_WIDTH_OF_COMMON_RANGE: usize = 4usize;
+pub const COMMON_RANGE_BITS: usize = 17usize;
+pub const LIMB_COMMON_WIDTH: usize = LIMB_COMMON_WIDTH_OF_COMMON_RANGE * COMMON_RANGE_BITS; // 68
 
 const OVERFLOW_LIMIT_SHIFT: usize = 6usize;
 const OVERFLOW_LIMIT: usize = 1usize << OVERFLOW_LIMIT_SHIFT;
@@ -24,6 +24,7 @@ const OVERFLOW_THRESHOLD_SHIFT: usize = OVERFLOW_LIMIT_SHIFT - 1;
 const OVERFLOW_THRESHOLD: usize = 1usize << OVERFLOW_THRESHOLD_SHIFT;
 
 pub type FiveColumnIntegerChip<'a, W, N> = IntegerChip<'a, W, N, LIMBS, LIMB_COMMON_WIDTH>;
+pub type FiveColumnIntegerChipHelper<W, N> = IntegerChipHelper<W, N, LIMBS, LIMB_COMMON_WIDTH>;
 
 impl<'a, W: BaseExt, N: FieldExt> FiveColumnIntegerChip<'a, W, N> {
     fn find_w_modulus_ceil(&self, a: &AssignedInteger<W, N>) -> [BigUint; LIMBS] {
