@@ -71,9 +71,9 @@ pub trait ArithFieldChip:
         a: Vec<&Self::AssignedField>,
         b: &Self::AssignedField,
     ) -> Result<Self::AssignedField, Self::Error> {
-        let mut acc = (*a.first().unwrap()).clone();
+        let mut acc = self.assign_zero(ctx)?;
 
-        for v in a.into_iter().skip(1) {
+        for v in a.into_iter() {
             acc = self.mul_add(ctx, &acc, b, v)?;
         }
 
