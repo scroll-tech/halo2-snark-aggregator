@@ -520,23 +520,31 @@ pub(crate) fn verify_circuit_run<C: CurveAffine, E: MultiMillerLoop<G1Affine = C
 
 pub(crate) fn verify_circuit_check<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>>(
     mut folder: std::path::PathBuf,
-    nproofs: usize,
+    _nproofs: usize,
 ) {
     let verify_circuit_params = load_params::<C>(&mut folder, "verify_circuit.params");
     let verify_circuit_instance = load_instances::<E>(&mut folder, "verify_circuit_instance.data");
     let verify_circuit_transcript = load_transcript::<C>(&mut folder, "verify_circuit_proof.data");
-
+    /*
     let sample_circuit_info = load_sample_circuit_info::<C, E>(&mut folder, nproofs, false);
+
     let verify_circuit = verify_circuit_builder(
         &sample_circuit_info.0,
         &sample_circuit_info.1,
         &sample_circuit_info.2,
         &sample_circuit_info.3,
         nproofs,
-    );
+    );*/
 
     let verify_circuit_vk =
-        keygen_vk(&verify_circuit_params, &verify_circuit).expect("keygen_vk should not fail");
+        //keygen_vk(&verify_circuit_params, &verify_circuit).expect("keygen_vk //should not fail");
+            // issue see https://github.com/zcash/halo2/issues/449
+    {
+        folder.push("verify_circuit.vkey");
+        let mut fd = std::fs::File::open(folder.as_path()).unwrap();
+        folder.pop();
+        VerifyingKey::<C>::read::<_, Halo2VerifierCircuit<'_, E>>(&mut fd, &verify_circuit_params).unwrap()
+    };
 
     println!("build vk done");
 
