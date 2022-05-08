@@ -1,12 +1,13 @@
 use halo2_proofs::arithmetic::BaseExt;
 use halo2_proofs::arithmetic::Field;
 use halo2_proofs::plonk::keygen_vk;
+use halo2_proofs::plonk::VerifyingKey;
 use halo2_proofs::plonk::{create_proof, keygen_pk};
 use halo2_proofs::transcript::{Challenge255, PoseidonWrite};
 use halo2_proofs::{
     arithmetic::{CurveAffine, FieldExt, MultiMillerLoop},
     circuit::{AssignedCell, Chip, Layouter, Region, SimpleFloorPlanner},
-    plonk::{Advice, Circuit, Column, ConstraintSystem, Error, Fixed, Instance, Selector},
+    plonk::{Advice, Circuit, Column, ConstraintSystem, Error, Fixed, Instance},
     poly::{commitment::Params, Rotation},
 };
 use rand_core::OsRng;
@@ -69,7 +70,7 @@ pub(crate) struct FieldConfig {
     // any constraints on cells where `NumericInstructions::mul` is not being used.
     // This is important when building larger circuits, where columns are used by
     // multiple sets of instructions.
-    s_mul: Selector,
+    s_mul: Column<Fixed>,
 }
 
 impl<F: FieldExt> FieldChip<F> {
@@ -85,13 +86,13 @@ impl<F: FieldExt> FieldChip<F> {
         advice: [Column<Advice>; 2],
         instance: Column<Instance>,
         constant: Column<Fixed>,
+        s_mul: Column<Fixed>,
     ) -> <Self as Chip<F>>::Config {
         meta.enable_equality(instance);
         meta.enable_constant(constant);
         for column in &advice {
             meta.enable_equality(*column);
         }
-        let s_mul = meta.selector();
 
         // Define our multiplication gate!
         meta.create_gate("mul", |meta| {
@@ -110,7 +111,7 @@ impl<F: FieldExt> FieldChip<F> {
             let lhs = meta.query_advice(advice[0], Rotation::cur());
             let rhs = meta.query_advice(advice[1], Rotation::cur());
             let out = meta.query_advice(advice[0], Rotation::next());
-            let s_mul = meta.query_selector(s_mul);
+            let s_mul = meta.query_fixed(s_mul, Rotation::cur());
 
             // Finally, we return the polynomial expressions that constrain this gate.
             // For our multiplication gate, we only need a single polynomial constraint.
@@ -208,7 +209,7 @@ impl<F: FieldExt> NumericInstructions<F> for FieldChip<F> {
                 // We only want to use a single multiplication gate in this region,
                 // so we enable it at region offset 0; this means it will constrain
                 // cells at offsets 0 and 1.
-                config.s_mul.enable(&mut region, 0)?;
+                region.assign_fixed(|| "s_mul", config.s_mul, 0, || Ok(F::one()))?;
 
                 // The inputs we've been given could be located anywhere in the circuit,
                 // but we can only rely on relative offsets inside this region. So we
@@ -280,7 +281,10 @@ impl<F: FieldExt> Circuit<F> for MyCircuit<F> {
         // Create a fixed column to load constants.
         let constant = meta.fixed_column();
 
-        FieldChip::configure(meta, advice, instance, constant)
+        // Create a fixed column for selector.
+        let s_mul = meta.fixed_column();
+
+        FieldChip::configure(meta, advice, instance, constant, s_mul)
     }
 
     fn synthesize(
@@ -369,16 +373,12 @@ pub(crate) fn sample_circuit_random_run<C: CurveAffine, E: MultiMillerLoop<G1Aff
         Params::<C>::read(&mut fd).unwrap()
     };
 
-    // issue see https://github.com/zcash/halo2/issues/449
-    /*
     let vk = {
         folder.push("sample_circuit.vkey");
         let mut fd = std::fs::File::open(folder.as_path()).unwrap();
         folder.pop();
         VerifyingKey::<C>::read::<_, MyCircuit<C::ScalarExt>>(&mut fd, &params).unwrap()
     };
-    */
-    let vk = keygen_vk(&params, &circuit).expect("keygen_vk should not fail");
 
     let pk = keygen_pk(&params, vk, &circuit).expect("keygen_pk should not fail");
 
