@@ -1,8 +1,11 @@
+use halo2_ecc_circuit_lib::utils::bn_to_field;
+use halo2_ecc_circuit_lib::utils::field_to_bn;
 use halo2_proofs::arithmetic::BaseExt;
 use halo2_proofs::arithmetic::Field;
 use halo2_proofs::plonk::keygen_vk;
 use halo2_proofs::plonk::VerifyingKey;
 use halo2_proofs::plonk::{create_proof, keygen_pk};
+use halo2_proofs::transcript::PoseidonRead;
 use halo2_proofs::transcript::{Challenge255, PoseidonWrite};
 use halo2_proofs::{
     arithmetic::{CurveAffine, FieldExt, MultiMillerLoop},
@@ -255,11 +258,20 @@ impl<F: FieldExt> NumericInstructions<F> for FieldChip<F> {
 /// In this struct we store the private input variables. We use `Option<F>` because
 /// they won't have any value during key generation. During proving, if any of these
 /// were `None` we would get an error.
-#[derive(Default)]
 pub(crate) struct MyCircuit<F: FieldExt> {
     pub(crate) constant: F,
     pub(crate) a: Option<F>,
     pub(crate) b: Option<F>,
+}
+
+impl<F: FieldExt> MyCircuit<F> {
+    fn default() -> Self {
+        MyCircuit {
+            constant: F::from(7u64),
+            a: None,
+            b: None,
+        }
+    }
 }
 
 impl<F: FieldExt> Circuit<F> for MyCircuit<F> {
@@ -362,10 +374,6 @@ pub(crate) fn sample_circuit_random_run<C: CurveAffine, E: MultiMillerLoop<G1Aff
     mut folder: std::path::PathBuf,
     index: usize,
 ) {
-    let a = C::Scalar::random(OsRng);
-    let b = C::Scalar::random(OsRng);
-    let circuit = sample_circuit_builder(a, b);
-
     let params = {
         folder.push("sample_circuit.params");
         let mut fd = std::fs::File::open(folder.as_path()).unwrap();
@@ -380,10 +388,13 @@ pub(crate) fn sample_circuit_random_run<C: CurveAffine, E: MultiMillerLoop<G1Aff
         VerifyingKey::<C>::read::<_, MyCircuit<C::ScalarExt>>(&mut fd, &params).unwrap()
     };
 
+    let constant = C::Scalar::from(7);
+    let a = C::Scalar::random(OsRng);
+    let b = C::Scalar::random(OsRng);
+    let circuit = sample_circuit_builder(a, b);
     let pk = keygen_pk(&params, vk, &circuit).expect("keygen_pk should not fail");
 
-    let constant = C::ScalarExt::from(7);
-    let instances: &[&[&[C::ScalarExt]]] = &[&[&[constant * a.square() * b.square()]]];
+    let instances: &[&[&[C::Scalar]]] = &[&[&[constant * a.square() * b.square()]]];
     let mut transcript = PoseidonWrite::<_, _, Challenge255<_>>::init(vec![]);
     create_proof(&params, &pk, &[circuit], instances, OsRng, &mut transcript)
         .expect("proof generation should not fail");
@@ -416,4 +427,20 @@ pub(crate) fn sample_circuit_random_run<C: CurveAffine, E: MultiMillerLoop<G1Aff
             .collect::<Vec<Vec<Vec<Vec<u8>>>>>());
         write!(fd, "{}", instances.to_string()).unwrap();
     }
+
+    let vk = {
+        folder.push("sample_circuit.vkey");
+        let mut fd = std::fs::File::open(folder.as_path()).unwrap();
+        folder.pop();
+        VerifyingKey::<C>::read::<_, MyCircuit<C::ScalarExt>>(&mut fd, &params).unwrap()
+    };
+    let params = params.verifier::<E>(1).unwrap();
+    let strategy = halo2_proofs::plonk::SingleVerifier::new(&params);
+    let constant = E::Scalar::from(7);
+    let a: E::Scalar = bn_to_field(&field_to_bn(&a));
+    let b: E::Scalar = bn_to_field(&field_to_bn(&b));
+    let instances: &[&[&[E::Scalar]]] = &[&[&[constant * a.square() * b.square()]]];
+    let mut transcript = PoseidonRead::<_, _, Challenge255<_>>::init(&proof[..]);
+    halo2_proofs::plonk::verify_proof(&params, &vk, strategy, &instances[..], &mut transcript)
+        .unwrap();
 }

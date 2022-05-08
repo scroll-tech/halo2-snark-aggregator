@@ -1,3 +1,5 @@
+use crate::sample_circuit::MyCircuit;
+
 use super::chips::{ecc_chip::EccChip, encode_chip::PoseidonEncodeChip, scalar_chip::ScalarChip};
 use halo2_ecc_circuit_lib::chips::integer_chip::IntegerChipOps;
 use halo2_ecc_circuit_lib::five::integer_chip::FiveColumnIntegerChipHelper;
@@ -14,7 +16,7 @@ use halo2_ecc_circuit_lib::{
 };
 use halo2_proofs::plonk::{Column, Instance};
 use halo2_proofs::{
-    arithmetic::{BaseExt, Field},
+    arithmetic::BaseExt,
     plonk::{keygen_pk, verify_proof, SingleVerifier},
     transcript::{Blake2bRead, Challenge255},
 };
@@ -301,6 +303,14 @@ fn load_sample_circuit_info<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>>(
     let sample_circuit_params = load_params(folder, "sample_circuit.params");
 
     let sample_circuit_vk = {
+        folder.push("sample_circuit.vkey");
+        let mut fd = std::fs::File::open(folder.as_path()).unwrap();
+        folder.pop();
+        VerifyingKey::<C>::read::<_, MyCircuit<C::ScalarExt>>(&mut fd, &sample_circuit_params)
+            .unwrap()
+    };
+    /*
+    {
         let sample_circuit = crate::sample_circuit::sample_circuit_builder(
             C::ScalarExt::zero(),
             C::ScalarExt::zero(),
@@ -308,6 +318,7 @@ fn load_sample_circuit_info<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>>(
 
         keygen_vk(&sample_circuit_params, &sample_circuit).expect("keygen_vk should not fail")
     };
+    */
 
     let mut sample_circuit_transcripts = vec![];
     let mut sample_circuit_instances = vec![];
@@ -450,6 +461,7 @@ pub(crate) fn verify_circuit_run<C: CurveAffine, E: MultiMillerLoop<G1Affine = C
     mut folder: std::path::PathBuf,
     nproofs: usize,
 ) {
+    let now = std::time::Instant::now();
     let sample_circuit_info = load_sample_circuit_info::<C, E>(&mut folder, nproofs, false);
 
     let instances = calc_verify_circuit_instances(
@@ -467,10 +479,29 @@ pub(crate) fn verify_circuit_run<C: CurveAffine, E: MultiMillerLoop<G1Affine = C
         nproofs,
     );
 
-    let verify_circuit_params = load_params::<C>(&mut folder, "verify_circuit.params");
-    let verify_circuit_vk =
-        keygen_vk(&verify_circuit_params, &verify_circuit).expect("keygen_vk should not fail");
+    let elapsed_time = now.elapsed();
+    println!("Running step 1 took {} seconds.", elapsed_time.as_secs());
 
+    let verify_circuit_params = load_params::<C>(&mut folder, "verify_circuit.params");
+
+    let elapsed_time = now.elapsed();
+    println!(
+        "Running load params took {} seconds.",
+        elapsed_time.as_secs()
+    );
+
+    let verify_circuit_vk =
+        //keygen_vk(&verify_circuit_params, &verify_circuit).expect("keygen_vk //should not fail");
+            // issue see https://github.com/zcash/halo2/issues/449
+    {
+        folder.push("verify_circuit.vkey");
+        let mut fd = std::fs::File::open(folder.as_path()).unwrap();
+        folder.pop();
+        VerifyingKey::<C>::read::<_, Halo2VerifierCircuit<'_, E>>(&mut fd, &verify_circuit_params).unwrap()
+    };
+
+    let elapsed_time = now.elapsed();
+    println!("Running load vkey took {} seconds.", elapsed_time.as_secs());
     println!("build vk done");
 
     let verify_circuit_pk = keygen_pk(&verify_circuit_params, verify_circuit_vk, &verify_circuit)
@@ -488,6 +519,12 @@ pub(crate) fn verify_circuit_run<C: CurveAffine, E: MultiMillerLoop<G1Affine = C
     )
     .expect("proof generation should not fail");
     let proof = transcript.finalize();
+
+    let elapsed_time = now.elapsed();
+    println!(
+        "Running create proof took {} seconds.",
+        elapsed_time.as_secs()
+    );
 
     {
         folder.push(format!("verify_circuit_proof.data"));
