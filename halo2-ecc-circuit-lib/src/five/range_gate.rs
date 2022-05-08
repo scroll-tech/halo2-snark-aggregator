@@ -39,7 +39,7 @@ impl<'a, W: BaseExt, N: FieldExt, const COMMON_RANGE_BITS: usize>
         meta: &mut ConstraintSystem<N>,
         base_gate_config: &'a FiveColumnBaseGateConfig,
     ) -> RangeGateConfig {
-        let common_range_selector = meta.complex_selector();
+        let common_range_selector = meta.fixed_column();
         let common_range_table_column = meta.lookup_table_column();
 
         base_gate_config.base[0..VAR_COLUMNS - 1]
@@ -47,35 +47,35 @@ impl<'a, W: BaseExt, N: FieldExt, const COMMON_RANGE_BITS: usize>
             .for_each(|column| {
                 meta.lookup("common range", |meta| {
                     let exp = meta.query_advice(column.clone(), Rotation::cur());
-                    let s = meta.query_selector(common_range_selector);
+                    let s = meta.query_fixed(common_range_selector, Rotation::cur());
                     vec![(exp * s, common_range_table_column)]
                 });
             });
 
-        let w_ceil_leading_limb_range_selector = meta.complex_selector();
+        let w_ceil_leading_limb_range_selector = meta.fixed_column();
         let w_ceil_leading_limb_range_table_column = meta.lookup_table_column();
 
         meta.lookup("w ceil leading limb range", |meta| {
             let exp = meta.query_advice(base_gate_config.base[0].clone(), Rotation::cur());
-            let s = meta.query_selector(w_ceil_leading_limb_range_selector);
+            let s = meta.query_fixed(w_ceil_leading_limb_range_selector, Rotation::cur());
             vec![(exp * s, w_ceil_leading_limb_range_table_column)]
         });
 
-        let n_floor_leading_limb_range_selector = meta.complex_selector();
+        let n_floor_leading_limb_range_selector = meta.fixed_column();
         let n_floor_leading_limb_range_table_column = meta.lookup_table_column();
 
         meta.lookup("n floor leading limb range", |meta| {
             let exp = meta.query_advice(base_gate_config.base[0].clone(), Rotation::cur());
-            let s = meta.query_selector(n_floor_leading_limb_range_selector);
+            let s = meta.query_fixed(n_floor_leading_limb_range_selector, Rotation::cur());
             vec![(exp * s, n_floor_leading_limb_range_table_column)]
         });
 
-        let d_leading_limb_range_selector = meta.complex_selector();
+        let d_leading_limb_range_selector = meta.fixed_column();
         let d_leading_limb_range_table_column = meta.lookup_table_column();
 
         meta.lookup("d leading limb range", |meta| {
             let exp = meta.query_advice(base_gate_config.base[0].clone(), Rotation::cur());
-            let s = meta.query_selector(d_leading_limb_range_selector);
+            let s = meta.query_fixed(d_leading_limb_range_selector, Rotation::cur());
             vec![(exp * s, d_leading_limb_range_table_column)]
         });
 

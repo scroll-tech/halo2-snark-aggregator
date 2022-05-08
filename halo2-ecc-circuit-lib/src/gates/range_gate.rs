@@ -6,23 +6,23 @@ use crate::{
 use halo2_proofs::{
     arithmetic::{BaseExt, FieldExt},
     circuit::Layouter,
-    plonk::{Error, Selector, TableColumn},
+    plonk::{Column, Error, Fixed, TableColumn},
 };
 use num_bigint::BigUint;
 use std::marker::PhantomData;
 
 #[derive(Clone, Debug)]
 pub struct RangeGateConfig {
-    pub w_ceil_leading_limb_range_selector: Selector,
+    pub w_ceil_leading_limb_range_selector: Column<Fixed>,
     pub w_ceil_leading_limb_range_table_column: TableColumn,
 
-    pub n_floor_leading_limb_range_selector: Selector,
+    pub n_floor_leading_limb_range_selector: Column<Fixed>,
     pub n_floor_leading_limb_range_table_column: TableColumn,
 
-    pub d_leading_limb_range_selector: Selector, // range check for d, d * w + w_ceil <= lcm(integer_modulus, n)
+    pub d_leading_limb_range_selector: Column<Fixed>, // range check for d, d * w + w_ceil <= lcm(integer_modulus, n)
     pub d_leading_limb_range_table_column: TableColumn,
 
-    pub common_range_selector: Selector,
+    pub common_range_selector: Column<Fixed>,
     pub common_range_table_column: TableColumn,
 }
 
@@ -90,9 +90,12 @@ impl<
         constant: N,
         mul_next_coeffs: (Vec<N>, N),
     ) -> Result<Vec<AssignedValue<N>>, Error> {
-        self.config
-            .common_range_selector
-            .enable(ctx.region.as_mut(), *ctx.offset)?;
+        ctx.region.assign_fixed(
+            || "common_range_selector",
+            self.config.common_range_selector,
+            *ctx.offset,
+            || Ok(N::one()),
+        )?;
         let assigned_values =
             self.base_gate
                 .one_line(ctx, base_coeff_pairs, constant, mul_next_coeffs)?;
@@ -107,12 +110,18 @@ impl<
         constant: N,
         mul_next_coeffs: (Vec<N>, N),
     ) -> Result<Vec<AssignedValue<N>>, Error> {
-        self.config
-            .common_range_selector
-            .enable(ctx.region.as_mut(), *ctx.offset)?;
-        self.config
-            .w_ceil_leading_limb_range_selector
-            .enable(ctx.region.as_mut(), *ctx.offset)?;
+        ctx.region.assign_fixed(
+            || "common_range_selector",
+            self.config.common_range_selector,
+            *ctx.offset,
+            || Ok(N::one()),
+        )?;
+        ctx.region.assign_fixed(
+            || "w_ceil_leading_limb_range_selector",
+            self.config.w_ceil_leading_limb_range_selector,
+            *ctx.offset,
+            || Ok(N::one()),
+        )?;
         let assigned_values =
             self.base_gate
                 .one_line(ctx, base_coeff_pairs, constant, mul_next_coeffs)?;
@@ -127,12 +136,18 @@ impl<
         constant: N,
         mul_next_coeffs: (Vec<N>, N),
     ) -> Result<Vec<AssignedValue<N>>, Error> {
-        self.config
-            .common_range_selector
-            .enable(ctx.region.as_mut(), *ctx.offset)?;
-        self.config
-            .n_floor_leading_limb_range_selector
-            .enable(ctx.region.as_mut(), *ctx.offset)?;
+        ctx.region.assign_fixed(
+            || "common_range_selector",
+            self.config.common_range_selector,
+            *ctx.offset,
+            || Ok(N::one()),
+        )?;
+        ctx.region.assign_fixed(
+            || "n_floor_leading_limb_range_selector",
+            self.config.n_floor_leading_limb_range_selector,
+            *ctx.offset,
+            || Ok(N::one()),
+        )?;
         let assigned_values =
             self.base_gate
                 .one_line(ctx, base_coeff_pairs, constant, mul_next_coeffs)?;
@@ -147,12 +162,18 @@ impl<
         constant: N,
         mul_next_coeffs: (Vec<N>, N),
     ) -> Result<Vec<AssignedValue<N>>, Error> {
-        self.config
-            .common_range_selector
-            .enable(ctx.region.as_mut(), *ctx.offset)?;
-        self.config
-            .d_leading_limb_range_selector
-            .enable(ctx.region.as_mut(), *ctx.offset)?;
+        ctx.region.assign_fixed(
+            || "common_range_selector",
+            self.config.common_range_selector,
+            *ctx.offset,
+            || Ok(N::one()),
+        )?;
+        ctx.region.assign_fixed(
+            || "d_leading_limb_range_selector",
+            self.config.d_leading_limb_range_selector,
+            *ctx.offset,
+            || Ok(N::one()),
+        )?;
         let assigned_values =
             self.base_gate
                 .one_line(ctx, base_coeff_pairs, constant, mul_next_coeffs)?;
