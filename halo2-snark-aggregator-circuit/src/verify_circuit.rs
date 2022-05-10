@@ -301,7 +301,6 @@ fn load_sample_circuit_info<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>>(
     Vec<Vec<u8>>,
 ) {
     let sample_circuit_params = load_params(folder, "sample_circuit.params");
-
     let sample_circuit_vk = {
         folder.push("sample_circuit.vkey");
         let mut fd = std::fs::File::open(folder.as_path()).unwrap();
@@ -309,16 +308,6 @@ fn load_sample_circuit_info<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>>(
         VerifyingKey::<C>::read::<_, MyCircuit<C::ScalarExt>>(&mut fd, &sample_circuit_params)
             .unwrap()
     };
-    /*
-    {
-        let sample_circuit = crate::sample_circuit::sample_circuit_builder(
-            C::ScalarExt::zero(),
-            C::ScalarExt::zero(),
-        );
-
-        keygen_vk(&sample_circuit_params, &sample_circuit).expect("keygen_vk should not fail")
-    };
-    */
 
     let mut sample_circuit_transcripts = vec![];
     let mut sample_circuit_instances = vec![];
@@ -479,9 +468,6 @@ pub(crate) fn verify_circuit_run<C: CurveAffine, E: MultiMillerLoop<G1Affine = C
         nproofs,
     );
 
-    let elapsed_time = now.elapsed();
-    println!("Running step 1 took {} seconds.", elapsed_time.as_secs());
-
     let verify_circuit_params = load_params::<C>(&mut folder, "verify_circuit.params");
 
     let elapsed_time = now.elapsed();
@@ -490,14 +476,12 @@ pub(crate) fn verify_circuit_run<C: CurveAffine, E: MultiMillerLoop<G1Affine = C
         elapsed_time.as_secs()
     );
 
-    let verify_circuit_vk =
-        //keygen_vk(&verify_circuit_params, &verify_circuit).expect("keygen_vk //should not fail");
-            // issue see https://github.com/zcash/halo2/issues/449
-    {
+    let verify_circuit_vk = {
         folder.push("verify_circuit.vkey");
         let mut fd = std::fs::File::open(folder.as_path()).unwrap();
         folder.pop();
-        VerifyingKey::<C>::read::<_, Halo2VerifierCircuit<'_, E>>(&mut fd, &verify_circuit_params).unwrap()
+        VerifyingKey::<C>::read::<_, Halo2VerifierCircuit<'_, E>>(&mut fd, &verify_circuit_params)
+            .unwrap()
     };
 
     let elapsed_time = now.elapsed();
@@ -506,6 +490,9 @@ pub(crate) fn verify_circuit_run<C: CurveAffine, E: MultiMillerLoop<G1Affine = C
 
     let verify_circuit_pk = keygen_pk(&verify_circuit_params, verify_circuit_vk, &verify_circuit)
         .expect("keygen_pk should not fail");
+
+    let elapsed_time = now.elapsed();
+    println!("Running keygen_pk took {} seconds.", elapsed_time.as_secs());
 
     let instances: &[&[&[C::ScalarExt]]] = &[&[&instances[..]]];
     let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);

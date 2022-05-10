@@ -24,6 +24,8 @@ pub fn main() {
     let args = Cli::parse();
     let folder = args.folder_path;
 
+    rayon::ThreadPoolBuilder::new().num_threads(24).build_global().unwrap();
+
     if args.command == "sample_setup" {
         sample_circuit::sample_circuit_setup::<G1Affine, Bn256>(folder.clone());
     }
