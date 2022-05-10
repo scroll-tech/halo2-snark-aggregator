@@ -14,6 +14,7 @@ use halo2_ecc_circuit_lib::{
     },
     gates::{base_gate::Context, range_gate::RangeGateConfig},
 };
+use halo2_proofs::circuit::floor_planner::V1;
 use halo2_proofs::plonk::{Column, Instance};
 use halo2_proofs::{
     arithmetic::BaseExt,
@@ -22,7 +23,7 @@ use halo2_proofs::{
 };
 use halo2_proofs::{
     arithmetic::{CurveAffine, MultiMillerLoop},
-    circuit::{Layouter, SimpleFloorPlanner},
+    circuit::Layouter,
     plonk::{Circuit, ConstraintSystem, Error, VerifyingKey},
     poly::commitment::{Params, ParamsVerifier},
 };
@@ -71,7 +72,7 @@ impl<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> Circuit<C::ScalarExt>
     for Halo2VerifierCircuit<'a, E>
 {
     type Config = Halo2VerifierCircuitConfig;
-    type FloorPlanner = SimpleFloorPlanner;
+    type FloorPlanner = V1;
 
     fn without_witnesses(&self) -> Self {
         Self {
