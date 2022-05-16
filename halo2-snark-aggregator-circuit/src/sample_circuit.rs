@@ -346,7 +346,7 @@ pub(crate) fn sample_circuit_builder<F: FieldExt>(a: F, b: F) -> MyCircuit<F> {
     }
 }
 
-pub(crate) fn sample_circuit_setup<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>>(
+pub fn sample_circuit_setup<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>>(
     mut folder: std::path::PathBuf,
 ) {
     // TODO: Do not use setup in production
@@ -370,7 +370,7 @@ pub(crate) fn sample_circuit_setup<C: CurveAffine, E: MultiMillerLoop<G1Affine =
     }
 }
 
-pub(crate) fn sample_circuit_random_run<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>>(
+pub fn sample_circuit_random_run<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>>(
     mut folder: std::path::PathBuf,
     index: usize,
 ) {

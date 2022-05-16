@@ -337,7 +337,7 @@ fn load_sample_circuit_info<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>>(
 
 const K: u32 = 22u32;
 
-pub(crate) fn verify_circuit_setup<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>>(
+pub fn verify_circuit_setup<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>>(
     mut folder: std::path::PathBuf,
     nproofs: usize,
 ) {
@@ -447,7 +447,7 @@ pub(crate) fn calc_verify_circuit_instances<C: CurveAffine, E: MultiMillerLoop<G
         .collect()
 }
 
-pub(crate) fn verify_circuit_run<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>>(
+pub fn verify_circuit_run<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>>(
     mut folder: std::path::PathBuf,
     nproofs: usize,
 ) {
@@ -543,7 +543,7 @@ pub(crate) fn verify_circuit_run<C: CurveAffine, E: MultiMillerLoop<G1Affine = C
     }
 }
 
-pub(crate) fn verify_circuit_check<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>>(
+pub fn verify_circuit_check<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>>(
     mut folder: std::path::PathBuf,
     _nproofs: usize,
 ) {

@@ -248,6 +248,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "halo2-snark-aggregator"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "halo2-snark-aggregator-circuit",
+ "pairing_bn256",
+ "rayon",
+]
+
+[[package]]
 name = "halo2-snark-aggregator-api"
 version = "0.1.0"
 dependencies = [
