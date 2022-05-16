@@ -439,7 +439,7 @@ impl<
             .vk
             .fixed_commitments
             .iter()
-            .map(|&affine| self.pchip.assign_var(self.ctx, affine))
+            .map(|&affine| self.pchip.assign_const(self.ctx, affine))
             .collect::<Result<Vec<_>, _>>()?;
 
         let v = self.squeeze_challenge_scalar()?;
@@ -499,7 +499,7 @@ impl<
                 .permutation
                 .commitments
                 .iter()
-                .map(|commit| self.pchip.assign_var(self.ctx, *commit))
+                .map(|commit| self.pchip.assign_const(self.ctx, *commit))
                 .collect::<Result<Vec<_>, _>>()?,
             permutation_evals,
             vanish_commitments: h_commitments,
