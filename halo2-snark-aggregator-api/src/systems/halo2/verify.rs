@@ -30,7 +30,7 @@ pub struct VerifierParamsBuilder<
     nchip: &'a A::NativeChip,
     schip: &'a A::ScalarChip,
     pchip: &'a A,
-    instances: &'a [&'a [&'a [E::Scalar]]],
+    assigned_instances: Vec<Vec<A::AssignedPoint>>,
     vk: &'a VerifyingKey<E::G1Affine>,
     params: &'a ParamsVerifier<E>,
     transcript: &'a mut T,
@@ -67,30 +67,24 @@ impl<
         Ok(())
     }
 
-    fn build_instance_commitment(&mut self) -> Result<Vec<Vec<A::AssignedPoint>>, A::Error> {
-        for instances in self.instances.iter() {
-            assert!(instances.len() == self.vk.cs.num_instance_columns)
-        }
-
-        self.instances
+    fn squeeze_instance_commitment(&mut self) -> Result<(), A::Error> {
+        let _: Vec<Vec<Result<(), A::Error>>> = self
+            .assigned_instances
             .iter()
             .map(|instance| {
                 instance
                     .iter()
-                    .map(|instance| {
-                        assert!(
-                            instance.len()
-                                <= self.params.n as usize - (self.vk.cs.blinding_factors() + 1)
-                        );
-                        let p = self.params.commit_lagrange(instance.to_vec()).to_affine();
-                        let p = self.pchip.assign_var(self.ctx, p)?;
+                    .map(|p| {
                         self.transcript
                             .common_point(self.ctx, self.nchip, self.schip, self.pchip, &p)?;
-                        Ok(p)
+
+                        Ok(())
                     })
-                    .collect::<Result<Vec<A::AssignedPoint>, A::Error>>()
+                    .collect::<Vec<_>>()
             })
-            .collect::<Result<Vec<Vec<A::AssignedPoint>>, A::Error>>()
+            .collect::<Vec<_>>();
+
+        Ok(())
     }
 
     fn load_point(&mut self) -> Result<A::AssignedPoint, A::Error> {
@@ -355,7 +349,8 @@ impl<
     pub fn build_params(mut self) -> Result<VerifierParams<A>, A::Error> {
         self.init_transcript()?;
 
-        let instance_commitments = self.build_instance_commitment()?;
+        self.squeeze_instance_commitment()?;
+        let instance_commitments = &self.assigned_instances;
 
         let num_proofs = instance_commitments.len();
 
@@ -467,7 +462,7 @@ impl<
             common: PlonkCommonSetup { l, n },
             lookup_evaluated,
             permutation_evaluated,
-            instance_commitments,
+            instance_commitments: self.assigned_instances,
             instance_evals,
             instance_queries: self
                 .vk
@@ -538,6 +533,41 @@ impl<
     }
 }
 
+pub fn assign_instance_commitment<
+    E: MultiMillerLoop,
+    A: ArithEccChip<
+        Point = E::G1Affine,
+        Scalar = <E::G1Affine as CurveAffine>::ScalarExt,
+        Native = <E::G1Affine as CurveAffine>::ScalarExt,
+    >,
+>(
+    ctx: &mut A::Context,
+    pchip: &A,
+    instances: &[&[&[E::Scalar]]],
+    vk: &VerifyingKey<E::G1Affine>,
+    params: &ParamsVerifier<E>,
+) -> Result<Vec<Vec<A::AssignedPoint>>, A::Error> {
+    for instances in instances.iter() {
+        assert!(instances.len() == vk.cs.num_instance_columns)
+    }
+
+    instances
+        .iter()
+        .map(|instance| {
+            instance
+                .iter()
+                .map(|instance| {
+                    assert!(instance.len() <= params.n as usize - (vk.cs.blinding_factors() + 1));
+                    let p = params.commit_lagrange(instance.to_vec()).to_affine();
+                    let p = pchip.assign_var(ctx, p)?;
+
+                    Ok(p)
+                })
+                .collect::<Result<Vec<A::AssignedPoint>, A::Error>>()
+        })
+        .collect::<Result<Vec<Vec<A::AssignedPoint>>, A::Error>>()
+}
+
 pub fn verify_single_proof_no_eval<
     E: MultiMillerLoop,
     A: ArithEccChip<
@@ -551,7 +581,7 @@ pub fn verify_single_proof_no_eval<
     nchip: &A::NativeChip,
     schip: &A::ScalarChip,
     pchip: &A,
-    instances: &[&[&[E::Scalar]]],
+    assigned_instances: Vec<Vec<A::AssignedPoint>>,
     vk: &VerifyingKey<E::G1Affine>,
     params: &ParamsVerifier<E>,
     transcript: &mut T,
@@ -562,7 +592,7 @@ pub fn verify_single_proof_no_eval<
         nchip,
         schip,
         pchip,
-        instances,
+        assigned_instances,
         vk,
         params,
         transcript,
@@ -642,8 +672,18 @@ pub fn verify_single_proof_in_chip<
     params: &ParamsVerifier<E>,
     transcript: &mut T,
 ) -> Result<(A::AssignedPoint, A::AssignedPoint), A::Error> {
+    let assigned_instances = assign_instance_commitment(ctx, pchip, instances, vk, params)?;
+
     let proof = verify_single_proof_no_eval(
-        ctx, nchip, schip, pchip, instances, vk, params, transcript, "".to_owned(),
+        ctx,
+        nchip,
+        schip,
+        pchip,
+        assigned_instances,
+        vk,
+        params,
+        transcript,
+        "".to_owned(),
     )?;
     evaluate_multiopen_proof::<E, A, T>(ctx, schip, pchip, proof, params)
 }
@@ -692,12 +732,15 @@ pub fn verify_aggregation_proofs_in_chip<
                 .collect();
             let instances2: Vec<&[&[E::Scalar]]> = instances1.iter().map(|x| &x[..]).collect();
 
+            let assigned_instances =
+                assign_instance_commitment(ctx, pchip, &instances2[..], vk, params)?;
+
             verify_single_proof_no_eval(
                 ctx,
                 nchip,
                 schip,
                 pchip,
-                &instances2[..],
+                assigned_instances,
                 vk,
                 params,
                 &mut proof.transcript,
