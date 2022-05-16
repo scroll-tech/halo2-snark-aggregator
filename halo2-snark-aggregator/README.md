@@ -27,11 +27,19 @@ cargo run --release -- --command verify_run --nproofs 2 --folder-path ./output
 // Output: verify circuit's instances and transcript
 ```
 
-5. verify the proof of verify circuits generated in step 4.
+5.
+* verify the proof of verify circuits generated in step 4.
 ```
 cargo run --release -- --command verify_check --nproofs 2 --folder-path ./output
 // Input: verify circuit's params and vkey, instances and transcript
 // Output: result (console output only)
+```
+
+* generate solidity code of verify circuits generated in step 4.
+```
+cargo run --release -- --command verify_solidity --nproofs 2 --folder-path ./output --template-path ../halo2-snark-aggregator-solidity/templates
+// Input: verify circuit's params and vkey, instances and transcript
+// Output: verify circuit's solidity code
 ```
 
 TODO:

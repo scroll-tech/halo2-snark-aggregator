@@ -380,6 +380,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "halo2-snark-aggregator-circuit",
+ "halo2-snark-aggregator-solidity",
  "pairing_bn256",
  "rayon",
 ]

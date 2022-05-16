@@ -5,6 +5,7 @@ use halo2_snark_aggregator_circuit::sample_circuit::{
 use halo2_snark_aggregator_circuit::verify_circuit::{
     verify_circuit_check, verify_circuit_run, verify_circuit_setup,
 };
+use halo2_snark_aggregator_solidity::verify_circuit_sol_generator;
 use pairing_bn256::bn256::{Bn256, G1Affine};
 
 #[derive(Parser)]
@@ -16,11 +17,14 @@ struct Cli {
     nproofs: usize,
     #[clap(short, long, parse(from_os_str))]
     folder_path: std::path::PathBuf,
+    #[clap(short, long, parse(from_os_str))]
+    template_path: std::path::PathBuf,
 }
 
 pub fn main() {
     let args = Cli::parse();
     let folder = args.folder_path;
+    let template_folder = args.template_path;
 
     rayon::ThreadPoolBuilder::new()
         .num_threads(24)
@@ -47,5 +51,13 @@ pub fn main() {
 
     if args.command == "verify_check" {
         verify_circuit_check::<G1Affine, Bn256>(folder.clone(), args.nproofs)
+    }
+
+    if args.command == "verify_solidity" {
+        verify_circuit_sol_generator::<G1Affine, Bn256>(
+            folder.clone(),
+            template_folder.clone(),
+            args.nproofs,
+        )
     }
 }
