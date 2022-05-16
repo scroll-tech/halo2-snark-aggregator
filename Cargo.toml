@@ -3,4 +3,5 @@ members = [
     "halo2-ecc-circuit-lib",
     "halo2-snark-aggregator-api",
     "halo2-snark-aggregator-circuit",
+    "halo2-snark-aggregator-solidity",
 ]

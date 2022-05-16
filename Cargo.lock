@@ -279,6 +279,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "halo2-snark-aggregator-solidity"
+version = "0.1.0"
+
+[[package]]
 name = "halo2_proofs"
 version = "0.1.0-beta.1"
 source = "git+https://github.com/junyu0312/halo2?rev=4112958c7fa980b331897fd030a329095f418ff9#4112958c7fa980b331897fd030a329095f418ff9"
