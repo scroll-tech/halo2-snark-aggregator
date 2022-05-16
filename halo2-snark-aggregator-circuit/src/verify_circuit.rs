@@ -48,20 +48,20 @@ use std::{
 const COMMON_RANGE_BITS: usize = 17usize;
 
 #[derive(Clone)]
-struct Halo2VerifierCircuitConfig {
+pub struct Halo2VerifierCircuitConfig {
     base_gate_config: FiveColumnBaseGateConfig,
     range_gate_config: RangeGateConfig,
     instance: Column<Instance>,
 }
 
 #[derive(Clone)]
-struct SingleProofWitness<'a, E: MultiMillerLoop> {
+pub struct SingleProofWitness<'a, E: MultiMillerLoop> {
     instances: &'a Vec<Vec<Vec<E::Scalar>>>,
     transcript: &'a Vec<u8>,
 }
 
 #[derive(Clone)]
-struct Halo2VerifierCircuit<'a, E: MultiMillerLoop> {
+pub struct Halo2VerifierCircuit<'a, E: MultiMillerLoop> {
     params: &'a ParamsVerifier<E>,
     vk: &'a VerifyingKey<E::G1Affine>,
     proofs: Vec<SingleProofWitness<'a, E>>,
@@ -249,14 +249,14 @@ fn verify_circuit_builder<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C>>(
     }
 }
 
-fn load_params<C: CurveAffine>(folder: &mut std::path::PathBuf, file_name: &str) -> Params<C> {
+pub fn load_params<C: CurveAffine>(folder: &mut std::path::PathBuf, file_name: &str) -> Params<C> {
     folder.push(file_name);
     let mut fd = std::fs::File::open(folder.as_path()).unwrap();
     folder.pop();
     Params::<C>::read(&mut fd).unwrap()
 }
 
-fn load_transcript<C: CurveAffine>(folder: &mut std::path::PathBuf, file_name: &str) -> Vec<u8> {
+pub fn load_transcript<C: CurveAffine>(folder: &mut std::path::PathBuf, file_name: &str) -> Vec<u8> {
     folder.push(file_name);
     let mut fd = std::fs::File::open(folder.as_path()).unwrap();
     folder.pop();
@@ -266,7 +266,7 @@ fn load_transcript<C: CurveAffine>(folder: &mut std::path::PathBuf, file_name: &
     buf
 }
 
-fn load_instances<E: MultiMillerLoop>(
+pub fn load_instances<E: MultiMillerLoop>(
     folder: &mut std::path::PathBuf,
     file_name: &str,
 ) -> Vec<Vec<Vec<E::Scalar>>> {
