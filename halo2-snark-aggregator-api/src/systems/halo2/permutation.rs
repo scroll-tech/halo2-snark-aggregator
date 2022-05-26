@@ -23,6 +23,7 @@ pub struct CommonEvaluated<'a, A: ArithEccChip> {
 #[derive(Debug)]
 pub struct Evaluated<A: ArithEccChip> {
     pub(in crate::systems::halo2) key: String,
+    pub(in crate::systems::halo2) blinding_factors: usize,
     pub(in crate::systems::halo2) x: A::AssignedScalar,
     pub(in crate::systems::halo2) sets: Vec<EvaluatedSet<A>>,
     pub(in crate::systems::halo2) evals: Vec<A::AssignedScalar>,
@@ -164,7 +165,7 @@ impl<A: ArithEccChip> Evaluated<A> {
                     .skip(1)
                     .flat_map(|(i, set)| {
                         Some(EvaluationQuery::new(
-                            -1,
+                            -((self.blinding_factors + 1) as i32),
                             format!("{}_permutation_product_commitment{}", self.key, i),
                             x_last.clone(),
                             set.permutation_product_commitment.clone(),

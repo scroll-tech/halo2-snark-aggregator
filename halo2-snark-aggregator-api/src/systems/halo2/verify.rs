@@ -286,6 +286,7 @@ impl<
             .map(
                 |(permutation_evaluated_set, permutation_evaluated_eval)| permutation::Evaluated {
                     x: x.clone(),
+                    blinding_factors: self.vk.cs.blinding_factors(),
                     sets: permutation_evaluated_set,
                     evals: permutation_evaluated_eval,
                     chunk_len: self.vk.cs.degree() - 2,
