@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use crate::{
     arith::ecc::ArithEccChip, commit, scalar, systems::halo2::evaluation::EvaluationQuerySchema,
 };
@@ -19,12 +21,13 @@ impl<A: ArithEccChip> VerifierParams<A> {
         schip: &A::ScalarChip,
     ) -> Result<Vec<EvaluationProof<A>>, A::Error> {
         let queries = self.queries(ctx, schip)?;
-        let mut points: Vec<(String, A::AssignedScalar, Vec<_>)> = vec![];
+
+        let mut points: BTreeMap<i32, (_, Vec<_>)> = BTreeMap::new();
         for query in queries {
-            let p = points.iter_mut().find(|p| p.0 == query.key);
-            match p {
-                Some(v) => v.2.push(query.s),
-                _ => points.push((query.key, query.point, vec![query.s])),
+            if let Some(queries) = points.get_mut(&query.rotation) {
+                queries.1.push(query.s);
+            } else {
+                points.insert(query.rotation, (query.point, vec![query.s]));
             }
         }
 
@@ -34,10 +37,9 @@ impl<A: ArithEccChip> VerifierParams<A> {
             .into_iter()
             .enumerate()
             .map(|(i, p)| {
-                let point = p.1;
-                let queries = p.2;
+                let point = p.1.0;
 
-                let acc = queries
+                let acc = p.1.1
                     .into_iter()
                     .reduce(|acc, q| scalar!(self.v) * acc + q);
 

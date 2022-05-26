@@ -6,10 +6,10 @@ authors = ["zhangjunyu <junyu92@gmail.com>"]
 
 [dependencies]
 group = "0.11"
-halo2_proofs = { git = "https://github.com/junyu0312/halo2", rev = "3f6196fed5a61b7f86eb56848b4193d7a7b830d9", default-features = true }
+halo2_proofs = { git = "https://github.com/junyu0312/halo2", rev = "4112958c7fa980b331897fd030a329095f418ff9", default-features = true }
 num-integer = "0.1"
 num-bigint = { version = "0.4", features = ["rand"] }
-pairing_bn256 = { git = "https://github.com/appliedzkp/pairing" }
+pairing_bn256 = { git = "https://github.com/appliedzkp/pairing", tag = "v0.1.1" }
 
 [dev-dependencies]
 chrono = "0.4.19"

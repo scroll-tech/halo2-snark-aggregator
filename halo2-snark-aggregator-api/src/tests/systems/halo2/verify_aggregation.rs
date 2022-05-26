@@ -56,7 +56,7 @@ pub fn test_verify_aggregation_proof_in_chip<
     }
 
     let circuit_template = test_circuit_builder(Fp::zero(), Fp::zero());
-    let params = Params::<G1Affine>::unsafe_setup_rng::<Bn256, _>(K, Pcg32::seed_from_u64(0));
+    let params = Params::<G1Affine>::unsafe_setup::<Bn256>(K);
     let vk = keygen_vk(&params, &circuit_template).expect("keygen_vk should not fail");
 
     let public_inputs_size = 1;

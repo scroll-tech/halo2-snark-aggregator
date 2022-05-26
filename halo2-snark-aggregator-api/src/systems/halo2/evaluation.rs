@@ -67,14 +67,14 @@ pub struct EvaluationProof<'a, A: ArithEccChip> {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct EvaluationQuery<A: ArithEccChip> {
-    pub key: String,
     pub point: A::AssignedScalar,
+    pub rotation: i32,
     pub s: EvaluationQuerySchema<A::AssignedPoint, A::AssignedScalar>,
 }
 
 impl<A: ArithEccChip> EvaluationQuery<A> {
     pub fn new(
-        point_key: String,
+        rotation: i32,
         commitment_key: String,
         point: A::AssignedScalar,
         commitment: A::AssignedPoint,
@@ -87,18 +87,22 @@ impl<A: ArithEccChip> EvaluationQuery<A> {
         };
 
         EvaluationQuery {
-            key: point_key,
             point,
+            rotation,
             s: EvaluationQuerySchema::Commitment(s.clone()) + EvaluationQuerySchema::Eval(s),
         }
     }
 
     pub fn new_from_query(
-        key: String,
+        rotation: i32,
         point: A::AssignedScalar,
         s: EvaluationQuerySchema<A::AssignedPoint, A::AssignedScalar>,
     ) -> Self {
-        EvaluationQuery { key, point, s }
+        EvaluationQuery {
+            rotation,
+            point,
+            s,
+        }
     }
 }
 

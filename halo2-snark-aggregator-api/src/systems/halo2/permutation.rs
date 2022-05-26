@@ -38,7 +38,7 @@ impl<'a, A: ArithEccChip> CommonEvaluated<'a, A> {
             .enumerate()
             .map(|(i, (commitment, eval))| {
                 EvaluationQuery::new(
-                    "x".to_string(),
+                    0,
                     format!("{}_permutation_commitments{}", self.key, i),
                     x.clone(),
                     commitment.clone(),
@@ -141,14 +141,14 @@ impl<A: ArithEccChip> Evaluated<A> {
                     // Open permutation product commitments at x and \omega^{-1} x
                     // Open permutation product commitments at x and \omega x
                     .chain(Some(EvaluationQuery::new(
-                        "x".to_string(),
+                        0,
                         format!("{}_permutation_product_commitment{}", self.key, i),
                         self.x.clone(),
                         set.permutation_product_commitment.clone(),
                         set.permutation_product_eval.clone(),
                     )))
                     .chain(Some(EvaluationQuery::new(
-                        "x_next".to_string(),
+                        1,
                         format!("{}_permutation_product_commitment{}", self.key, i),
                         x_next.clone(),
                         set.permutation_product_commitment.clone(),
@@ -164,7 +164,7 @@ impl<A: ArithEccChip> Evaluated<A> {
                     .skip(1)
                     .flat_map(|(i, set)| {
                         Some(EvaluationQuery::new(
-                            "x_last".to_string(),
+                            -1,
                             format!("{}_permutation_product_commitment{}", self.key, i),
                             x_last.clone(),
                             set.permutation_product_commitment.clone(),

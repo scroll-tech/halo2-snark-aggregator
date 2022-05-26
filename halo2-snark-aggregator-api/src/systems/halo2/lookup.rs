@@ -120,35 +120,35 @@ impl<A: ArithEccChip> Evaluated<A> {
     ) -> Vec<EvaluationQuery<A>> {
         vec![
             EvaluationQuery::new(
-                "x".to_string(),
+                0,
                 format!("{}_product_commitment", self.key),
                 x.clone(),
                 self.committed.product_commitment.clone(),
                 self.product_eval.clone(),
             ),
             EvaluationQuery::new(
-                "x".to_string(),
+                0,
                 format!("{}_permuted_input_commitment", self.key),
                 x.clone(),
                 self.committed.permuted.permuted_input_commitment.clone(),
                 self.permuted_input_eval.clone(),
             ),
             EvaluationQuery::new(
-                "x".to_string(),
+                0,
                 format!("{}_permuted_table_commitment", self.key),
                 x.clone(),
                 self.committed.permuted.permuted_table_commitment.clone(),
                 self.permuted_table_eval.clone(),
             ),
             EvaluationQuery::new(
-                "x_inv".to_string(),
+                -1,
                 format!("{}_permuted_input_commitment", self.key),
                 x_inv.clone(),
                 self.committed.permuted.permuted_input_commitment.clone(),
                 self.permuted_input_inv_eval.clone(),
             ),
             EvaluationQuery::new(
-                "x_next".to_string(),
+                1,
                 format!("{}_product_commitment", self.key),
                 x_next.clone(),
                 self.committed.product_commitment.clone(),

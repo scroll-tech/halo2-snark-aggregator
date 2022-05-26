@@ -56,13 +56,13 @@ impl<'a, A: ArithEccChip> Evaluated<'a, A> {
     pub fn queries(&self, x: &A::AssignedScalar) -> Vec<EvaluationQuery<A>> {
         vec![
             EvaluationQuery::new_from_query(
-                "x".to_string(),
+                0,
                 x.clone(),
                 self.h_commitment.clone()
                     + EvaluationQuerySchema::Scalar(self.expected_h_eval.clone()),
             ),
             EvaluationQuery::new(
-                "x".to_string(),
+                0,
                 format!("{}_random_commitment", self.key),
                 x.clone(),
                 self.random_commitment.clone(),
