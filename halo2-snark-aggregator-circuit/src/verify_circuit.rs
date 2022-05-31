@@ -362,7 +362,7 @@ impl Setup {
     }
 }
 
-pub(crate) fn calc_verify_circuit_instances<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>>(
+pub fn calc_verify_circuit_instances<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>>(
     params: &ParamsVerifier<E>,
     vk: &VerifyingKey<C>,
     n_instances: Vec<Vec<Vec<Vec<E::Scalar>>>>,
