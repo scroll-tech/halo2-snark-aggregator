@@ -1,3 +1,5 @@
-pub(crate) mod test_circuit;
-pub mod verify_single;
-pub mod verify_aggregation;
+#[cfg(test)]
+pub mod add_mul_test;
+
+#[cfg(test)]
+pub mod zkevm_test;

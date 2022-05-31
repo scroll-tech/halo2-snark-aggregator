@@ -1,22 +1,20 @@
 use crate::{
     arith::{common::ArithCommonChip, ecc::ArithEccChip, field::ArithFieldChip},
     systems::halo2::{transcript::PoseidonTranscriptRead, verify::verify_single_proof_in_chip},
-    tests::systems::halo2::test_circuit::test_circuit_builder,
+    tests::systems::halo2::zkevm_test::zkevm_circuit::TestCircuit,
     transcript::encode::Encode,
 };
-use halo2_proofs::arithmetic::{CurveAffine, Field};
+use ark_std::{end_timer, start_timer};
+use halo2_proofs::arithmetic::CurveAffine;
 use halo2_proofs::{
-    pairing::bn256::Fr as Fp,
     plonk::{create_proof, keygen_pk, keygen_vk},
     poly::commitment::{Params, ParamsVerifier},
     transcript::{Challenge255, PoseidonWrite},
 };
-use pairing_bn256::bn256::{Bn256, G1Affine};
-use rand::SeedableRng;
-use rand_pcg::Pcg32;
-use rand_xorshift::XorShiftRng;
+use pairing_bn256::bn256::{Bn256, Fr, G1Affine};
+use rand::rngs::OsRng;
 
-const K: u32 = 10;
+const K: u32 = 16;
 
 pub fn test_verify_single_proof_in_chip<
     ScalarChip,
@@ -40,42 +38,35 @@ pub fn test_verify_single_proof_in_chip<
         Error = halo2_proofs::plonk::Error,
     >,
 {
-    fn random() -> Fp {
-        let seed = chrono::offset::Utc::now()
-            .timestamp_nanos()
-            .try_into()
-            .unwrap();
-        let rng = XorShiftRng::seed_from_u64(seed);
-        Fp::random(rng)
-    }
+    let circuit = TestCircuit::<Fr>::default();
+    let msg = format!("Setup zkevm circuit with degree = {}", K);
+    let start = start_timer!(|| msg);
+    let general_params = Params::<G1Affine>::unsafe_setup::<Bn256>(K);
+    end_timer!(start);
 
-    let circuit = test_circuit_builder(random(), random());
-    let params = Params::<G1Affine>::unsafe_setup::<Bn256>(K);
-    let vk = keygen_vk(&params, &circuit).expect("keygen_vk should not fail");
+    let msg = format!("Generate key for zkevm circuit");
+    let start = start_timer!(|| msg);
+    let vk = keygen_vk(&general_params, &circuit).expect("keygen_vk should not fail");
+    let pk = keygen_pk(&general_params, vk, &circuit).unwrap();
+    let circuit = &[circuit];
+    end_timer!(start);
 
-    let public_inputs_size = 1;
-
-    let constant = Fp::from(7);
-    let a = random();
-    let b = random();
-    let c = constant * a.square() * b.square();
-    let instances: &[&[&[_]]] = &[&[&[c]]];
-    let circuit = test_circuit_builder(a, b);
-    let pk = keygen_pk(&params, vk, &circuit).expect("keygen_pk should not fail");
+    let instances: &[&[&[_]]] = &[&[]];
 
     let mut transcript = PoseidonWrite::<_, _, Challenge255<_>>::init(vec![]);
     create_proof(
-        &params,
+        &general_params,
         &pk,
-        &[circuit],
+        circuit,
         instances,
-        Pcg32::seed_from_u64(0),
+        OsRng,
         &mut transcript,
     )
     .expect("proof generation should not fail");
     let proof = transcript.finalize();
 
-    let params_verifier: &ParamsVerifier<Bn256> = &params.verifier(public_inputs_size).unwrap();
+    let params_verifier: &ParamsVerifier<Bn256> =
+        &general_params.verifier((K * 2) as usize).unwrap();
 
     let mut transcript = PoseidonTranscriptRead::<_, G1Affine, _, EncodeChip, 9usize, 8usize>::new(
         &proof[..],
@@ -86,6 +77,8 @@ pub fn test_verify_single_proof_in_chip<
     )
     .unwrap();
 
+    let msg = format!("Verify proof");
+    let start = start_timer!(|| msg);
     verify_single_proof_in_chip(
         ctx,
         nchip,
@@ -97,6 +90,7 @@ pub fn test_verify_single_proof_in_chip<
         &mut transcript,
     )
     .unwrap();
+    end_timer!(start);
 }
 
 #[cfg(test)]
@@ -109,14 +103,14 @@ mod tests {
     use halo2_proofs::plonk::Error;
 
     #[test]
-    fn test_verify_single_proof_in_chip_code() {
+    fn test_zkevm_verify_single_proof_in_chip_code() {
         let nchip = MockFieldChip::default();
         let schip = MockFieldChip::default();
         let pchip = MockEccChip::default();
         let ctx = &mut ();
         test_verify_single_proof_in_chip::<
-            MockFieldChip<Fp, Error>,
-            MockFieldChip<Fp, Error>,
+            MockFieldChip<Fr, Error>,
+            MockFieldChip<Fr, Error>,
             MockEccChip<G1Affine, Error>,
             PoseidonEncode,
         >(&nchip, &schip, &pchip, ctx);
