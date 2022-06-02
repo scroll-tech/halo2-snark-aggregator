@@ -94,7 +94,7 @@ impl<A: ArithEccChip> Evaluated<A> {
             // l_0(X) * (1 - z'(X)) = 0
             arith_ast!(l_0 * (one - z_x)).eval(ctx, schip)?,
             // l_last(X) * (z(X)^2 - z(X)) = 0
-            arith_ast!(l_last * (z_x * z_x - z_x)).eval(ctx, schip)?,
+            arith_ast!(l_last * ((z_x * z_x) - z_x)).eval(ctx, schip)?,
             // (1 - (l_last(X) + l_blind(X))) * (
             //   z(\omega X) (a'(X) + \beta) (s'(X) + \gamma)
             //   - z(X) (\theta^{m-1} a_0(X) + ... + a_{m-1}(X) + \beta) (\theta^{m-1} s_0(X) + ... + s_{m-1}(X) + \gamma)
