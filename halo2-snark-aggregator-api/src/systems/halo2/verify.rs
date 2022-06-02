@@ -283,14 +283,17 @@ impl<
         let permutation_evaluated = permutation_evaluated_sets
             .into_iter()
             .zip(permutation_evaluated_evals.into_iter())
+            .enumerate()
             .map(
-                |(permutation_evaluated_set, permutation_evaluated_eval)| permutation::Evaluated {
-                    x: x.clone(),
-                    blinding_factors: self.vk.cs.blinding_factors(),
-                    sets: permutation_evaluated_set,
-                    evals: permutation_evaluated_eval,
-                    chunk_len: self.vk.cs.degree() - 2,
-                    key: self.key.clone(),
+                |(i, (permutation_evaluated_set, permutation_evaluated_eval))| {
+                    permutation::Evaluated {
+                        x: x.clone(),
+                        blinding_factors: self.vk.cs.blinding_factors(),
+                        sets: permutation_evaluated_set,
+                        evals: permutation_evaluated_eval,
+                        chunk_len: self.vk.cs.degree() - 2,
+                        key: format!("{}_{}", self.key.clone(), i),
+                    }
                 },
             )
             .collect();
@@ -306,12 +309,14 @@ impl<
         let lookup_evaluated = lookups_permuted
             .into_iter()
             .zip(lookups_committed.into_iter())
-            .map(|(permuted, product_commitment)| {
+            .enumerate()
+            .map(|(i, (permuted, product_commitment))| {
                 permuted
                     .into_iter()
                     .zip(product_commitment.into_iter())
                     .zip(self.vk.cs.lookups.iter())
-                    .map(|((permuted, product_commitment), argument)| {
+                    .enumerate()
+                    .map(|(j, ((permuted, product_commitment), argument))| {
                         let product_eval = self.load_scalar()?;
                         let product_next_eval = self.load_scalar()?;
                         let permuted_input_eval = self.load_scalar()?;
@@ -337,7 +342,7 @@ impl<
                             permuted_input_eval,
                             permuted_input_inv_eval,
                             permuted_table_eval,
-                            key: self.key.clone(),
+                            key: format!("{}_{}_{}", self.key.clone(), i, j),
                         })
                     })
                     .collect::<Result<Vec<_>, _>>()

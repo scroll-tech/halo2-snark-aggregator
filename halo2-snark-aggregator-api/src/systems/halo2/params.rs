@@ -160,7 +160,7 @@ impl<Scalar: FieldExt, A: ArithEccChip<Scalar = Scalar>> VerifierParams<A> {
             for (query_index, &(column, at)) in self.instance_queries.iter().enumerate() {
                 queries.push(EvaluationQuery::new(
                     at,
-                    format!("{}_instance_commitments{}", self.key, query_index),
+                    format!("{}_instance_commitments{}", self.key, column),
                     self.x_rotate_omega(ctx, schip, at)?,
                     instance_commitments[column].clone(),
                     instance_evals[query_index].clone(),
@@ -170,7 +170,7 @@ impl<Scalar: FieldExt, A: ArithEccChip<Scalar = Scalar>> VerifierParams<A> {
             for (query_index, &(column, at)) in self.advice_queries.iter().enumerate() {
                 queries.push(EvaluationQuery::new(
                     at,
-                    format!("{}_advice_commitments{}", self.key, query_index),
+                    format!("{}_advice_commitments{}", self.key, column),
                     self.x_rotate_omega(ctx, schip, at)?,
                     advice_commitments[column].clone(),
                     advice_evals[query_index].clone(),
@@ -189,7 +189,7 @@ impl<Scalar: FieldExt, A: ArithEccChip<Scalar = Scalar>> VerifierParams<A> {
         for (query_index, &(column, at)) in self.fixed_queries.iter().enumerate() {
             queries.push(EvaluationQuery::new(
                 at,
-                format!("{}_fixed_commitments{}", self.key, query_index),
+                format!("{}_fixed_commitments{}", self.key, column),
                 self.x_rotate_omega(ctx, schip, at)?,
                 self.fixed_commitments[column].clone(),
                 self.fixed_evals[query_index].clone(),

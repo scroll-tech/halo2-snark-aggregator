@@ -143,14 +143,14 @@ impl<A: ArithEccChip> Evaluated<A> {
                     // Open permutation product commitments at x and \omega x
                     .chain(Some(EvaluationQuery::new(
                         0,
-                        format!("{}_permutation_product_commitment{}", self.key, i),
+                        format!("{}_permutation_product_commitment_{}", self.key, i),
                         self.x.clone(),
                         set.permutation_product_commitment.clone(),
                         set.permutation_product_eval.clone(),
                     )))
                     .chain(Some(EvaluationQuery::new(
                         1,
-                        format!("{}_permutation_product_commitment{}", self.key, i),
+                        format!("{}_permutation_product_commitment_{}", self.key, i),
                         x_next.clone(),
                         set.permutation_product_commitment.clone(),
                         set.permutation_product_next_eval.clone(),
@@ -166,7 +166,7 @@ impl<A: ArithEccChip> Evaluated<A> {
                     .flat_map(|(i, set)| {
                         Some(EvaluationQuery::new(
                             -((self.blinding_factors + 1) as i32),
-                            format!("{}_permutation_product_commitment{}", self.key, i),
+                            format!("{}_permutation_product_commitment_{}", self.key, i),
                             x_last.clone(),
                             set.permutation_product_commitment.clone(),
                             set.permutation_product_last_eval.as_ref().unwrap().clone(),
