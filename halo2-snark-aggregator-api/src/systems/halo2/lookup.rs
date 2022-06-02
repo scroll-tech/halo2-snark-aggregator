@@ -54,7 +54,7 @@ impl<A: ArithEccChip> Evaluated<A> {
         let a_invwx = &self.permuted_input_inv_eval;
         let product_eval = &self.product_eval;
 
-        let left = &arith_ast!(z_wx * (a_x + beta) * (s_x + gamma)).eval(ctx, schip)?;
+        let left = &arith_ast!(((z_wx * (a_x + beta)) * (s_x + gamma))).eval(ctx, schip)?;
 
         let input_evals = self
             .input_expressions
@@ -92,22 +92,22 @@ impl<A: ArithEccChip> Evaluated<A> {
 
         Ok(vec![
             // l_0(X) * (1 - z'(X)) = 0
-            arith_ast!(l_0 * (one - z_x)).eval(ctx, schip)?,
+            arith_ast!((l_0 * (one - z_x))).eval(ctx, schip)?,
             // l_last(X) * (z(X)^2 - z(X)) = 0
-            arith_ast!(l_last * ((z_x * z_x) - z_x)).eval(ctx, schip)?,
+            arith_ast!((l_last * ((z_x * z_x) - z_x))).eval(ctx, schip)?,
             // (1 - (l_last(X) + l_blind(X))) * (
             //   z(\omega X) (a'(X) + \beta) (s'(X) + \gamma)
             //   - z(X) (\theta^{m-1} a_0(X) + ... + a_{m-1}(X) + \beta) (\theta^{m-1} s_0(X) + ... + s_{m-1}(X) + \gamma)
             // ) = 0
             arith_ast!(
-                (left - product_eval * (input_eval + beta) * (table_eval + gamma))
-                    * (one - (l_last + l_blind))
+                ((left - ((product_eval * (input_eval + beta)) * (table_eval + gamma)))
+                    * (one - (l_last + l_blind)))
             )
             .eval(ctx, schip)?, //active rows
             // l_0(X) * (a'(X) - s'(X)) = 0
-            arith_ast!(l_0 * (a_x - s_x)).eval(ctx, schip)?,
+            arith_ast!((l_0 * (a_x - s_x))).eval(ctx, schip)?,
             // (1 - (l_last(X) + l_blind(X))) * (a′(X) − s′(X))⋅(a′(X) − a′(\omega^{-1} X)) = 0
-            arith_ast!((a_x - s_x) * (a_x - a_invwx) * (one - (l_last + l_blind)))
+            arith_ast!((((a_x - s_x) * (a_x - a_invwx)) * (one - (l_last + l_blind))))
                 .eval(ctx, schip)?,
         ])
     }

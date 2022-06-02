@@ -95,7 +95,7 @@ impl<A: ArithEccChip> Evaluable<A> for Expression<A::AssignedScalar> {
                     instance,
                     zero,
                 )?;
-                arith_ast!(a * b).eval(ctx, schip)?
+                arith_ast!((a * b)).eval(ctx, schip)?
             }
             Expression::Scaled(a, f) => {
                 let a = &Evaluable::<A>::chip_evaluate(
@@ -107,7 +107,7 @@ impl<A: ArithEccChip> Evaluable<A> for Expression<A::AssignedScalar> {
                     instance,
                     zero,
                 )?;
-                arith_ast!(f * a).eval(ctx, schip)?
+                arith_ast!((f * a)).eval(ctx, schip)?
             }
         };
 

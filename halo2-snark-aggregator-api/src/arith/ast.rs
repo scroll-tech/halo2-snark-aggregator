@@ -79,8 +79,8 @@ impl<A: ArithFieldChip> Div<FieldArithHelper<A>> for FieldArithHelper<A> {
 macro_rules! arith_ast {
     ($postfix:tt + $($tail:tt)*) => { arith_ast!($postfix) + arith_ast!($($tail)*) };
     ($postfix:tt - $($tail:tt)*) => { arith_ast!($postfix) - arith_ast!($($tail)*) };
-    ($postfix:tt * $($tail:tt)*) => { arith_ast!($postfix) * arith_ast!($($tail)*) };
-    ($postfix:tt / $($tail:tt)*) => { arith_ast!($postfix) / arith_ast!($($tail)*) };
+    (($postfix:tt * $($tail:tt)*)) => { arith_ast!($postfix) * arith_ast!($($tail)*) };
+    (($postfix:tt / $($tail:tt)*)) => { arith_ast!($postfix) / arith_ast!($($tail)*) };
     (($($inner:tt)*)) => { (arith_ast!($($inner)*)) };
     ($inner:tt) => { FieldArithHelper::from($inner) };
 }

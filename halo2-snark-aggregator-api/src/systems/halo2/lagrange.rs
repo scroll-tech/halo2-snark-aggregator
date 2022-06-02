@@ -26,14 +26,14 @@ impl<A: ArithEccChip> LagrangeGenerator<A> for VerifierParams<A> {
 
         let mut ws = vec![one.clone()];
         for i in 1..=self.common.l {
-            let wi = schip.mul(ctx, &ws[(i-1) as usize], &self.omega)?;
+            let wi = schip.mul(ctx, &ws[(i - 1) as usize], &self.omega)?;
             ws.push(wi)
         }
 
         (0..=self.common.l as usize)
             .map(|i| {
                 let wi = &ws[i];
-                arith_ast!((one / wi) * (xi_n - one) / (n * (xi - one / wi))).eval(ctx, schip)
+                arith_ast!((((one / wi) * (xi_n - one)) / (n * (xi - (one / wi))))).eval(ctx, schip)
             })
             .collect()
     }

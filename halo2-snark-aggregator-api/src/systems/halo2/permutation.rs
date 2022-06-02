@@ -73,14 +73,14 @@ impl<A: ArithEccChip> Evaluated<A> {
         // l_0(X) * (1 - z_0(X)) = 0
         for first_set in self.sets.first() {
             let z_x = &first_set.permutation_product_eval;
-            res.push(arith_ast!(l_0 * (one - z_x)).eval(ctx, schip)?);
+            res.push(arith_ast!((l_0 * (one - z_x))).eval(ctx, schip)?);
         }
 
         // Enforce only for the last set.
         // l_last(X) * (z_l(X)^2 - z_l(X)) = 0
         for last_set in self.sets.last() {
             let z_x = &last_set.permutation_product_eval;
-            res.push(arith_ast!(l_last * ((z_x * z_x) - z_x)).eval(ctx, schip)?);
+            res.push(arith_ast!((l_last * ((z_x * z_x) - z_x))).eval(ctx, schip)?);
         }
 
         // Except for the first set, enforce.
@@ -88,7 +88,7 @@ impl<A: ArithEccChip> Evaluated<A> {
         for (set, last_set) in self.sets.iter().skip(1).zip(self.sets.iter()) {
             let s = &set.permutation_product_eval;
             let prev_last = last_set.permutation_product_last_eval.as_ref().unwrap();
-            res.push(arith_ast!((s - prev_last) * l_0).eval(ctx, schip)?);
+            res.push(arith_ast!(((s - prev_last) * l_0)).eval(ctx, schip)?);
         }
 
         // And for all the sets we enforce:
@@ -113,19 +113,20 @@ impl<A: ArithEccChip> Evaluated<A> {
             };
 
             let delta_pow = &delta_pow;
-            let mut d = arith_ast!(beta * x * delta_pow).eval(ctx, schip)?;
+            let mut d = arith_ast!(((beta * x) * delta_pow)).eval(ctx, schip)?;
 
             for (eval, permutation_eval) in evals.iter().zip(permutation_evals) {
                 let delta_current = &d;
                 let l_current = &left;
                 let r_current = &right;
-                left = arith_ast!((eval + (beta * permutation_eval) + gamma) * l_current)
+                left = arith_ast!(((eval + (beta * permutation_eval) + gamma) * l_current))
                     .eval(ctx, schip)?;
-                right = arith_ast!((eval + delta_current + gamma) * r_current).eval(ctx, schip)?;
-                d = arith_ast!(delta * delta_current).eval(ctx, schip)?;
+                right =
+                    arith_ast!(((eval + delta_current + gamma) * r_current)).eval(ctx, schip)?;
+                d = arith_ast!((delta * delta_current)).eval(ctx, schip)?;
             }
             let (l, r) = (&left, &right);
-            res.push(arith_ast!((l - r) * (one - (l_last + l_blind))).eval(ctx, schip)?);
+            res.push(arith_ast!(((l - r) * (one - (l_last + l_blind)))).eval(ctx, schip)?);
         }
 
         Ok(res)

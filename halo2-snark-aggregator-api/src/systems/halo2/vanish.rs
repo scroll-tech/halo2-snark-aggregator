@@ -28,7 +28,7 @@ impl<'a, A: ArithEccChip> Evaluated<'a, A> {
         key: String,
     ) -> Result<Evaluated<'a, A>, A::Error> {
         let expected_h_eval = &schip.mul_add_accumulate(ctx, expressions.iter().collect(), y)?;
-        let expected_h_eval = arith_ast!(expected_h_eval / (xn - one)).eval(ctx, schip)?;
+        let expected_h_eval = arith_ast!((expected_h_eval / (xn - one))).eval(ctx, schip)?;
 
         let h_commitment = expect_commitments
             .iter()
