@@ -141,8 +141,8 @@ impl<Scalar: FieldExt, A: ArithEccChip<Scalar = Scalar>> VerifierParams<A> {
                     &self.theta,
                     &self.beta,
                     &self.gamma,
-                    &self.one,
                     &self.zero,
+                    &self.one,
                 )?;
                 expression.extend(l);
             }
