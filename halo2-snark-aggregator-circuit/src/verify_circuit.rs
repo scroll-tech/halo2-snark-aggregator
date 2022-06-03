@@ -19,7 +19,7 @@ use halo2_proofs::plonk::{Column, Instance};
 use halo2_proofs::{
     arithmetic::BaseExt,
     plonk::{keygen_pk, verify_proof, SingleVerifier},
-    transcript::{Blake2bRead, Challenge255},
+    transcript::{Challenge255},
 };
 use halo2_proofs::{
     arithmetic::{CurveAffine, MultiMillerLoop},
@@ -29,7 +29,6 @@ use halo2_proofs::{
 };
 use halo2_proofs::{
     plonk::{create_proof, keygen_vk},
-    transcript::Blake2bWrite,
 };
 use halo2_snark_aggregator_api::mock::arith::{ecc::MockEccChip, field::MockFieldChip};
 use halo2_snark_aggregator_api::mock::transcript_encode::PoseidonEncode;
@@ -37,6 +36,7 @@ use halo2_snark_aggregator_api::systems::halo2::verify::verify_aggregation_proof
 use halo2_snark_aggregator_api::systems::halo2::{
     transcript::PoseidonTranscriptRead, verify::ProofData,
 };
+use halo2_snark_aggregator_api::transcript::sha::{ShaRead, ShaWrite};
 use log::info;
 use pairing_bn256::group::Curve;
 use rand_core::OsRng;
@@ -512,7 +512,7 @@ impl CreateProof {
         info!("Running keygen_pk took {} seconds.", elapsed_time.as_secs());
 
         let instances: &[&[&[C::ScalarExt]]] = &[&[&instances[..]]];
-        let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
+        let mut transcript = ShaWrite::<_, _, Challenge255<_>>::init(vec![]);
         create_proof(
             &verify_circuit_params,
             &verify_circuit_pk,
@@ -580,7 +580,7 @@ impl VerifyCheck {
         let verify_circuit_instance2: Vec<&[&[E::Scalar]]> =
             verify_circuit_instance1.iter().map(|x| &x[..]).collect();
 
-        let mut transcript = Blake2bRead::<_, _, Challenge255<_>>::init(&self.proof[..]);
+        let mut transcript = ShaRead::<_, _, Challenge255<_>>::init(&self.proof[..]);
 
         verify_proof(
             &params,
