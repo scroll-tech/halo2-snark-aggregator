@@ -15,11 +15,12 @@ use halo2_ecc_circuit_lib::{
     gates::{base_gate::Context, range_gate::RangeGateConfig},
 };
 use halo2_proofs::circuit::floor_planner::V1;
+use halo2_proofs::plonk::{create_proof, keygen_vk};
 use halo2_proofs::plonk::{Column, Instance};
 use halo2_proofs::{
     arithmetic::BaseExt,
     plonk::{keygen_pk, verify_proof, SingleVerifier},
-    transcript::{Blake2bRead, Challenge255},
+    transcript::Challenge255,
 };
 use halo2_proofs::{
     arithmetic::{CurveAffine, MultiMillerLoop},
@@ -27,16 +28,13 @@ use halo2_proofs::{
     plonk::{Circuit, ConstraintSystem, Error, VerifyingKey},
     poly::commitment::{Params, ParamsVerifier},
 };
-use halo2_proofs::{
-    plonk::{create_proof, keygen_vk},
-    transcript::Blake2bWrite,
-};
 use halo2_snark_aggregator_api::mock::arith::{ecc::MockEccChip, field::MockFieldChip};
 use halo2_snark_aggregator_api::mock::transcript_encode::PoseidonEncode;
 use halo2_snark_aggregator_api::systems::halo2::verify::verify_aggregation_proofs_in_chip;
 use halo2_snark_aggregator_api::systems::halo2::{
     transcript::PoseidonTranscriptRead, verify::ProofData,
 };
+use halo2_snark_aggregator_api::transcript::sha::{ShaRead, ShaWrite};
 use log::info;
 use pairing_bn256::group::Curve;
 use rand_core::OsRng;
@@ -54,16 +52,16 @@ pub struct Halo2VerifierCircuitConfig {
 
 #[derive(Clone)]
 pub struct SingleProofWitness<'a, E: MultiMillerLoop> {
-    instances: &'a Vec<Vec<Vec<E::Scalar>>>,
-    transcript: &'a Vec<u8>,
+    pub(crate) instances: &'a Vec<Vec<Vec<E::Scalar>>>,
+    pub(crate) transcript: &'a Vec<u8>,
 }
 
 #[derive(Clone)]
 pub struct Halo2VerifierCircuit<'a, E: MultiMillerLoop> {
-    params: &'a ParamsVerifier<E>,
-    vk: &'a VerifyingKey<E::G1Affine>,
-    proofs: Vec<SingleProofWitness<'a, E>>,
-    nproofs: usize,
+    pub(crate) params: &'a ParamsVerifier<E>,
+    pub(crate) vk: &'a VerifyingKey<E::G1Affine>,
+    pub(crate) proofs: Vec<SingleProofWitness<'a, E>>,
+    pub(crate) nproofs: usize,
 }
 
 impl<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> Circuit<C::ScalarExt>
@@ -441,7 +439,9 @@ pub struct CreateProof {
 }
 
 impl CreateProof {
-    pub fn call<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>>(&self) -> (Vec<u8>, Vec<u8>) {
+    pub fn call<C: CurveAffine, E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>>(
+        &self,
+    ) -> (Vec<Vec<C>>, Vec<u8>, Vec<u8>, Vec<u8>) {
         let setup = Setup {
             params: self.target_circuit_params.clone(),
             vk: self.target_circuit_vk.clone(),
@@ -479,7 +479,7 @@ impl CreateProof {
             (verify_circuit_instances, verify_circuit_transcripts)
         };
 
-        let instances = calc_verify_circuit_instances(
+        let verify_circuit_instances = calc_verify_circuit_instances(
             &target_circuit_params_verifier,
             &target_circuit_vkey,
             instances,
@@ -511,8 +511,8 @@ impl CreateProof {
         let elapsed_time = now.elapsed();
         info!("Running keygen_pk took {} seconds.", elapsed_time.as_secs());
 
-        let instances: &[&[&[C::ScalarExt]]] = &[&[&instances[..]]];
-        let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
+        let instances: &[&[&[C::ScalarExt]]] = &[&[&verify_circuit_instances[..]]];
+        let mut transcript = ShaWrite::<_, _, Challenge255<_>>::init(vec![], vec![]);
         create_proof(
             &verify_circuit_params,
             &verify_circuit_pk,
@@ -522,13 +522,30 @@ impl CreateProof {
             &mut transcript,
         )
         .expect("proof generation should not fail");
-        let proof = transcript.finalize();
+        let (proof, proof_be) = transcript.finalize();
 
         let elapsed_time = now.elapsed();
         println!(
             "Running create proof took {} seconds.",
             elapsed_time.as_secs()
         );
+
+        let instance_commitments: Vec<Vec<C>> = {
+            let instances: &[&[&[C::ScalarExt]]] = &[&[&verify_circuit_instances]];
+            let params = verify_circuit_params.verifier::<E>(LIMBS * 4).unwrap();
+
+            let instance_commitments: Vec<Vec<C>> = instances
+                .iter()
+                .map(|instance| {
+                    instance
+                        .iter()
+                        .map(|instance| params.commit_lagrange(instance.to_vec()).to_affine())
+                        .collect::<Vec<_>>()
+                })
+                .collect::<Vec<_>>();
+
+            instance_commitments
+        };
 
         let instances = instances
             .iter()
@@ -547,7 +564,12 @@ impl CreateProof {
             })
             .collect::<Vec<Vec<Vec<Vec<u8>>>>>();
 
-        (serde_json::to_vec(&instances).unwrap(), proof)
+        (
+            instance_commitments,
+            serde_json::to_vec(&instances).unwrap(),
+            proof,
+            proof_be,
+        )
     }
 }
 
@@ -580,7 +602,7 @@ impl VerifyCheck {
         let verify_circuit_instance2: Vec<&[&[E::Scalar]]> =
             verify_circuit_instance1.iter().map(|x| &x[..]).collect();
 
-        let mut transcript = Blake2bRead::<_, _, Challenge255<_>>::init(&self.proof[..]);
+        let mut transcript = ShaRead::<_, _, Challenge255<_>>::init(&self.proof[..]);
 
         verify_proof(
             &params,

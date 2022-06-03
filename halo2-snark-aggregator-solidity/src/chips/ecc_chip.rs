@@ -25,7 +25,8 @@ pub fn get_xy_from_point<C: CurveAffine>(point: C::CurveExt) -> (BigUint, BigUin
 #[derive(Debug, Clone)]
 pub struct SolidityEccExpr<C> {
     pub expr: Rc<Expression>,
-    v: C,
+    pub v: C,
+    is_const: bool,
 }
 
 pub(crate) struct SolidityEccChip<C: CurveAffine, E> {
@@ -54,12 +55,25 @@ impl<C: CurveAffine, E> ArithCommonChip for SolidityEccChip<C, E> {
         a: &Self::AssignedValue,
         b: &Self::AssignedValue,
     ) -> Result<Self::AssignedValue, Self::Error> {
+        let v = a.v + b.v;
+
+        if a.is_const && b.is_const {
+            return self.assign_const(ctx, v.to_affine());
+        }
+
         let r = Expression::Add(a.expr.clone(), b.expr.clone(), Type::Point);
-        let l = ctx.assign_memory(r);
+        let l = ctx.assign_memory(
+            r,
+            vec![
+                field_to_bn(v.to_affine().coordinates().unwrap().x()),
+                field_to_bn(v.to_affine().coordinates().unwrap().y()),
+            ],
+        );
 
         Ok(SolidityEccExpr::<C::CurveExt> {
             expr: l,
-            v: a.v + b.v,
+            v,
+            is_const: a.is_const && b.is_const,
         })
     }
 
@@ -69,12 +83,25 @@ impl<C: CurveAffine, E> ArithCommonChip for SolidityEccChip<C, E> {
         a: &Self::AssignedValue,
         b: &Self::AssignedValue,
     ) -> Result<Self::AssignedValue, Self::Error> {
+        let v = a.v - b.v;
+
+        if a.is_const && b.is_const {
+            return self.assign_const(ctx, v.to_affine());
+        }
+
         let r = Expression::Sub(a.expr.clone(), b.expr.clone(), Type::Point);
-        let l = ctx.assign_memory(r);
+        let l = ctx.assign_memory(
+            r,
+            vec![
+                field_to_bn(v.to_affine().coordinates().unwrap().x()),
+                field_to_bn(v.to_affine().coordinates().unwrap().y()),
+            ],
+        );
 
         Ok(SolidityEccExpr::<C::CurveExt> {
             expr: l,
-            v: a.v - b.v,
+            v,
+            is_const: a.is_const && b.is_const,
         })
     }
 
@@ -88,15 +115,15 @@ impl<C: CurveAffine, E> ArithCommonChip for SolidityEccChip<C, E> {
 
     fn assign_const(
         &self,
-        ctx: &mut Self::Context,
+        _ctx: &mut Self::Context,
         c: C,
     ) -> Result<Self::AssignedValue, Self::Error> {
         let (x, y) = get_xy_from_point::<C>(c.to_curve());
         let r = Expression::Point(x, y);
-        let l = ctx.assign_memory(r);
         Ok(SolidityEccExpr::<C::CurveExt> {
-            expr: l,
+            expr: Rc::new(r),
             v: c.to_curve(),
+            is_const: true,
         })
     }
 
@@ -113,18 +140,19 @@ impl<C: CurveAffine, E> ArithCommonChip for SolidityEccChip<C, E> {
         assert_eq!(bytes_x.as_ref().len(), 32);
         assert_eq!(bytes_y.as_ref().len(), 32);
         let l = if ctx.transcript_context {
-            ctx.new_transcript_var(Type::Point, 64)
+            ctx.new_transcript_var(Type::Point, 2)
         } else if ctx.instance_context {
-            ctx.new_instance_var(Type::Point, 64)
+            ctx.new_instance_var(Type::Point, 2)
         } else {
             ctx.extend_var_buf(bytes_x.as_ref());
             ctx.extend_var_buf(bytes_y.as_ref());
-            ctx.new_tmp_var(Type::Point, 64)
+            ctx.new_tmp_var(Type::Point, 2)
         };
 
         Ok(SolidityEccExpr::<C::CurveExt> {
             expr: l,
             v: v.to_curve(),
+            is_const: false,
         })
     }
 
@@ -150,12 +178,25 @@ impl<C: CurveAffine, E> ArithEccChip for SolidityEccChip<C, E> {
         lhs: &Self::AssignedScalar,
         rhs: &Self::AssignedPoint,
     ) -> Result<Self::AssignedPoint, Self::Error> {
+        let v = rhs.v * lhs.v;
+
+        if lhs.is_const && rhs.is_const {
+            return self.assign_const(ctx, v.to_affine());
+        }
+
         let r = Expression::Mul(lhs.expr.clone(), rhs.expr.clone(), Type::Point);
-        let l = ctx.assign_memory(r);
+        let l = ctx.assign_memory(
+            r,
+            vec![
+                field_to_bn(v.to_affine().coordinates().unwrap().x()),
+                field_to_bn(v.to_affine().coordinates().unwrap().y()),
+            ],
+        );
 
         Ok(SolidityEccExpr::<C::CurveExt> {
             expr: l,
-            v: rhs.v * lhs.v,
+            v,
+            is_const: lhs.is_const && rhs.is_const,
         })
     }
 }

@@ -11,17 +11,19 @@ pub(crate) struct Interval {
     pub(crate) end: usize,
 }
 
-pub(crate) fn build_intervals(statements: &Vec<Statement>) -> Vec<Interval> {
+pub(crate) fn build_intervals(
+    statements: &Vec<Statement>,
+    expressions: &Vec<Expression>,
+) -> Vec<Interval> {
     let mut intervals: Vec<Interval> = vec![];
     // from memory offset to statement array offset
     let lookup = &mut HashMap::<Rc<Expression>, usize>::new();
-    let mut idx = 0;
 
     statements
         .iter()
         .enumerate()
         .for_each(|(current, s)| match s {
-            Statement::Assign(l, r) => {
+            Statement::Assign(l, r, _) => {
                 let offset = match **l {
                     Expression::Memory(o, _) => o,
                     _ => unreachable!(),
@@ -35,9 +37,8 @@ pub(crate) fn build_intervals(statements: &Vec<Statement>) -> Vec<Interval> {
                     mem_block: None,
                 };
 
+                lookup.insert(l.clone(), intervals.len());
                 intervals.push(interval);
-                lookup.insert(l.clone(), idx);
-                idx = idx + 1;
 
                 r.iter(&mut |e| {
                     let expr = lookup.get(e);
@@ -46,7 +47,7 @@ pub(crate) fn build_intervals(statements: &Vec<Statement>) -> Vec<Interval> {
                     }
                 });
             }
-            Statement::UpdateHash(e) => {
+            Statement::UpdateHash(e, _) => {
                 e.iter(&mut |e| {
                     let expr = lookup.get(e);
                     if expr.is_some() {
@@ -55,6 +56,15 @@ pub(crate) fn build_intervals(statements: &Vec<Statement>) -> Vec<Interval> {
                 });
             }
         });
+
+    expressions.iter().for_each(|expression| {
+        expression.iter(&mut |e| {
+            let expr = lookup.get(e);
+            if expr.is_some() {
+                intervals[*expr.unwrap()].end = statements.len() + 1;
+            }
+        })
+    });
 
     intervals
 }

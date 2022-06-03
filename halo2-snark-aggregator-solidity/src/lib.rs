@@ -6,9 +6,8 @@ use crate::chips::{
 };
 use crate::code_generator::ctx::SolidityCodeGeneratorContext;
 use crate::code_generator::linear_scan::memory_optimize;
-use crate::code_generator::linearize_memory::linearize_memory;
-use crate::transcript::poseidon::PoseidonTranscriptRead;
-use code_generator::ctx::{CodeGeneratorCtx, G2Point};
+use crate::transcript::codegen::CodegenTranscriptRead;
+use code_generator::ctx::{CodeGeneratorCtx, G2Point, Statement};
 use halo2_ecc_circuit_lib::five::integer_chip::LIMBS;
 use halo2_proofs::arithmetic::{BaseExt, Field};
 use halo2_proofs::arithmetic::{CurveAffine, MultiMillerLoop};
@@ -39,14 +38,17 @@ fn render_verifier_sol_template<C: CurveAffine>(
     );
     let tera = Tera::new(&path).unwrap();
     let mut ctx = Context::new();
-    let equations = &args
-        .assignments
-        .iter()
-        .map(|e| e.to_solidity_string())
-        .collect::<Vec<_>>();
+    let mut opcodes = vec![];
+    let mut incremental_ident = 0u64;
+    let mut equations = vec![];
+    for s in args.assignments {
+        equations.append(&mut s.to_solidity_string(&mut opcodes, &mut incremental_ident));
+    }
+    equations.append(&mut Statement::opcodes_to_solidity_string(&mut opcodes));
+
     ctx.insert("wx", &(args.wx).to_typed_string());
     ctx.insert("wg", &(args.wg).to_typed_string());
-    ctx.insert("statements", equations);
+    ctx.insert("statements", &equations);
     ctx.insert("s_g2_x0", &args.s_g2.x.0.to_str_radix(10));
     ctx.insert("s_g2_x1", &args.s_g2.x.1.to_str_radix(10));
     ctx.insert("s_g2_y0", &args.s_g2.y.0.to_str_radix(10));
@@ -56,6 +58,7 @@ fn render_verifier_sol_template<C: CurveAffine>(
     ctx.insert("n_g2_y0", &args.n_g2.y.0.to_str_radix(10));
     ctx.insert("n_g2_y1", &args.n_g2.y.1.to_str_radix(10));
     ctx.insert("memory_size", &args.memory_size);
+    ctx.insert("absorbing_length", &args.absorbing_length);
     tera.render("verifier.sol", &ctx)
         .expect("failed to render template")
 }
@@ -64,8 +67,8 @@ pub fn g2field_to_bn<F: BaseExt>(f: &F) -> (BigUint, BigUint) {
     let mut bytes: Vec<u8> = Vec::new();
     f.write(&mut bytes).unwrap();
     (
-        BigUint::from_bytes_le(&bytes[..32]),
         BigUint::from_bytes_le(&bytes[32..64]),
+        BigUint::from_bytes_le(&bytes[..32]),
     )
 }
 
@@ -107,9 +110,7 @@ impl SolidityGenerate {
         };
         let verify_circuit_instance = load_instances::<E>(&self.instance);
 
-        let params = verify_circuit_params
-            .verifier::<E>(LIMBS * 4)
-            .unwrap();
+        let params = verify_circuit_params.verifier::<E>(LIMBS * 4).unwrap();
 
         let nchip = &SolidityFieldChip::new();
         let schip = nchip;
@@ -117,7 +118,7 @@ impl SolidityGenerate {
         let ctx = &mut SolidityCodeGeneratorContext::new();
 
         let mut transcript =
-            PoseidonTranscriptRead::<_, C, _, PoseidonEncode<_>, 9usize, 8usize>::new(
+            CodegenTranscriptRead::<_, C, _, PoseidonEncode<_>, 9usize, 8usize>::new(
                 &self.proof[..],
                 ctx,
                 schip,
@@ -179,7 +180,7 @@ impl SolidityGenerate {
         };
 
         let s_g2 = get_xy_from_g2point::<E>(params.s_g2);
-        let n_g2 = get_xy_from_g2point::<E>(params.g2);
+        let n_g2 = get_xy_from_g2point::<E>(-params.g2);
 
         let sol_ctx = CodeGeneratorCtx {
             wx: (*left.expr).clone(),
@@ -188,9 +189,13 @@ impl SolidityGenerate {
             n_g2,
             assignments: ctx.statements.clone(),
             memory_size: ctx.memory_offset,
+            absorbing_length: if ctx.absorbing_offset > ctx.max_absorbing_offset {
+                ctx.absorbing_offset
+            } else {
+                ctx.max_absorbing_offset
+            },
         };
 
-        let sol_ctx = linearize_memory(sol_ctx);
         let sol_ctx: CodeGeneratorCtx = memory_optimize(sol_ctx);
 
         let template = render_verifier_sol_template::<C>(sol_ctx, template_folder.clone());

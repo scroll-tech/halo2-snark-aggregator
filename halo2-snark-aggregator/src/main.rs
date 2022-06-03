@@ -2,6 +2,7 @@ use std::io::{Read, Write};
 use std::path::PathBuf;
 
 use clap::Parser;
+use halo2_proofs::arithmetic::BaseExt;
 use halo2_proofs::plonk::VerifyingKey;
 use halo2_proofs::poly::commitment::Params;
 use halo2_snark_aggregator_circuit::sample_circuit::{
@@ -10,7 +11,8 @@ use halo2_snark_aggregator_circuit::sample_circuit::{
 use halo2_snark_aggregator_circuit::verify_circuit::{CreateProof, Setup, VerifyCheck};
 use halo2_snark_aggregator_solidity::SolidityGenerate;
 use log::info;
-use pairing_bn256::bn256::{Bn256, G1Affine};
+use num_bigint::BigUint;
+use pairing_bn256::bn256::{Bn256, Fq, G1Affine};
 
 #[derive(Parser)]
 struct Cli {
@@ -22,7 +24,7 @@ struct Cli {
     #[clap(short, long, parse(from_os_str))]
     folder_path: std::path::PathBuf,
     #[clap(short, long, parse(from_os_str))]
-    template_path: std::path::PathBuf,
+    template_path: Option<std::path::PathBuf>,
 }
 
 fn read_file(folder: &mut PathBuf, filename: &str) -> Vec<u8> {
@@ -92,12 +94,41 @@ fn write_verify_circuit_vk(folder: &mut PathBuf, verify_circuit_vk: &VerifyingKe
     verify_circuit_vk.write(&mut fd).unwrap();
 }
 
+fn field_to_bn(f: &Fq) -> BigUint {
+    let mut bytes: Vec<u8> = Vec::new();
+    f.write(&mut bytes).unwrap();
+    BigUint::from_bytes_le(&bytes[..])
+}
+
+fn write_verify_circuit_instance_commitments_be(folder: &mut PathBuf, buf: &Vec<Vec<G1Affine>>) {
+    folder.push("verify_circuit_instance_commitments_be.data");
+    let mut fd = std::fs::File::create(folder.as_path()).unwrap();
+    folder.pop();
+
+    for v in buf {
+        for commitment in v {
+            let x = field_to_bn(&commitment.x);
+            let y = field_to_bn(&commitment.y);
+            let be = x
+                .to_bytes_be()
+                .into_iter()
+                .chain(y.to_bytes_be().into_iter())
+                .collect::<Vec<_>>();
+            fd.write_all(&be).unwrap()
+        }
+    }
+}
+
 fn write_verify_circuit_instance(folder: &mut PathBuf, buf: &Vec<u8>) {
     write_file(folder, "verify_circuit_instance.data", buf)
 }
 
 fn write_verify_circuit_proof(folder: &mut PathBuf, buf: &Vec<u8>) {
     write_file(folder, "verify_circuit_proof.data", buf)
+}
+
+fn write_verify_circuit_proof_be(folder: &mut PathBuf, buf: &Vec<u8>) {
+    write_file(folder, "verify_circuit_proof_be.data", buf)
 }
 
 fn write_verify_circuit_solidity(folder: &mut PathBuf, buf: &Vec<u8>) {
@@ -169,10 +200,12 @@ pub fn main() {
             nproofs: args.nproofs,
         };
 
-        let (instance, proof) = request.call::<_, Bn256>();
+        let (instance_commitments, instance, proof, proof_be) = request.call::<_, Bn256>();
 
+        write_verify_circuit_instance_commitments_be(&mut folder.clone(), &instance_commitments);
         write_verify_circuit_instance(&mut folder.clone(), &instance);
         write_verify_circuit_proof(&mut folder.clone(), &proof);
+        write_verify_circuit_proof_be(&mut folder.clone(), &proof_be);
     }
 
     if args.command == "verify_check" {
@@ -196,7 +229,7 @@ pub fn main() {
             proof: load_verify_circuit_proof(&mut folder.clone()),
         };
 
-        let sol = request.call::<_, Bn256>(template_folder);
+        let sol = request.call::<_, Bn256>(template_folder.unwrap());
 
         write_verify_circuit_solidity(&mut folder.clone(), &Vec::<u8>::from(sol.as_bytes()));
     }
