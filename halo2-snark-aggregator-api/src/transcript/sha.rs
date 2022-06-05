@@ -10,7 +10,7 @@ use halo2_proofs::transcript::TranscriptRead;
 use halo2_proofs::arithmetic::BaseExt;
 use group::ff::PrimeField;
 
-use sha2::{Sha512, Digest};
+use sha2::{Sha256, Digest};
 
 
 /// Prefix to a prover's message soliciting a challenge
@@ -25,7 +25,7 @@ const SHA_PREFIX_SCALAR: u8 = 2;
 
 #[derive(Debug, Clone)]
 pub struct ShaRead<R: Read, C: CurveAffine, E: EncodedChallenge<C>> {
-    state: Sha512,
+    state: Sha256,
     reader: R,
     _marker: PhantomData<(C, E)>,
 }
@@ -34,7 +34,7 @@ impl<R: Read, C: CurveAffine, E: EncodedChallenge<C>> ShaRead<R, C, E> {
     /// Initialize a transcript given an input buffer.
     pub fn init(reader: R) -> Self {
         ShaRead {
-            state: Sha512::new(),
+            state: Sha256::new(),
             reader,
             _marker: PhantomData,
         }
@@ -76,8 +76,10 @@ impl<R: Read, C: CurveAffine> Transcript<C, Challenge255<C>>
     fn squeeze_challenge(&mut self) -> Challenge255<C> {
         self.state.update(&[SHA_PREFIX_CHALLENGE]);
         let hasher = self.state.clone();
-        let result: [u8; 64] = hasher.finalize().as_slice().try_into().unwrap();
-        Challenge255::<C>::new(&result)
+        let result: [u8; 32] = hasher.finalize().as_slice().try_into().unwrap();
+        let mut bytes = result.to_vec();
+        bytes.resize(64, 0u8);
+        Challenge255::<C>::new(&bytes.try_into().unwrap())
     }
 
     fn common_point(&mut self, point: C) -> io::Result<()> {
@@ -104,7 +106,7 @@ impl<R: Read, C: CurveAffine> Transcript<C, Challenge255<C>>
 
 #[derive(Debug, Clone)]
 pub struct ShaWrite <W: Write, C: CurveAffine, E: EncodedChallenge<C>> {
-    state: Sha512,
+    state: Sha256,
     writer: W,
     _marker: PhantomData<(C, E)>,
 }
@@ -113,7 +115,7 @@ impl<W: Write, C: CurveAffine, E: EncodedChallenge<C>> ShaWrite<W, C, E> {
     /// Initialize a transcript given an output buffer.
     pub fn init(writer: W) -> Self {
         ShaWrite {
-            state: Sha512::new(),
+            state: Sha256::new(),
             writer,
             _marker: PhantomData,
         }
@@ -147,8 +149,10 @@ impl<W: Write, C: CurveAffine> Transcript<C, Challenge255<C>>
     fn squeeze_challenge(&mut self) -> Challenge255<C> {
         self.state.update(&[SHA_PREFIX_CHALLENGE]);
         let hasher = self.state.clone();
-        let result: [u8; 64] = hasher.finalize().as_slice().try_into().unwrap();
-        Challenge255::<C>::new(&result)
+        let result: [u8; 32] = hasher.finalize().as_slice().try_into().unwrap();
+        let mut bytes = result.to_vec();
+        bytes.resize(64, 0u8);
+        Challenge255::<C>::new(&bytes.try_into().unwrap())
     }
 
     fn common_point(&mut self, point: C) -> io::Result<()> {
