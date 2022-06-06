@@ -17,8 +17,14 @@ rand_pcg = "0.3.1"
 serde_json = "1.0"
 rayon = "1.5.2"
 
+[dev-dependencies]
+ark-std = { version = "0.3", features = ["print-trace"] }
+eth-types = { git = "https://github.com/ZhenXunGe/zkevm-circuits.git", branch = "zhangjunyu/halo2_proofs" }
+zkevm-circuits = { git = "https://github.com/ZhenXunGe/zkevm-circuits.git", branch = "zhangjunyu/halo2_proofs" }
+
 [features]
 default = ["halo2"]
 blake2b = []
 halo2 = []
 plonk = []
+benches = []

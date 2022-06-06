@@ -235,11 +235,27 @@ name = "bus-mapping"
 version = "0.1.0"
 source = "git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main#1eb36c61a469cbe8775369454863ccd6f87bc1b7"
 dependencies = [
- "eth-types",
+ "eth-types 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main)",
  "ethers-core",
  "ethers-providers",
  "itertools",
- "keccak256",
+ "keccak256 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main)",
+ "lazy_static",
+ "log",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "bus-mapping"
+version = "0.1.0"
+source = "git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs#1eb36c61a469cbe8775369454863ccd6f87bc1b7"
+dependencies = [
+ "eth-types 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs)",
+ "ethers-core",
+ "ethers-providers",
+ "itertools",
+ "keccak256 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs)",
  "lazy_static",
  "log",
  "serde",
@@ -666,6 +682,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "eth-types"
+version = "0.1.0"
+source = "git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs#1eb36c61a469cbe8775369454863ccd6f87bc1b7"
+dependencies = [
+ "ethers-core",
+ "ethers-providers",
+ "halo2_proofs",
+ "hex",
+ "itertools",
+ "lazy_static",
+ "regex",
+ "serde",
+ "serde_json",
+ "uint",
+]
+
+[[package]]
 name = "ethabi"
 version = "15.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -928,7 +961,18 @@ version = "0.1.0"
 source = "git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main#1eb36c61a469cbe8775369454863ccd6f87bc1b7"
 dependencies = [
  "digest 0.7.6",
- "eth-types",
+ "eth-types 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main)",
+ "halo2_proofs",
+ "sha3 0.7.3",
+]
+
+[[package]]
+name = "gadgets"
+version = "0.1.0"
+source = "git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs#1eb36c61a469cbe8775369454863ccd6f87bc1b7"
+dependencies = [
+ "digest 0.7.6",
+ "eth-types 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs)",
  "halo2_proofs",
  "sha3 0.7.3",
 ]
@@ -1074,7 +1118,7 @@ dependencies = [
  "ark-std",
  "blake2b_simd",
  "chrono",
- "eth-types",
+ "eth-types 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main)",
  "group 0.11.0",
  "halo2_proofs",
  "num-bigint",
@@ -1084,14 +1128,16 @@ dependencies = [
  "rand_pcg",
  "rand_xorshift",
  "sha2",
- "zkevm-circuits",
+ "zkevm-circuits 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main)",
 ]
 
 [[package]]
 name = "halo2-snark-aggregator-circuit"
 version = "0.1.0"
 dependencies = [
+ "ark-std",
  "clap",
+ "eth-types 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs)",
  "halo2-ecc-circuit-lib",
  "halo2-snark-aggregator-api",
  "halo2_proofs",
@@ -1102,6 +1148,7 @@ dependencies = [
  "rand_pcg",
  "rayon",
  "serde_json",
+ "zkevm-circuits 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs)",
 ]
 
 [[package]]
@@ -1400,8 +1447,22 @@ name = "keccak256"
 version = "0.1.0"
 source = "git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main#1eb36c61a469cbe8775369454863ccd6f87bc1b7"
 dependencies = [
- "eth-types",
- "gadgets",
+ "eth-types 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main)",
+ "gadgets 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main)",
+ "halo2_proofs",
+ "itertools",
+ "lazy_static",
+ "num-bigint",
+ "num-traits",
+]
+
+[[package]]
+name = "keccak256"
+version = "0.1.0"
+source = "git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs#1eb36c61a469cbe8775369454863ccd6f87bc1b7"
+dependencies = [
+ "eth-types 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs)",
+ "gadgets 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs)",
  "halo2_proofs",
  "itertools",
  "lazy_static",
@@ -3128,16 +3189,45 @@ source = "git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main#1eb36c
 dependencies = [
  "array-init",
  "bigint",
- "bus-mapping",
+ "bus-mapping 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main)",
  "digest 0.7.6",
  "env_logger",
- "eth-types",
+ "eth-types 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main)",
  "ethers-core",
  "ff 0.11.1",
- "gadgets",
+ "gadgets 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main)",
  "halo2_proofs",
  "itertools",
- "keccak256",
+ "keccak256 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main)",
+ "lazy_static",
+ "log",
+ "num",
+ "paste",
+ "rand",
+ "rand_xorshift",
+ "serde_json",
+ "sha3 0.7.3",
+ "strum",
+ "strum_macros",
+]
+
+[[package]]
+name = "zkevm-circuits"
+version = "0.1.0"
+source = "git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs#1eb36c61a469cbe8775369454863ccd6f87bc1b7"
+dependencies = [
+ "array-init",
+ "bigint",
+ "bus-mapping 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs)",
+ "digest 0.7.6",
+ "env_logger",
+ "eth-types 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs)",
+ "ethers-core",
+ "ff 0.11.1",
+ "gadgets 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs)",
+ "halo2_proofs",
+ "itertools",
+ "keccak256 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs)",
  "lazy_static",
  "log",
  "num",
