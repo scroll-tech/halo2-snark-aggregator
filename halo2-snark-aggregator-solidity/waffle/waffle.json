@@ -1,0 +1,12 @@
+{
+  "compilerType": "native",
+  "compilerVersion": "0.8.13",
+  "sourceDirectory": "./src",
+  "outputDirectory": "./build",
+  "compilerOptions": {
+    "optimizer": {
+      "enabled": true,
+      "runs": 200
+    }
+  }
+}
