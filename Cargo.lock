@@ -1062,6 +1062,7 @@ dependencies = [
  "halo2-snark-aggregator-solidity",
  "halo2_proofs",
  "log",
+ "num-bigint",
  "pairing_bn256",
  "rayon",
 ]
@@ -1076,6 +1077,7 @@ dependencies = [
  "eth-types",
  "group 0.11.0",
  "halo2_proofs",
+ "num-bigint",
  "pairing_bn256",
  "poseidon",
  "rand",

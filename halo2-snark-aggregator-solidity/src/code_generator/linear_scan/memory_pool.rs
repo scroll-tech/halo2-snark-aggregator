@@ -54,7 +54,12 @@ impl MemoryPool {
         match block.t {
             Type::Scalar => {
                 self.free_256_block.insert(block.pos);
-                self.free_512_block.insert(block.pos - (block.pos % 2));
+
+                let base = block.pos - (block.pos % 2);
+                if self.free_256_block.contains(&base) && self.free_256_block.contains(&(base + 1))
+                {
+                    self.free_512_block.insert(base);
+                }
             }
             Type::Point => {
                 self.free_256_block.insert(block.pos);

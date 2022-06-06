@@ -17,8 +17,8 @@ impl Type {
 
     fn to_libstring(&self) -> String {
         match &self {
-            Type::Scalar => "LibFr".to_owned(),
-            Type::Point => "LibEcc".to_owned(),
+            Type::Scalar => "fr".to_owned(),
+            Type::Point => "ecc".to_owned(),
         }
     }
 }
@@ -37,7 +37,7 @@ pub enum Expression {
     Mul(Rc<Expression>, Rc<Expression>, Type),
     Div(Rc<Expression>, Rc<Expression>, Type),
     MulAddConstant(Rc<Expression>, Rc<Expression>, Rc<Expression>, Type),
-    Hash(),
+    Hash(usize),
 }
 
 impl Expression {
@@ -54,7 +54,7 @@ impl Expression {
             | Expression::MulAddConstant(_, _, _, t) => (*t).clone(),
             Expression::Point(_, _) => Type::Point,
             Expression::Scalar(_) => Type::Scalar,
-            Expression::Hash() => Type::Scalar,
+            Expression::Hash(_) => Type::Scalar,
         }
     }
 
@@ -66,36 +66,95 @@ impl Expression {
         }
     }
 
+    pub fn to_mem_string(&self, offset: usize) -> String {
+        match self {
+            Expression::Memory(idx, Type::Scalar) => format!("m[{}]", idx),
+            Expression::Memory(idx, Type::Point) => format!("m[{}]", idx + offset),
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn to_mem_code(&self) -> Option<u64> {
+        const MEM_SEP: u64 = 3u64 << 7;
+        const CONST_SEP: u64 = 2u64 << 7;
+        const CONST_LIMIT: u64 = 128u64;
+        match self {
+            Expression::Memory(idx, _) => {
+                assert!(*idx <= 127);
+                Some(MEM_SEP + *idx as u64)
+            }
+            Expression::TransciprtOffset(offset, _) => {
+                assert!(*offset <= 255);
+                Some(*offset as u64)
+            }
+            Expression::Scalar(s) => {
+                if s == &BigUint::from(0u64) {
+                    Some(CONST_SEP)
+                } else if s < &BigUint::from(CONST_LIMIT) {
+                    Some(CONST_SEP + s.to_u64_digits()[0])
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }
+    }
+
+    pub fn to_short_code(&self) -> Option<u64> {
+        const OP_SHIFT: usize = 18usize;
+        const R0_SHIFT: usize = 9usize;
+        match self {
+            Expression::Add(l, r, _) => l.to_mem_code().and_then(|idx0| {
+                r.to_mem_code()
+                    .and_then(|idx1| Some((1u64 << OP_SHIFT) + (idx0 << R0_SHIFT) + idx1))
+            }),
+            Expression::Sub(l, r, _) => l.to_mem_code().and_then(|idx0| {
+                r.to_mem_code()
+                    .and_then(|idx1| Some((2u64 << OP_SHIFT) + (idx0 << R0_SHIFT) + idx1))
+            }),
+            Expression::Mul(l, r, _) => l.to_mem_code().and_then(|idx0| {
+                r.to_mem_code()
+                    .and_then(|idx1| Some((3u64 << OP_SHIFT) + (idx1 << R0_SHIFT) + idx0))
+            }),
+            Expression::Div(l, r, _) => l.to_mem_code().and_then(|idx0| {
+                r.to_mem_code()
+                    .and_then(|idx1| Some((4u64 << OP_SHIFT) + (idx0 << R0_SHIFT) + idx1))
+            }),
+            Expression::Hash(offset) => Some((5u64 << OP_SHIFT) + (offset << R0_SHIFT) as u64),
+            _ => None,
+        }
+    }
+
     pub fn to_typed_string(&self) -> String {
         match self {
             Expression::Scalar(s) => format!("{}", s.to_string()),
             Expression::Point(x, y) => {
-                format!("LibEcc.from({}, {})", x.to_string(), y.to_string())
+                format!("{}, {}", x.to_string(), y.to_string())
             }
             Expression::Memory(idx, Type::Scalar) => format!("m[{}]", idx),
             Expression::Memory(idx, Type::Point) => {
-                format!("LibEcc.from(m[{}], m[{}])", idx, idx + 1)
+                format!("m[{}], m[{}]", idx, idx + 1)
             }
             Expression::Add(l, r, t) => format!(
-                "{}.add({}, {})",
+                "{}_add({}, {})",
                 t.to_libstring(),
                 (*l).to_typed_string(),
                 (*r).to_typed_string()
             ),
             Expression::Sub(l, r, t) => format!(
-                "{}.sub({}, {})",
+                "{}_sub({}, {})",
                 t.to_libstring(),
                 (*l).to_typed_string(),
                 (*r).to_typed_string()
             ),
             Expression::Mul(s, p, t) => format!(
-                "{}.mul({}, {})",
+                "{}_mul({}, {})",
                 t.to_libstring(),
                 (*p).to_typed_string(),
                 (*s).to_typed_string()
             ),
             Expression::Div(l, r, t) => format!(
-                "{}.div({}, {})",
+                "{}_div({}, {})",
                 t.to_libstring(),
                 (*l).to_typed_string(),
                 (*r).to_typed_string()
@@ -107,17 +166,21 @@ impl Expression {
                 (*r).to_typed_string(),
                 (*c).to_typed_string()
             ),
-            Expression::TransciprtOffset(offset, t) => {
-                format!("{}.from_bytes(proof, {})", t.to_libstring(), offset)
-            }
-            Expression::InstanceOffset(offset, t) => {
-                format!("{}.from_bytes(instances, {})", t.to_libstring(), offset)
-            }
+            Expression::TransciprtOffset(offset, t) => match t {
+                Type::Scalar => format!("proof[{}]", offset),
+                Type::Point => format!("proof[{}], proof[{}]", offset, offset + 1),
+            },
+            Expression::InstanceOffset(offset, t) => match t {
+                Type::Scalar => format!("instances[{}]", offset),
+                Type::Point => {
+                    format!("instances[{}], instances[{}]", offset, offset + 1)
+                }
+            },
             Expression::TmpBufOffset(offset, t) => {
-                format!("{}.from_bytes(vars, {})", t.to_libstring(), offset)
+                format!("{}_from_bytes(vars, {})", t.to_libstring(), offset)
             }
-            Expression::Hash() => {
-                format!("uint256(sha256(abi.encode(absorbing)))")
+            Expression::Hash(offset) => {
+                format!("squeeze_challenge(absorbing, {})", offset)
             }
         }
     }
@@ -166,7 +229,10 @@ impl Expression {
 
     pub(crate) fn substitute(&self, lookup: &HashMap<usize, usize>) -> Expression {
         let replace = |expr: &Expression| match expr {
-            Expression::Memory(o, t) => Expression::Memory(*lookup.get(o).unwrap(), t.clone()),
+            Expression::Memory(o, t) => match lookup.get(o) {
+                Some(v) => Expression::Memory(*v, t.clone()),
+                None => expr.clone(),
+            },
             _ => expr.clone(),
         };
 
@@ -176,50 +242,187 @@ impl Expression {
 
 #[derive(Clone)]
 pub(crate) enum Statement {
-    Assign(Rc<Expression>, Expression),
-    UpdateHash(Rc<Expression>),
+    Assign(Rc<Expression>, Expression, Vec<BigUint>),
+    UpdateHash(Rc<Expression>, usize),
 }
 
 impl Statement {
-    pub fn to_solidity_string(&self) -> String {
-        match self {
-            Statement::Assign(l, r) => {
-                format!(
-                    "{} = {}({});",
-                    (*l).to_untyped_string(),
-                    if r.get_type() == Type::Point {
-                        "LibEcc.to_tuple"
-                    } else {
-                        ""
-                    },
-                    (*r).to_typed_string()
-                )
+    pub fn opcodes_to_solidity_string(opcodes: &mut Vec<u64>) -> Vec<String> {
+        const OP_SIZE: usize = 32usize;
+        const CHUNK_SIZE: usize = 256usize;
+
+        if !opcodes.is_empty() {
+            let chunks = opcodes.chunks(CHUNK_SIZE / OP_SIZE);
+            let mut buf = vec![];
+            for ops in chunks {
+                let mut bn = BigUint::from(0u64);
+                for op in ops {
+                    assert!(op < &(1u64 << OP_SIZE));
+                    bn = bn << OP_SIZE;
+                    bn = bn + op
+                }
+                buf.push(format!(
+                    "update(m, proof, absorbing, uint256({}));",
+                    bn.to_string()
+                ));
             }
-            Statement::UpdateHash(e) => match e.get_type() {
-                Type::Point => {
+            buf
+        } else {
+            vec![]
+        }
+    }
+
+    fn to_expect_string(&self, incremental_ident: &u64) -> Vec<String> {
+        match self {
+            Statement::Assign(l, r, samples) => match r.get_type() {
+                Type::Point => vec![
                     format!(
-                        "update_hash_point({}({}));",
-                        "LibEcc.to_array",
-                        e.to_typed_string()
-                    )
-                }
-                Type::Scalar => {
+                        "// require({} == {:?}, \"{}\");",
+                        (*l).to_mem_string(0),
+                        samples[0],
+                        (*incremental_ident),
+                    ),
                     format!(
-                        "update_hash_scalar({}({}));",
-                        "LibFr.to_array",
-                        e.to_typed_string()
-                    )
-                }
+                        "// require({} == {:?}, \"{}\");",
+                        (*l).to_mem_string(1),
+                        samples[1],
+                        (*incremental_ident),
+                    ),
+                ],
+
+                Type::Scalar => vec![format!(
+                    "// require({} == {:?}, \"{}\");",
+                    (*l).to_mem_string(0),
+                    samples[0],
+                    (*incremental_ident),
+                )],
+            },
+
+            _ => vec![],
+        }
+    }
+
+    fn to_origin_string(&self) -> String {
+        match self {
+            Statement::Assign(l, r, _) => format!(
+                "// {} = ({});",
+                (*l).to_untyped_string(),
+                (*r).to_typed_string(),
+            ),
+
+            Statement::UpdateHash(e, offset) => match e.get_type() {
+                Type::Point => format!(
+                    "// update_hash_point({}, absorbing, {});",
+                    e.to_typed_string(),
+                    offset
+                ),
+                Type::Scalar => format!(
+                    "// update_hash_scalar({}, absorbing, {});",
+                    e.to_typed_string(),
+                    offset
+                ),
             },
         }
     }
 
+    pub fn to_solidity_string(
+        &self,
+        opcodes: &mut Vec<u64>,
+        incremental_ident: &mut u64,
+    ) -> Vec<String> {
+        const OPCODE_POINT_BITS: u64 = 1;
+        const OPCODE_SCALAR_BITS: u64 = 0;
+
+        const SHOW_ORIGIN: bool = true;
+        const SHOW_EXPECT: bool = false;
+        const SLOT_SIZE: u64 = 10;
+
+        let mut ret = vec![];
+
+        let opcode = match self {
+            Statement::Assign(l, r, _) => match (l.to_mem_code(), r.to_short_code()) {
+                (Some(l_code), Some(r_code)) => {
+                    if SHOW_ORIGIN {
+                        ret.push(self.to_origin_string());
+                    }
+                    if SHOW_EXPECT {
+                        ret.append(&mut self.to_expect_string(incremental_ident));
+                    }
+
+                    match r.get_type() {
+                        Type::Point => Some((OPCODE_POINT_BITS << 31) + (l_code << 22) + r_code),
+                        Type::Scalar => Some((OPCODE_SCALAR_BITS << 31) + (l_code << 22) + r_code),
+                    }
+                }
+                _ => {
+                    ret.append(&mut Self::opcodes_to_solidity_string(opcodes));
+                    opcodes.clear();
+                    ret.push(format!(
+                        "{} = ({});",
+                        (*l).to_untyped_string(),
+                        (*r).to_typed_string()
+                    ));
+                    None
+                }
+            },
+
+            Statement::UpdateHash(e, offset) => match e.get_type() {
+                Type::Point => {
+                    ret.append(&mut Self::opcodes_to_solidity_string(opcodes));
+                    opcodes.clear();
+                    ret.push(format!(
+                        "update_hash_point({}, absorbing, {});",
+                        e.to_typed_string(),
+                        offset
+                    ));
+                    None
+                }
+                Type::Scalar => match e.to_mem_code() {
+                    Some(code) => {
+                        assert!(offset < &512);
+                        if SHOW_ORIGIN {
+                            ret.push(self.to_origin_string());
+                        }
+                        Some((6u64 << 18) + (code << 9) + (*offset as u64))
+                    }
+                    None => {
+                        ret.append(&mut Self::opcodes_to_solidity_string(opcodes));
+                        opcodes.clear();
+                        ret.push(format!(
+                            "update_hash_scalar({}, absorbing, {});",
+                            e.to_typed_string(),
+                            offset
+                        ));
+                        None
+                    }
+                },
+            },
+        };
+
+        if let Some(opcode) = opcode {
+            opcodes.push(opcode);
+        }
+
+        if opcodes.len() >= 8 {
+            ret.append(&mut Self::opcodes_to_solidity_string(opcodes));
+            opcodes.clear();
+        }
+
+        *incremental_ident += SLOT_SIZE;
+
+        ret
+    }
+
     pub fn substitute(&self, lookup: &HashMap<usize, usize>) -> Statement {
         match self {
-            Statement::Assign(l, r) => {
-                Statement::Assign(Rc::new(l.substitute(lookup)), r.substitute(lookup))
+            Statement::Assign(l, r, s) => Statement::Assign(
+                Rc::new(l.substitute(lookup)),
+                r.substitute(lookup),
+                s.clone(),
+            ),
+            Statement::UpdateHash(e, offset) => {
+                Statement::UpdateHash(Rc::new(e.substitute(lookup)), *offset)
             }
-            Statement::UpdateHash(e) => Statement::UpdateHash(Rc::new(e.substitute(lookup))),
         }
     }
 }
@@ -229,6 +432,8 @@ struct Cache {
 }
 
 pub struct SolidityCodeGeneratorContext {
+    pub(crate) absorbing_offset: usize,
+    pub(crate) max_absorbing_offset: usize,
     pub(crate) memory_offset: usize,
     transcript_offset: usize,
     instance_offset: usize,
@@ -262,23 +467,31 @@ impl SolidityCodeGeneratorContext {
         self.instance_context = false;
     }
 
-    pub(crate) fn squeeze_challenge_scalar(&mut self) -> Rc<Expression> {
+    pub(crate) fn squeeze_challenge_scalar(
+        &mut self,
+        offset: usize,
+        sample: BigUint,
+    ) -> Rc<Expression> {
         self.mock_hash = false;
         let l = self.allocate(Type::Scalar);
-        let r = Expression::Hash();
-        self.statements.push(Statement::Assign(l.clone(), r));
+        let r = Expression::Hash(offset);
+        self.statements
+            .push(Statement::Assign(l.clone(), r, vec![sample]));
 
         l
     }
 
-    pub(crate) fn update(&mut self, expr: &Rc<Expression>) {
-        self.statements.push(Statement::UpdateHash(expr.clone()))
+    pub(crate) fn update(&mut self, expr: &Rc<Expression>, offset: usize) {
+        self.statements
+            .push(Statement::UpdateHash(expr.clone(), offset))
     }
 }
 
 impl SolidityCodeGeneratorContext {
     pub fn new() -> Self {
         SolidityCodeGeneratorContext {
+            absorbing_offset: 0,
+            max_absorbing_offset: 0,
             transcript_offset: 0,
             instance_offset: 0,
             tmp_offset: 0,
@@ -303,14 +516,15 @@ impl SolidityCodeGeneratorContext {
         Rc::new(e)
     }
 
-    pub(crate) fn assign_memory(&mut self, v: Expression) -> Rc<Expression> {
+    pub(crate) fn assign_memory(&mut self, v: Expression, samples: Vec<BigUint>) -> Rc<Expression> {
         match self.cache.cache_assign.get(&v) {
             Some(e) => e.clone(),
             None => {
                 let mem = self.allocate(v.get_type());
                 if !self.mock_hash {
                     self.cache.cache_assign.insert(v.clone(), mem.clone());
-                    self.statements.push(Statement::Assign(mem.clone(), v));
+                    self.statements
+                        .push(Statement::Assign(mem.clone(), v, samples));
                 }
                 mem
             }
@@ -352,4 +566,5 @@ pub(crate) struct CodeGeneratorCtx {
     pub(crate) n_g2: G2Point,
     pub(crate) assignments: Vec<Statement>,
     pub(crate) memory_size: usize,
+    pub(crate) absorbing_length: usize,
 }
