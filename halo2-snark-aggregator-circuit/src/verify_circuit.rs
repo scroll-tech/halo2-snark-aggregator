@@ -52,16 +52,16 @@ pub struct Halo2VerifierCircuitConfig {
 
 #[derive(Clone)]
 pub struct SingleProofWitness<'a, E: MultiMillerLoop> {
-    instances: &'a Vec<Vec<Vec<E::Scalar>>>,
-    transcript: &'a Vec<u8>,
+    pub(crate) instances: &'a Vec<Vec<Vec<E::Scalar>>>,
+    pub(crate) transcript: &'a Vec<u8>,
 }
 
 #[derive(Clone)]
 pub struct Halo2VerifierCircuit<'a, E: MultiMillerLoop> {
-    params: &'a ParamsVerifier<E>,
-    vk: &'a VerifyingKey<E::G1Affine>,
-    proofs: Vec<SingleProofWitness<'a, E>>,
-    nproofs: usize,
+    pub(crate) params: &'a ParamsVerifier<E>,
+    pub(crate) vk: &'a VerifyingKey<E::G1Affine>,
+    pub(crate) proofs: Vec<SingleProofWitness<'a, E>>,
+    pub(crate) nproofs: usize,
 }
 
 impl<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> Circuit<C::ScalarExt>

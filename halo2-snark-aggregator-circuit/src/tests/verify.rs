@@ -1,4 +1,6 @@
-use super::super::chips::{ecc_chip::EccChip, encode_chip::PoseidonEncodeChip, scalar_chip::ScalarChip};
+use super::super::chips::{
+    ecc_chip::EccChip, encode_chip::PoseidonEncodeChip, scalar_chip::ScalarChip,
+};
 use halo2_ecc_circuit_lib::{
     chips::native_ecc_chip::NativeEccChip,
     five::{
@@ -17,7 +19,7 @@ use halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner},
     plonk::{Circuit, ConstraintSystem, Error},
 };
-use halo2_snark_aggregator_api::tests::systems::halo2::{
+use halo2_snark_aggregator_api::tests::systems::halo2::add_mul_test::{
     verify_aggregation::test_verify_aggregation_proof_in_chip,
     verify_single::test_verify_single_proof_in_chip,
 };

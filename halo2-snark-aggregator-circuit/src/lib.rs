@@ -4,3 +4,5 @@ pub mod verify_circuit;
 
 #[cfg(test)]
 mod tests;
+
+mod benches;
