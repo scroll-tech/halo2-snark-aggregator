@@ -13,10 +13,11 @@ describe('Verifier', () => {
 
   beforeEach(async () => {
     token = await deployContract(wallet, Verifier, [], {gasLimit: 6700000});
-
+/*
     token.on("Scalar", (x) => {
       console.log("Scalar", x);
     })
+*/
   });
 
   let instances = fs.readFileSync("../../halo2-snark-aggregator/output/verify_circuit_instance_commitments.data");
