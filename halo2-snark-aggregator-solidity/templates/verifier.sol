@@ -5,28 +5,18 @@ library LibFr {
     uint256 constant q_mod =
         21888242871839275222246405745257275088548364400416034343698204186575808495617;
 
-    /*
-    function from(uint256 v) internal pure returns (uint256 r) {
-        require(v < q_mod);
-        r.v = v;
-    }
-*/
-    function to_array(uint256 v) internal pure returns (uint256[1] memory) {
-        uint256[1] memory out;
-        out[0] = v;
-
-        return out;
-    }
-
     function from_bytes(bytes memory buf, uint256 offset)
         internal
         pure
         returns (uint256)
     {
         uint256 v;
+        uint256 o;
+
+        o = offset + 0x20;
 
         assembly {
-            v := mload(add(buf, offset))
+            v := mload(add(buf, o))
         }
 
         return v;
@@ -104,18 +94,6 @@ library LibEcc {
         return (f.x, f.y);
     }
 
-    function to_array(G1Point memory p)
-        internal
-        pure
-        returns (uint256[2] memory)
-    {
-        uint256[2] memory out;
-        out[0] = p.x;
-        out[1] = p.y;
-
-        return out;
-    }
-
     function from(uint256 x, uint256 y)
         internal
         pure
@@ -132,10 +110,13 @@ library LibEcc {
     {
         uint256 x;
         uint256 y;
+        uint256 o;
+
+        o = offset + 0x20;
 
         assembly {
-            x := mload(add(buf, offset))
-            y := mload(add(buf, add(offset, 0x20)))
+            x := mload(add(buf, o))
+            y := mload(add(buf, add(o, 0x20)))
         }
 
         r.x = x;
@@ -250,15 +231,77 @@ library LibPairing {
 
 contract Verifier {
     uint256[{{memory_size}}] m;
-    uint256[] private absorbing;
+    uint8[] private absorbing;
+    bytes32 tmp;
 
-    function update_hash_scalar(uint256[1] memory v) internal {
-        absorbing.push(v[0]);
+    function toBytes(uint256 x) private {
+        tmp = bytes32(x);
     }
 
-    function update_hash_point(uint256[2] memory v) internal {
-        absorbing.push(v[0]);
-        absorbing.push(v[1]);
+    function update_hash_scalar(uint256 v) internal {
+        absorbing.push(2);
+        toBytes(v);
+        // to little-endian
+        for (uint256 i = 0; i < 32; i++) {
+            absorbing.push(uint8(tmp[31 - i]));
+        }
+    }
+
+    function update_hash_point(LibEcc.G1Point memory v) internal {
+        absorbing.push(1);
+        toBytes(v.x);
+        for (uint256 i = 0; i < 32; i++) {
+            absorbing.push(uint8(tmp[31 - i]));
+        }
+
+        toBytes(v.y);
+        for (uint256 i = 0; i < 32; i++) {
+            absorbing.push(uint8(tmp[31 - i]));
+        }
+    }
+
+    function to_bytes() private view returns (bytes memory v) {
+        v = new bytes(absorbing.length);
+        for (uint256 i = 0; i < absorbing.length; i++) {
+            v[i] = bytes1(absorbing[i]);
+        }
+    }
+
+    function reverse(uint256 input) internal pure returns (uint256 v) {
+        v = input;
+
+        // swap bytes
+        v = ((v & 0xFF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00) >> 8) |
+            ((v & 0x00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF) << 8);
+
+        // swap 2-byte long pairs
+        v = ((v & 0xFFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000) >> 16) |
+            ((v & 0x0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF) << 16);
+
+        // swap 4-byte long pairs
+        v = ((v & 0xFFFFFFFF00000000FFFFFFFF00000000FFFFFFFF00000000FFFFFFFF00000000) >> 32) |
+            ((v & 0x00000000FFFFFFFF00000000FFFFFFFF00000000FFFFFFFF00000000FFFFFFFF) << 32);
+
+        // swap 8-byte long pairs
+        v = ((v & 0xFFFFFFFFFFFFFFFF0000000000000000FFFFFFFFFFFFFFFF0000000000000000) >> 64) |
+            ((v & 0x0000000000000000FFFFFFFFFFFFFFFF0000000000000000FFFFFFFFFFFFFFFF) << 64);
+
+        // swap 16-byte long pairs
+        v = (v >> 128) | (v << 128);
+    }
+
+    function to_scalar(bytes32 r) private pure returns (uint256 v) {
+        uint256 tmp = uint256(r);
+        tmp = reverse(tmp);
+        v = tmp % 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001;
+    }
+
+    function squeeze_challenge() internal returns (uint256 v) {
+        bytes32 ret;
+
+        absorbing.push(uint8(0));
+        ret = sha256(to_bytes());
+        v = to_scalar(ret);
     }
 
     function get_g2_s() internal pure returns (LibEcc.G2Point memory s) {

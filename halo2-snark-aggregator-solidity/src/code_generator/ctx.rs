@@ -117,7 +117,7 @@ impl Expression {
                 format!("{}.from_bytes(vars, {})", t.to_libstring(), offset)
             }
             Expression::Hash() => {
-                format!("uint256(sha256(abi.encode(absorbing)))")
+                format!("squeeze_challenge()")
             }
         }
     }
@@ -198,15 +198,13 @@ impl Statement {
             Statement::UpdateHash(e) => match e.get_type() {
                 Type::Point => {
                     format!(
-                        "update_hash_point({}({}));",
-                        "LibEcc.to_array",
+                        "update_hash_point({});",
                         e.to_typed_string()
                     )
                 }
                 Type::Scalar => {
                     format!(
-                        "update_hash_scalar({}({}));",
-                        "LibFr.to_array",
+                        "update_hash_scalar({});",
                         e.to_typed_string()
                     )
                 }
