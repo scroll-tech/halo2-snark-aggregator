@@ -17,8 +17,8 @@ impl Type {
 
     fn to_libstring(&self) -> String {
         match &self {
-            Type::Scalar => "LibFr".to_owned(),
-            Type::Point => "LibEcc".to_owned(),
+            Type::Scalar => "fr".to_owned(),
+            Type::Point => "ecc".to_owned(),
         }
     }
 }
@@ -70,32 +70,32 @@ impl Expression {
         match self {
             Expression::Scalar(s) => format!("{}", s.to_string()),
             Expression::Point(x, y) => {
-                format!("LibEcc.from({}, {})", x.to_string(), y.to_string())
+                format!("ecc_from({}, {})", x.to_string(), y.to_string())
             }
             Expression::Memory(idx, Type::Scalar) => format!("m[{}]", idx),
             Expression::Memory(idx, Type::Point) => {
-                format!("LibEcc.from(m[{}], m[{}])", idx, idx + 1)
+                format!("ecc_from(m[{}], m[{}])", idx, idx + 1)
             }
             Expression::Add(l, r, t) => format!(
-                "{}.add({}, {})",
+                "{}_add({}, {})",
                 t.to_libstring(),
                 (*l).to_typed_string(),
                 (*r).to_typed_string()
             ),
             Expression::Sub(l, r, t) => format!(
-                "{}.sub({}, {})",
+                "{}_sub({}, {})",
                 t.to_libstring(),
                 (*l).to_typed_string(),
                 (*r).to_typed_string()
             ),
             Expression::Mul(s, p, t) => format!(
-                "{}.mul({}, {})",
+                "{}_mul({}, {})",
                 t.to_libstring(),
                 (*p).to_typed_string(),
                 (*s).to_typed_string()
             ),
             Expression::Div(l, r, t) => format!(
-                "{}.div({}, {})",
+                "{}_div({}, {})",
                 t.to_libstring(),
                 (*l).to_typed_string(),
                 (*r).to_typed_string()
@@ -108,13 +108,13 @@ impl Expression {
                 (*c).to_typed_string()
             ),
             Expression::TransciprtOffset(offset, t) => {
-                format!("{}.from_bytes(proof, {})", t.to_libstring(), offset)
+                format!("{}_from_bytes(proof, {})", t.to_libstring(), offset)
             }
             Expression::InstanceOffset(offset, t) => {
-                format!("{}.from_bytes(instances, {})", t.to_libstring(), offset)
+                format!("{}_from_bytes(instances, {})", t.to_libstring(), offset)
             }
             Expression::TmpBufOffset(offset, t) => {
-                format!("{}.from_bytes(vars, {})", t.to_libstring(), offset)
+                format!("{}_from_bytes(vars, {})", t.to_libstring(), offset)
             }
             Expression::Hash(offset) => {
                 format!("squeeze_challenge(absorbing, {})", offset)
@@ -188,7 +188,7 @@ impl Statement {
                     "{} = {}({});",
                     (*l).to_untyped_string(),
                     if r.get_type() == Type::Point {
-                        "LibEcc.to_tuple"
+                        "ecc_to_tuple"
                     } else {
                         ""
                     },

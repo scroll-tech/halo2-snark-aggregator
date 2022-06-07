@@ -39,6 +39,14 @@ impl<F: FieldExt, E> ArithCommonChip for SolidityFieldChip<F, E> {
         a: &Self::AssignedValue,
         b: &Self::AssignedValue,
     ) -> Result<Self::AssignedValue, Self::Error> {
+        if a.v == bn_to_field(&(0 as u32).to_biguint().unwrap()) {
+            return Ok(b.clone());
+        }
+
+        if b.v == bn_to_field(&(0 as u32).to_biguint().unwrap()) {
+            return Ok(a.clone());
+        }
+
         let r = Expression::Add(a.expr.clone(), b.expr.clone(), Type::Scalar);
         let l = ctx.assign_memory(r);
 
@@ -115,6 +123,14 @@ impl<F: FieldExt, E> ArithFieldChip for SolidityFieldChip<F, E> {
         a: &Self::AssignedField,
         b: &Self::AssignedField,
     ) -> Result<Self::AssignedField, Self::Error> {
+        if a.v == bn_to_field(&(1 as u32).to_biguint().unwrap()) {
+            return Ok(b.clone());
+        }
+
+        if b.v == bn_to_field(&(1 as u32).to_biguint().unwrap()) {
+            return Ok(a.clone());
+        }
+
         let r = Expression::Mul(a.expr.clone(), b.expr.clone(), Type::Scalar);
         let l = ctx.assign_memory(r);
 
