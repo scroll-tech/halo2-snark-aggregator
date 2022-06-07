@@ -56,6 +56,7 @@ fn render_verifier_sol_template<C: CurveAffine>(
     ctx.insert("n_g2_y0", &args.n_g2.y.0.to_str_radix(10));
     ctx.insert("n_g2_y1", &args.n_g2.y.1.to_str_radix(10));
     ctx.insert("memory_size", &args.memory_size);
+    ctx.insert("absorbing_length", &args.absorbing_length);
     tera.render("verifier.sol", &ctx)
         .expect("failed to render template")
 }
@@ -188,6 +189,7 @@ impl SolidityGenerate {
             n_g2,
             assignments: ctx.statements.clone(),
             memory_size: ctx.memory_offset,
+            absorbing_length: ctx.absorbing_offset,
         };
 
         let sol_ctx = linearize_memory(sol_ctx);

@@ -36,5 +36,6 @@ pub(crate) fn linearize_memory(ctx: CodeGeneratorCtx) -> CodeGeneratorCtx {
         n_g2: ctx.n_g2,
         assignments,
         memory_size: offset,
+        absorbing_length: ctx.absorbing_length,
     }
 }

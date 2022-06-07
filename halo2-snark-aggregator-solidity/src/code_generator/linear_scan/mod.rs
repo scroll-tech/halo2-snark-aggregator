@@ -73,5 +73,6 @@ pub(crate) fn memory_optimize(ctx: CodeGeneratorCtx) -> CodeGeneratorCtx {
         n_g2: ctx.n_g2,
         assignments: replaced_statement,
         memory_size: memory_offset,
+        absorbing_length: ctx.absorbing_length
     }
 }

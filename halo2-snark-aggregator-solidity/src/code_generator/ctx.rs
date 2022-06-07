@@ -37,7 +37,7 @@ pub enum Expression {
     Mul(Rc<Expression>, Rc<Expression>, Type),
     Div(Rc<Expression>, Rc<Expression>, Type),
     MulAddConstant(Rc<Expression>, Rc<Expression>, Rc<Expression>, Type),
-    Hash(),
+    Hash(usize),
 }
 
 impl Expression {
@@ -54,7 +54,7 @@ impl Expression {
             | Expression::MulAddConstant(_, _, _, t) => (*t).clone(),
             Expression::Point(_, _) => Type::Point,
             Expression::Scalar(_) => Type::Scalar,
-            Expression::Hash() => Type::Scalar,
+            Expression::Hash(_) => Type::Scalar,
         }
     }
 
@@ -116,8 +116,8 @@ impl Expression {
             Expression::TmpBufOffset(offset, t) => {
                 format!("{}.from_bytes(vars, {})", t.to_libstring(), offset)
             }
-            Expression::Hash() => {
-                format!("squeeze_challenge()")
+            Expression::Hash(offset) => {
+                format!("squeeze_challenge(absorbing, {})", offset)
             }
         }
     }
@@ -177,7 +177,7 @@ impl Expression {
 #[derive(Clone)]
 pub(crate) enum Statement {
     Assign(Rc<Expression>, Expression),
-    UpdateHash(Rc<Expression>),
+    UpdateHash(Rc<Expression>, usize),
 }
 
 impl Statement {
@@ -195,17 +195,19 @@ impl Statement {
                     (*r).to_typed_string()
                 )
             }
-            Statement::UpdateHash(e) => match e.get_type() {
+            Statement::UpdateHash(e, offset) => match e.get_type() {
                 Type::Point => {
                     format!(
-                        "update_hash_point({});",
-                        e.to_typed_string()
+                        "update_hash_point({}, absorbing, {});",
+                        e.to_typed_string(),
+                        offset
                     )
                 }
                 Type::Scalar => {
                     format!(
-                        "update_hash_scalar({});",
-                        e.to_typed_string()
+                        "update_hash_scalar({}, absorbing, {});",
+                        e.to_typed_string(),
+                        offset
                     )
                 }
             },
@@ -217,7 +219,7 @@ impl Statement {
             Statement::Assign(l, r) => {
                 Statement::Assign(Rc::new(l.substitute(lookup)), r.substitute(lookup))
             }
-            Statement::UpdateHash(e) => Statement::UpdateHash(Rc::new(e.substitute(lookup))),
+            Statement::UpdateHash(e, offset) => Statement::UpdateHash(Rc::new(e.substitute(lookup)), *offset),
         }
     }
 }
@@ -227,6 +229,7 @@ struct Cache {
 }
 
 pub struct SolidityCodeGeneratorContext {
+    pub(crate) absorbing_offset: usize,
     pub(crate) memory_offset: usize,
     transcript_offset: usize,
     instance_offset: usize,
@@ -260,23 +263,24 @@ impl SolidityCodeGeneratorContext {
         self.instance_context = false;
     }
 
-    pub(crate) fn squeeze_challenge_scalar(&mut self) -> Rc<Expression> {
+    pub(crate) fn squeeze_challenge_scalar(&mut self, offset: usize) -> Rc<Expression> {
         self.mock_hash = false;
         let l = self.allocate(Type::Scalar);
-        let r = Expression::Hash();
+        let r = Expression::Hash(offset);
         self.statements.push(Statement::Assign(l.clone(), r));
 
         l
     }
 
-    pub(crate) fn update(&mut self, expr: &Rc<Expression>) {
-        self.statements.push(Statement::UpdateHash(expr.clone()))
+    pub(crate) fn update(&mut self, expr: &Rc<Expression>, offset: usize) {
+        self.statements.push(Statement::UpdateHash(expr.clone(), offset))
     }
 }
 
 impl SolidityCodeGeneratorContext {
     pub fn new() -> Self {
         SolidityCodeGeneratorContext {
+            absorbing_offset: 0,
             transcript_offset: 0,
             instance_offset: 0,
             tmp_offset: 0,
@@ -350,4 +354,5 @@ pub(crate) struct CodeGeneratorCtx {
     pub(crate) n_g2: G2Point,
     pub(crate) assignments: Vec<Statement>,
     pub(crate) memory_size: usize,
+    pub(crate) absorbing_length: usize,
 }

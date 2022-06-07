@@ -46,7 +46,7 @@ pub(crate) fn build_intervals(statements: &Vec<Statement>) -> Vec<Interval> {
                     }
                 });
             }
-            Statement::UpdateHash(e) => {
+            Statement::UpdateHash(e, _) => {
                 e.iter(&mut |e| {
                     let expr = lookup.get(e);
                     if expr.is_some() {

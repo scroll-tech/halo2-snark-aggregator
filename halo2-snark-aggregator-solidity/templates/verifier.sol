@@ -70,6 +70,29 @@ library LibFr {
     ) internal pure returns (uint256) {
         return add(mul(a, b), c);
     }
+
+    function reverse(uint256 input) internal pure returns (uint256 v) {
+        v = input;
+
+        // swap bytes
+        v = ((v & 0xFF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00) >> 8) |
+            ((v & 0x00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF) << 8);
+
+        // swap 2-byte long pairs
+        v = ((v & 0xFFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000) >> 16) |
+            ((v & 0x0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF) << 16);
+
+        // swap 4-byte long pairs
+        v = ((v & 0xFFFFFFFF00000000FFFFFFFF00000000FFFFFFFF00000000FFFFFFFF00000000) >> 32) |
+            ((v & 0x00000000FFFFFFFF00000000FFFFFFFF00000000FFFFFFFF00000000FFFFFFFF) << 32);
+
+        // swap 8-byte long pairs
+        v = ((v & 0xFFFFFFFFFFFFFFFF0000000000000000FFFFFFFFFFFFFFFF0000000000000000) >> 64) |
+            ((v & 0x0000000000000000FFFFFFFFFFFFFFFF0000000000000000FFFFFFFFFFFFFFFF) << 64);
+
+        // swap 16-byte long pairs
+        v = (v >> 128) | (v << 128);
+    }
 }
 
 library LibEcc {
@@ -230,78 +253,57 @@ library LibPairing {
 }
 
 contract Verifier {
-    uint256[{{memory_size}}] m;
-    uint8[] private absorbing;
-    bytes32 tmp;
-
-    function toBytes(uint256 x) private {
-        tmp = bytes32(x);
+    function toBytes(uint256 x) private pure returns (bytes32 v) {
+        v = bytes32(x);
     }
 
-    function update_hash_scalar(uint256 v) internal {
-        absorbing.push(2);
-        toBytes(v);
+    function update_hash_scalar(uint256 v, bytes memory absorbing, uint256 pos) internal pure {
+        bytes32 tmp;
+        absorbing[pos] = 0x02;
+        pos++;
+        tmp = toBytes(v);
         // to little-endian
         for (uint256 i = 0; i < 32; i++) {
-            absorbing.push(uint8(tmp[31 - i]));
+            absorbing[pos] = tmp[31 - i];
+            pos++;
         }
     }
 
-    function update_hash_point(LibEcc.G1Point memory v) internal {
-        absorbing.push(1);
-        toBytes(v.x);
+    function update_hash_point(LibEcc.G1Point memory v, bytes memory absorbing, uint256 pos) internal pure {
+        bytes32 tmp;
+        absorbing[pos] = 0x01;
+        pos++;
+        //absorbing.push(1);
+        tmp = toBytes(v.x);
         for (uint256 i = 0; i < 32; i++) {
-            absorbing.push(uint8(tmp[31 - i]));
+            absorbing[pos] = tmp[31 - i];
+            pos++;
         }
 
-        toBytes(v.y);
+        tmp = toBytes(v.y);
         for (uint256 i = 0; i < 32; i++) {
-            absorbing.push(uint8(tmp[31 - i]));
+            absorbing[pos] = tmp[31 - i];
+            pos++;
         }
-    }
-
-    function to_bytes() private view returns (bytes memory v) {
-        v = new bytes(absorbing.length);
-        for (uint256 i = 0; i < absorbing.length; i++) {
-            v[i] = bytes1(absorbing[i]);
-        }
-    }
-
-    function reverse(uint256 input) internal pure returns (uint256 v) {
-        v = input;
-
-        // swap bytes
-        v = ((v & 0xFF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00) >> 8) |
-            ((v & 0x00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF) << 8);
-
-        // swap 2-byte long pairs
-        v = ((v & 0xFFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000) >> 16) |
-            ((v & 0x0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF) << 16);
-
-        // swap 4-byte long pairs
-        v = ((v & 0xFFFFFFFF00000000FFFFFFFF00000000FFFFFFFF00000000FFFFFFFF00000000) >> 32) |
-            ((v & 0x00000000FFFFFFFF00000000FFFFFFFF00000000FFFFFFFF00000000FFFFFFFF) << 32);
-
-        // swap 8-byte long pairs
-        v = ((v & 0xFFFFFFFFFFFFFFFF0000000000000000FFFFFFFFFFFFFFFF0000000000000000) >> 64) |
-            ((v & 0x0000000000000000FFFFFFFFFFFFFFFF0000000000000000FFFFFFFFFFFFFFFF) << 64);
-
-        // swap 16-byte long pairs
-        v = (v >> 128) | (v << 128);
     }
 
     function to_scalar(bytes32 r) private pure returns (uint256 v) {
         uint256 tmp = uint256(r);
-        tmp = reverse(tmp);
+        tmp = LibFr.reverse(tmp);
         v = tmp % 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001;
     }
 
-    function squeeze_challenge() internal returns (uint256 v) {
-        bytes32 ret;
+    function squeeze_challenge(bytes memory absorbing, uint32 length) internal pure returns (uint256 v) {
+        uint256 i;
 
-        absorbing.push(uint8(0));
-        ret = sha256(to_bytes());
-        v = to_scalar(ret);
+        absorbing[length+1] = 0x00;
+        length++;
+        bytes memory tmp = new bytes(length);
+        for (i = 0; i < length; i++) {
+            tmp[i] = bytes1(absorbing[i]);
+        }
+
+        v = to_scalar(sha256(tmp));
     }
 
     function get_g2_s() internal pure returns (LibEcc.G2Point memory s) {
@@ -320,8 +322,11 @@ contract Verifier {
 
     function get_wx_wg(bytes memory proof, bytes memory instances)
         internal
+        view
         returns (LibEcc.G1Point[2] memory)
     {
+        uint256[{{memory_size}}] memory m;
+        bytes memory absorbing = new bytes({{absorbing_length}});
         {% for statement in statements %}
         {{statement}}
         {%- endfor %}

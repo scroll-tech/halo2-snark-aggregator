@@ -30,7 +30,6 @@ use halo2_proofs::{
 };
 use halo2_snark_aggregator_api::mock::arith::{ecc::MockEccChip, field::MockFieldChip};
 use halo2_snark_aggregator_api::mock::transcript_encode::PoseidonEncode;
-use halo2_snark_aggregator_api::systems::halo2::verify::assign_instance_commitment;
 use halo2_snark_aggregator_api::systems::halo2::verify::verify_aggregation_proofs_in_chip;
 use halo2_snark_aggregator_api::systems::halo2::{
     transcript::PoseidonTranscriptRead, verify::ProofData,

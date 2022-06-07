@@ -12,7 +12,7 @@ use halo2_snark_aggregator_circuit::verify_circuit::{CreateProof, Setup, VerifyC
 use halo2_snark_aggregator_solidity::SolidityGenerate;
 use log::info;
 use num_bigint::BigUint;
-use pairing_bn256::bn256::{Bn256, Fq, Fr, G1Affine};
+use pairing_bn256::bn256::{Bn256, Fq, G1Affine};
 
 #[derive(Parser)]
 struct Cli {

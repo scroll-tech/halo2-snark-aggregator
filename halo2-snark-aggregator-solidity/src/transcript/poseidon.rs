@@ -178,7 +178,8 @@ impl<
     ) -> Result<A::AssignedScalar, A::Error> {
         ctx.enter_hash();
         let mut v = self.hash.squeeze(ctx, nchip)?;
-        let e = ctx.squeeze_challenge_scalar();
+        let e = ctx.squeeze_challenge_scalar(ctx.absorbing_offset);
+        ctx.absorbing_offset = ctx.absorbing_offset + 1;
         v.expr = e;
         let s = E::decode_scalar(ctx, nchip, schip, &[v])?;
         Ok(s)
@@ -193,7 +194,8 @@ impl<
         p: &A::AssignedPoint,
     ) -> Result<(), A::Error> {
         let encoded = E::encode_point(ctx, nchip, schip, pchip, p)?;
-        ctx.update(&p.expr);
+        ctx.update(&p.expr, ctx.absorbing_offset);
+        ctx.absorbing_offset = ctx.absorbing_offset + 65;
         // ctx.update(&encoded[1].expr);
         self.hash.update(&encoded);
         Ok(())
@@ -207,7 +209,8 @@ impl<
         s: &A::AssignedScalar,
     ) -> Result<(), A::Error> {
         let encoded = E::encode_scalar(ctx, nchip, schip, s)?;
-        ctx.update(&s.expr);
+        ctx.update(&s.expr, ctx.absorbing_offset);
+        ctx.absorbing_offset = ctx.absorbing_offset + 33;
         self.hash.update(&encoded);
         Ok(())
     }
