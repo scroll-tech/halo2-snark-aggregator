@@ -278,7 +278,6 @@ mod evm_circ_benches {
         .expect("verify aggregate proof fail")
     }
 
-    #[cfg_attr(not(feature = "benches"), ignore)]
     #[test]
     fn bench_evm_circuit_prover_halo2ecc() {
         let nproofs = 2;
