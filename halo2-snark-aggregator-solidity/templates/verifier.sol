@@ -14,7 +14,7 @@ contract Verifier {
 
         require(p1.length == p2.length);
 
-        for (uint256 i = 0; i < length; i++) {
+        for (uint256 i = 0; i < p1.length; i++) {
             input[0 + i * 6] = p1[i].x;
             input[1 + i * 6] = p1[i].y;
             input[2 + i * 6] = p2[i].x[0];
@@ -39,23 +39,6 @@ contract Verifier {
 
     uint256 constant q_mod =
         21888242871839275222246405745257275088548364400416034343698204186575808495617;
-
-    function fr_from_bytes(bytes memory buf, uint256 offset)
-        internal
-        pure
-        returns (uint256)
-    {
-        uint256 v;
-        uint256 o;
-
-        o = offset + 0x20;
-
-        assembly {
-            v := mload(add(buf, o))
-        }
-
-        return v;
-    }
 
     function fr_add(uint256 a, uint256 b) internal pure returns (uint256 r) {
         return addmod(a, b, q_mod);
@@ -142,14 +125,6 @@ contract Verifier {
         uint256[2] y;
     }
 
-    function ecc_to_tuple(G1Point memory f)
-        internal
-        pure
-        returns (uint256, uint256)
-    {
-        return (f.x, f.y);
-    }
-
     function ecc_from(uint256 x, uint256 y)
         internal
         pure
@@ -159,83 +134,60 @@ contract Verifier {
         r.y = y;
     }
 
-    function ecc_from_bytes(bytes memory buf, uint256 offset)
-        internal
-        pure
-        returns (G1Point memory r)
-    {
-        uint256 x;
-        uint256 y;
-        uint256 o;
-
-        o = offset + 0x20;
-
-        assembly {
-            x := mload(add(buf, o))
-            y := mload(add(buf, add(o, 0x20)))
-        }
-
-        r.x = x;
-        r.y = y;
+    function ecc_is_identity(uint256 x, uint256 y) internal pure returns (bool) {
+        return x == 0 && y == 0;
     }
 
-    function ecc_is_identity(G1Point memory a) internal pure returns (bool) {
-        return a.x == 0 && a.y == 0;
-    }
-
-    function ecc_add(G1Point memory a, G1Point memory b)
+    function ecc_add(uint256 ax, uint256 ay, uint256 bx, uint256 by)
         internal
         view
-        returns (G1Point memory)
+        returns (uint256, uint256)
     {
-        if (ecc_is_identity(a)) {
-            return b;
-        } else if (ecc_is_identity(b)) {
-            return a;
+        if (ecc_is_identity(ax, ay)) {
+            return (bx, by);
+        } else if (ecc_is_identity(bx, by)) {
+            return (ax, ay);
         } else {
             bool ret = false;
             G1Point memory r;
             uint256[4] memory input_points;
 
-            input_points[0] = a.x;
-            input_points[1] = a.y;
-            input_points[2] = b.x;
-            input_points[3] = b.y;
+            input_points[0] = ax;
+            input_points[1] = ay;
+            input_points[2] = bx;
+            input_points[3] = by;
 
             assembly {
                 ret := staticcall(gas(), 6, input_points, 0x80, r, 0x40)
             }
             require(ret);
 
-            return r;
+            return (r.x, r.y);
         }
     }
 
-    function ecc_sub(G1Point memory a, G1Point memory b)
+    function ecc_sub(uint256 ax, uint256 ay, uint256 bx, uint256 by)
         internal
         view
-        returns (G1Point memory)
+        returns (uint256, uint256)
     {
-        G1Point memory _b;
-        _b.x = b.x;
-        _b.y = p_mod - b.y;
-        return ecc_add(a, _b);
+        return ecc_add(ax, ay, bx, p_mod - by);
     }
 
-    function ecc_mul(G1Point memory p, uint256 s)
+    function ecc_mul(uint256 px, uint256 py, uint256 s)
         internal
         view
-        returns (G1Point memory)
+        returns (uint256, uint256)
     {
-        if (ecc_is_identity(p)) {
-            return p;
+        if (ecc_is_identity(px, py)) {
+            return (px, py);
         } else {
             uint256[3] memory input;
             bool ret = false;
             G1Point memory r;
 
-            input[0] = p.x;
-            input[1] = p.y;
+            input[0] = px;
+            input[1] = py;
             input[2] = s;
 
             assembly {
@@ -243,59 +195,119 @@ contract Verifier {
             }
             require(ret);
 
-            return r;
+            return (r.x, r.y);
         }
     }
 
-    function toBytes(uint256 x) private pure returns (bytes32 v) {
-        v = bytes32(x);
+    uint32 constant m_sep = 3 << 7;
+    uint32 constant c_sep = 2 << 7;
+
+    function convert_scalar(
+        uint256[] memory m,
+        uint256[] memory proof,
+        uint256 v
+    ) internal pure returns (uint256) {
+        if (v >= m_sep) {
+            return m[v - m_sep];
+        } else if (v >= c_sep) {
+            return v - c_sep;
+        } else {
+            return proof[v];
+        }
     }
 
-    function update_hash_scalar(uint256 v, bytes memory absorbing, uint256 pos) internal pure {
-        bytes32 tmp;
-
-        // absorbing[pos] = 0x02
-        assembly {
-            mstore8(add(absorbing, add(pos, 32)), 0x02)
-            pos := add(pos, 1)
+    function convert_point(
+        uint256[] memory m,
+        uint256[] memory proof,
+        uint256 v
+    ) internal pure returns (uint256, uint256) {
+        if (v >= m_sep) {
+            return (m[v - m_sep], m[v - m_sep + 1]);
+        } else if (v >= c_sep) {
+            revert();
+        } else {
+            return (proof[v], proof[v + 1]);
         }
+    }
 
-        tmp = toBytes(v);
-        // to little-endian
+    function update(
+        uint256[] memory m,
+        uint256[] memory proof,
+        uint256[] memory absorbing,
+        uint256 opcodes
+    ) internal view {
+        uint32 i;
+        uint256[4] memory buf;
+        for (i = 0; i < 8; i++) {
+            uint32 opcode = uint32(
+                (opcodes >> ((7 - i) * 32)) & ((1 << 32) - 1)
+            );
+            if (opcode != 0) {
+                uint32 t = (opcode >> 31);
+                uint32 l =  (opcode >> 22) & 0x1ff;
+                uint32 op = (opcode >> 18) & 0xf;
+                uint32 r0 = (opcode >> 9) & 0x1ff;
+                uint32 r1 = opcode & 0x1ff;
 
-        for (uint256 i = 0; i < 32; i++) {
-            absorbing[pos] = tmp[31 - i];
+                if (op == 5) {
+                    l = l - m_sep;
+                    m[l] = squeeze_challenge(absorbing, uint32(r0));
+                    continue;
+                }
 
-            assembly {
-                pos := add(pos, 1)
+                if (op == 6) {
+                    update_hash_scalar(
+                        convert_scalar(m, proof, r0),
+                        absorbing,
+                        r1
+                    );
+                    continue;
+                }
+
+                if (t == 0) {
+                    l = l - m_sep;
+                    buf[0] = convert_scalar(m, proof, r0);
+                    buf[1] = convert_scalar(m, proof, r1);
+                    if (op == 1) {
+                        m[l] = fr_add(buf[0], buf[1]);
+                    } else if (op == 2) {
+                        m[l] = fr_sub(buf[0], buf[1]);
+                    } else if (op == 3) {
+                        m[l] = fr_mul(buf[0], buf[1]);
+                    } else if (op == 4) {
+                        m[l] = fr_div(buf[0], buf[1]);
+                    } else {
+                        revert();
+                    }
+                } else {
+                    l = l - m_sep;
+                    (buf[0], buf[1]) = convert_point(m, proof, r0);
+                    if (op == 1) {
+                        (buf[2], buf[3]) = convert_point(m, proof, r1);
+                        (m[l], m[l + 1]) = ecc_add(buf[0], buf[1], buf[2], buf[3]);
+                    } else if (op == 2) {
+                        (buf[2], buf[3]) = convert_point(m, proof, r1);
+                        (m[l], m[l + 1]) = ecc_sub(buf[0], buf[1], buf[2], buf[3]);
+                    } else if (op == 3) {
+                        buf[2] = convert_scalar(m, proof, r1);
+                        (m[l], m[l + 1]) = ecc_mul(buf[0], buf[1], buf[2]);
+                    } else {
+                        revert();
+                    }
+                }
             }
         }
     }
 
-    function update_hash_point(G1Point memory v, bytes memory absorbing, uint256 pos) internal pure {
-        bytes32 tmp;
-        //absorbing[pos] = 0x01;
-        //pos++;
-        assembly {
-            mstore8(add(absorbing, add(pos, 32)), 0x01)
-            pos := add(pos, 1)
-        }
+    function update_hash_scalar(uint256 v, uint256[] memory absorbing, uint256 pos) internal pure {
+        absorbing[pos++] = 0x02;
+        absorbing[pos++] = v;
+    }
 
-        tmp = toBytes(v.x);
-        for (uint256 i = 0; i < 32; i++) {
-            absorbing[pos] = tmp[31 - i];
-            assembly {
-                pos := add(pos, 1)
-            }
-        }
-
-        tmp = toBytes(v.y);
-        for (uint256 i = 0; i < 32; i++) {
-            absorbing[pos] = tmp[31 - i];
-            assembly {
-                pos := add(pos, 1)
-            }
-        }
+    function update_hash_point(uint256 x, uint256 y, uint256[] memory absorbing, uint256 pos) internal pure {
+        absorbing[pos++] = 0x01;
+        absorbing[pos++] = x;
+        absorbing[pos++] = y;
     }
 
     function to_scalar(bytes32 r) private pure returns (uint256 v) {
@@ -304,17 +316,22 @@ contract Verifier {
         v = tmp % 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001;
     }
 
-    function squeeze_challenge(bytes memory absorbing, uint32 length) internal pure returns (uint256 v) {
-        uint256 i;
+    function hash(uint256[] memory data, uint256 length) private pure returns (bytes32 v) {
+        uint256[] memory buf = new uint256[](length);
+        uint256 i = 0;
 
-        absorbing[length+1] = 0x00;
-        length++;
-        bytes memory tmp = new bytes(length);
         for (i = 0; i < length; i++) {
-            tmp[i] = bytes1(absorbing[i]);
+            buf[i] = data[i];
         }
 
-        v = to_scalar(sha256(tmp));
+        v = sha256(abi.encodePacked(buf, uint8(0)));
+    }
+
+    function squeeze_challenge(uint256[] memory absorbing, uint32 length) internal pure returns (uint256 v) {
+        bytes32 res = hash(absorbing, length);
+        v = to_scalar(res);
+        absorbing[0] = uint256(res);
+        length = 1;
     }
 
     function get_g2_s() internal pure returns (G2Point memory s) {
@@ -331,20 +348,20 @@ contract Verifier {
         n.y[1] = uint256({{n_g2_y1}});
     }
 
-    function get_wx_wg(bytes memory proof, bytes memory instances)
+    function get_wx_wg(uint256[] memory proof, uint256[] memory instances)
         internal
         view
         returns (G1Point[2] memory)
     {
-        uint256[{{memory_size}}] memory m;
-        bytes memory absorbing = new bytes({{absorbing_length}});
+        uint256[] memory m = new uint256[]({{memory_size}});
+        uint256[] memory absorbing = new uint256[]({{absorbing_length}});
         {% for statement in statements %}
         {{statement}}
         {%- endfor %}
-        return [{{ wx }}, {{ wg }}];
+        return [ecc_from({{ wx }}), ecc_from({{ wg }})];
     }
 
-    function verify(bytes memory proof, bytes memory instances) public view {
+    function verify(uint256[] memory proof, uint256[] memory instances) public view {
         // wx, wg
         G1Point[2] memory wx_wg = get_wx_wg(proof, instances);
         G1Point[] memory g1_points = new G1Point[](2);
@@ -352,7 +369,7 @@ contract Verifier {
         g1_points[1] = wx_wg[1];
         G2Point[] memory g2_points = new G2Point[](2);
         g2_points[0] = get_g2_s();
-        g2_points[1] = get_g2_s();
+        g2_points[1] = get_g2_n();
 
         bool checked = pairing(g1_points, g2_points);
         require(checked);
