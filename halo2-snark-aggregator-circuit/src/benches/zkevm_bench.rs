@@ -55,6 +55,10 @@ impl<F: Field> Circuit<F> for TestCircuit<F> {
 
 #[cfg(test)]
 mod evm_circ_benches {
+    use std::env::var;
+    use std::io::Read;
+    use std::path::Path;
+
     use crate::verify_circuit::{
         calc_verify_circuit_instances, Halo2VerifierCircuit, SingleProofWitness,
     };
@@ -103,7 +107,8 @@ mod evm_circ_benches {
                     let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
 
                     // Bench proof generation time
-                    let proof_message = format!("EVM Proof generation with {} degree", DEGREE_OF_EVM_CIRCUIT);
+                    let proof_message =
+                        format!("EVM Proof generation with {} degree", DEGREE_OF_EVM_CIRCUIT);
                     let start2 = start_timer!(|| proof_message);
                     create_proof(
                         &general_params,
@@ -182,7 +187,36 @@ mod evm_circ_benches {
                 .collect(),
         };
 
-        let verify_circuit_params = Params::<G1Affine>::unsafe_setup::<Bn256>(K);
+        let params_path = format!("HALO2_PARAMS_{}", K);
+
+        let path = var(params_path);
+        let path = match &path {
+            Ok(path) => {
+                let path = Path::new(path);
+                Some(path)
+            }
+            _ => None,
+        };
+
+        println!("params path: {:?}", path);
+        let verify_circuit_params = if path.is_some() && Path::exists(&path.unwrap()) {
+            println!("read params from {:?}", path.unwrap());
+            let mut fd = std::fs::File::open(&path.unwrap()).unwrap();
+            Params::<G1Affine>::read(&mut fd).unwrap()
+        } else {
+            let params = Params::<G1Affine>::unsafe_setup::<Bn256>(K);
+
+            if let Some(path) = path {
+                println!("write params to {:?}", path);
+
+                let mut fd = std::fs::File::create(path).unwrap();
+
+                params.write(&mut fd).unwrap();
+            };
+
+            params
+        };
+
         let verify_circuit_vk =
             keygen_vk(&verify_circuit_params, &verify_circuit).expect("keygen_vk should not fail");
 
