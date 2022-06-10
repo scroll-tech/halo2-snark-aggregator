@@ -11,6 +11,7 @@ use crate::code_generator::ctx::{Expression, SolidityCodeGeneratorContext, Type}
 pub struct SolidityFieldExpr<F> {
     pub expr: Rc<Expression>,
     pub v: F,
+    pub(super) is_const: bool,
 }
 
 pub(crate) struct SolidityFieldChip<F: FieldExt, E> {
@@ -39,20 +40,27 @@ impl<F: FieldExt, E> ArithCommonChip for SolidityFieldChip<F, E> {
         a: &Self::AssignedValue,
         b: &Self::AssignedValue,
     ) -> Result<Self::AssignedValue, Self::Error> {
-        if a.v == bn_to_field(&(0 as u32).to_biguint().unwrap()) {
+        let v = a.v + b.v;
+
+        if a.is_const && b.is_const {
+            return self.assign_const(ctx, v);
+        }
+
+        if a.is_const && a.v == bn_to_field(&(0 as u32).to_biguint().unwrap()) {
             return Ok(b.clone());
         }
 
-        if b.v == bn_to_field(&(0 as u32).to_biguint().unwrap()) {
+        if b.is_const && b.v == bn_to_field(&(0 as u32).to_biguint().unwrap()) {
             return Ok(a.clone());
         }
 
         let r = Expression::Add(a.expr.clone(), b.expr.clone(), Type::Scalar);
-        let l = ctx.assign_memory(r);
+        let l = ctx.assign_memory(r, vec![field_to_bn(&v)]);
 
         Ok(SolidityFieldExpr::<F> {
             expr: l,
-            v: a.v + b.v,
+            v,
+            is_const: a.is_const && b.is_const,
         })
     }
 
@@ -62,12 +70,23 @@ impl<F: FieldExt, E> ArithCommonChip for SolidityFieldChip<F, E> {
         a: &Self::AssignedValue,
         b: &Self::AssignedValue,
     ) -> Result<Self::AssignedValue, Self::Error> {
+        let v = a.v - b.v;
+
+        if a.is_const && b.is_const {
+            return self.assign_const(ctx, v);
+        }
+
+        if b.is_const && b.v == bn_to_field(&(0 as u32).to_biguint().unwrap()) {
+            return Ok(a.clone());
+        }
+
         let r = Expression::Sub(a.expr.clone(), b.expr.clone(), Type::Scalar);
-        let l = ctx.assign_memory(r);
+        let l = ctx.assign_memory(r, vec![field_to_bn(&v)]);
 
         Ok(SolidityFieldExpr::<F> {
             expr: l,
-            v: a.v - b.v,
+            v,
+            is_const: a.is_const && b.is_const,
         })
     }
 
@@ -86,7 +105,11 @@ impl<F: FieldExt, E> ArithCommonChip for SolidityFieldChip<F, E> {
     ) -> Result<Self::AssignedValue, Self::Error> {
         let r = Rc::new(Expression::Scalar(field_to_bn(&c)));
         // let l = ctx.assign_memory(r);
-        Ok(SolidityFieldExpr::<F> { expr: r, v: c })
+        Ok(SolidityFieldExpr::<F> {
+            expr: r,
+            v: c,
+            is_const: true,
+        })
     }
 
     fn assign_var(
@@ -94,18 +117,20 @@ impl<F: FieldExt, E> ArithCommonChip for SolidityFieldChip<F, E> {
         ctx: &mut Self::Context,
         v: F,
     ) -> Result<Self::AssignedValue, Self::Error> {
-        let bytes = v.to_repr();
-        assert_eq!(bytes.as_ref().len(), 32);
         let l = if ctx.transcript_context {
-            ctx.new_transcript_var(Type::Scalar, 32)
+            ctx.new_transcript_var(Type::Scalar, 1)
         } else if ctx.instance_context {
-            ctx.new_instance_var(Type::Scalar, 32)
+            ctx.new_instance_var(Type::Scalar, 1)
         } else {
-            ctx.extend_var_buf(bytes.as_ref());
-            ctx.new_tmp_var(Type::Scalar, 32)
+            ctx.extend_var_buf(&[0u8; 1]);
+            ctx.new_tmp_var(Type::Scalar, 1)
         };
 
-        Ok(SolidityFieldExpr::<F> { expr: l, v })
+        Ok(SolidityFieldExpr::<F> {
+            expr: l,
+            v,
+            is_const: false,
+        })
     }
 
     fn to_value(&self, v: &Self::AssignedValue) -> Result<Self::Value, Self::Error> {
@@ -123,20 +148,27 @@ impl<F: FieldExt, E> ArithFieldChip for SolidityFieldChip<F, E> {
         a: &Self::AssignedField,
         b: &Self::AssignedField,
     ) -> Result<Self::AssignedField, Self::Error> {
-        if a.v == bn_to_field(&(1 as u32).to_biguint().unwrap()) {
+        let v = a.v * b.v;
+
+        if a.is_const && b.is_const {
+            return self.assign_const(ctx, v);
+        }
+
+        if a.is_const && a.v == bn_to_field(&(1 as u32).to_biguint().unwrap()) {
             return Ok(b.clone());
         }
 
-        if b.v == bn_to_field(&(1 as u32).to_biguint().unwrap()) {
+        if b.is_const && b.v == bn_to_field(&(1 as u32).to_biguint().unwrap()) {
             return Ok(a.clone());
         }
 
         let r = Expression::Mul(a.expr.clone(), b.expr.clone(), Type::Scalar);
-        let l = ctx.assign_memory(r);
+        let l = ctx.assign_memory(r, vec![field_to_bn(&v)]);
 
         Ok(SolidityFieldExpr::<F> {
             expr: l,
-            v: a.v * b.v,
+            v,
+            is_const: a.is_const && b.is_const,
         })
     }
 
@@ -146,12 +178,23 @@ impl<F: FieldExt, E> ArithFieldChip for SolidityFieldChip<F, E> {
         a: &Self::AssignedField,
         b: &Self::AssignedField,
     ) -> Result<Self::AssignedField, Self::Error> {
+        let v = a.v * b.v.invert().unwrap();
+
+        if a.is_const && b.is_const {
+            return self.assign_const(ctx, v);
+        }
+
+        if b.is_const && b.v == bn_to_field(&(1 as u32).to_biguint().unwrap()) {
+            return Ok(a.clone());
+        }
+
         let r = Expression::Div(a.expr.clone(), b.expr.clone(), Type::Scalar);
-        let l = ctx.assign_memory(r);
+        let l = ctx.assign_memory(r, vec![field_to_bn(&v)]);
 
         Ok(SolidityFieldExpr::<F> {
             expr: l,
-            v: a.v * b.v.invert().unwrap(),
+            v,
+            is_const: a.is_const && b.is_const,
         })
     }
 
@@ -160,12 +203,18 @@ impl<F: FieldExt, E> ArithFieldChip for SolidityFieldChip<F, E> {
         ctx: &mut Self::Context,
         a: &Self::AssignedField,
     ) -> Result<Self::AssignedField, Self::Error> {
+        let v = a.v * a.v;
+        if a.is_const {
+            return self.assign_const(ctx, v);
+        }
+
         let r = Expression::Mul(a.expr.clone(), a.expr.clone(), Type::Scalar);
-        let l = ctx.assign_memory(r);
+        let l = ctx.assign_memory(r, vec![field_to_bn(&v)]);
 
         Ok(SolidityFieldExpr::<F> {
             expr: l,
-            v: a.v * a.v,
+            v,
+            is_const: a.is_const,
         })
     }
 
@@ -200,6 +249,7 @@ impl<F: FieldExt, E> ArithFieldChip for SolidityFieldChip<F, E> {
                 Type::Scalar,
             )),
             v: a.v * b.v + c,
+            is_const: false,
         })
     }
 }
