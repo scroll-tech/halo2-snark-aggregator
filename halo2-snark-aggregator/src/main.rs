@@ -24,7 +24,7 @@ struct Cli {
     #[clap(short, long, parse(from_os_str))]
     folder_path: std::path::PathBuf,
     #[clap(short, long, parse(from_os_str))]
-    template_path: std::path::PathBuf,
+    template_path: Option<std::path::PathBuf>,
 }
 
 fn read_file(folder: &mut PathBuf, filename: &str) -> Vec<u8> {
@@ -229,7 +229,7 @@ pub fn main() {
             proof: load_verify_circuit_proof(&mut folder.clone()),
         };
 
-        let sol = request.call::<_, Bn256>(template_folder);
+        let sol = request.call::<_, Bn256>(template_folder.unwrap());
 
         write_verify_circuit_solidity(&mut folder.clone(), &Vec::<u8>::from(sol.as_bytes()));
     }
