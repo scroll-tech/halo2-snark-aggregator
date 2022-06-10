@@ -1,19 +1,21 @@
-use group::ff::PrimeField;
-use halo2_proofs::{arithmetic::CurveAffine, plonk::Error};
-use halo2_snark_aggregator_api::arith::common::ArithCommonChip;
-use halo2_snark_aggregator_api::{
-    arith::ecc::ArithEccChip,
-    hash::poseidon::PoseidonChip,
-    transcript::{encode::Encode, read::TranscriptRead},
-};
-use pairing_bn256::group;
-use std::{io, marker::PhantomData};
-
 use crate::chips::ecc_chip::SolidityEccExpr;
 use crate::chips::scalar_chip::SolidityFieldExpr;
 use crate::code_generator::ctx::SolidityCodeGeneratorContext;
+use halo2_ecc_circuit_lib::utils::field_to_bn;
+use halo2_proofs::transcript::EncodedChallenge;
+use halo2_proofs::transcript::{Challenge255, Transcript, TranscriptRead};
+use halo2_proofs::{arithmetic::CurveAffine, plonk::Error};
+use halo2_snark_aggregator_api::arith::common::ArithCommonChip;
+use halo2_snark_aggregator_api::transcript::sha::ShaRead;
+use halo2_snark_aggregator_api::{
+    arith::ecc::ArithEccChip,
+    hash::poseidon::PoseidonChip,
+    transcript::{encode::Encode, read::TranscriptRead as APITranscriptRead},
+};
+use pairing_bn256::group::Curve;
+use std::{io, marker::PhantomData};
 
-pub struct PoseidonTranscriptRead<
+pub struct CodegenTranscriptRead<
     R: io::Read,
     C: CurveAffine,
     A: ArithEccChip<
@@ -29,7 +31,7 @@ pub struct PoseidonTranscriptRead<
     const RATE: usize,
 > {
     hash: PoseidonChip<A::NativeChip, T, RATE>,
-    reader: R,
+    reader: ShaRead<R, C, Challenge255<C>>,
     _phantom: PhantomData<E>,
 }
 
@@ -47,7 +49,7 @@ impl<
         E: Encode<A>,
         const T: usize,
         const RATE: usize,
-    > PoseidonTranscriptRead<R, C, A, E, T, RATE>
+    > CodegenTranscriptRead<R, C, A, E, T, RATE>
 {
     pub fn new(
         reader: R,
@@ -55,12 +57,42 @@ impl<
         schip: &A::NativeChip,
         r_f: usize,
         r_p: usize,
-    ) -> Result<PoseidonTranscriptRead<R, C, A, E, T, RATE>, A::Error> {
-        Ok(PoseidonTranscriptRead {
+    ) -> Result<CodegenTranscriptRead<R, C, A, E, T, RATE>, A::Error> {
+        Ok(CodegenTranscriptRead {
             hash: PoseidonChip::new(ctx, schip, r_f, r_p)?,
-            reader,
+            reader: ShaRead::init(reader),
             _phantom: PhantomData,
         })
+    }
+
+    fn _common_point(
+        &mut self,
+        ctx: &mut A::Context,
+        nchip: &A::NativeChip,
+        schip: &A::ScalarChip,
+        pchip: &A,
+        p: &A::AssignedPoint,
+    ) -> Result<(), A::Error> {
+        let encoded = E::encode_point(ctx, nchip, schip, pchip, p)?;
+        ctx.update(&p.expr, ctx.absorbing_offset);
+        ctx.absorbing_offset = ctx.absorbing_offset + 3;
+        // ctx.update(&encoded[1].expr);
+        self.hash.update(&encoded);
+        Ok(())
+    }
+
+    fn _common_scalar(
+        &mut self,
+        ctx: &mut A::Context,
+        nchip: &A::NativeChip,
+        schip: &A::ScalarChip,
+        s: &A::AssignedScalar,
+    ) -> Result<(), A::Error> {
+        let encoded = E::encode_scalar(ctx, nchip, schip, s)?;
+        ctx.update(&s.expr, ctx.absorbing_offset);
+        ctx.absorbing_offset = ctx.absorbing_offset + 2;
+        self.hash.update(&encoded);
+        Ok(())
     }
 }
 
@@ -79,7 +111,26 @@ impl<
         E: Encode<A>,
         const T: usize,
         const RATE: usize,
-    > TranscriptRead<A> for PoseidonTranscriptRead<R, C, A, E, T, RATE>
+    > CodegenTranscriptRead<R, C, A, E, T, RATE>
+{
+}
+
+impl<
+        R: io::Read,
+        C: CurveAffine,
+        A: ArithEccChip<
+            Point = C,
+            Scalar = C::Scalar,
+            Error = Error,
+            Context = SolidityCodeGeneratorContext,
+            AssignedNative = SolidityFieldExpr<C::Scalar>,
+            AssignedScalar = SolidityFieldExpr<C::Scalar>,
+            AssignedPoint = SolidityEccExpr<C::CurveExt>,
+        >,
+        E: Encode<A>,
+        const T: usize,
+        const RATE: usize,
+    > APITranscriptRead<A> for CodegenTranscriptRead<R, C, A, E, T, RATE>
 {
     fn read_point(
         &mut self,
@@ -88,18 +139,11 @@ impl<
         schip: &A::ScalarChip,
         pchip: &A,
     ) -> Result<A::AssignedPoint, A::Error> {
-        let mut compressed = C::Repr::default();
-        self.reader.read_exact(compressed.as_mut())?;
-        let point: C = Option::from(C::from_bytes(&compressed)).ok_or_else(|| {
-            A::Error::Transcript(io::Error::new(
-                io::ErrorKind::Other,
-                "invalid point encoding in proof",
-            ))
-        })?;
+        let point = self.reader.read_point()?;
         ctx.enter_transcript();
         let assigned_point = pchip.assign_var(ctx, point)?;
         ctx.exit_transcript();
-        self.common_point(ctx, nchip, schip, pchip, &assigned_point)?;
+        self._common_point(ctx, nchip, schip, pchip, &assigned_point)?;
 
         Ok(assigned_point)
     }
@@ -111,17 +155,10 @@ impl<
         schip: &A::ScalarChip,
         pchip: &A,
     ) -> Result<A::AssignedPoint, A::Error> {
-        let mut compressed = C::Repr::default();
-        self.reader.read_exact(compressed.as_mut())?;
-        let point: C = Option::from(C::from_bytes(&compressed)).ok_or_else(|| {
-            Error::Transcript(io::Error::new(
-                io::ErrorKind::Other,
-                "invalid point encoding in proof",
-            ))
-        })?;
+        let point = self.reader.read_point()?;
         let assigned_point = pchip.assign_const(ctx, point)?;
 
-        self.common_point(ctx, nchip, schip, pchip, &assigned_point)?;
+        self._common_point(ctx, nchip, schip, pchip, &assigned_point)?;
 
         Ok(assigned_point)
     }
@@ -132,19 +169,12 @@ impl<
         nchip: &A::NativeChip,
         schip: &A::ScalarChip,
     ) -> Result<A::AssignedScalar, A::Error> {
-        let mut data = <C::Scalar as PrimeField>::Repr::default();
-        self.reader.read_exact(data.as_mut())?;
-        let scalar: C::Scalar = Option::from(C::Scalar::from_repr(data)).ok_or_else(|| {
-            io::Error::new(
-                io::ErrorKind::Other,
-                "invalid field element encoding in proof",
-            )
-        })?;
+        let scalar = self.reader.read_scalar()?;
         ctx.enter_transcript();
         let assigned_scalar = schip.assign_var(ctx, scalar)?;
         ctx.exit_transcript();
 
-        self.common_scalar(ctx, nchip, schip, &assigned_scalar)?;
+        self._common_scalar(ctx, nchip, schip, &assigned_scalar)?;
 
         Ok(assigned_scalar)
     }
@@ -155,17 +185,10 @@ impl<
         nchip: &A::NativeChip,
         schip: &A::ScalarChip,
     ) -> Result<A::AssignedScalar, A::Error> {
-        let mut data = <C::Scalar as PrimeField>::Repr::default();
-        self.reader.read_exact(data.as_mut())?;
-        let scalar: C::Scalar = Option::from(C::Scalar::from_repr(data)).ok_or_else(|| {
-            io::Error::new(
-                io::ErrorKind::Other,
-                "invalid field element encoding in proof",
-            )
-        })?;
+        let scalar = self.reader.read_scalar()?;
         let assigned_scalar = schip.assign_const(ctx, scalar)?;
 
-        self.common_scalar(ctx, nchip, schip, &assigned_scalar)?;
+        self._common_scalar(ctx, nchip, schip, &assigned_scalar)?;
 
         Ok(assigned_scalar)
     }
@@ -176,11 +199,16 @@ impl<
         nchip: &A::NativeChip,
         schip: &A::ScalarChip,
     ) -> Result<A::AssignedScalar, A::Error> {
+        let scalar: C::Scalar = self.reader.squeeze_challenge().get_scalar();
         ctx.enter_hash();
         let mut v = self.hash.squeeze(ctx, nchip)?;
-        let e = ctx.squeeze_challenge_scalar(ctx.absorbing_offset);
-        ctx.absorbing_offset = ctx.absorbing_offset + 1;
+        let e = ctx.squeeze_challenge_scalar(ctx.absorbing_offset, field_to_bn(&scalar));
+        if ctx.max_absorbing_offset < ctx.absorbing_offset {
+            ctx.max_absorbing_offset = ctx.absorbing_offset;
+        }
+        ctx.absorbing_offset = 1;
         v.expr = e;
+        v.v = scalar;
         let s = E::decode_scalar(ctx, nchip, schip, &[v])?;
         Ok(s)
     }
@@ -193,11 +221,8 @@ impl<
         pchip: &A,
         p: &A::AssignedPoint,
     ) -> Result<(), A::Error> {
-        let encoded = E::encode_point(ctx, nchip, schip, pchip, p)?;
-        ctx.update(&p.expr, ctx.absorbing_offset);
-        ctx.absorbing_offset = ctx.absorbing_offset + 65;
-        // ctx.update(&encoded[1].expr);
-        self.hash.update(&encoded);
+        self._common_point(ctx, nchip, schip, pchip, p)?;
+        self.reader.common_point(p.v.to_affine())?;
         Ok(())
     }
 
@@ -208,10 +233,8 @@ impl<
         schip: &A::ScalarChip,
         s: &A::AssignedScalar,
     ) -> Result<(), A::Error> {
-        let encoded = E::encode_scalar(ctx, nchip, schip, s)?;
-        ctx.update(&s.expr, ctx.absorbing_offset);
-        ctx.absorbing_offset = ctx.absorbing_offset + 33;
-        self.hash.update(&encoded);
+        self._common_scalar(ctx, nchip, schip, s)?;
+        self.reader.common_scalar(s.v)?;
         Ok(())
     }
 }
