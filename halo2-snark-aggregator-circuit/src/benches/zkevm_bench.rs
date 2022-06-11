@@ -14,7 +14,7 @@ pub struct TestCircuit<F> {
 
 const DEGREE_OF_EVM_CIRCUIT: u32 = 18;
 const DEGREE: usize = 18;
-const K: u32 = 26u32;
+const K: u32 = 25u32;
 
 impl<F: Field> Circuit<F> for TestCircuit<F> {
     type Config = EvmCircuit<F>;
@@ -56,7 +56,6 @@ impl<F: Field> Circuit<F> for TestCircuit<F> {
 #[cfg(test)]
 mod evm_circ_benches {
     use std::env::var;
-    use std::io::Read;
     use std::path::Path;
 
     use crate::verify_circuit::{
@@ -66,13 +65,14 @@ mod evm_circ_benches {
     use super::*;
     use ark_std::{end_timer, start_timer};
     use halo2_ecc_circuit_lib::five::integer_chip::LIMBS;
+    use halo2_proofs::dev::MockProver;
     use halo2_proofs::plonk::{
         create_proof, keygen_pk, keygen_vk, verify_proof, ProvingKey, SingleVerifier, VerifyingKey,
     };
     use halo2_proofs::{
         pairing::bn256::{Bn256, Fr, G1Affine},
         poly::commitment::{Params, ParamsVerifier},
-        transcript::{Blake2bRead, Blake2bWrite, Challenge255},
+        transcript::{Blake2bRead, Blake2bWrite, Challenge255, PoseidonRead, PoseidonWrite},
     };
     use rand::rngs::OsRng;
 
@@ -104,7 +104,7 @@ mod evm_circ_benches {
             ($name:ident) => {
                 let $name = {
                     // Prove
-                    let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
+                    let mut transcript = PoseidonWrite::<_, _, Challenge255<_>>::init(vec![]);
 
                     // Bench proof generation time
                     let proof_message =
@@ -131,7 +131,7 @@ mod evm_circ_benches {
 
         // Verify
         let verifier_params: ParamsVerifier<Bn256> = general_params.verifier(DEGREE * 2).unwrap();
-        let mut verifier_transcript = Blake2bRead::<_, _, Challenge255<_>>::init(&proof1[..]);
+        let mut verifier_transcript = PoseidonRead::<_, _, Challenge255<_>>::init(&proof1[..]);
         let strategy = SingleVerifier::new(&verifier_params);
 
         // Bench verification time
@@ -312,9 +312,51 @@ mod evm_circ_benches {
         .expect("verify aggregate proof fail")
     }
 
+    #[cfg_attr(not(feature = "benches"), ignore)]
+    #[test]
+    fn bench_mock_evm_circuit_prover_halo2ecc() {
+        let nproofs = 1;
+
+        let (
+            _target_circuit_params,
+            target_circuit_verifier_params,
+            target_circuit_pk,
+            instances1,
+            _,
+            proof1,
+            _,
+        ) = setup_sample_circuit();
+
+        let target_circuit_instance = instances1.clone();
+        let target_circuit_proof = proof1.clone();
+        let verify_circuit = Halo2VerifierCircuit {
+            params: &target_circuit_verifier_params,
+            vk: target_circuit_pk.get_vk(),
+            nproofs,
+            proofs: vec![SingleProofWitness {
+                instances: &target_circuit_instance,
+                transcript: &target_circuit_proof,
+            }],
+        };
+
+        let instances = calc_verify_circuit_instances(
+            &target_circuit_verifier_params,
+            &target_circuit_pk.get_vk(),
+            vec![instances1],
+            vec![proof1],
+        );
+
+        let prover = match MockProver::run(K, &verify_circuit, vec![instances]) {
+            Ok(prover) => prover,
+            Err(e) => panic!("{:#?}", e),
+        };
+        assert_eq!(prover.verify(), Ok(()));
+    }
+
+    #[cfg_attr(not(feature = "benches"), ignore)]
     #[test]
     fn bench_evm_circuit_prover_halo2ecc() {
-        let nproofs = 2;
+        let nproofs = 1;
 
         let proof_message = format!("Setup zkevm circuit");
         let start = start_timer!(|| proof_message);
@@ -335,8 +377,8 @@ mod evm_circ_benches {
             &target_circuit_verifier_params,
             &target_circuit_pk,
             nproofs,
-            vec![instances1.clone(), instances1.clone()],
-            vec![proof1.clone(), proof1.clone()],
+            vec![instances1.clone()],
+            vec![proof1.clone()],
         );
         end_timer!(start);
 
@@ -348,8 +390,8 @@ mod evm_circ_benches {
             &target_circuit_pk,
             &verify_circuit_param,
             verify_circuit_vk,
-            &vec![instances1, instances2],
-            &vec![proof1, proof2],
+            &vec![instances1],
+            &vec![proof1],
         );
         end_timer!(start);
 

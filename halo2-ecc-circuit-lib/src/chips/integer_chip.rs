@@ -98,8 +98,8 @@ impl<W: BaseExt, N: FieldExt, const LIMBS: usize, const LIMB_WIDTH: usize>
         let n_modulus = field_to_bn(&-N::one()) + 1u64;
         let w_native = bn_to_field(&(&w_modulus % &n_modulus));
         let w_modulus_limbs_le = Self::_bn_to_limb_le(&w_modulus, &limb_modulus);
-        let w_ceil_bits = w_modulus.bits() as usize + 1;
-        let n_floor_bits = n_modulus.bits() as usize;
+        let w_ceil_bits = w_modulus.bits() as usize;
+        let n_floor_bits = n_modulus.bits() as usize - 1;
 
         let mut limb_modulus_exps = vec![];
         let mut acc = N::one();
