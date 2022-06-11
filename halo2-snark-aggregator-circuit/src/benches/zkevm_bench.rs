@@ -56,7 +56,6 @@ impl<F: Field> Circuit<F> for TestCircuit<F> {
 #[cfg(test)]
 mod evm_circ_benches {
     use std::env::var;
-    use std::io::Read;
     use std::path::Path;
 
     use crate::verify_circuit::{
@@ -72,7 +71,7 @@ mod evm_circ_benches {
     use halo2_proofs::{
         pairing::bn256::{Bn256, Fr, G1Affine},
         poly::commitment::{Params, ParamsVerifier},
-        transcript::{Blake2bRead, Blake2bWrite, Challenge255},
+        transcript::{PoseidonRead, PoseidonWrite, Blake2bRead, Blake2bWrite, Challenge255},
     };
     use rand::rngs::OsRng;
 
@@ -104,7 +103,7 @@ mod evm_circ_benches {
             ($name:ident) => {
                 let $name = {
                     // Prove
-                    let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
+                    let mut transcript = PoseidonWrite::<_, _, Challenge255<_>>::init(vec![]);
 
                     // Bench proof generation time
                     let proof_message =
@@ -131,7 +130,7 @@ mod evm_circ_benches {
 
         // Verify
         let verifier_params: ParamsVerifier<Bn256> = general_params.verifier(DEGREE * 2).unwrap();
-        let mut verifier_transcript = Blake2bRead::<_, _, Challenge255<_>>::init(&proof1[..]);
+        let mut verifier_transcript = PoseidonRead::<_, _, Challenge255<_>>::init(&proof1[..]);
         let strategy = SingleVerifier::new(&verifier_params);
 
         // Bench verification time
