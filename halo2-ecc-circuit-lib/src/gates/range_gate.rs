@@ -200,7 +200,10 @@ impl<
         layouter: &mut impl Layouter<N>,
         integer_modulus: &BigUint,
     ) -> Result<(), Error> {
-        let w_ceil_bits = field_to_bn(&-W::one()).bits() as usize + 1;
+        let w_max = field_to_bn(&-W::one());
+        let w_ceil_bits = w_max.bits() as usize;
+        assert!(BigUint::from(1u64) << w_ceil_bits >= w_max);
+        assert!(BigUint::from(1u64) << (w_ceil_bits - 1) < w_max);
         let w_ceil_leading_range_bits = w_ceil_bits % COMMON_RANGE_BITS;
         let w_ceil_leading_range_bits = if w_ceil_leading_range_bits == 0 {
             COMMON_RANGE_BITS
@@ -208,7 +211,10 @@ impl<
             w_ceil_leading_range_bits
         };
 
-        let n_floor_bits = field_to_bn(&-N::one()).bits() as usize;
+        let n_max = field_to_bn(&-N::one());
+        let n_floor_bits = n_max.bits() as usize - 1;
+        assert!(BigUint::from(1u64) << n_floor_bits < n_max);
+        assert!(BigUint::from(1u64) << (n_floor_bits + 1) >= n_max);
         let n_floor_leading_range_bits = n_floor_bits % COMMON_RANGE_BITS;
         let n_floor_leading_range_bits = if n_floor_leading_range_bits == 0 {
             COMMON_RANGE_BITS

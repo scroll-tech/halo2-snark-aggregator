@@ -31,11 +31,25 @@ pub fn decompose_bn<F: FieldExt>(v: &BigUint, modulus_shift: usize, chunks: usiz
         .collect()
 }
 
+// What is d range bits?
+// First we define w_ceil bits by k, where 2 ^ k >= w > 2 ^ (k - 1), w_ceil = 2 ^ k.
+//
+// To prove r = a * b (mod w), where a < w_ceil * overflows (e.g. w * 64)
+// <- exists d, a * b = w * d + r (mod lcm(n, 2 ^ t)), where lcm(n, 2 ^ t) > max(a) * max(b) = w * w * overflows * overflows
+// <-> a * b = w * d + r (mod n_modulus) && a * b = w * d + r (mod 2 ^ t, e.g. 2 ^ (4 * 68)),
+//
+// let's limit d by d_bits, where d < 2 ^ d_bits to guarantee w * d + r < lcm(n, 2 ^ t).
+// Pick d_bits = bits_of((lcm(n, 2 ^ t) - w_ceil) / w_ceil) - 1.
+// 2 ^ d_bits < (lcm(n, 2 ^ t) - w_ceil) / w_ceil
+// -> 2 ^ d_bits * w_ceil + w_ceil < lcm(n, 2 ^ t)
+// -> d * w + r < 2 ^ d_bits * w_ceil + w_ceil < lcm(n, 2 ^ t)
 pub fn get_d_range_bits_in_mul<W: BaseExt, N: FieldExt>(integer_modulus: &BigUint) -> usize {
-    let w_ceil_bits = field_to_bn(&-W::one()).bits() as usize + 1;
+    let w_ceil_bits = field_to_bn(&-W::one()).bits();
+    let w_modulus = field_to_bn(&-W::one()) + 1usize;
     let n_modulus = field_to_bn(&-N::one()) + 1usize;
     let lcm = integer_modulus.lcm(&n_modulus);
-    let d_range_bits = ((lcm >> w_ceil_bits) - 1u64).bits() as usize;
+    let d_range_bits = ((&lcm >> w_ceil_bits) - 1u64).bits() as usize - 1;
+    assert!((BigUint::from(1u64) << d_range_bits) * &w_modulus + &w_modulus <= lcm);
 
     d_range_bits
 }
