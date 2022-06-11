@@ -126,7 +126,7 @@ impl<'a, W: BaseExt, N: FieldExt> FiveColumnIntegerChip<'a, W, N> {
 
             let max_d = &bn_one << &self.helper.d_bits;
             let max_w = &self.helper.w_modulus;
-            let max_rem = (&bn_one << self.helper.w_ceil_bits) * OVERFLOW_LIMIT;
+            let max_rem = &bn_one << self.helper.w_ceil_bits;
             let max_r = max_d * max_w + max_rem;
 
             assert!(max_l <= lcm);
@@ -168,19 +168,20 @@ impl<'a, W: BaseExt, N: FieldExt> FiveColumnIntegerChip<'a, W, N> {
             // -> limbs[i] < LIMBS * (OVERFLOW_LIMIT * OVERFLOW_LIMIT + 1) * LIMB_MODULUS^2
 
             // To avoid minus overflow,
-            // let u0 = limb0 - rem0 + (limb1 - rem1) * limb_modulus + limb_modulus * limb_modulus
+            // let u = limb0 - rem0 + (limb1 - rem1) * limb_modulus + limb_modulus * limb_modulus
             // -> u < limb0 + limb1 * LIMB_MODULUS + LIMB_MODULUS * LIMB_MODULUS
-            // -> u < LIMBS * (OVERFLOW_LIMIT * OVERFLOW_LIMIT + 1) * LIMB_MODULUS^3
-            //      + LIMBS * (OVERFLOW_LIMIT * OVERFLOW_LIMIT + 1) * LIMB_MODULUS^2
+            // -> u < LIMBS * (OVERFLOW_LIMIT * OVERFLOW_LIMIT + 1) * LIMB_MODULUS ^ 3
+            //      + LIMBS * (OVERFLOW_LIMIT * OVERFLOW_LIMIT + 1) * LIMB_MODULUS ^ 2
             //      + LIMB_MODULUS ^ 2
-            // let v = u / LIMB_MODULUS^2
+            // let v = u / LIMB_MODULUS ^ 2
             // -> v < LIMBS * (OVERFLOW_LIMIT * OVERFLOW_LIMIT + 1) * LIMB_MODULUS
             //      + LIMBS * (OVERFLOW_LIMIT * OVERFLOW_LIMIT + 1) + 1
             let max_v = &self.helper.limb_modulus * (OVERFLOW_LIMIT * OVERFLOW_LIMIT + 1) * LIMBS
                 + LIMBS * (OVERFLOW_LIMIT * OVERFLOW_LIMIT + 1)
                 + 1usize;
 
-            // Ensure we can v in with a n_floor_leading limb and a common limb
+            // Ensure v can be represented by a n_floor_leading limb + a common limb,
+            // so u can not be overflow in any time.
             assert!(max_v < &bn_one << (self.helper.n_floor_bits - LIMB_COMMON_WIDTH * 2));
         }
 
