@@ -14,7 +14,7 @@ pub struct TestCircuit<F> {
 
 const DEGREE_OF_EVM_CIRCUIT: u32 = 18;
 const DEGREE: usize = 18;
-const K: u32 = 26u32;
+const K: u32 = 25u32;
 
 impl<F: Field> Circuit<F> for TestCircuit<F> {
     type Config = EvmCircuit<F>;
@@ -356,7 +356,7 @@ mod evm_circ_benches {
     #[cfg_attr(not(feature = "benches"), ignore)]
     #[test]
     fn bench_evm_circuit_prover_halo2ecc() {
-        let nproofs = 2;
+        let nproofs = 1;
 
         let proof_message = format!("Setup zkevm circuit");
         let start = start_timer!(|| proof_message);
@@ -377,8 +377,8 @@ mod evm_circ_benches {
             &target_circuit_verifier_params,
             &target_circuit_pk,
             nproofs,
-            vec![instances1.clone(), instances1.clone()],
-            vec![proof1.clone(), proof1.clone()],
+            vec![instances1.clone()],
+            vec![proof1.clone()],
         );
         end_timer!(start);
 
@@ -390,8 +390,8 @@ mod evm_circ_benches {
             &target_circuit_pk,
             &verify_circuit_param,
             verify_circuit_vk,
-            &vec![instances1, instances2],
-            &vec![proof1, proof2],
+            &vec![instances1],
+            &vec![proof1],
         );
         end_timer!(start);
 
