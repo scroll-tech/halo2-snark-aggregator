@@ -327,7 +327,8 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
         let x3 = integer_chip.mul(ctx, &mut x2, &mut x)?;
         let mut right = integer_chip.add(ctx, &x3, &b)?;
         let eq = integer_chip.is_equal(ctx, &mut y2, &mut right)?;
-        base_gate.assert_true(ctx, &eq)?;
+        let eq_or_identity = base_gate.or(ctx, &eq, &z.into())?;
+        base_gate.assert_true(ctx, &eq_or_identity)?;
 
         Ok(AssignedPoint::new(x, y, z.into()))
     }
