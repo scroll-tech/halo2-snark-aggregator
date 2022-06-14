@@ -404,5 +404,19 @@ mod evm_circ_benches {
             &proof,
         );
         end_timer!(start);
+
+        let proof_message = format!("Generate solidity contract");
+        let start = start_timer!(|| proof_message);
+        let sol_generator = SolidityGenerate {
+
+
+        };
+        verify_check(
+            &verify_circuit_param,
+            verify_circuit_pk.get_vk(),
+            &verify_circuit_instances,
+            &proof,
+        );
+        end_timer!(start);
     }
 }

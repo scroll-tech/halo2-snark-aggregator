@@ -2,7 +2,8 @@ use std::io::{Read, Write};
 use std::path::PathBuf;
 
 use clap::Parser;
-use halo2_proofs::arithmetic::BaseExt;
+use halo2_proofs::arithmetic::Field;
+use halo2_proofs::arithmetic::{BaseExt, CurveAffine};
 use halo2_proofs::plonk::VerifyingKey;
 use halo2_proofs::poly::commitment::Params;
 use halo2_snark_aggregator_circuit::sample_circuit::{
@@ -13,6 +14,10 @@ use halo2_snark_aggregator_solidity::SolidityGenerate;
 use log::info;
 use num_bigint::BigUint;
 use pairing_bn256::bn256::{Bn256, Fq, G1Affine};
+use rand_core::OsRng;
+use test_circuit::{sample_circuit_builder, TestCircuit};
+
+mod test_circuit;
 
 #[derive(Parser)]
 struct Cli {
@@ -147,12 +152,23 @@ pub fn main() {
         .unwrap();
 
     if args.command == "sample_setup" {
-        sample_circuit_setup::<G1Affine, Bn256>(folder.clone());
+        sample_circuit_setup::<G1Affine, Bn256, TestCircuit>(folder.clone());
     }
 
     if args.command == "sample_run" {
         for i in 0..args.nproofs as usize {
-            sample_circuit_random_run::<G1Affine, Bn256>(folder.clone(), i);
+            let constant = <G1Affine as CurveAffine>::ScalarExt::from(7);
+            let a = <G1Affine as CurveAffine>::ScalarExt::random(OsRng);
+            let b = <G1Affine as CurveAffine>::ScalarExt::random(OsRng);
+            let circuit = sample_circuit_builder(a, b);
+            let instances: &[&[<G1Affine as CurveAffine>::ScalarExt]] =
+                &[&[constant * a.square() * b.square()]];
+            sample_circuit_random_run::<G1Affine, Bn256, TestCircuit>(
+                folder.clone(),
+                circuit,
+                instances,
+                i,
+            );
         }
     }
 
@@ -173,7 +189,7 @@ pub fn main() {
             nproofs: args.nproofs,
         };
 
-        let (params, vk) = request.call::<_, Bn256>();
+        let (params, vk) = request.call::<_, Bn256, TestCircuit, 22>();
 
         write_verify_circuit_params(&mut folder.clone(), &params);
         write_verify_circuit_vk(&mut folder.clone(), &vk);
@@ -200,7 +216,8 @@ pub fn main() {
             nproofs: args.nproofs,
         };
 
-        let (instance_commitments, instance, proof, proof_be) = request.call::<_, Bn256>();
+        let (instance_commitments, instance, proof, proof_be) =
+            request.call::<_, Bn256, TestCircuit>();
 
         write_verify_circuit_instance_commitments_be(&mut folder.clone(), &instance_commitments);
         write_verify_circuit_instance(&mut folder.clone(), &instance);
