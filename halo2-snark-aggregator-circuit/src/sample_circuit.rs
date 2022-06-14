@@ -18,6 +18,8 @@ pub trait TargetCircuit<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> {
     const PUBLIC_INPUT_SIZE: usize;
 
     type Circuit: Circuit<C::ScalarExt> + Default;
+
+    fn instance_builder() -> (Self::Circuit, Vec<Vec<C::ScalarExt>>);
 }
 
 pub fn sample_circuit_setup<
@@ -72,10 +74,6 @@ pub fn sample_circuit_random_run<
         VerifyingKey::<C>::read::<_, CIRCUIT::Circuit>(&mut fd, &params).unwrap()
     };
 
-    // let constant = C::Scalar::from(7);
-    // let a = C::Scalar::random(OsRng);
-    // let b = C::Scalar::random(OsRng);
-    // let circuit = sample_circuit_builder(a, b);
     let pk = keygen_pk(&params, vk, &circuit).expect("keygen_pk should not fail");
 
     // let instances: &[&[&[C::Scalar]]] = &[&[&[constant * a.square() * b.square()]]];
@@ -121,12 +119,6 @@ pub fn sample_circuit_random_run<
     };
     let params = params.verifier::<E>(CIRCUIT::PUBLIC_INPUT_SIZE).unwrap();
     let strategy = halo2_proofs::plonk::SingleVerifier::new(&params);
-    /*
-    let constant = E::Scalar::from(7);
-    let a: E::Scalar = bn_to_field(&field_to_bn(&a));
-    let b: E::Scalar = bn_to_field(&field_to_bn(&b));
-    let instances: &[&[&[E::Scalar]]] = &[&[&[constant * a.square() * b.square()]]];
-    */
     let mut transcript = PoseidonRead::<_, _, Challenge255<_>>::init(&proof[..]);
     halo2_proofs::plonk::verify_proof::<E, _, _, _>(
         &params,
