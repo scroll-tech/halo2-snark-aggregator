@@ -18,6 +18,7 @@ use halo2_proofs::{
     plonk::{Expression, VerifyingKey},
     poly::commitment::ParamsVerifier,
 };
+use sha2::digest::typenum::private::PrivateIntegerAdd;
 use std::marker::PhantomData;
 use std::vec;
 pub struct VerifierParamsBuilder<
@@ -354,14 +355,17 @@ impl<
 
     pub fn build_params(mut self) -> Result<VerifierParams<A>, A::Error> {
         self.init_transcript()?;
+        println!("init_transcript done");
 
         self.squeeze_instance_commitment()?;
+        println!("squeeze_instance_commitment done");
         let instance_commitments = &self.assigned_instances;
 
         let num_proofs = instance_commitments.len();
 
         let advice_commitments = self.load_n_m_points(num_proofs, self.vk.cs.num_advice_columns)?;
 
+        println!("advice_commitments done");
         let theta = self.squeeze_challenge_scalar()?;
 
         let lookups_permuted = (0..num_proofs)
@@ -380,6 +384,7 @@ impl<
             })
             .collect::<Result<Vec<Vec<_>>, _>>()?;
 
+            println!("lookups_permuted done");
         let beta = self.squeeze_challenge_scalar()?;
         let gamma = self.squeeze_challenge_scalar()?;
 
@@ -393,6 +398,7 @@ impl<
                 .len(),
         )?;
 
+        println!("permutations_committed done");
         let lookups_committed = lookups_permuted
             .iter()
             .map(|lookups| {
@@ -404,6 +410,7 @@ impl<
             })
             .collect::<Result<Vec<_>, _>>()?;
 
+            println!("lookups_committed done");
         let random_commitment = self.load_point()?;
 
         let y = self.squeeze_challenge_scalar()?;
@@ -412,12 +419,14 @@ impl<
         let n = self.params.n as u32;
         let omega = self.vk.domain.get_omega();
 
+        println!("h_commitments done");
         let x = self.squeeze_challenge_scalar()?;
         let x_next = self.rotate_omega(&x, omega, 1)?;
         let x_last = self.rotate_omega(&x, omega, -(l as i32))?;
         let x_inv = self.rotate_omega(&x, omega, -1)?;
         let xn = self.schip.pow_constant(self.ctx, &x, n)?;
 
+        println!("2 done");
         let instance_evals =
             self.load_n_m_scalars(num_proofs, self.vk.cs.instance_queries.len())?;
         let advice_evals = self.load_n_m_scalars(num_proofs, self.vk.cs.advice_queries.len())?;
@@ -425,6 +434,7 @@ impl<
 
         let random_eval = self.load_scalar()?;
 
+        println!("3 done");
         let permutation_evals = self.load_n_scalars(self.vk.permutation.commitments.len())?;
         let permutation_evaluated = self.build_permutation_evaluated(
             &x,
@@ -436,6 +446,7 @@ impl<
 
         let lookup_evaluated = self.build_lookup_evaluated(lookups_permuted, lookups_committed)?;
 
+        println!("4 done");
         let fixed_commitments = self
             .vk
             .fixed_commitments
@@ -446,11 +457,13 @@ impl<
         let v = self.squeeze_challenge_scalar()?;
         let u = self.squeeze_challenge_scalar()?;
 
+        println!("5 done");
         let mut w = vec![];
         while let Ok(p) = self.load_point() {
             w.push(p);
         }
 
+        println!("all done");
         Ok(VerifierParams {
             key: self.key.clone(),
             gates: self
@@ -605,7 +618,9 @@ pub fn verify_single_proof_no_eval<
         key,
     };
 
+    
     let chip_params = params_builder.build_params()?;
+    println!("chip_params done");
     chip_params.batch_multi_open_proofs(ctx, schip)
 }
 
@@ -752,8 +767,10 @@ pub fn verify_aggregation_proofs_in_chip_impl<
     transcript: &mut T,
 ) -> Result<(A::AssignedPoint, A::AssignedPoint), A::Error> {
     debug_assert_eq!(vks.len(), proofs.len());
+    println!("in verify_aggregation_proofs_in_chip_impl");
     let multiopen_proofs: Vec<MultiOpenProof<A>> = proofs.iter_mut().zip(vks.iter())
         .map(|(proof, vk)| {
+            println!("check child proof");
             let instances1: Vec<Vec<&[E::Scalar]>> = proof
                 .instances
                 .iter()
@@ -764,7 +781,7 @@ pub fn verify_aggregation_proofs_in_chip_impl<
             let assigned_instances =
                 assign_instance_commitment(ctx, pchip, &instances2[..], vk, params)?;
 
-            verify_single_proof_no_eval(
+            let r = verify_single_proof_no_eval(
                 ctx,
                 nchip,
                 schip,
@@ -774,10 +791,12 @@ pub fn verify_aggregation_proofs_in_chip_impl<
                 params,
                 &mut proof.transcript,
                 proof.key.clone(),
-            )
+            );
+            println!("check child proof done is_err: {}", r.is_err());
+            r
         })
         .collect::<Result<_, A::Error>>()?;
-
+        println!("create multiopen_proofs done");
     for proof in proofs.iter_mut() {
         let scalar = proof
             .transcript
@@ -787,6 +806,7 @@ pub fn verify_aggregation_proofs_in_chip_impl<
 
     let aggregation_challenge = transcript.squeeze_challenge_scalar(ctx, nchip, schip)?;
 
+    println!("create aggregation_challenge done");
     let mut acc: Option<MultiOpenProof<A>> = None;
     for proof in multiopen_proofs.into_iter() {
         acc = match acc {
@@ -799,5 +819,6 @@ pub fn verify_aggregation_proofs_in_chip_impl<
     }
     let aggregated_proof = acc.unwrap();
 
+    println!("create aggregated_proof done");
     evaluate_multiopen_proof::<E, A, T>(ctx, schip, pchip, aggregated_proof, params)
 }

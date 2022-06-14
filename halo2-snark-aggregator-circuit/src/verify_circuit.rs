@@ -76,7 +76,7 @@ impl<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> Circuit<C::ScalarExt>
         Self {
             params: self.params,
             vk: self.vk.clone(),
-            proofs: (0..self.nproofs).map(|_| self.proofs[0].clone()).collect(),
+            proofs: (0..self.nproofs).map(|i| self.proofs[i].clone()).collect(),
             nproofs: self.nproofs,
         }
     }
@@ -226,7 +226,7 @@ impl<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> Circuit<C::ScalarExt>
     }
 }
 
-fn verify_circuit_builder<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C>>(
+pub fn verify_circuit_builder<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C>>(
     params: &'a ParamsVerifier<E>,
     vk: Vec<VerifyingKey<E::G1Affine>>,
     instances: &'a Vec<Vec<Vec<Vec<E::Scalar>>>>,

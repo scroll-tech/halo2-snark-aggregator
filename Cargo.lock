@@ -1084,6 +1084,7 @@ dependencies = [
  "eth-types",
  "group 0.11.0",
  "halo2_proofs",
+ "log",
  "num-bigint",
  "pairing_bn256",
  "poseidon",
