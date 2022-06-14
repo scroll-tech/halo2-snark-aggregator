@@ -1,4 +1,4 @@
-use crate::sample_circuit::MyCircuit;
+use crate::sample_circuit::TargetCircuit;
 
 use super::chips::{ecc_chip::EccChip, encode_chip::PoseidonEncodeChip, scalar_chip::ScalarChip};
 use halo2_ecc_circuit_lib::chips::integer_chip::IntegerChipOps;
@@ -283,8 +283,6 @@ pub fn load_instances<E: MultiMillerLoop>(buf: &[u8]) -> Vec<Vec<Vec<E::Scalar>>
         .collect()
 }
 
-const K: u32 = 22u32;
-
 pub struct Setup {
     pub params: Vec<u8>,
     pub vk: Vec<u8>,
@@ -293,7 +291,11 @@ pub struct Setup {
     pub nproofs: usize,
 }
 impl Setup {
-    fn new_verify_circuit_info<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>>(
+    fn new_verify_circuit_info<
+        C: CurveAffine,
+        E: MultiMillerLoop<G1Affine = C>,
+        CIRCUIT: TargetCircuit<C, E>,
+    >(
         &self,
         setup: bool,
     ) -> (
@@ -305,7 +307,7 @@ impl Setup {
     ) {
         let target_circuit_param = Params::<C>::read(Cursor::new(&self.params)).unwrap();
 
-        let target_circuit_vk = VerifyingKey::<C>::read::<_, MyCircuit<C::ScalarExt>>(
+        let target_circuit_vk = VerifyingKey::<C>::read::<_, CIRCUIT::Circuit>(
             &mut Cursor::new(&self.vk),
             &target_circuit_param,
         )
@@ -335,10 +337,15 @@ impl Setup {
         )
     }
 
-    pub fn call<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>>(
+    pub fn call<
+        C: CurveAffine,
+        E: MultiMillerLoop<G1Affine = C>,
+        CIRCUIT: TargetCircuit<C, E>,
+        const VERIFY_CIRCUIT_K: u32,
+    >(
         &self,
     ) -> (Params<C>, VerifyingKey<C>) {
-        let sample_circuit_info = self.new_verify_circuit_info::<C, E>(true);
+        let sample_circuit_info = self.new_verify_circuit_info::<C, E, CIRCUIT>(true);
         let verify_circuit = verify_circuit_builder(
             &sample_circuit_info.1,
             &sample_circuit_info.2,
@@ -349,7 +356,7 @@ impl Setup {
         info!("circuit build done");
 
         // TODO: Do not use this setup in production
-        let verify_circuit_params = Params::<C>::unsafe_setup::<E>(K);
+        let verify_circuit_params = Params::<C>::unsafe_setup::<E>(VERIFY_CIRCUIT_K);
         info!("setup params done");
 
         let verify_circuit_vk =
@@ -439,7 +446,11 @@ pub struct CreateProof {
 }
 
 impl CreateProof {
-    pub fn call<C: CurveAffine, E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>>(
+    pub fn call<
+        C: CurveAffine,
+        E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>,
+        CIRCUIT: TargetCircuit<C, E>,
+    >(
         &self,
     ) -> (Vec<Vec<C>>, Vec<u8>, Vec<u8>, Vec<u8>) {
         let setup = Setup {
@@ -452,11 +463,11 @@ impl CreateProof {
 
         let now = std::time::Instant::now();
         let (target_circuit_params_verifier, target_circuit_vkey) = {
-            let sample_circuit_info = setup.new_verify_circuit_info::<C, E>(false);
+            let sample_circuit_info = setup.new_verify_circuit_info::<C, E, CIRCUIT>(false);
             (sample_circuit_info.1, sample_circuit_info.2)
         };
 
-        let sample_circuit_info = setup.new_verify_circuit_info::<C, E>(false);
+        let sample_circuit_info = setup.new_verify_circuit_info::<C, E, CIRCUIT>(false);
         let verify_circuit = verify_circuit_builder(
             &sample_circuit_info.1,
             &sample_circuit_info.2,

@@ -1108,6 +1108,7 @@ dependencies = [
  "log",
  "num-bigint",
  "pairing_bn256",
+ "rand_core",
  "rayon",
 ]
 
@@ -1143,9 +1144,7 @@ dependencies = [
  "halo2_proofs",
  "log",
  "pairing_bn256",
- "rand",
  "rand_core",
- "rand_pcg",
  "rayon",
  "serde_json",
  "zkevm-circuits 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs)",
