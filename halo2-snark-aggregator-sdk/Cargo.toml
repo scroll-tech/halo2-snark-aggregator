@@ -16,3 +16,8 @@ pairing_bn256 = { git = "https://github.com/appliedzkp/pairing", tag = "v0.1.1" 
 rand_core = "0.6.3"
 rayon = "1.5.2"
 num-bigint = "0.4.3"
+
+[dev-dependencies]
+ark-std = { version = "0.3", features = ["print-trace"] }
+eth-types = { git = "https://github.com/ZhenXunGe/zkevm-circuits.git", branch = "zhangjunyu/halo2_proofs" }
+zkevm-circuits = { git = "https://github.com/ZhenXunGe/zkevm-circuits.git", branch = "zhangjunyu/halo2_proofs" }

@@ -1,5 +1,3 @@
-use std::marker::PhantomData;
-
 use halo2_proofs::{
     arithmetic::{CurveAffine, Field, FieldExt, MultiMillerLoop},
     circuit::{AssignedCell, Chip, Layouter, Region, SimpleFloorPlanner},
@@ -7,7 +5,9 @@ use halo2_proofs::{
     poly::Rotation,
 };
 use halo2_snark_aggregator_circuit::sample_circuit::TargetCircuit;
+use halo2_snark_aggregator_sdk::builder;
 use rand_core::OsRng;
+use std::marker::PhantomData;
 
 // ANCHOR: instructions
 trait NumericInstructions<F: FieldExt>: Chip<F> {
@@ -345,4 +345,8 @@ impl<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> TargetCircuit<C, E> for T
         let instances = vec![vec![constant * a.square() * b.square()]];
         (circuit, instances)
     }
+}
+
+pub fn main() {
+    builder::<TestCircuit, 22>();
 }
