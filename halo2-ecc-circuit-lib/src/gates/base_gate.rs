@@ -425,12 +425,13 @@ pub trait BaseGateOps<N: FieldExt> {
         let c = one - a.value * b;
 
         // a * c = 0, one of them must be zero
-        self.one_line(
+        let cells = self.one_line(
             ctx,
             vec![pair!(a, zero), pair!(c, zero)],
             zero,
             (vec![one], zero),
         )?;
+        let c = &cells[1];
 
         // a * b + c = 1
         let cells = self.one_line(
