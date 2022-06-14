@@ -233,29 +233,12 @@ checksum = "8f1e260c3a9040a7c19a12468758f4c16f31a81a1fe087482be9570ec864bb6c"
 [[package]]
 name = "bus-mapping"
 version = "0.1.0"
-source = "git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main#1eb36c61a469cbe8775369454863ccd6f87bc1b7"
 dependencies = [
- "eth-types 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main)",
+ "eth-types",
  "ethers-core",
  "ethers-providers",
  "itertools",
- "keccak256 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main)",
- "lazy_static",
- "log",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "bus-mapping"
-version = "0.1.0"
-source = "git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs#1eb36c61a469cbe8775369454863ccd6f87bc1b7"
-dependencies = [
- "eth-types 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs)",
- "ethers-core",
- "ethers-providers",
- "itertools",
- "keccak256 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs)",
+ "keccak256",
  "lazy_static",
  "log",
  "serde",
@@ -528,6 +511,16 @@ dependencies = [
 
 [[package]]
 name = "crypto-mac"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b584a330336237c1eecd3e94266efb216c56ed91225d634cb2991c5f3fd1aeab"
+dependencies = [
+ "generic-array 0.14.5",
+ "subtle",
+]
+
+[[package]]
+name = "crypto-mac"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b1d1a86f49236c215f271d40892d5fc950490551400b02ef360692c29815c714"
@@ -602,7 +595,7 @@ checksum = "43ee23aa5b4f68c7a092b5c3beb25f50c406adc75e2363634f242f28ab255372"
 dependencies = [
  "der 0.4.5",
  "elliptic-curve 0.10.6",
- "hmac",
+ "hmac 0.11.0",
  "signature",
 ]
 
@@ -667,24 +660,6 @@ dependencies = [
 [[package]]
 name = "eth-types"
 version = "0.1.0"
-source = "git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main#1eb36c61a469cbe8775369454863ccd6f87bc1b7"
-dependencies = [
- "ethers-core",
- "ethers-providers",
- "halo2_proofs",
- "hex",
- "itertools",
- "lazy_static",
- "regex",
- "serde",
- "serde_json",
- "uint",
-]
-
-[[package]]
-name = "eth-types"
-version = "0.1.0"
-source = "git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs#1eb36c61a469cbe8775369454863ccd6f87bc1b7"
 dependencies = [
  "ethers-core",
  "ethers-providers",
@@ -958,21 +933,9 @@ dependencies = [
 [[package]]
 name = "gadgets"
 version = "0.1.0"
-source = "git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main#1eb36c61a469cbe8775369454863ccd6f87bc1b7"
 dependencies = [
  "digest 0.7.6",
- "eth-types 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main)",
- "halo2_proofs",
- "sha3 0.7.3",
-]
-
-[[package]]
-name = "gadgets"
-version = "0.1.0"
-source = "git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs#1eb36c61a469cbe8775369454863ccd6f87bc1b7"
-dependencies = [
- "digest 0.7.6",
- "eth-types 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs)",
+ "eth-types",
  "halo2_proofs",
  "sha3 0.7.3",
 ]
@@ -1118,7 +1081,7 @@ dependencies = [
  "ark-std",
  "blake2b_simd",
  "chrono",
- "eth-types 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main)",
+ "eth-types",
  "group 0.11.0",
  "halo2_proofs",
  "num-bigint",
@@ -1127,8 +1090,8 @@ dependencies = [
  "rand",
  "rand_pcg",
  "rand_xorshift",
- "sha2",
- "zkevm-circuits 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main)",
+ "sha2 0.10.2",
+ "zkevm-circuits",
 ]
 
 [[package]]
@@ -1137,7 +1100,7 @@ version = "0.1.0"
 dependencies = [
  "ark-std",
  "clap",
- "eth-types 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs)",
+ "eth-types",
  "halo2-ecc-circuit-lib",
  "halo2-snark-aggregator-api",
  "halo2_proofs",
@@ -1148,7 +1111,7 @@ dependencies = [
  "rand_pcg",
  "rayon",
  "serde_json",
- "zkevm-circuits 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs)",
+ "zkevm-circuits",
 ]
 
 [[package]]
@@ -1168,7 +1131,6 @@ dependencies = [
 [[package]]
 name = "halo2_proofs"
 version = "0.1.0-beta.1"
-source = "git+https://github.com/junyu0312/halo2?rev=4112958c7fa980b331897fd030a329095f418ff9#4112958c7fa980b331897fd030a329095f418ff9"
 dependencies = [
  "blake2b_simd",
  "bumpalo",
@@ -1214,12 +1176,33 @@ checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 
 [[package]]
 name = "hmac"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "126888268dcc288495a26bf004b38c5fdbb31682f992c84ceb046a1f0fe38840"
+dependencies = [
+ "crypto-mac 0.8.0",
+ "digest 0.9.0",
+]
+
+[[package]]
+name = "hmac"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2a2a2320eb7ec0ebe8da8f744d7812d9fc4cb4d09344ac01898dbcb6a20ae69b"
 dependencies = [
- "crypto-mac",
+ "crypto-mac 0.11.1",
  "digest 0.9.0",
+]
+
+[[package]]
+name = "hmac-drbg"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "17ea0a1394df5b6574da6e0c1ade9e78868c9fb0a4e5ef4428e32da4676b85b1"
+dependencies = [
+ "digest 0.9.0",
+ "generic-array 0.14.5",
+ "hmac 0.8.1",
 ]
 
 [[package]]
@@ -1445,24 +1428,9 @@ checksum = "f9b7d56ba4a8344d6be9729995e6b06f928af29998cdf79fe390cbf6b1fee838"
 [[package]]
 name = "keccak256"
 version = "0.1.0"
-source = "git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main#1eb36c61a469cbe8775369454863ccd6f87bc1b7"
 dependencies = [
- "eth-types 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main)",
- "gadgets 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main)",
- "halo2_proofs",
- "itertools",
- "lazy_static",
- "num-bigint",
- "num-traits",
-]
-
-[[package]]
-name = "keccak256"
-version = "0.1.0"
-source = "git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs#1eb36c61a469cbe8775369454863ccd6f87bc1b7"
-dependencies = [
- "eth-types 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs)",
- "gadgets 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs)",
+ "eth-types",
+ "gadgets",
  "halo2_proofs",
  "itertools",
  "lazy_static",
@@ -1481,6 +1449,54 @@ name = "libc"
 version = "0.2.126"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "349d5a591cd28b49e1d1037471617a32ddcda5731b99419008085f72d5a53836"
+
+[[package]]
+name = "libsecp256k1"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b0452aac8bab02242429380e9b2f94ea20cea2b37e2c1777a1358799bbe97f37"
+dependencies = [
+ "arrayref",
+ "base64",
+ "digest 0.9.0",
+ "hmac-drbg",
+ "libsecp256k1-core",
+ "libsecp256k1-gen-ecmult",
+ "libsecp256k1-gen-genmult",
+ "rand",
+ "serde",
+ "sha2 0.9.9",
+ "typenum",
+]
+
+[[package]]
+name = "libsecp256k1-core"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5be9b9bb642d8522a44d533eab56c16c738301965504753b03ad1de3425d5451"
+dependencies = [
+ "crunchy 0.2.2",
+ "digest 0.9.0",
+ "subtle",
+]
+
+[[package]]
+name = "libsecp256k1-gen-ecmult"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3038c808c55c87e8a172643a7d87187fc6c4174468159cb3090659d55bcb4809"
+dependencies = [
+ "libsecp256k1-core",
+]
+
+[[package]]
+name = "libsecp256k1-gen-genmult"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3db8d6ba2cec9eacc40e6e8ccc98931840301f1006e95647ceb2dd5c3aa06f7c"
+dependencies = [
+ "libsecp256k1-core",
+]
 
 [[package]]
 name = "lock_api"
@@ -2355,6 +2371,19 @@ dependencies = [
 
 [[package]]
 name = "sha2"
+version = "0.9.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4d58a1e1bf39749807d89cf2d98ac2dfa0ff1cb3faa38fbb64dd88ac8013d800"
+dependencies = [
+ "block-buffer 0.9.0",
+ "cfg-if 1.0.0",
+ "cpufeatures",
+ "digest 0.9.0",
+ "opaque-debug 0.3.0",
+]
+
+[[package]]
+name = "sha2"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "55deaec60f81eefe3cce0dc50bda92d6d8e88f2a27df7c5033b42afeb1ed2676"
@@ -2386,6 +2415,16 @@ dependencies = [
  "digest 0.9.0",
  "keccak",
  "opaque-debug 0.3.0",
+]
+
+[[package]]
+name = "sha3"
+version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "881bf8156c87b6301fc5ca6b27f11eeb2761224c7081e69b409d5a1951a70c86"
+dependencies = [
+ "digest 0.10.3",
+ "keccak",
 ]
 
 [[package]]
@@ -3185,57 +3224,32 @@ checksum = "d68d9dcec5f9b43a30d38c49f91dfedfaac384cb8f085faca366c26207dd1619"
 [[package]]
 name = "zkevm-circuits"
 version = "0.1.0"
-source = "git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main#1eb36c61a469cbe8775369454863ccd6f87bc1b7"
 dependencies = [
  "array-init",
  "bigint",
- "bus-mapping 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main)",
+ "bus-mapping",
  "digest 0.7.6",
  "env_logger",
- "eth-types 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main)",
+ "eth-types",
  "ethers-core",
  "ff 0.11.1",
- "gadgets 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main)",
+ "gadgets",
+ "group 0.11.0",
  "halo2_proofs",
  "itertools",
- "keccak256 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main)",
+ "keccak256",
  "lazy_static",
+ "libsecp256k1",
  "log",
  "num",
+ "num-bigint",
  "paste",
  "rand",
  "rand_xorshift",
+ "rlp",
  "serde_json",
- "sha3 0.7.3",
+ "sha3 0.10.1",
  "strum",
  "strum_macros",
-]
-
-[[package]]
-name = "zkevm-circuits"
-version = "0.1.0"
-source = "git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs#1eb36c61a469cbe8775369454863ccd6f87bc1b7"
-dependencies = [
- "array-init",
- "bigint",
- "bus-mapping 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs)",
- "digest 0.7.6",
- "env_logger",
- "eth-types 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs)",
- "ethers-core",
- "ff 0.11.1",
- "gadgets 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs)",
- "halo2_proofs",
- "itertools",
- "keccak256 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs)",
- "lazy_static",
- "log",
- "num",
- "paste",
- "rand",
- "rand_xorshift",
- "serde_json",
- "sha3 0.7.3",
- "strum",
- "strum_macros",
+ "subtle",
 ]

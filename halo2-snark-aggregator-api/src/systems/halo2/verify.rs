@@ -710,6 +710,7 @@ pub struct ProofData<
     pub _phantom: PhantomData<A>,
 }
 
+
 pub fn verify_aggregation_proofs_in_chip<
     E: MultiMillerLoop,
     A: ArithEccChip<
@@ -728,9 +729,31 @@ pub fn verify_aggregation_proofs_in_chip<
     mut proofs: Vec<ProofData<E, A, T>>,
     transcript: &mut T,
 ) -> Result<(A::AssignedPoint, A::AssignedPoint), A::Error> {
-    let multiopen_proofs: Vec<MultiOpenProof<A>> = proofs
-        .iter_mut()
-        .map(|proof| {
+    let vks = vec![vk.clone(); proofs.len()];
+    verify_aggregation_proofs_in_chip_impl(ctx, nchip, schip, pchip, &vks, params, &mut proofs, transcript)
+}
+
+pub fn verify_aggregation_proofs_in_chip_impl<
+    E: MultiMillerLoop,
+    A: ArithEccChip<
+        Point = E::G1Affine,
+        Scalar = <E::G1Affine as CurveAffine>::ScalarExt,
+        Native = <E::G1Affine as CurveAffine>::ScalarExt,
+    >,
+    T: TranscriptRead<A>,
+>(
+    ctx: &mut A::Context,
+    nchip: &A::NativeChip,
+    schip: &A::ScalarChip,
+    pchip: &A,
+    vks: &[VerifyingKey<E::G1Affine>],
+    params: &ParamsVerifier<E>,
+    proofs: &mut Vec<ProofData<E, A, T>>,
+    transcript: &mut T,
+) -> Result<(A::AssignedPoint, A::AssignedPoint), A::Error> {
+    debug_assert_eq!(vks.len(), proofs.len());
+    let multiopen_proofs: Vec<MultiOpenProof<A>> = proofs.iter_mut().zip(vks.iter())
+        .map(|(proof, vk)| {
             let instances1: Vec<Vec<&[E::Scalar]>> = proof
                 .instances
                 .iter()

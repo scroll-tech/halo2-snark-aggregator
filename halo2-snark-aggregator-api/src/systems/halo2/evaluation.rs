@@ -98,11 +98,7 @@ impl<A: ArithEccChip> EvaluationQuery<A> {
         point: A::AssignedScalar,
         s: EvaluationQuerySchema<A::AssignedPoint, A::AssignedScalar>,
     ) -> Self {
-        EvaluationQuery {
-            rotation,
-            point,
-            s,
-        }
+        EvaluationQuery { rotation, point, s }
     }
 }
 

@@ -7,9 +7,9 @@ authors = ["zhangjunyu <junyu92@gmail.com>"]
 [dependencies]
 blake2b_simd = "1"
 chrono = "0.4.19"
-eth-types = { git = "https://github.com/ZhenXunGe/zkevm-circuits.git", branch = "main" }
+eth-types = { path = "../../zkevm-circuits/eth-types" }
 group = "0.11"
-halo2_proofs = { git = "https://github.com/junyu0312/halo2", rev = "4112958c7fa980b331897fd030a329095f418ff9", default-features = true }
+halo2_proofs = { path = "../../halo2/halo2_proofs", default-features = true }
 pairing_bn256 = { git = "https://github.com/appliedzkp/pairing", tag = "v0.1.1" }
 rand = "0.8"
 rand_pcg = "0.3.1"
@@ -20,7 +20,7 @@ num-bigint = "0.4.3"
 
 [dev-dependencies]
 ark-std = { version = "0.3", features = ["print-trace"] }
-zkevm-circuits = { git = "https://github.com/ZhenXunGe/zkevm-circuits.git", branch = "main" }
+zkevm-circuits = { path = "../../zkevm-circuits/zkevm-circuits" }
 
 [features]
 default = ["halo2"]

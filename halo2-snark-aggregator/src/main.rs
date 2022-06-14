@@ -167,7 +167,7 @@ pub fn main() {
 
         let request = Setup {
             params: load_target_circuit_params(&mut folder.clone()),
-            vk: load_target_circuit_vk(&mut folder.clone()),
+            vk: vec![load_target_circuit_vk(&mut folder.clone());args.nproofs],
             instances,
             proofs,
             nproofs: args.nproofs,
@@ -190,7 +190,7 @@ pub fn main() {
 
         let request = CreateProof {
             target_circuit_params: load_target_circuit_params(&mut folder.clone()),
-            target_circuit_vk: load_target_circuit_vk(&mut folder.clone()),
+            target_circuit_vk: vec![load_target_circuit_vk(&mut folder.clone());args.nproofs],
             verify_circuit_params: load_verify_circuit_params(&mut folder.clone()),
             verify_circuit_vk: load_verify_circuit_vk(&mut folder.clone()),
             template_instances: instances.clone(),
