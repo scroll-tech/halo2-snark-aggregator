@@ -1103,6 +1103,7 @@ dependencies = [
  "clap",
  "env_logger",
  "halo2-snark-aggregator-circuit",
+ "halo2-snark-aggregator-sdk",
  "halo2-snark-aggregator-solidity",
  "halo2_proofs",
  "log",
@@ -1148,6 +1149,22 @@ dependencies = [
  "rayon",
  "serde_json",
  "zkevm-circuits 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs)",
+]
+
+[[package]]
+name = "halo2-snark-aggregator-sdk"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "env_logger",
+ "halo2-snark-aggregator-circuit",
+ "halo2-snark-aggregator-solidity",
+ "halo2_proofs",
+ "log",
+ "num-bigint",
+ "pairing_bn256",
+ "rand_core",
+ "rayon",
 ]
 
 [[package]]

@@ -1,12 +1,13 @@
 use std::marker::PhantomData;
 
 use halo2_proofs::{
-    arithmetic::{CurveAffine, FieldExt, MultiMillerLoop},
+    arithmetic::{CurveAffine, Field, FieldExt, MultiMillerLoop},
     circuit::{AssignedCell, Chip, Layouter, Region, SimpleFloorPlanner},
     plonk::{Advice, Circuit, Column, ConstraintSystem, Error, Fixed, Instance},
     poly::Rotation,
 };
 use halo2_snark_aggregator_circuit::sample_circuit::TargetCircuit;
+use rand_core::OsRng;
 
 // ANCHOR: instructions
 trait NumericInstructions<F: FieldExt>: Chip<F> {
@@ -324,18 +325,6 @@ impl<F: FieldExt> Circuit<F> for MyCircuit<F> {
     }
 }
 
-// const K: u32 = 7u32;
-
-pub(crate) fn sample_circuit_builder<F: FieldExt>(a: F, b: F) -> MyCircuit<F> {
-    let constant = F::from(7);
-
-    MyCircuit {
-        constant,
-        a: Some(a),
-        b: Some(b),
-    }
-}
-
 pub(crate) struct TestCircuit;
 
 impl<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> TargetCircuit<C, E> for TestCircuit {
@@ -343,4 +332,17 @@ impl<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> TargetCircuit<C, E> for T
     const PUBLIC_INPUT_SIZE: usize = 1;
 
     type Circuit = MyCircuit<C::ScalarExt>;
+
+    fn instance_builder() -> (Self::Circuit, Vec<Vec<C::ScalarExt>>) {
+        let constant = C::Scalar::from(7);
+        let a = C::Scalar::random(OsRng);
+        let b = C::Scalar::random(OsRng);
+        let circuit = MyCircuit {
+            constant,
+            a: Some(a),
+            b: Some(b),
+        };
+        let instances = vec![vec![constant * a.square() * b.square()]];
+        (circuit, instances)
+    }
 }
