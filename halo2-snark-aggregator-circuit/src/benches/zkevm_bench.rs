@@ -331,7 +331,7 @@ mod evm_circ_benches {
         let target_circuit_proof = proof1.clone();
         let verify_circuit = Halo2VerifierCircuit {
             params: &target_circuit_verifier_params,
-            vk: target_circuit_pk.get_vk(),
+            vk: vec![target_circuit_pk.get_vk().clone()],
             nproofs,
             proofs: vec![SingleProofWitness {
                 instances: &target_circuit_instance,
@@ -341,7 +341,7 @@ mod evm_circ_benches {
 
         let instances = calc_verify_circuit_instances(
             &target_circuit_verifier_params,
-            &target_circuit_pk.get_vk(),
+            &vec![target_circuit_pk.get_vk().clone()],
             vec![instances1],
             vec![proof1],
         );
