@@ -143,13 +143,19 @@ impl<P, S: Clone> EvaluationQuerySchema<P, S> {
         pchip: &A,
         one: &A::AssignedScalar,
     ) -> Result<(A::AssignedPoint, Option<A::AssignedScalar>), A::Error> {
+        pchip.print_debug_info(ctx, "before eval_prepare");
         let points = self.eval_prepare::<Scalar, A>(ctx, schip, one)?;
 
+        pchip.print_debug_info(ctx, "after eval_prepare");
         let mut p_acc: Option<A::AssignedPoint> = None;
         let mut s: Option<A::AssignedScalar> = None;
-        for b in points.into_iter() {
+        for (idx, b) in points.into_iter().enumerate() {
+
+            println!("eval point idx {}", idx);
+            pchip.print_debug_info(ctx, "before sum_scalar_array");
             let scalar = Self::sum_scalar_array::<Scalar, A>(ctx, schip, b.2)?;
 
+            pchip.print_debug_info(ctx, "after sum_scalar_array");
             if b.0 == "" {
                 assert!(b.1.is_none());
                 assert!(s.is_none());
@@ -158,13 +164,26 @@ impl<P, S: Clone> EvaluationQuerySchema<P, S> {
                 assert!(b.1.is_some());
                 let p = match scalar {
                     None => b.1.unwrap(),
-                    Some(s) => pchip.scalar_mul(ctx, &s, b.1.as_ref().unwrap())?,
+                    Some(s) => {
+                        pchip.print_debug_info(ctx, "before point scalar_mul");
+                        let r = pchip.scalar_mul(ctx, &s, b.1.as_ref().unwrap())?;
+                        
+                        pchip.print_debug_info(ctx, "after point scalar_mul");
+                        r
+                    }
                 };
                 p_acc = match p_acc {
                     None => Some(p),
-                    Some(p_acc) => Some(pchip.add(ctx, &p_acc, &p)?),
+                    Some(p_acc) => {
+                        pchip.print_debug_info(ctx, "before point add");
+                        let r = Some(pchip.add(ctx, &p_acc, &p)?);
+                        pchip.print_debug_info(ctx, "after point add");
+                        r
+                    },
                 }
             }
+
+            println!("eval done point idx {}", idx);
         }
 
         Ok((p_acc.unwrap(), s))
