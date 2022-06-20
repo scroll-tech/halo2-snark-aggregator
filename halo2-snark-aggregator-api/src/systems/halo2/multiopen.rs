@@ -22,6 +22,7 @@ impl<A: ArithEccChip> VerifierParams<A> {
     ) -> Result<Vec<EvaluationProof<A>>, A::Error> {
         let queries = self.queries(ctx, schip)?;
 
+        println!("get_point_schemas queries.len() {}", queries.len());
         let mut points: BTreeMap<i32, (_, Vec<_>)> = BTreeMap::new();
         for query in queries {
             if let Some(queries) = points.get_mut(&query.rotation) {
@@ -63,6 +64,7 @@ impl<A: ArithEccChip> VerifierParams<A> {
         let mut w_x = None;
         let mut w_g = None;
 
+        println!("batch_multi_open_proofs proofs.len() {}", proofs.len());
         for (i, p) in proofs.into_iter().enumerate() {
             let s = &p.s;
             let w = CommitQuery {

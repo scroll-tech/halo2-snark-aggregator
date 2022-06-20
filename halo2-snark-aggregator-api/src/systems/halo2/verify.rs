@@ -830,6 +830,7 @@ pub fn verify_aggregation_proofs_in_chip_impl<
     println!("create aggregation_challenge done");
     pchip.print_debug_info(ctx, "after aggregation_challenge");
     let mut acc: Option<MultiOpenProof<A>> = None;
+    println!("multiopen_proofs len {} ",multiopen_proofs.len());
     for proof in multiopen_proofs.into_iter() {
         acc = match acc {
             None => Some(proof),
