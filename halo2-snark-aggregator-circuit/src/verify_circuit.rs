@@ -66,6 +66,7 @@ pub struct Halo2VerifierCircuit<'a, E: MultiMillerLoop> {
     pub(crate) nproofs: usize,
 }
 
+
 impl<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> Circuit<C::ScalarExt>
     for Halo2VerifierCircuit<'a, E>
 {
@@ -99,11 +100,25 @@ impl<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> Circuit<C::ScalarExt>
         }
     }
 
+
     fn synthesize(
         &self,
         config: Self::Config,
         mut layouter: impl Layouter<C::ScalarExt>,
     ) -> Result<(), Error> {
+        self.synthesize_impl(config, layouter)?;
+        Ok(())
+    }
+}
+
+
+impl<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> Halo2VerifierCircuit<'a, E>
+{
+    fn synthesize_impl(
+        &self,
+        config: Halo2VerifierCircuitConfig,
+        mut layouter: impl Layouter<C::ScalarExt>,
+    ) -> Result<usize, Error> {
         let base_gate = FiveColumnBaseGate::new(config.base_gate_config);
         let range_gate = FiveColumnRangeGate::<'_, C::Base, C::ScalarExt, COMMON_RANGE_BITS>::new(
             config.range_gate_config,
@@ -122,7 +137,7 @@ impl<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> Circuit<C::ScalarExt>
         let mut w_x = None;
         let mut w_g = None;
 
-        layouter.assign_region(
+        let max_offset = layouter.assign_region(
             || "base",
             |region| {
                 let base_offset = 0usize;
@@ -189,7 +204,7 @@ impl<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> Circuit<C::ScalarExt>
                 w_x = Some(res.0);
                 w_g = Some(res.1);
 
-                Ok(())
+                Ok(*ctx.offset)
             },
         )?;
 
@@ -222,7 +237,7 @@ impl<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> Circuit<C::ScalarExt>
                 )?;
             }
         }
-        Ok(())
+        Ok(max_offset)
     }
 }
 

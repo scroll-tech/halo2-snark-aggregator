@@ -655,7 +655,7 @@ fn evaluate_multiopen_proof<
         }
     };
     pchip.print_debug_info(ctx, "in  evaluate_multiopen_proof 10");
-    
+
     let right = match right_e {
         None => right_s,
         Some(eval) => {
@@ -842,7 +842,7 @@ pub fn verify_aggregation_proofs_in_chip_impl<
     let aggregated_proof = acc.unwrap();
 
     println!("create aggregated_proof done");
-    let r= evaluate_multiopen_proof::<E, A, T>(ctx, schip, pchip, aggregated_proof, params);
+    let r = evaluate_multiopen_proof::<E, A, T>(ctx, schip, pchip, aggregated_proof, params);
     pchip.print_debug_info(ctx, "after evaluate_multiopen_proof");
     r
 }
