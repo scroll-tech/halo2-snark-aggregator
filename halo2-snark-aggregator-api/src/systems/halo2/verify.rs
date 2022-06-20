@@ -638,11 +638,14 @@ fn evaluate_multiopen_proof<
     proof: MultiOpenProof<A>,
     params: &ParamsVerifier<E>,
 ) -> Result<(A::AssignedPoint, A::AssignedPoint), A::Error> {
+    pchip.print_debug_info(ctx, "in  evaluate_multiopen_proof 00");
     let one = schip.assign_one(ctx)?;
 
+    pchip.print_debug_info(ctx, "in  evaluate_multiopen_proof 01");
     let (left_s, left_e) = proof.w_x.eval::<_, A>(ctx, schip, pchip, &one)?;
     let (right_s, right_e) = proof.w_g.eval::<_, A>(ctx, schip, pchip, &one)?;
 
+    pchip.print_debug_info(ctx, "in  evaluate_multiopen_proof 05");
     let generator = pchip.assign_one(ctx)?;
     let left = match left_e {
         None => left_s,
@@ -651,6 +654,8 @@ fn evaluate_multiopen_proof<
             pchip.add(ctx, &left_s, &s)?
         }
     };
+    pchip.print_debug_info(ctx, "in  evaluate_multiopen_proof 10");
+    
     let right = match right_e {
         None => right_s,
         Some(eval) => {
@@ -659,16 +664,21 @@ fn evaluate_multiopen_proof<
         }
     };
 
+    pchip.print_debug_info(ctx, "in  evaluate_multiopen_proof 20");
     let left_v = pchip.to_value(&left)?;
     let right_v = pchip.to_value(&right)?;
 
+    pchip.print_debug_info(ctx, "in  evaluate_multiopen_proof 30");
     let s_g2_prepared = E::G2Prepared::from(params.s_g2);
+    pchip.print_debug_info(ctx, "in  evaluate_multiopen_proof 31");
     let n_g2_prepared = E::G2Prepared::from(-params.g2);
+    pchip.print_debug_info(ctx, "in  evaluate_multiopen_proof 32");
     let success = bool::from(
         E::multi_miller_loop(&[(&left_v, &s_g2_prepared), (&right_v, &n_g2_prepared)])
             .final_exponentiation()
             .is_identity(),
     );
+    pchip.print_debug_info(ctx, "in  evaluate_multiopen_proof 40");
     assert!(success);
 
     Ok((left, right))
@@ -818,7 +828,7 @@ pub fn verify_aggregation_proofs_in_chip_impl<
     let aggregation_challenge = transcript.squeeze_challenge_scalar(ctx, nchip, schip)?;
 
     println!("create aggregation_challenge done");
-    pchip.print_debug_info(ctx, "in aggregation_challenge");
+    pchip.print_debug_info(ctx, "after aggregation_challenge");
     let mut acc: Option<MultiOpenProof<A>> = None;
     for proof in multiopen_proofs.into_iter() {
         acc = match acc {
@@ -833,6 +843,6 @@ pub fn verify_aggregation_proofs_in_chip_impl<
 
     println!("create aggregated_proof done");
     let r= evaluate_multiopen_proof::<E, A, T>(ctx, schip, pchip, aggregated_proof, params);
-    pchip.print_debug_info(ctx, "in aggregation_challenge");
+    pchip.print_debug_info(ctx, "after evaluate_multiopen_proof");
     r
 }
