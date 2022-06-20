@@ -384,7 +384,7 @@ impl<
             })
             .collect::<Result<Vec<Vec<_>>, _>>()?;
 
-            println!("lookups_permuted done");
+        println!("lookups_permuted done");
         let beta = self.squeeze_challenge_scalar()?;
         let gamma = self.squeeze_challenge_scalar()?;
 
@@ -410,7 +410,7 @@ impl<
             })
             .collect::<Result<Vec<_>, _>>()?;
 
-            println!("lookups_committed done");
+        println!("lookups_committed done");
         let random_commitment = self.load_point()?;
 
         let y = self.squeeze_challenge_scalar()?;
@@ -618,7 +618,6 @@ pub fn verify_single_proof_no_eval<
         key,
     };
 
-    
     let chip_params = params_builder.build_params()?;
     println!("chip_params done");
     chip_params.batch_multi_open_proofs(ctx, schip)
@@ -725,7 +724,6 @@ pub struct ProofData<
     pub _phantom: PhantomData<A>,
 }
 
-
 pub fn verify_aggregation_proofs_in_chip<
     E: MultiMillerLoop,
     A: ArithEccChip<
@@ -745,7 +743,16 @@ pub fn verify_aggregation_proofs_in_chip<
     transcript: &mut T,
 ) -> Result<(A::AssignedPoint, A::AssignedPoint), A::Error> {
     let vks = vec![vk.clone(); proofs.len()];
-    verify_aggregation_proofs_in_chip_impl(ctx, nchip, schip, pchip, &vks, params, &mut proofs, transcript)
+    verify_aggregation_proofs_in_chip_impl(
+        ctx,
+        nchip,
+        schip,
+        pchip,
+        &vks,
+        params,
+        &mut proofs,
+        transcript,
+    )
 }
 
 pub fn verify_aggregation_proofs_in_chip_impl<
@@ -768,8 +775,11 @@ pub fn verify_aggregation_proofs_in_chip_impl<
 ) -> Result<(A::AssignedPoint, A::AssignedPoint), A::Error> {
     debug_assert_eq!(vks.len(), proofs.len());
     println!("in verify_aggregation_proofs_in_chip_impl");
-    let multiopen_proofs: Vec<MultiOpenProof<A>> = proofs.iter_mut().zip(vks.iter())
-        .map(|(proof, vk)| {
+    let multiopen_proofs: Vec<MultiOpenProof<A>> = proofs
+        .iter_mut()
+        .zip(vks.iter())
+        .enumerate()
+        .map(|(idx, (proof, vk))| {
             println!("check child proof");
             let instances1: Vec<Vec<&[E::Scalar]>> = proof
                 .instances
@@ -792,11 +802,12 @@ pub fn verify_aggregation_proofs_in_chip_impl<
                 &mut proof.transcript,
                 proof.key.clone(),
             );
-            println!("check child proof done is_err: {}", r.is_err());
+            println!("check child proof idx {} done is_err: {}", idx, r.is_err());
+            pchip.print_debug_info(ctx, "in multiopen_proofs");
             r
         })
         .collect::<Result<_, A::Error>>()?;
-        println!("create multiopen_proofs done");
+    println!("create multiopen_proofs done");
     for proof in proofs.iter_mut() {
         let scalar = proof
             .transcript
@@ -807,6 +818,7 @@ pub fn verify_aggregation_proofs_in_chip_impl<
     let aggregation_challenge = transcript.squeeze_challenge_scalar(ctx, nchip, schip)?;
 
     println!("create aggregation_challenge done");
+    pchip.print_debug_info(ctx, "in aggregation_challenge");
     let mut acc: Option<MultiOpenProof<A>> = None;
     for proof in multiopen_proofs.into_iter() {
         acc = match acc {
@@ -820,5 +832,7 @@ pub fn verify_aggregation_proofs_in_chip_impl<
     let aggregated_proof = acc.unwrap();
 
     println!("create aggregated_proof done");
-    evaluate_multiopen_proof::<E, A, T>(ctx, schip, pchip, aggregated_proof, params)
+    let r= evaluate_multiopen_proof::<E, A, T>(ctx, schip, pchip, aggregated_proof, params);
+    pchip.print_debug_info(ctx, "in aggregation_challenge");
+    r
 }

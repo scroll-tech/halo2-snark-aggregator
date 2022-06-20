@@ -166,7 +166,7 @@ impl<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> Circuit<C::ScalarExt>
                         8usize,
                         33usize,
                     )?;
-                
+
                 let mut res = verify_aggregation_proofs_in_chip_impl(
                     ctx,
                     nchip,
@@ -319,22 +319,23 @@ impl Setup {
             .verifier::<E>(target_circuit_vk.cs.num_instance_columns)
             .unwrap();
 
-            let target_circuit_transcripts = self.proofs[index].clone();
-            let target_circuit_instances: Vec<Vec<Vec<E::Scalar>>> = load_instances::<E>(&self.instances[index]);
+        let target_circuit_transcripts = self.proofs[index].clone();
+        let target_circuit_instances: Vec<Vec<Vec<E::Scalar>>> =
+            load_instances::<E>(&self.instances[index]);
 
-            /* 
-        let mut target_circuit_transcripts = vec![];
-        let mut target_circuit_instances = vec![];
+        /*
+                let mut target_circuit_transcripts = vec![];
+                let mut target_circuit_instances = vec![];
 
-        
-        for i in 0..self.nproofs {
-            let index = if setup { 0 } else { i };
-            target_circuit_transcripts.push(self.proofs[index].clone());
-            let target_circuit_instance: Vec<Vec<Vec<E::Scalar>>> =
-                load_instances::<E>(&self.instances[index]);
-            target_circuit_instances.push(target_circuit_instance);
-        }
-*/
+
+                for i in 0..self.nproofs {
+                    let index = if setup { 0 } else { i };
+                    target_circuit_transcripts.push(self.proofs[index].clone());
+                    let target_circuit_instance: Vec<Vec<Vec<E::Scalar>>> =
+                        load_instances::<E>(&self.instances[index]);
+                    target_circuit_instances.push(target_circuit_instance);
+                }
+        */
         (
             target_circuit_param,
             target_circuit_verifier_params,
@@ -358,13 +359,8 @@ impl Setup {
             instances.push(target_circuit_info.3);
             transcripts.push(target_circuit_info.4);
         }
-        let verify_circuit = verify_circuit_builder(
-            &params[0],
-            vks,
-            &instances,
-            &transcripts,
-            self.nproofs,
-        );
+        let verify_circuit =
+            verify_circuit_builder(&params[0], vks, &instances, &transcripts, self.nproofs);
         info!("circuit build done");
 
         // TODO: Do not use this setup in production
@@ -470,8 +466,7 @@ impl CreateProof {
         };
 
         let now = std::time::Instant::now();
-        
-        
+
         let mut params = Vec::new();
         let mut vks = Vec::new();
         let mut instances = Vec::new();
@@ -490,20 +485,20 @@ impl CreateProof {
             &transcripts,
             self.nproofs,
         );
-/* 
-        let sample_circuit_info = setup.new_verify_circuit_info::<C, E>(false);
-            
-        let (target_circuit_params_verifier, target_circuit_vkey) = {
-            (sample_circuit_info.1, sample_circuit_info.2)
-        };
-        let verify_circuit = verify_circuit_builder(
-            &sample_circuit_info.1,
-            &sample_circuit_info.2,
-            &sample_circuit_info.3,
-            &sample_circuit_info.4,
-            self.nproofs,
-        );
-*/
+        /*
+                let sample_circuit_info = setup.new_verify_circuit_info::<C, E>(false);
+
+                let (target_circuit_params_verifier, target_circuit_vkey) = {
+                    (sample_circuit_info.1, sample_circuit_info.2)
+                };
+                let verify_circuit = verify_circuit_builder(
+                    &sample_circuit_info.1,
+                    &sample_circuit_info.2,
+                    &sample_circuit_info.3,
+                    &sample_circuit_info.4,
+                    self.nproofs,
+                );
+        */
         let (instances, transcripts) = {
             let mut verify_circuit_transcripts = vec![];
             let mut verify_circuit_instances = vec![];
@@ -518,12 +513,8 @@ impl CreateProof {
             (verify_circuit_instances, verify_circuit_transcripts)
         };
 
-        let verify_circuit_instances = calc_verify_circuit_instances(
-            &params[0],
-            &vks,
-            instances,
-            transcripts,
-        );
+        let verify_circuit_instances =
+            calc_verify_circuit_instances(&params[0], &vks, instances, transcripts);
 
         let verify_circuit_params =
             Params::<C>::read(Cursor::new(&self.verify_circuit_params)).unwrap();
