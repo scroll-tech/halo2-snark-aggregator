@@ -66,7 +66,6 @@ pub struct Halo2VerifierCircuit<'a, E: MultiMillerLoop> {
     pub(crate) nproofs: usize,
 }
 
-
 impl<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> Circuit<C::ScalarExt>
     for Halo2VerifierCircuit<'a, E>
 {
@@ -100,7 +99,6 @@ impl<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> Circuit<C::ScalarExt>
         }
     }
 
-
     fn synthesize(
         &self,
         config: Self::Config,
@@ -111,9 +109,7 @@ impl<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> Circuit<C::ScalarExt>
     }
 }
 
-
-impl<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> Halo2VerifierCircuit<'a, E>
-{
+impl<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> Halo2VerifierCircuit<'a, E> {
     fn synthesize_impl(
         &self,
         config: Halo2VerifierCircuitConfig,
