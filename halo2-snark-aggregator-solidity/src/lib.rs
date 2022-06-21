@@ -9,7 +9,7 @@ use crate::code_generator::linear_scan::memory_optimize;
 use crate::transcript::codegen::CodegenTranscriptRead;
 use code_generator::ctx::{CodeGeneratorCtx, G2Point, Statement};
 use halo2_ecc_circuit_lib::five::integer_chip::LIMBS;
-use halo2_proofs::arithmetic::{BaseExt, Field, Engine};
+use halo2_proofs::arithmetic::{BaseExt, Engine, Field};
 use halo2_proofs::arithmetic::{CurveAffine, MultiMillerLoop};
 use halo2_proofs::plonk::VerifyingKey;
 use halo2_proofs::poly::commitment::{Params, ParamsVerifier};
@@ -97,7 +97,11 @@ pub struct SolidityGenerate {
 
 //pub struct SolidityGenerate2<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> {
 
-pub struct SolidityGenerate2<C, E> where C: CurveAffine, E: MultiMillerLoop<G1Affine = C> {
+pub struct SolidityGenerate2<C, E>
+where
+    C: CurveAffine,
+    E: MultiMillerLoop<G1Affine = C>,
+{
     // LIMBS * 4
     pub params: ParamsVerifier<E>,
     pub verify_circuit_vk: VerifyingKey<C>,
@@ -128,18 +132,14 @@ impl SolidityGenerate {
             params: params,
             verify_circuit_vk: verify_circuit_vk,
             verify_circuit_instance: verify_circuit_instance,
-            proof: self.proof.clone()
+            proof: self.proof.clone(),
         };
         req2.call(template_folder)
     }
 }
 
-
 impl<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> SolidityGenerate2<C, E> {
-    pub fn call(
-        &self,
-        _template_folder: std::path::PathBuf,
-    ) -> String {
+    pub fn call(&self, _template_folder: std::path::PathBuf) -> String {
         let nchip = &SolidityFieldChip::new();
         let schip = nchip;
         let pchip = &SolidityEccChip::new();
@@ -155,7 +155,8 @@ impl<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> SolidityGenerate2<C, E> {
             )
             .unwrap();
 
-        let verify_circuit_instance1: Vec<Vec<&[E::Scalar]>> = self.verify_circuit_instance
+        let verify_circuit_instance1: Vec<Vec<&[E::Scalar]>> = self
+            .verify_circuit_instance
             .iter()
             .map(|x| x.iter().map(|y| &y[..]).collect())
             .collect();

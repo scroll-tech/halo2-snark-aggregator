@@ -97,7 +97,7 @@ impl<'a, 'b, C: CurveAffine> ArithEccChip for EccChip<'a, 'b, C> {
     type NativeChip = ScalarChip<'a, 'b, C::ScalarExt>;
 
     fn print_debug_info(&self, c: &Self::Context, desc: &'static str) {
-        println!("print_debug_info EccChip {} offset {}", desc, *c.offset);
+        //println!("print_debug_info EccChip {} offset {}", desc, *c.offset);
     }
     fn scalar_mul(
         &self,

@@ -150,7 +150,7 @@ impl<P, S: Clone> EvaluationQuerySchema<P, S> {
         let mut p_acc: Option<A::AssignedPoint> = None;
         let mut s: Option<A::AssignedScalar> = None;
         for (idx, b) in points.into_iter().enumerate() {
-            println!("eval point idx {}", idx);
+            //println!("eval point idx {}", idx);
             pchip.print_debug_info(ctx, "before sum_scalar_array");
             let scalar = Self::sum_scalar_array::<Scalar, A>(ctx, schip, b.2)?;
 
@@ -182,7 +182,7 @@ impl<P, S: Clone> EvaluationQuerySchema<P, S> {
                 }
             }
 
-            println!("eval done point idx {}", idx);
+            //println!("eval done point idx {}", idx);
         }
 
         Ok((p_acc.unwrap(), s))
@@ -221,11 +221,11 @@ impl<P, S: Clone> EvaluationQuerySchema<P, S> {
                         match found {
                             Some(p) => {
                                 p.2.append(&mut evalated.2);
-                                println!("EvaluationQuerySchema::skip {}", res.len());
-                            },
+             //                   println!("EvaluationQuerySchema::skip {}", res.len());
+                            }
                             None => {
                                 res.push(evalated);
-                                println!("EvaluationQuerySchema::Add to {}", res.len());
+               //                 println!("EvaluationQuerySchema::Add to {}", res.len());
                             }
                         }
                     }
