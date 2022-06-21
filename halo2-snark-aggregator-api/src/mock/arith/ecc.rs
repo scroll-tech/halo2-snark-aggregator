@@ -77,7 +77,7 @@ impl<C: CurveAffine, E> ArithEccChip for MockEccChip<C, E> {
     type NativeChip = MockFieldChip<C::ScalarExt, E>;
 
     fn print_debug_info(&self, c: &Self::Context, desc: &'static str) {
-        println!("print_debug_info MockEccChip: none");
+       // println!("print_debug_info MockEccChip: none");
     }
     fn scalar_mul(
         &self,
