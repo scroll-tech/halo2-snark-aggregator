@@ -9,10 +9,10 @@ use crate::code_generator::linear_scan::memory_optimize;
 use crate::transcript::codegen::CodegenTranscriptRead;
 use code_generator::ctx::{CodeGeneratorCtx, G2Point, Statement};
 use halo2_ecc_circuit_lib::five::integer_chip::LIMBS;
-use halo2_proofs::arithmetic::{BaseExt, Field};
+use halo2_proofs::arithmetic::{BaseExt, Field, Engine};
 use halo2_proofs::arithmetic::{CurveAffine, MultiMillerLoop};
 use halo2_proofs::plonk::VerifyingKey;
-use halo2_proofs::poly::commitment::Params;
+use halo2_proofs::poly::commitment::{Params, ParamsVerifier};
 use halo2_snark_aggregator_api::arith::{common::ArithCommonChip, ecc::ArithEccChip};
 use halo2_snark_aggregator_api::systems::halo2::verify::{
     assign_instance_commitment, verify_single_proof_no_eval,
@@ -95,6 +95,18 @@ pub struct SolidityGenerate {
     pub proof: Vec<u8>,
 }
 
+//pub struct SolidityGenerate2<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> {
+
+pub struct SolidityGenerate2<C, E> where C: CurveAffine, E: MultiMillerLoop<G1Affine = C> {
+    // LIMBS * 4
+    pub params: ParamsVerifier<E>,
+    pub verify_circuit_vk: VerifyingKey<C>,
+    // serialized instance
+    pub verify_circuit_instance: Vec<Vec<Vec<E::Scalar>>>,
+    // serialized proof
+    pub proof: Vec<u8>,
+}
+
 impl SolidityGenerate {
     pub fn call<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>>(
         &self,
@@ -112,6 +124,22 @@ impl SolidityGenerate {
 
         let params = verify_circuit_params.verifier::<E>(LIMBS * 4).unwrap();
 
+        let req2 = SolidityGenerate2 {
+            params: params,
+            verify_circuit_vk: verify_circuit_vk,
+            verify_circuit_instance: verify_circuit_instance,
+            proof: self.proof.clone()
+        };
+        req2.call(template_folder)
+    }
+}
+
+
+impl<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> SolidityGenerate2<C, E> {
+    pub fn call(
+        &self,
+        _template_folder: std::path::PathBuf,
+    ) -> String {
         let nchip = &SolidityFieldChip::new();
         let schip = nchip;
         let pchip = &SolidityEccChip::new();
@@ -127,7 +155,7 @@ impl SolidityGenerate {
             )
             .unwrap();
 
-        let verify_circuit_instance1: Vec<Vec<&[E::Scalar]>> = verify_circuit_instance
+        let verify_circuit_instance1: Vec<Vec<&[E::Scalar]>> = self.verify_circuit_instance
             .iter()
             .map(|x| x.iter().map(|y| &y[..]).collect())
             .collect();
@@ -139,8 +167,8 @@ impl SolidityGenerate {
             ctx,
             pchip,
             &verify_circuit_instance2[..],
-            &verify_circuit_vk,
-            &params,
+            &self.verify_circuit_vk,
+            &self.params,
         )
         .unwrap();
         ctx.exit_instance();
@@ -151,8 +179,8 @@ impl SolidityGenerate {
             schip,
             pchip,
             assigned_instances,
-            &verify_circuit_vk,
-            &params,
+            &self.verify_circuit_vk,
+            &self.params,
             &mut transcript,
             "".to_owned(),
         )
@@ -179,8 +207,8 @@ impl SolidityGenerate {
             }
         };
 
-        let s_g2 = get_xy_from_g2point::<E>(params.s_g2);
-        let n_g2 = get_xy_from_g2point::<E>(-params.g2);
+        let s_g2 = get_xy_from_g2point::<E>(self.params.s_g2);
+        let n_g2 = get_xy_from_g2point::<E>(-self.params.g2);
 
         let sol_ctx = CodeGeneratorCtx {
             wx: (*left.expr).clone(),
@@ -198,7 +226,7 @@ impl SolidityGenerate {
 
         let sol_ctx: CodeGeneratorCtx = memory_optimize(sol_ctx);
 
-        let template = render_verifier_sol_template::<C>(sol_ctx, template_folder.clone());
+        let template = render_verifier_sol_template::<C>(sol_ctx, _template_folder.clone());
         info!("generate solidity succeeds");
 
         template
