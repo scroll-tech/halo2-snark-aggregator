@@ -627,8 +627,11 @@ fn evaluate_multiopen_proof<
 ) -> Result<(A::AssignedPoint, A::AssignedPoint), A::Error> {
     let one = schip.assign_one(ctx)?;
 
+    pchip.print_debug_info(ctx, "before proof.w_x.eval");
     let (left_s, left_e) = proof.w_x.eval::<_, A>(ctx, schip, pchip, &one)?;
+    pchip.print_debug_info(ctx, "after proof.w_x.eval / before proof.w_g.eval");
     let (right_s, right_e) = proof.w_g.eval::<_, A>(ctx, schip, pchip, &one)?;
+    pchip.print_debug_info(ctx, "after proof.w_g.eval");
 
     let generator = pchip.assign_one(ctx)?;
     let left = match left_e {
