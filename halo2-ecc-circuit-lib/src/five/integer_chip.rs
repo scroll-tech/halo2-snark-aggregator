@@ -1,5 +1,5 @@
 use super::config::{PREREQUISITE_CHECK, VAR_COLUMNS};
-use crate::chips::integer_chip::{AssignedInteger, IntegerChip, IntegerChipOps, IntegerChipHelper};
+use crate::chips::integer_chip::{AssignedInteger, IntegerChip, IntegerChipHelper, IntegerChipOps};
 use crate::gates::base_gate::BaseGateOps;
 use crate::gates::range_gate::RangeGateOps;
 use crate::{
@@ -82,9 +82,11 @@ impl<'a, W: BaseExt, N: FieldExt> FiveColumnIntegerChip<'a, W, N> {
         }
 
         // TO OPTIMIZE: the two can be merged.
-        let native_diff =
-            self.base_gate()
-                .sum_with_constant(ctx, vec![(&native_a, one)], -self.helper.w_native)?;
+        let native_diff = self.base_gate().sum_with_constant(
+            ctx,
+            vec![(&native_a, one)],
+            -self.helper.w_native,
+        )?;
         let is_native_eq = self.base_gate().is_zero(ctx, &native_diff)?;
 
         // TO OPTIMIZE: the two can be merged.
@@ -318,7 +320,11 @@ impl<'a, W: BaseExt, N: FieldExt> FiveColumnIntegerChip<'a, W, N> {
 }
 
 impl<'a, W: BaseExt, N: FieldExt> IntegerChipOps<W, N> for FiveColumnIntegerChip<'a, W, N> {
-    fn assign_nonleading_limb(&self, ctx: &mut Context<N>, n: N) -> Result<AssignedValue<N>, Error> {
+    fn assign_nonleading_limb(
+        &self,
+        ctx: &mut Context<N>,
+        n: N,
+    ) -> Result<AssignedValue<N>, Error> {
         let zero = N::zero();
         let one = N::one();
 

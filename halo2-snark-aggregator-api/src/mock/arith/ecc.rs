@@ -1,8 +1,8 @@
-use std::marker::PhantomData;
 use super::field::MockFieldChip;
 use crate::arith::{common::ArithCommonChip, ecc::ArithEccChip};
 use group::{Curve, Group};
 use halo2_proofs::arithmetic::CurveAffine;
+use std::marker::PhantomData;
 
 pub struct MockEccChip<C: CurveAffine, E> {
     zero: C::CurveExt,
