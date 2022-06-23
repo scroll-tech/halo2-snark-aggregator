@@ -7,9 +7,9 @@ authors = ["zhangjunyu <junyu92@gmail.com>"]
 [dependencies]
 blake2b_simd = "1"
 chrono = "0.4.19"
-eth-types = { git = "https://github.com/ZhenXunGe/zkevm-circuits.git", branch = "main" }
+eth-types = { git = "https://github.com/scroll-tech/zkevm-circuits", branch = "scroll-dev-0607" }
 group = "0.11"
-halo2_proofs = { git = "https://github.com/junyu0312/halo2", rev = "4112958c7fa980b331897fd030a329095f418ff9", default-features = true }
+halo2_proofs = { git = "https://github.com/scroll-tech/halo2.git", branch = "scroll-dev-0607" }
 pairing_bn256 = { git = "https://github.com/appliedzkp/pairing", tag = "v0.1.1" }
 rand = "0.8"
 rand_pcg = "0.3.1"
@@ -17,10 +17,11 @@ rand_xorshift = "0.3"
 poseidon = { git = "https://github.com/appliedzkp/poseidon.git", branch = "circuit" }
 sha2 ="0.10.2"
 num-bigint = "0.4.3"
+log = "0.4.14"
 
 [dev-dependencies]
 ark-std = { version = "0.3", features = ["print-trace"] }
-zkevm-circuits = { git = "https://github.com/ZhenXunGe/zkevm-circuits.git", branch = "main" }
+zkevm-circuits = { git = "https://github.com/scroll-tech/zkevm-circuits", branch = "scroll-dev-0607", features = ["test"] }
 
 [features]
 default = ["halo2"]

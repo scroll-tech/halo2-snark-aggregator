@@ -17,6 +17,7 @@ use halo2_ecc_circuit_lib::{
 use halo2_proofs::circuit::floor_planner::V1;
 use halo2_proofs::plonk::{create_proof, keygen_vk};
 use halo2_proofs::plonk::{Column, Instance};
+use halo2_proofs::transcript;
 use halo2_proofs::{
     arithmetic::BaseExt,
     plonk::{keygen_pk, verify_proof, SingleVerifier},
@@ -31,6 +32,7 @@ use halo2_proofs::{
 use halo2_snark_aggregator_api::mock::arith::{ecc::MockEccChip, field::MockFieldChip};
 use halo2_snark_aggregator_api::mock::transcript_encode::PoseidonEncode;
 use halo2_snark_aggregator_api::systems::halo2::verify::verify_aggregation_proofs_in_chip;
+use halo2_snark_aggregator_api::systems::halo2::verify::verify_aggregation_proofs_in_chip_impl;
 use halo2_snark_aggregator_api::systems::halo2::{
     transcript::PoseidonTranscriptRead, verify::ProofData,
 };
@@ -59,7 +61,7 @@ pub struct SingleProofWitness<'a, E: MultiMillerLoop> {
 #[derive(Clone)]
 pub struct Halo2VerifierCircuit<'a, E: MultiMillerLoop> {
     pub(crate) params: &'a ParamsVerifier<E>,
-    pub(crate) vk: &'a VerifyingKey<E::G1Affine>,
+    pub(crate) vk: Vec<VerifyingKey<E::G1Affine>>,
     pub(crate) proofs: Vec<SingleProofWitness<'a, E>>,
     pub(crate) nproofs: usize,
 }
@@ -73,8 +75,8 @@ impl<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> Circuit<C::ScalarExt>
     fn without_witnesses(&self) -> Self {
         Self {
             params: self.params,
-            vk: self.vk,
-            proofs: (0..self.nproofs).map(|_| self.proofs[0].clone()).collect(),
+            vk: self.vk.clone(),
+            proofs: (0..self.nproofs).map(|i| self.proofs[i].clone()).collect(),
             nproofs: self.nproofs,
         }
     }
@@ -102,6 +104,17 @@ impl<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> Circuit<C::ScalarExt>
         config: Self::Config,
         mut layouter: impl Layouter<C::ScalarExt>,
     ) -> Result<(), Error> {
+        self.synthesize_impl(config, layouter)?;
+        Ok(())
+    }
+}
+
+impl<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> Halo2VerifierCircuit<'a, E> {
+    fn synthesize_impl(
+        &self,
+        config: Halo2VerifierCircuitConfig,
+        mut layouter: impl Layouter<C::ScalarExt>,
+    ) -> Result<usize, Error> {
         let base_gate = FiveColumnBaseGate::new(config.base_gate_config);
         let range_gate = FiveColumnRangeGate::<'_, C::Base, C::ScalarExt, COMMON_RANGE_BITS>::new(
             config.range_gate_config,
@@ -120,7 +133,7 @@ impl<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> Circuit<C::ScalarExt>
         let mut w_x = None;
         let mut w_g = None;
 
-        layouter.assign_region(
+        let max_offset = layouter.assign_region(
             || "base",
             |region| {
                 let base_offset = 0usize;
@@ -164,14 +177,15 @@ impl<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> Circuit<C::ScalarExt>
                         8usize,
                         33usize,
                     )?;
-                let mut res = verify_aggregation_proofs_in_chip(
+
+                let mut res = verify_aggregation_proofs_in_chip_impl(
                     ctx,
                     nchip,
                     schip,
                     pchip,
                     &self.vk,
                     &self.params,
-                    proof_data_list,
+                    &mut proof_data_list,
                     &mut transcript,
                 )?;
 
@@ -186,7 +200,7 @@ impl<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> Circuit<C::ScalarExt>
                 w_x = Some(res.0);
                 w_g = Some(res.1);
 
-                Ok(())
+                Ok(*ctx.offset)
             },
         )?;
 
@@ -219,13 +233,13 @@ impl<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> Circuit<C::ScalarExt>
                 )?;
             }
         }
-        Ok(())
+        Ok(max_offset)
     }
 }
 
-fn verify_circuit_builder<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C>>(
+pub fn verify_circuit_builder<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C>>(
     params: &'a ParamsVerifier<E>,
-    vk: &'a VerifyingKey<E::G1Affine>,
+    vk: Vec<VerifyingKey<E::G1Affine>>,
     instances: &'a Vec<Vec<Vec<Vec<E::Scalar>>>>,
     transcript: &'a Vec<Vec<u8>>,
     nproofs: usize,
@@ -287,7 +301,7 @@ const K: u32 = 22u32;
 
 pub struct Setup {
     pub params: Vec<u8>,
-    pub vk: Vec<u8>,
+    pub vk: Vec<Vec<u8>>,
     pub instances: Vec<Vec<u8>>,
     pub proofs: Vec<Vec<u8>>,
     pub nproofs: usize,
@@ -296,17 +310,18 @@ impl Setup {
     fn new_verify_circuit_info<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>>(
         &self,
         setup: bool,
+        index: usize,
     ) -> (
         Params<C>,
         ParamsVerifier<E>,
         VerifyingKey<C>,
-        Vec<Vec<Vec<Vec<E::Scalar>>>>,
-        Vec<Vec<u8>>,
+        Vec<Vec<Vec<E::Scalar>>>,
+        Vec<u8>,
     ) {
         let target_circuit_param = Params::<C>::read(Cursor::new(&self.params)).unwrap();
 
         let target_circuit_vk = VerifyingKey::<C>::read::<_, MyCircuit<C::ScalarExt>>(
-            &mut Cursor::new(&self.vk),
+            &mut Cursor::new(&self.vk[index]),
             &target_circuit_param,
         )
         .unwrap();
@@ -315,17 +330,23 @@ impl Setup {
             .verifier::<E>(target_circuit_vk.cs.num_instance_columns)
             .unwrap();
 
-        let mut target_circuit_transcripts = vec![];
-        let mut target_circuit_instances = vec![];
+        let target_circuit_transcripts = self.proofs[index].clone();
+        let target_circuit_instances: Vec<Vec<Vec<E::Scalar>>> =
+            load_instances::<E>(&self.instances[index]);
 
-        for i in 0..self.nproofs {
-            let index = if setup { 0 } else { i };
-            target_circuit_transcripts.push(self.proofs[index].clone());
-            let target_circuit_instance: Vec<Vec<Vec<E::Scalar>>> =
-                load_instances::<E>(&self.instances[index]);
-            target_circuit_instances.push(target_circuit_instance);
-        }
+        /*
+                let mut target_circuit_transcripts = vec![];
+                let mut target_circuit_instances = vec![];
 
+
+                for i in 0..self.nproofs {
+                    let index = if setup { 0 } else { i };
+                    target_circuit_transcripts.push(self.proofs[index].clone());
+                    let target_circuit_instance: Vec<Vec<Vec<E::Scalar>>> =
+                        load_instances::<E>(&self.instances[index]);
+                    target_circuit_instances.push(target_circuit_instance);
+                }
+        */
         (
             target_circuit_param,
             target_circuit_verifier_params,
@@ -338,14 +359,19 @@ impl Setup {
     pub fn call<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>>(
         &self,
     ) -> (Params<C>, VerifyingKey<C>) {
-        let sample_circuit_info = self.new_verify_circuit_info::<C, E>(true);
-        let verify_circuit = verify_circuit_builder(
-            &sample_circuit_info.1,
-            &sample_circuit_info.2,
-            &sample_circuit_info.3,
-            &sample_circuit_info.4,
-            self.nproofs,
-        );
+        let mut params = Vec::new();
+        let mut vks = Vec::new();
+        let mut instances = Vec::new();
+        let mut transcripts = Vec::new();
+        for index in 0..self.nproofs {
+            let target_circuit_info = self.new_verify_circuit_info::<C, E>(true, index);
+            params.push(target_circuit_info.1);
+            vks.push(target_circuit_info.2);
+            instances.push(target_circuit_info.3);
+            transcripts.push(target_circuit_info.4);
+        }
+        let verify_circuit =
+            verify_circuit_builder(&params[0], vks, &instances, &transcripts, self.nproofs);
         info!("circuit build done");
 
         // TODO: Do not use this setup in production
@@ -362,7 +388,7 @@ impl Setup {
 
 pub fn calc_verify_circuit_instances<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>>(
     params: &ParamsVerifier<E>,
-    vk: &VerifyingKey<C>,
+    vks: &Vec<VerifyingKey<C>>,
     n_instances: Vec<Vec<Vec<Vec<E::Scalar>>>>,
     n_transcript: Vec<Vec<u8>>,
 ) -> Vec<C::ScalarExt> {
@@ -400,14 +426,14 @@ pub fn calc_verify_circuit_instances<C: CurveAffine, E: MultiMillerLoop<G1Affine
     )
     .unwrap();
 
-    let (w_x, w_g) = verify_aggregation_proofs_in_chip(
+    let (w_x, w_g) = verify_aggregation_proofs_in_chip_impl(
         ctx,
         &nchip,
         &schip,
         &pchip,
-        vk,
+        vks,
         params,
-        proof_data_list,
+        &mut proof_data_list,
         &mut transcript,
     )
     .unwrap();
@@ -428,7 +454,7 @@ pub fn calc_verify_circuit_instances<C: CurveAffine, E: MultiMillerLoop<G1Affine
 
 pub struct CreateProof {
     pub target_circuit_params: Vec<u8>,
-    pub target_circuit_vk: Vec<u8>,
+    pub target_circuit_vk: Vec<Vec<u8>>,
     pub verify_circuit_params: Vec<u8>,
     pub verify_circuit_vk: Vec<u8>,
     pub template_instances: Vec<Vec<u8>>,
@@ -451,20 +477,39 @@ impl CreateProof {
         };
 
         let now = std::time::Instant::now();
-        let (target_circuit_params_verifier, target_circuit_vkey) = {
-            let sample_circuit_info = setup.new_verify_circuit_info::<C, E>(false);
-            (sample_circuit_info.1, sample_circuit_info.2)
-        };
 
-        let sample_circuit_info = setup.new_verify_circuit_info::<C, E>(false);
+        let mut params = Vec::new();
+        let mut vks = Vec::new();
+        let mut instances = Vec::new();
+        let mut transcripts = Vec::new();
+        for index in 0..self.nproofs {
+            let target_circuit_info = setup.new_verify_circuit_info::<C, E>(false, index);
+            params.push(target_circuit_info.1);
+            vks.push(target_circuit_info.2);
+            instances.push(target_circuit_info.3);
+            transcripts.push(target_circuit_info.4);
+        }
         let verify_circuit = verify_circuit_builder(
-            &sample_circuit_info.1,
-            &sample_circuit_info.2,
-            &sample_circuit_info.3,
-            &sample_circuit_info.4,
+            &params[0],
+            vks.clone(),
+            &instances,
+            &transcripts,
             self.nproofs,
         );
+        /*
+                let sample_circuit_info = setup.new_verify_circuit_info::<C, E>(false);
 
+                let (target_circuit_params_verifier, target_circuit_vkey) = {
+                    (sample_circuit_info.1, sample_circuit_info.2)
+                };
+                let verify_circuit = verify_circuit_builder(
+                    &sample_circuit_info.1,
+                    &sample_circuit_info.2,
+                    &sample_circuit_info.3,
+                    &sample_circuit_info.4,
+                    self.nproofs,
+                );
+        */
         let (instances, transcripts) = {
             let mut verify_circuit_transcripts = vec![];
             let mut verify_circuit_instances = vec![];
@@ -479,12 +524,8 @@ impl CreateProof {
             (verify_circuit_instances, verify_circuit_transcripts)
         };
 
-        let verify_circuit_instances = calc_verify_circuit_instances(
-            &target_circuit_params_verifier,
-            &target_circuit_vkey,
-            instances,
-            transcripts,
-        );
+        let verify_circuit_instances =
+            calc_verify_circuit_instances(&params[0], &vks, instances, transcripts);
 
         let verify_circuit_params =
             Params::<C>::read(Cursor::new(&self.verify_circuit_params)).unwrap();
