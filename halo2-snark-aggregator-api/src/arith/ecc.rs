@@ -25,7 +25,7 @@ pub trait ArithEccChip:
         Error = Self::Error,
     >;
 
-    fn print_debug_info(&self, c: &Self::Context, desc: &'static str) {}
+    fn print_debug_info(&self, c: &Self::Context, desc: &str) {}
     fn scalar_mul(
         &self,
         ctx: &mut Self::Context,
