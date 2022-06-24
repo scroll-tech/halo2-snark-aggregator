@@ -160,6 +160,7 @@ impl<P, S: Clone> EvaluationQuerySchema<P, S> {
                     None => b.1.unwrap(),
                     Some(s) => {
                         pchip.print_debug_info(ctx, &format!("before ecmul of {}", b.0));
+                        pchip.record_scalar_mul(ctx, &b.0);
                         let r = pchip.scalar_mul(ctx, &s, b.1.as_ref().unwrap())?;
                         pchip.print_debug_info(ctx, &format!("after ecmul of {}", b.0));
                         r

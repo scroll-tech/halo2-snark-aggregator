@@ -1,8 +1,8 @@
-use super::field::MockFieldChip;
+use super::field::{MockEccChipCtx, MockFieldChip};
 use crate::arith::{common::ArithCommonChip, ecc::ArithEccChip};
 use group::{Curve, Group};
 use halo2_proofs::arithmetic::CurveAffine;
-use std::marker::PhantomData;
+use std::{marker::PhantomData, task::Context};
 
 pub struct MockEccChip<C: CurveAffine, E> {
     zero: C::CurveExt,
@@ -21,14 +21,14 @@ impl<C: CurveAffine, E> Default for MockEccChip<C, E> {
 }
 
 impl<C: CurveAffine, E> ArithCommonChip for MockEccChip<C, E> {
-    type Context = ();
+    type Context = MockEccChipCtx;
     type Value = C;
     type AssignedValue = C::CurveExt;
     type Error = E;
 
     fn add(
         &self,
-        _ctx: &mut (),
+        ctx: &mut Self::Context,
         a: &C::CurveExt,
         b: &C::CurveExt,
     ) -> Result<C::CurveExt, Self::Error> {
@@ -37,26 +37,26 @@ impl<C: CurveAffine, E> ArithCommonChip for MockEccChip<C, E> {
 
     fn sub(
         &self,
-        _ctx: &mut (),
+        ctx: &mut Self::Context,
         a: &C::CurveExt,
         b: &C::CurveExt,
     ) -> Result<C::CurveExt, Self::Error> {
         Ok(*a - *b)
     }
 
-    fn assign_zero(&self, _ctx: &mut ()) -> Result<C::CurveExt, Self::Error> {
+    fn assign_zero(&self, ctx: &mut Self::Context) -> Result<C::CurveExt, Self::Error> {
         Ok(self.zero)
     }
 
-    fn assign_one(&self, _ctx: &mut ()) -> Result<C::CurveExt, Self::Error> {
+    fn assign_one(&self, ctx: &mut Self::Context) -> Result<C::CurveExt, Self::Error> {
         Ok(self.one)
     }
 
-    fn assign_const(&self, _ctx: &mut (), c: C) -> Result<C::CurveExt, Self::Error> {
+    fn assign_const(&self, ctx: &mut Self::Context, c: C) -> Result<C::CurveExt, Self::Error> {
         Ok(c.to_curve())
     }
 
-    fn assign_var(&self, _ctx: &mut (), v: C) -> Result<C::CurveExt, Self::Error> {
+    fn assign_var(&self, ctx: &mut Self::Context, v: C) -> Result<C::CurveExt, Self::Error> {
         Ok(v.to_curve())
     }
 
@@ -78,6 +78,9 @@ impl<C: CurveAffine, E> ArithEccChip for MockEccChip<C, E> {
 
     fn print_debug_info(&self, c: &Self::Context, desc: &str) {
         // println!("print_debug_info MockEccChip: none");
+    }
+    fn record_scalar_mul(&self, c: &mut Self::Context, k: &str) {
+        c.point_list.push(format!("{}{}", c.tag, k));
     }
     fn scalar_mul(
         &self,

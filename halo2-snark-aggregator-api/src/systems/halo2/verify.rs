@@ -764,6 +764,7 @@ pub fn verify_aggregation_proofs_in_chip_impl<
     proofs: &mut Vec<ProofData<E, A, T>>,
     transcript: &mut T,
 ) -> Result<(A::AssignedPoint, A::AssignedPoint), A::Error> {
+    println!("in verify_aggregation_proofs_in_chip_impl");
     debug_assert_eq!(vks.len(), proofs.len());
     let multiopen_proofs: Vec<MultiOpenProof<A>> = proofs
         .iter_mut()
@@ -817,5 +818,6 @@ pub fn verify_aggregation_proofs_in_chip_impl<
 
     let r = evaluate_multiopen_proof::<E, A, T>(ctx, schip, pchip, aggregated_proof, params);
     pchip.print_debug_info(ctx, "after evaluate_multiopen_proof");
+    println!("out verify_aggregation_proofs_in_chip_impl");
     r
 }

@@ -29,6 +29,7 @@ use halo2_proofs::{
     plonk::{Circuit, ConstraintSystem, Error, VerifyingKey},
     poly::commitment::{Params, ParamsVerifier},
 };
+use halo2_snark_aggregator_api::mock::arith::field::MockEccChipCtx;
 use halo2_snark_aggregator_api::mock::arith::{ecc::MockEccChip, field::MockFieldChip};
 use halo2_snark_aggregator_api::mock::transcript_encode::PoseidonEncode;
 use halo2_snark_aggregator_api::systems::halo2::verify::verify_aggregation_proofs_in_chip;
@@ -239,23 +240,24 @@ impl<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> Halo2VerifierCircuit<
 
 pub fn verify_circuit_builder<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C>>(
     params: &'a ParamsVerifier<E>,
-    vk: Vec<VerifyingKey<E::G1Affine>>,
-    instances: &'a Vec<Vec<Vec<Vec<E::Scalar>>>>,
-    transcript: &'a Vec<Vec<u8>>,
-    nproofs: usize,
+    circuits: &'a Vec<ProvedCircuit<C, E>>,
+    //vk: Vec<VerifyingKey<E::G1Affine>>,
+    //instances: &'a Vec<Vec<Vec<Vec<E::Scalar>>>>,
+    //transcript: &'a Vec<Vec<u8>>,
 ) -> Halo2VerifierCircuit<'a, E> {
+    let vk = circuits.iter().map(|c| c.vk.clone()).collect();
+    let proofs = circuits
+        .iter()
+        .map(|c| SingleProofWitness {
+            instances: &c.instance,
+            transcript: &c.transcript,
+        })
+        .collect();
     Halo2VerifierCircuit {
         params,
         vk,
-        nproofs,
-        proofs: instances
-            .iter()
-            .zip(transcript.iter())
-            .map(|(i, t)| SingleProofWitness {
-                instances: i,
-                transcript: t,
-            })
-            .collect(),
+        proofs,
+        nproofs: circuits.len(),
     }
 }
 
@@ -360,18 +362,24 @@ impl Setup {
         &self,
     ) -> (Params<C>, VerifyingKey<C>) {
         let mut params = Vec::new();
-        let mut vks = Vec::new();
-        let mut instances = Vec::new();
-        let mut transcripts = Vec::new();
+        //let mut vks = Vec::new();
+        //let mut instances = Vec::new();
+        //let mut transcripts = Vec::new();
+        let mut circuits = Vec::new();
         for index in 0..self.nproofs {
             let target_circuit_info = self.new_verify_circuit_info::<C, E>(true, index);
             params.push(target_circuit_info.1);
-            vks.push(target_circuit_info.2);
-            instances.push(target_circuit_info.3);
-            transcripts.push(target_circuit_info.4);
+            circuits.push(ProvedCircuit::<C, E> {
+                name: "".to_string(),
+                instance: target_circuit_info.3,
+                transcript: target_circuit_info.4,
+                vk: target_circuit_info.2,
+            });
+            //vks.push(target_circuit_info.2);
+            //instances.push(target_circuit_info.3);
+            //transcripts.push(target_circuit_info.4);
         }
-        let verify_circuit =
-            verify_circuit_builder(&params[0], vks, &instances, &transcripts, self.nproofs);
+        let verify_circuit = verify_circuit_builder(&params[0], &circuits);
         info!("circuit build done");
 
         // TODO: Do not use this setup in production
@@ -386,21 +394,30 @@ impl Setup {
     }
 }
 
+#[derive(Clone)]
+pub struct ProvedCircuit<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> {
+    pub name: String,
+    pub vk: VerifyingKey<C>,
+    pub instance: Vec<Vec<Vec<E::Scalar>>>,
+    pub transcript: Vec<u8>,
+}
+
 pub fn calc_verify_circuit_instances<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>>(
     params: &ParamsVerifier<E>,
-    vks: &Vec<VerifyingKey<C>>,
-    n_instances: Vec<Vec<Vec<Vec<E::Scalar>>>>,
-    n_transcript: Vec<Vec<u8>>,
+    circuits: &Vec<ProvedCircuit<C, E>>,
+    //vks: &Vec<VerifyingKey<C>>,
+    //n_instances: Vec<Vec<Vec<Vec<E::Scalar>>>>,
+    //n_transcript: Vec<Vec<u8>>,
 ) -> Vec<C::ScalarExt> {
     let nchip = MockFieldChip::<C::ScalarExt, Error>::default();
     let schip = MockFieldChip::<C::ScalarExt, Error>::default();
     let pchip = MockEccChip::<C, Error>::default();
-    let ctx = &mut ();
+    let ctx = &mut MockEccChipCtx::default();
 
     let mut proof_data_list = vec![];
-    for (i, instances) in n_instances.iter().enumerate() {
+    for (i, c) in circuits.iter().enumerate() {
         let transcript = PoseidonTranscriptRead::<_, C, _, PoseidonEncode, 9usize, 8usize>::new(
-            &n_transcript[i][..],
+            &c.transcript[..],
             ctx,
             &schip,
             8usize,
@@ -409,9 +426,13 @@ pub fn calc_verify_circuit_instances<C: CurveAffine, E: MultiMillerLoop<G1Affine
         .unwrap();
 
         proof_data_list.push(ProofData {
-            instances,
+            instances: &c.instance,
             transcript,
-            key: format!("p{}", i),
+            key: if c.name.is_empty() {
+                format!("p{}", i)
+            } else {
+                c.name.clone()
+            },
             _phantom: PhantomData,
         })
     }
@@ -426,17 +447,20 @@ pub fn calc_verify_circuit_instances<C: CurveAffine, E: MultiMillerLoop<G1Affine
     )
     .unwrap();
 
+    let vks: Vec<_> = circuits.iter().map(|c| c.vk.clone()).collect();
     let (w_x, w_g) = verify_aggregation_proofs_in_chip_impl(
         ctx,
         &nchip,
         &schip,
         &pchip,
-        vks,
+        &vks,
         params,
         &mut proof_data_list,
         &mut transcript,
     )
     .unwrap();
+
+    ctx.print();
 
     let helper = FiveColumnIntegerChipHelper::<C::Base, C::ScalarExt>::new();
     let w_x_x = helper.w_to_limb_n_le(w_x.to_affine().coordinates().unwrap().x());
@@ -479,37 +503,24 @@ impl CreateProof {
         let now = std::time::Instant::now();
 
         let mut params = Vec::new();
-        let mut vks = Vec::new();
-        let mut instances = Vec::new();
-        let mut transcripts = Vec::new();
+        //let mut vks = Vec::new();
+        //let mut instances = Vec::new();
+        //let mut transcripts = Vec::new();
+        let mut circuits = Vec::new();
         for index in 0..self.nproofs {
             let target_circuit_info = setup.new_verify_circuit_info::<C, E>(false, index);
             params.push(target_circuit_info.1);
-            vks.push(target_circuit_info.2);
-            instances.push(target_circuit_info.3);
-            transcripts.push(target_circuit_info.4);
+            circuits.push(ProvedCircuit::<C, E> {
+                name: "".to_string(),
+                instance: target_circuit_info.3,
+                transcript: target_circuit_info.4,
+                vk: target_circuit_info.2,
+            });
+            //vks.push(target_circuit_info.2);
+            //instances.push(target_circuit_info.3);
+            //transcripts.push(target_circuit_info.4);
         }
-        let verify_circuit = verify_circuit_builder(
-            &params[0],
-            vks.clone(),
-            &instances,
-            &transcripts,
-            self.nproofs,
-        );
-        /*
-                let sample_circuit_info = setup.new_verify_circuit_info::<C, E>(false);
-
-                let (target_circuit_params_verifier, target_circuit_vkey) = {
-                    (sample_circuit_info.1, sample_circuit_info.2)
-                };
-                let verify_circuit = verify_circuit_builder(
-                    &sample_circuit_info.1,
-                    &sample_circuit_info.2,
-                    &sample_circuit_info.3,
-                    &sample_circuit_info.4,
-                    self.nproofs,
-                );
-        */
+        let verify_circuit = verify_circuit_builder(&params[0], &circuits);
         let (instances, transcripts) = {
             let mut verify_circuit_transcripts = vec![];
             let mut verify_circuit_instances = vec![];
@@ -524,8 +535,7 @@ impl CreateProof {
             (verify_circuit_instances, verify_circuit_transcripts)
         };
 
-        let verify_circuit_instances =
-            calc_verify_circuit_instances(&params[0], &vks, instances, transcripts);
+        let verify_circuit_instances = calc_verify_circuit_instances(&params[0], &circuits);
 
         let verify_circuit_params =
             Params::<C>::read(Cursor::new(&self.verify_circuit_params)).unwrap();
