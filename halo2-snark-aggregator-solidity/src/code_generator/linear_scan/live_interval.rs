@@ -14,10 +14,10 @@ pub(crate) struct Interval {
 pub(crate) fn build_intervals(
     statements: &Vec<Statement>,
     expressions: &Vec<Expression>,
-) -> Vec<Interval> {
+) -> (Vec<Interval>, HashMap<Rc<Expression>, usize>) {
     let mut intervals: Vec<Interval> = vec![];
     // from memory offset to statement array offset
-    let lookup = &mut HashMap::<Rc<Expression>, usize>::new();
+    let mut lookup = HashMap::<Rc<Expression>, usize>::new();
 
     statements
         .iter()
@@ -57,6 +57,12 @@ pub(crate) fn build_intervals(
             }
         });
 
+    intervals.iter().for_each(|interval| {
+        if interval.start == interval.end {
+            println!("{:?}", interval.expr)
+        }
+    });
+
     expressions.iter().for_each(|expression| {
         expression.iter(&mut |e| {
             let expr = lookup.get(e);
@@ -66,5 +72,5 @@ pub(crate) fn build_intervals(
         })
     });
 
-    intervals
+    (intervals, lookup)
 }

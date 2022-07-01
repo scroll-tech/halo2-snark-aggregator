@@ -413,10 +413,6 @@ impl<
         let omega = self.vk.domain.get_omega();
 
         let x = self.squeeze_challenge_scalar()?;
-        let x_next = self.rotate_omega(&x, omega, 1)?;
-        let x_last = self.rotate_omega(&x, omega, -(l as i32))?;
-        let x_inv = self.rotate_omega(&x, omega, -1)?;
-        let xn = self.schip.pow_constant(self.ctx, &x, n)?;
 
         let instance_evals =
             self.load_n_m_scalars(num_proofs, self.vk.cs.instance_queries.len())?;
@@ -450,6 +446,11 @@ impl<
         while let Ok(p) = self.load_point() {
             w.push(p);
         }
+
+        let x_next = self.rotate_omega(&x, omega, 1)?;
+        let x_last = self.rotate_omega(&x, omega, -(l as i32))?;
+        let x_inv = self.rotate_omega(&x, omega, -1)?;
+        let xn = self.schip.pow_constant(self.ctx, &x, n)?;
 
         Ok(VerifierParams {
             key: self.key.clone(),
