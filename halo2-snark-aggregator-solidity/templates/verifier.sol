@@ -210,34 +210,6 @@ contract Verifier {
         return ecc_add(x, y, qx, qy);
     }
 
-    function convert_scalar(
-        uint256[] memory m,
-        uint256[] memory proof,
-        uint256 v
-    ) internal pure returns (uint256) {
-        if (v >= m_sep) {
-            return m[v - m_sep];
-        } else if (v >= c_sep) {
-            return v - c_sep;
-        } else {
-            return proof[v];
-        }
-    }
-
-    function convert_point(
-        uint256[] memory m,
-        uint256[] memory proof,
-        uint256 v
-    ) internal pure returns (uint256, uint256) {
-        if (v >= m_sep) {
-            return (m[v - m_sep], m[v - m_sep + 1]);
-        } else if (v >= c_sep) {
-            revert();
-        } else {
-            return (proof[v], proof[v + 1]);
-        }
-    }
-
     function update_hash_scalar(uint256 v, uint256[] memory absorbing, uint256 pos) internal pure {
         absorbing[pos++] = 0x02;
         absorbing[pos++] = v;
