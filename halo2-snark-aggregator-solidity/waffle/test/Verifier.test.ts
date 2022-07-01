@@ -46,10 +46,10 @@ describe("Verifier", () => {
   console.log("proof length", proof.length);
 
   it("Assigns initial balance", async () => {
-    let a = await token.verify(
+    let a = await token.estimateGas.verify(
       bufferToUint256Be(proof),
       bufferToUint256Be(instances)
     );
-    expect(a);
+    console.log(a.toString());
   });
 });
