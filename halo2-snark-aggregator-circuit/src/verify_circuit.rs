@@ -523,7 +523,8 @@ impl CreateProof {
         info!("Running keygen_pk took {} seconds.", elapsed_time.as_secs());
 
         let instances: &[&[&[C::ScalarExt]]] = &[&[&verify_circuit_instances[..]]];
-        let mut transcript = ShaWrite::<_, _, Challenge255<_>>::init(vec![], vec![]);
+        let mut transcript =
+            ShaWrite::<_, _, Challenge255<_>, sha3::Keccak256>::init(vec![], vec![]);
         create_proof(
             &verify_circuit_params,
             &verify_circuit_pk,
@@ -613,7 +614,8 @@ impl VerifyCheck {
         let verify_circuit_instance2: Vec<&[&[E::Scalar]]> =
             verify_circuit_instance1.iter().map(|x| &x[..]).collect();
 
-        let mut transcript = ShaRead::<_, _, Challenge255<_>>::init(&self.proof[..]);
+        let mut transcript =
+            ShaRead::<_, _, Challenge255<_>, sha3::Keccak256>::init(&self.proof[..]);
 
         verify_proof(
             &params,

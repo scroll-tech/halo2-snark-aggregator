@@ -1103,6 +1103,7 @@ dependencies = [
  "ark-std",
  "blake2b_simd",
  "chrono",
+ "digest 0.10.3",
  "eth-types 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main)",
  "group 0.11.0",
  "halo2_proofs",
@@ -1112,7 +1113,6 @@ dependencies = [
  "rand",
  "rand_pcg",
  "rand_xorshift",
- "sha2",
  "zkevm-circuits 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main)",
 ]
 
@@ -1131,6 +1131,8 @@ dependencies = [
  "rand_core",
  "rayon",
  "serde_json",
+ "sha2",
+ "sha3 0.10.1",
  "zkevm-circuits 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs)",
 ]
 
@@ -1164,6 +1166,7 @@ dependencies = [
  "log",
  "num-bigint",
  "pairing_bn256",
+ "sha3 0.10.1",
  "tera",
 ]
 
@@ -2388,6 +2391,16 @@ dependencies = [
  "digest 0.9.0",
  "keccak",
  "opaque-debug 0.3.0",
+]
+
+[[package]]
+name = "sha3"
+version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "881bf8156c87b6301fc5ca6b27f11eeb2761224c7081e69b409d5a1951a70c86"
+dependencies = [
+ "digest 0.10.3",
+ "keccak",
 ]
 
 [[package]]
