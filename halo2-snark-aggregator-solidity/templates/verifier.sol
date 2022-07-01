@@ -81,7 +81,7 @@ contract Verifier {
         return mulmod(a, fr_invert(b), q_mod);
     }
 
-    function fr_mul_add_constant(
+    function fr_mul_add(
         uint256 a,
         uint256 b,
         uint256 c
@@ -199,8 +199,16 @@ contract Verifier {
         }
     }
 
-    uint32 constant m_sep = 3 << 7;
-    uint32 constant c_sep = 2 << 7;
+    function ecc_mul_add(uint256 px, uint256 py, uint256 s, uint256 qx, uint256 qy)
+        internal
+        view
+        returns (uint256, uint256)
+    {
+        uint256 x = 0;
+        uint256 y = 0;
+        (x, y) = ecc_mul(px, py, s);
+        return ecc_add(x, y, qx, qy);
+    }
 
     function convert_scalar(
         uint256[] memory m,
@@ -227,75 +235,6 @@ contract Verifier {
             revert();
         } else {
             return (proof[v], proof[v + 1]);
-        }
-    }
-
-    function update(
-        uint256[] memory m,
-        uint256[] memory proof,
-        uint256[] memory absorbing,
-        uint256 opcodes
-    ) internal view {
-        uint32 i;
-        uint256[4] memory buf;
-        for (i = 0; i < 8; i++) {
-            uint32 opcode = uint32(
-                (opcodes >> ((7 - i) * 32)) & ((1 << 32) - 1)
-            );
-            if (opcode != 0) {
-                uint32 t = (opcode >> 31);
-                uint32 l =  (opcode >> 22) & 0x1ff;
-                uint32 op = (opcode >> 18) & 0xf;
-                uint32 r0 = (opcode >> 9) & 0x1ff;
-                uint32 r1 = opcode & 0x1ff;
-
-                if (op == 5) {
-                    l = l - m_sep;
-                    m[l] = squeeze_challenge(absorbing, uint32(r0));
-                    continue;
-                }
-
-                if (op == 6) {
-                    update_hash_scalar(
-                        convert_scalar(m, proof, r0),
-                        absorbing,
-                        r1
-                    );
-                    continue;
-                }
-
-                if (t == 0) {
-                    l = l - m_sep;
-                    buf[0] = convert_scalar(m, proof, r0);
-                    buf[1] = convert_scalar(m, proof, r1);
-                    if (op == 1) {
-                        m[l] = fr_add(buf[0], buf[1]);
-                    } else if (op == 2) {
-                        m[l] = fr_sub(buf[0], buf[1]);
-                    } else if (op == 3) {
-                        m[l] = fr_mul(buf[0], buf[1]);
-                    } else if (op == 4) {
-                        m[l] = fr_div(buf[0], buf[1]);
-                    } else {
-                        revert();
-                    }
-                } else {
-                    l = l - m_sep;
-                    (buf[0], buf[1]) = convert_point(m, proof, r0);
-                    if (op == 1) {
-                        (buf[2], buf[3]) = convert_point(m, proof, r1);
-                        (m[l], m[l + 1]) = ecc_add(buf[0], buf[1], buf[2], buf[3]);
-                    } else if (op == 2) {
-                        (buf[2], buf[3]) = convert_point(m, proof, r1);
-                        (m[l], m[l + 1]) = ecc_sub(buf[0], buf[1], buf[2], buf[3]);
-                    } else if (op == 3) {
-                        buf[2] = convert_scalar(m, proof, r1);
-                        (m[l], m[l + 1]) = ecc_mul(buf[0], buf[1], buf[2]);
-                    } else {
-                        revert();
-                    }
-                }
-            }
         }
     }
 

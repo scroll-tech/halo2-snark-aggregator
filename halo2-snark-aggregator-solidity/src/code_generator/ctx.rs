@@ -36,7 +36,8 @@ pub enum Expression {
     Sub(Rc<Expression>, Rc<Expression>, Type),
     Mul(Rc<Expression>, Rc<Expression>, Type),
     Div(Rc<Expression>, Rc<Expression>, Type),
-    MulAddConstant(Rc<Expression>, Rc<Expression>, Rc<Expression>, Type),
+    MulAdd(Rc<Expression>, Rc<Expression>, Rc<Expression>, Type),
+    Pow(Rc<Expression>, usize, Type),
     Hash(usize),
 }
 
@@ -51,10 +52,11 @@ impl Expression {
             | Expression::Sub(_, _, t)
             | Expression::Mul(_, _, t)
             | Expression::Div(_, _, t)
-            | Expression::MulAddConstant(_, _, _, t) => (*t).clone(),
+            | Expression::MulAdd(_, _, _, t) => (*t).clone(),
             Expression::Point(_, _) => Type::Point,
             Expression::Scalar(_) => Type::Scalar,
             Expression::Hash(_) => Type::Scalar,
+            Expression::Pow(_, _, t) => (*t).clone(),
         }
     }
 
@@ -80,7 +82,8 @@ impl Expression {
         const CONST_LIMIT: u64 = 128u64;
         match self {
             Expression::Memory(idx, _) => {
-                assert!(*idx <= 127);
+                //println!("idx {}", *idx);
+                //assert!(*idx <= 127);
                 Some(MEM_SEP + *idx as u64)
             }
             Expression::TransciprtOffset(offset, _) => {
@@ -159,8 +162,8 @@ impl Expression {
                 (*l).to_typed_string(),
                 (*r).to_typed_string()
             ),
-            Expression::MulAddConstant(l, r, c, t) => format!(
-                "{}.mul_add_constant({}, {}, {})",
+            Expression::MulAdd(l, r, c, t) => format!(
+                "{}_mul_add({}, {}, {})",
                 t.to_libstring(),
                 (*l).to_typed_string(),
                 (*r).to_typed_string(),
@@ -182,6 +185,10 @@ impl Expression {
             Expression::Hash(offset) => {
                 format!("squeeze_challenge(absorbing, {})", offset)
             }
+            Expression::Pow(base, exp, t) => {
+                assert_eq!(*t, Type::Scalar);
+                format!("fr_pow({}, {})", (*base).to_typed_string(), exp)
+            }
         }
     }
 
@@ -194,10 +201,13 @@ impl Expression {
                 l.iter(f);
                 r.iter(f);
             }
-            Expression::MulAddConstant(l, r, c, _) => {
+            Expression::MulAdd(l, r, c, _) => {
                 l.iter(f);
                 r.iter(f);
                 c.iter(f);
+            }
+            Expression::Pow(base, _, _) => {
+                base.iter(f);
             }
             t => f(t),
         }
@@ -217,12 +227,13 @@ impl Expression {
             Expression::Div(l, r, t) => {
                 Expression::Div(Rc::new(l.map(f)), Rc::new(r.map(f)), t.clone())
             }
-            Expression::MulAddConstant(l, r, c, t) => Expression::MulAddConstant(
+            Expression::MulAdd(l, r, c, t) => Expression::MulAdd(
                 Rc::new(l.map(f)),
                 Rc::new(r.map(f)),
                 Rc::new(c.map(f)),
                 t.clone(),
             ),
+            Expression::Pow(base, exp, t) => Expression::Pow(Rc::new(base.map(f)), *exp, t.clone()),
             t => f(t),
         }
     }
@@ -251,7 +262,7 @@ impl Statement {
         const OP_SIZE: usize = 32usize;
         const CHUNK_SIZE: usize = 256usize;
 
-        if !opcodes.is_empty() {
+        if false && !opcodes.is_empty() {
             let chunks = opcodes.chunks(CHUNK_SIZE / OP_SIZE);
             let mut buf = vec![];
             for ops in chunks {
@@ -305,19 +316,19 @@ impl Statement {
     fn to_origin_string(&self) -> String {
         match self {
             Statement::Assign(l, r, _) => format!(
-                "// {} = ({});",
+                "{} = ({});",
                 (*l).to_untyped_string(),
                 (*r).to_typed_string(),
             ),
 
             Statement::UpdateHash(e, offset) => match e.get_type() {
                 Type::Point => format!(
-                    "// update_hash_point({}, absorbing, {});",
+                    "update_hash_point({}, absorbing, {});",
                     e.to_typed_string(),
                     offset
                 ),
                 Type::Scalar => format!(
-                    "// update_hash_scalar({}, absorbing, {});",
+                    "update_hash_scalar({}, absorbing, {});",
                     e.to_typed_string(),
                     offset
                 ),

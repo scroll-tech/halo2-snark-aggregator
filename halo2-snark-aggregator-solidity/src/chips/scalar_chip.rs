@@ -242,7 +242,7 @@ impl<F: FieldExt, E> ArithFieldChip for SolidityFieldChip<F, E> {
         c: Self::Field,
     ) -> Result<Self::AssignedField, Self::Error> {
         Ok(SolidityFieldExpr::<F> {
-            expr: Rc::new(Expression::MulAddConstant(
+            expr: Rc::new(Expression::MulAdd(
                 a.expr.clone(),
                 b.expr.clone(),
                 Rc::new(Expression::Scalar(field_to_bn(&c))),

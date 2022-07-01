@@ -1,9 +1,11 @@
 pub(crate) mod live_interval;
 pub(crate) mod memory_pool;
+pub(crate) mod optimize;
 
 use self::{
     live_interval::{build_intervals, Interval},
     memory_pool::MemoryPool,
+    optimize::optimize,
 };
 use super::ctx::{CodeGeneratorCtx, Expression, Statement, Type};
 use std::collections::{HashMap, HashSet};
@@ -64,21 +66,19 @@ fn expire_old_intervals(active: &mut HashSet<Interval>, i: &Interval, pool: &mut
 
 pub(crate) fn memory_optimize(mut ctx: CodeGeneratorCtx) -> CodeGeneratorCtx {
     let mut expressions = vec![ctx.wx, ctx.wg];
-    let intervals = &mut build_intervals(&ctx.assignments, &expressions);
+    let (intervals, lookup) = &mut build_intervals(&mut ctx.assignments, &expressions);
+    let mut assignments = optimize(ctx.assignments, intervals, lookup);
+
+    let (intervals, _) = &mut build_intervals(&mut assignments, &expressions);
     let empty_pool = &mut MemoryPool::default();
-    let memory_offset = linear_scan(
-        intervals,
-        &mut ctx.assignments,
-        &mut expressions,
-        empty_pool,
-    );
+    let memory_offset = linear_scan(intervals, &mut assignments, &mut expressions, empty_pool);
 
     CodeGeneratorCtx {
         wx: expressions[0].clone(),
         wg: expressions[1].clone(),
         s_g2: ctx.s_g2,
         n_g2: ctx.n_g2,
-        assignments: ctx.assignments,
+        assignments: assignments,
         memory_size: memory_offset,
         absorbing_length: ctx.absorbing_length,
     }
