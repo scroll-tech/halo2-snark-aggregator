@@ -324,7 +324,7 @@ contract Verifier {
             buf[i] = data[i];
         }
 
-        v = sha256(abi.encodePacked(buf, uint8(0)));
+        v = keccak256(abi.encodePacked(buf, uint8(0)));
     }
 
     function squeeze_challenge(uint256[] memory absorbing, uint32 length) internal pure returns (uint256 v) {

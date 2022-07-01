@@ -31,7 +31,7 @@ pub struct CodegenTranscriptRead<
     const RATE: usize,
 > {
     hash: PoseidonChip<A::NativeChip, T, RATE>,
-    reader: ShaRead<R, C, Challenge255<C>>,
+    reader: ShaRead<R, C, Challenge255<C>, sha3::Keccak256>,
     _phantom: PhantomData<E>,
 }
 

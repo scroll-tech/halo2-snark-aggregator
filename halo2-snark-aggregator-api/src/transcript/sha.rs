@@ -1,3 +1,4 @@
+use digest::Digest;
 use group::ff::PrimeField;
 use halo2_proofs::arithmetic::BaseExt;
 use halo2_proofs::arithmetic::Coordinates;
@@ -9,7 +10,6 @@ use halo2_proofs::transcript::Transcript;
 use halo2_proofs::transcript::TranscriptRead;
 use halo2_proofs::transcript::TranscriptWrite;
 use num_bigint::BigUint;
-use sha2::{Digest, Sha256};
 use std::io::{self, Read, Write};
 use std::marker::PhantomData;
 
@@ -22,25 +22,25 @@ const SHA_PREFIX_SCALAR: u8 = 2;
 ///
 
 #[derive(Debug, Clone)]
-pub struct ShaRead<R: Read, C: CurveAffine, E: EncodedChallenge<C>> {
-    state: Sha256,
+pub struct ShaRead<R: Read, C: CurveAffine, E: EncodedChallenge<C>, D: Digest> {
+    state: D,
     reader: R,
     _marker: PhantomData<(C, E)>,
 }
 
-impl<R: Read, C: CurveAffine, E: EncodedChallenge<C>> ShaRead<R, C, E> {
+impl<R: Read, C: CurveAffine, E: EncodedChallenge<C>, D: Digest> ShaRead<R, C, E, D> {
     /// Initialize a transcript given an input buffer.
     pub fn init(reader: R) -> Self {
         ShaRead {
-            state: Sha256::new(),
+            state: D::new(),
             reader,
             _marker: PhantomData,
         }
     }
 }
 
-impl<R: Read, C: CurveAffine> TranscriptRead<C, Challenge255<C>>
-    for ShaRead<R, C, Challenge255<C>>
+impl<R: Read, C: CurveAffine, D: Digest + Clone> TranscriptRead<C, Challenge255<C>>
+    for ShaRead<R, C, Challenge255<C>, D>
 {
     fn read_point(&mut self) -> io::Result<C> {
         let mut compressed = C::Repr::default();
@@ -68,13 +68,15 @@ impl<R: Read, C: CurveAffine> TranscriptRead<C, Challenge255<C>>
     }
 }
 
-impl<R: Read, C: CurveAffine> Transcript<C, Challenge255<C>> for ShaRead<R, C, Challenge255<C>> {
+impl<R: Read, C: CurveAffine, D: Digest + Clone> Transcript<C, Challenge255<C>>
+    for ShaRead<R, C, Challenge255<C>, D>
+{
     fn squeeze_challenge(&mut self) -> Challenge255<C> {
         self.state.update(&[SHA_PREFIX_CHALLENGE]);
         let hasher = self.state.clone();
         let result: [u8; 32] = hasher.finalize().as_slice().try_into().unwrap();
 
-        self.state = Sha256::new();
+        self.state = D::new();
         self.state.update(result);
 
         let mut bytes = result.to_vec();
@@ -120,18 +122,18 @@ impl<R: Read, C: CurveAffine> Transcript<C, Challenge255<C>> for ShaRead<R, C, C
 }
 
 #[derive(Debug, Clone)]
-pub struct ShaWrite<W: Write, C: CurveAffine, E: EncodedChallenge<C>> {
-    state: Sha256,
+pub struct ShaWrite<W: Write, C: CurveAffine, E: EncodedChallenge<C>, D: Digest> {
+    state: D,
     writer: W,
     writer_be: W,
     _marker: PhantomData<(C, E)>,
 }
 
-impl<W: Write, C: CurveAffine, E: EncodedChallenge<C>> ShaWrite<W, C, E> {
+impl<W: Write, C: CurveAffine, E: EncodedChallenge<C>, D: Digest> ShaWrite<W, C, E, D> {
     /// Initialize a transcript given an output buffer.
     pub fn init(writer: W, writer_be: W) -> Self {
         ShaWrite {
-            state: Sha256::new(),
+            state: D::new(),
             writer,
             writer_be,
             _marker: PhantomData,
@@ -151,8 +153,8 @@ fn field_to_bn<B: BaseExt>(f: &B) -> BigUint {
     BigUint::from_bytes_le(&bytes[..])
 }
 
-impl<W: Write, C: CurveAffine> TranscriptWrite<C, Challenge255<C>>
-    for ShaWrite<W, C, Challenge255<C>>
+impl<W: Write, C: CurveAffine, D: Digest + Clone> TranscriptWrite<C, Challenge255<C>>
+    for ShaWrite<W, C, Challenge255<C>, D>
 {
     fn write_point(&mut self, point: C) -> io::Result<()> {
         self.common_point(point)?;
@@ -191,13 +193,15 @@ impl<W: Write, C: CurveAffine> TranscriptWrite<C, Challenge255<C>>
     }
 }
 
-impl<W: Write, C: CurveAffine> Transcript<C, Challenge255<C>> for ShaWrite<W, C, Challenge255<C>> {
+impl<W: Write, C: CurveAffine, D: Digest + Clone> Transcript<C, Challenge255<C>>
+    for ShaWrite<W, C, Challenge255<C>, D>
+{
     fn squeeze_challenge(&mut self) -> Challenge255<C> {
         self.state.update(&[SHA_PREFIX_CHALLENGE]);
         let hasher = self.state.clone();
         let result: [u8; 32] = hasher.finalize().as_slice().try_into().unwrap();
 
-        self.state = Sha256::new();
+        self.state = D::new();
         self.state.update(result);
 
         let mut bytes = result.to_vec();

@@ -37,11 +37,11 @@ describe("Verifier", () => {
   });
 
   let instances = fs.readFileSync(
-    "../../halo2-snark-aggregator/output/verify_circuit_instance_commitments_be.data"
+    "../../halo2-snark-aggregator-sdk/output/verify_circuit_instance_commitments_be.data"
   );
   console.log(instances);
   let proof = fs.readFileSync(
-    "../../halo2-snark-aggregator/output/verify_circuit_proof_be.data"
+    "../../halo2-snark-aggregator-sdk/output/verify_circuit_proof_be.data"
   );
   console.log("proof length", proof.length);
 

@@ -7,6 +7,7 @@ authors = ["zhangjunyu <junyu92@gmail.com>"]
 [dependencies]
 blake2b_simd = "1"
 chrono = "0.4.19"
+digest = "0.10.3"
 eth-types = { git = "https://github.com/ZhenXunGe/zkevm-circuits.git", branch = "main" }
 group = "0.11"
 halo2_proofs = { git = "https://github.com/junyu0312/halo2", rev = "4112958c7fa980b331897fd030a329095f418ff9", default-features = true }
@@ -15,7 +16,6 @@ rand = "0.8"
 rand_pcg = "0.3.1"
 rand_xorshift = "0.3"
 poseidon = { git = "https://github.com/appliedzkp/poseidon.git", branch = "circuit" }
-sha2 ="0.10.2"
 num-bigint = "0.4.3"
 
 [dev-dependencies]
