@@ -260,8 +260,8 @@ pub(crate) enum Statement {
         memory_end: usize,
         memory_step: usize,
         absorbing_start: usize,
-        absorbing_end: usize,
         absorbing_step: usize,
+        t: Type,
     },
 }
 
@@ -347,16 +347,30 @@ impl Statement {
                 memory_end,
                 memory_step,
                 absorbing_start,
-                absorbing_end: _,
                 absorbing_step,
+                t,
             } => {
                 let mut output = vec![];
 
                 output.push(format!(
-                    "uint i={}, uint j = {}; i < {}; i = i + {}, j = j + {} {{",
-                    memory_start, absorbing_start, memory_end, memory_step, absorbing_step
+                    "for (uint i = 0; i <= {}; i = i++) {{",
+                    (memory_end - memory_start) / memory_step,
                 ));
-                output.push(format!("update_hash_scalar(proof[i], absorbing, j"));
+                match *t {
+                    Type::Scalar => {
+                        output.push(format!(
+                            "    update_hash_scalar(proof[{} + i * {}], absorbing, {} + i * {});",
+                            memory_start, memory_step, absorbing_start, absorbing_step
+                        ));
+                    }
+                    Type::Point => {
+                        output.push(format!(
+                            "    update_hash_point(proof[{} + i * {}], proof[{} + i * {}], absorbing, {} + i * {});",
+                            memory_start, memory_step, memory_start + 1, memory_step,absorbing_start, absorbing_step
+                        ));
+                    }
+                }
+
                 output.push(format!("}}"));
 
                 output
