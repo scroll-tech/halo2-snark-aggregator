@@ -55,6 +55,7 @@ pub(crate) fn build_intervals(
                     }
                 });
             }
+            Statement::For { .. } => unreachable!(),
         });
 
     intervals.iter().for_each(|interval| {

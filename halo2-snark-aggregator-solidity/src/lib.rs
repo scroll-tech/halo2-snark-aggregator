@@ -4,6 +4,7 @@ pub(crate) mod transcript;
 use crate::chips::{
     ecc_chip::SolidityEccChip, encode_chip::PoseidonEncode, scalar_chip::SolidityFieldChip,
 };
+use crate::code_generator::aggregate::aggregate;
 use crate::code_generator::ctx::SolidityCodeGeneratorContext;
 use crate::code_generator::linear_scan::memory_optimize;
 use crate::transcript::codegen::CodegenTranscriptRead;
@@ -197,6 +198,7 @@ impl SolidityGenerate {
         };
 
         let sol_ctx: CodeGeneratorCtx = memory_optimize(sol_ctx);
+        let sol_ctx: CodeGeneratorCtx = aggregate(sol_ctx);
 
         let template = render_verifier_sol_template::<C>(sol_ctx, template_folder.clone());
         info!("generate solidity succeeds");

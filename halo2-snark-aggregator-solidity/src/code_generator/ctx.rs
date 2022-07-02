@@ -255,6 +255,14 @@ impl Expression {
 pub(crate) enum Statement {
     Assign(Rc<Expression>, Expression, Vec<BigUint>),
     UpdateHash(Rc<Expression>, usize),
+    For {
+        memory_start: usize,
+        memory_end: usize,
+        memory_step: usize,
+        absorbing_start: usize,
+        absorbing_step: usize,
+        t: Type,
+    },
 }
 
 impl Statement {
@@ -313,26 +321,60 @@ impl Statement {
         }
     }
 
-    fn to_origin_string(&self) -> String {
+    fn to_origin_string(&self) -> Vec<String> {
         match self {
-            Statement::Assign(l, r, _) => format!(
+            Statement::Assign(l, r, _) => vec![format!(
                 "{} = ({});",
                 (*l).to_untyped_string(),
                 (*r).to_typed_string(),
-            ),
+            )],
 
             Statement::UpdateHash(e, offset) => match e.get_type() {
-                Type::Point => format!(
+                Type::Point => vec![format!(
                     "update_hash_point({}, absorbing, {});",
                     e.to_typed_string(),
                     offset
-                ),
-                Type::Scalar => format!(
+                )],
+                Type::Scalar => vec![format!(
                     "update_hash_scalar({}, absorbing, {});",
                     e.to_typed_string(),
                     offset
-                ),
+                )],
             },
+
+            Statement::For {
+                memory_start,
+                memory_end,
+                memory_step,
+                absorbing_start,
+                absorbing_step,
+                t,
+            } => {
+                let mut output = vec![];
+
+                output.push(format!(
+                    "for (uint i = 0; i <= {}; i = i++) {{",
+                    (memory_end - memory_start) / memory_step,
+                ));
+                match *t {
+                    Type::Scalar => {
+                        output.push(format!(
+                            "    update_hash_scalar(proof[{} + i * {}], absorbing, {} + i * {});",
+                            memory_start, memory_step, absorbing_start, absorbing_step
+                        ));
+                    }
+                    Type::Point => {
+                        output.push(format!(
+                            "    update_hash_point(proof[{} + i * {}], proof[{} + i * {}], absorbing, {} + i * {});",
+                            memory_start, memory_step, memory_start + 1, memory_step,absorbing_start, absorbing_step
+                        ));
+                    }
+                }
+
+                output.push(format!("}}"));
+
+                output
+            }
         }
     }
 
@@ -354,7 +396,7 @@ impl Statement {
             Statement::Assign(l, r, _) => match (l.to_mem_code(), r.to_short_code()) {
                 (Some(l_code), Some(r_code)) => {
                     if SHOW_ORIGIN {
-                        ret.push(self.to_origin_string());
+                        ret.append(&mut self.to_origin_string());
                     }
                     if SHOW_EXPECT {
                         ret.append(&mut self.to_expect_string(incremental_ident));
@@ -392,7 +434,7 @@ impl Statement {
                     Some(code) => {
                         assert!(offset < &512);
                         if SHOW_ORIGIN {
-                            ret.push(self.to_origin_string());
+                            ret.append(&mut self.to_origin_string());
                         }
                         Some((6u64 << 18) + (code << 9) + (*offset as u64))
                     }
@@ -408,6 +450,11 @@ impl Statement {
                     }
                 },
             },
+
+            Statement::For { .. } => {
+                ret.append(&mut self.to_origin_string());
+                None
+            }
         };
 
         if let Some(opcode) = opcode {
@@ -434,6 +481,7 @@ impl Statement {
             Statement::UpdateHash(e, offset) => {
                 Statement::UpdateHash(Rc::new(e.substitute(lookup)), *offset)
             }
+            Statement::For { .. } => self.clone(),
         }
     }
 }
