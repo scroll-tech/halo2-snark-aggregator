@@ -50,7 +50,6 @@ impl Merge {
     }
 
     fn try_merge(&mut self, statement: &Statement) -> bool {
-        println!("try merge");
         if let super::ctx::Statement::UpdateHash(e, absorbing_offset) = statement {
             if let Expression::TransciprtOffset(memory_offset, ty) = &*(e.clone()) {
                 if memory_offset - self.memory_offset_end == self.step_memory_offset

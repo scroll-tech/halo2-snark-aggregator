@@ -52,51 +52,19 @@ contract Verifier {
                 uint32 r0 = (opcode >> 9) & 0x1ff;
                 uint32 r1 = opcode & 0x1ff;
 
-                if (op == 5) {
-                    l = l - m_sep;
-                    m[l] = squeeze_challenge(absorbing, uint32(r0));
-                    continue;
-                }
-
-                if (op == 6) {
-                    update_hash_scalar(
-                        convert_scalar(m, proof, r0),
-                        absorbing,
-                        r1
-                    );
-                    continue;
-                }
-
-                if (t == 0) {
-                    l = l - m_sep;
-                    buf[0] = convert_scalar(m, proof, r0);
-                    buf[1] = convert_scalar(m, proof, r1);
-                    if (op == 1) {
-                        m[l] = fr_add(buf[0], buf[1]);
-                    } else if (op == 2) {
-                        m[l] = fr_sub(buf[0], buf[1]);
-                    } else if (op == 3) {
-                        m[l] = fr_mul(buf[0], buf[1]);
-                    } else if (op == 4) {
-                        m[l] = fr_div(buf[0], buf[1]);
-                    } else {
-                        revert();
-                    }
+                l = l - m_sep;
+                buf[0] = convert_scalar(m, proof, r0);
+                buf[1] = convert_scalar(m, proof, r1);
+                if (op == 1) {
+                    m[l] = fr_add(buf[0], buf[1]);
+                } else if (op == 3) {
+                    m[l] = fr_mul(buf[0], buf[1]);
+                } else if (op == 2) {
+                    m[l] = fr_sub(buf[0], buf[1]);
+                } else if (op == 4) {
+                    m[l] = fr_div(buf[0], buf[1]);
                 } else {
-                    l = l - m_sep;
-                    (buf[0], buf[1]) = convert_point(m, proof, r0);
-                    if (op == 1) {
-                        (buf[2], buf[3]) = convert_point(m, proof, r1);
-                        (m[l], m[l + 1]) = ecc_add(buf[0], buf[1], buf[2], buf[3]);
-                    } else if (op == 2) {
-                        (buf[2], buf[3]) = convert_point(m, proof, r1);
-                        (m[l], m[l + 1]) = ecc_sub(buf[0], buf[1], buf[2], buf[3]);
-                    } else if (op == 3) {
-                        buf[2] = convert_scalar(m, proof, r1);
-                        (m[l], m[l + 1]) = ecc_mul(buf[0], buf[1], buf[2]);
-                    } else {
-                        revert();
-                    }
+                    revert();
                 }
             }
         }
@@ -366,6 +334,9 @@ contract Verifier {
     {
         uint256[] memory m = new uint256[]({{memory_size}});
         uint256[] memory absorbing = new uint256[]({{absorbing_length}});
+        uint256 t0 = 0;
+        uint256 t1 = 0;
+
         {% for statement in statements %}
         {{statement}}
         {%- endfor %}

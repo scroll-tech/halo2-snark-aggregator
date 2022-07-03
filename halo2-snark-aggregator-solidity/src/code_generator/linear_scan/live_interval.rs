@@ -58,12 +58,6 @@ pub(crate) fn build_intervals(
             Statement::For { .. } => unreachable!(),
         });
 
-    intervals.iter().for_each(|interval| {
-        if interval.start == interval.end {
-            println!("{:?}", interval.expr)
-        }
-    });
-
     expressions.iter().for_each(|expression| {
         expression.iter(&mut |e| {
             let expr = lookup.get(e);

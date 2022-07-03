@@ -8,7 +8,7 @@ pub(crate) fn optimize(
     intervals: &Vec<Interval>,
     lookup: &HashMap<Rc<Expression>, usize>,
 ) -> Vec<Statement> {
-    //let statements = combine_mul_add(statements, intervals, lookup);
+    let statements = combine_mul_add(statements, intervals, lookup);
     let statements = combine_fr_pow(statements, intervals, lookup);
     statements
 }
@@ -196,7 +196,17 @@ impl Statement {
 
     pub fn combine_mul_add(&self, next: &Statement) -> Option<Statement> {
         let curr = match self {
-            Statement::Assign(assignee, Expression::Mul(l, r, t), _) => Some((assignee, l, r, t)),
+            Statement::Assign(assignee, Expression::Mul(l, r, t), _) => {
+                if true {
+                    Some((assignee, l, r, t))
+                } else {
+                    if *t == Type::Point {
+                        Some((assignee, l, r, t))
+                    } else {
+                        None
+                    }
+                }
+            }
             _ => None,
         };
 

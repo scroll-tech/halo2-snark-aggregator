@@ -39,6 +39,7 @@ pub enum Expression {
     MulAdd(Rc<Expression>, Rc<Expression>, Rc<Expression>, Type),
     Pow(Rc<Expression>, usize, Type),
     Hash(usize),
+    Temp(Type),
 }
 
 impl Expression {
@@ -57,6 +58,7 @@ impl Expression {
             Expression::Scalar(_) => Type::Scalar,
             Expression::Hash(_) => Type::Scalar,
             Expression::Pow(_, _, t) => (*t).clone(),
+            Expression::Temp(t) => (*t).clone(),
         }
     }
 
@@ -64,6 +66,8 @@ impl Expression {
         match self {
             Expression::Memory(idx, Type::Scalar) => format!("m[{}]", idx),
             Expression::Memory(idx, Type::Point) => format!("(m[{}], m[{}])", idx, idx + 1),
+            Expression::Temp(Type::Scalar) => format!("t0"),
+            Expression::Temp(Type::Point) => format!("(t0, t1)"),
             _ => unreachable!(),
         }
     }
@@ -82,7 +86,7 @@ impl Expression {
         const CONST_LIMIT: u64 = 128u64;
         match self {
             Expression::Memory(idx, _) => {
-                assert!(*idx <= 127);
+                //assert!(*idx <= 127);
                 Some(MEM_SEP + *idx as u64)
             }
             Expression::TransciprtOffset(offset, _) => {
@@ -106,15 +110,15 @@ impl Expression {
         const OP_SHIFT: usize = 18usize;
         const R0_SHIFT: usize = 9usize;
         match self {
-            Expression::Add(l, r, _) => l.to_mem_code().and_then(|idx0| {
+            Expression::Add(l, r, Type::Scalar) => l.to_mem_code().and_then(|idx0| {
                 r.to_mem_code()
                     .and_then(|idx1| Some((1u64 << OP_SHIFT) + (idx0 << R0_SHIFT) + idx1))
             }),
-            Expression::Sub(l, r, _) => l.to_mem_code().and_then(|idx0| {
+            Expression::Sub(l, r, Type::Scalar) => l.to_mem_code().and_then(|idx0| {
                 r.to_mem_code()
                     .and_then(|idx1| Some((2u64 << OP_SHIFT) + (idx0 << R0_SHIFT) + idx1))
             }),
-            Expression::Mul(l, r, _) => l.to_mem_code().and_then(|idx0| {
+            Expression::Mul(l, r, Type::Scalar) => l.to_mem_code().and_then(|idx0| {
                 r.to_mem_code()
                     .and_then(|idx1| Some((3u64 << OP_SHIFT) + (idx1 << R0_SHIFT) + idx0))
             }),
@@ -183,6 +187,8 @@ impl Expression {
                 assert_eq!(*t, Type::Scalar);
                 format!("fr_pow({}, {})", (*base).to_typed_string(), exp)
             }
+            Expression::Temp(Type::Scalar) => "t0".to_owned(),
+            Expression::Temp(Type::Point) => "t0, t1".to_owned(),
         }
     }
 
@@ -235,7 +241,13 @@ impl Expression {
     pub(crate) fn substitute(&self, lookup: &HashMap<usize, usize>) -> Expression {
         let replace = |expr: &Expression| match expr {
             Expression::Memory(o, t) => match lookup.get(o) {
-                Some(v) => Expression::Memory(*v, t.clone()),
+                Some(v) => {
+                    if *v == 0xdeadbeaf {
+                        Expression::Temp(t.clone())
+                    } else {
+                        Expression::Memory(*v, t.clone())
+                    }
+                }
                 None => expr.clone(),
             },
             _ => expr.clone(),
@@ -270,7 +282,7 @@ impl Statement {
             for ops in chunks {
                 let mut bn = BigUint::from(0u64);
                 for op in ops {
-                    assert!(op < &(1u64 << OP_SIZE));
+                    //assert!(op < &(1u64 << OP_SIZE));
                     bn = bn << OP_SIZE;
                     bn = bn + op
                 }
@@ -318,7 +330,7 @@ impl Statement {
     fn to_origin_string(&self) -> Vec<String> {
         match self {
             Statement::Assign(l, r, _) => {
-                if let Expression::Hash(s) = r {
+                if let Expression::Hash(_) = r {
                     vec![format!(
                         "{} = ({});",
                         (*l).to_untyped_string(),
