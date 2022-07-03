@@ -8,7 +8,7 @@ pub(crate) fn optimize(
     intervals: &Vec<Interval>,
     lookup: &HashMap<Rc<Expression>, usize>,
 ) -> Vec<Statement> {
-    let statements = combine_mul_add(statements, intervals, lookup);
+    //let statements = combine_mul_add(statements, intervals, lookup);
     let statements = combine_fr_pow(statements, intervals, lookup);
     statements
 }

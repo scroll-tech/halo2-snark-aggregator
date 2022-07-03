@@ -82,8 +82,7 @@ impl Expression {
         const CONST_LIMIT: u64 = 128u64;
         match self {
             Expression::Memory(idx, _) => {
-                //println!("idx {}", *idx);
-                //assert!(*idx <= 127);
+                assert!(*idx <= 127);
                 Some(MEM_SEP + *idx as u64)
             }
             Expression::TransciprtOffset(offset, _) => {
@@ -119,11 +118,6 @@ impl Expression {
                 r.to_mem_code()
                     .and_then(|idx1| Some((3u64 << OP_SHIFT) + (idx1 << R0_SHIFT) + idx0))
             }),
-            Expression::Div(l, r, _) => l.to_mem_code().and_then(|idx0| {
-                r.to_mem_code()
-                    .and_then(|idx1| Some((4u64 << OP_SHIFT) + (idx0 << R0_SHIFT) + idx1))
-            }),
-            Expression::Hash(offset) => Some((5u64 << OP_SHIFT) + (offset << R0_SHIFT) as u64),
             _ => None,
         }
     }
@@ -270,7 +264,7 @@ impl Statement {
         const OP_SIZE: usize = 32usize;
         const CHUNK_SIZE: usize = 256usize;
 
-        if false && !opcodes.is_empty() {
+        if !opcodes.is_empty() {
             let chunks = opcodes.chunks(CHUNK_SIZE / OP_SIZE);
             let mut buf = vec![];
             for ops in chunks {
@@ -323,24 +317,23 @@ impl Statement {
 
     fn to_origin_string(&self) -> Vec<String> {
         match self {
-            Statement::Assign(l, r, _) => vec![format!(
-                "{} = ({});",
-                (*l).to_untyped_string(),
-                (*r).to_typed_string(),
-            )],
+            Statement::Assign(l, r, _) => {
+                if let Expression::Hash(s) = r {
+                    vec![format!(
+                        "{} = ({});",
+                        (*l).to_untyped_string(),
+                        (*r).to_typed_string(),
+                    )]
+                } else {
+                    vec![format!(
+                        "//{} = ({});",
+                        (*l).to_untyped_string(),
+                        (*r).to_typed_string(),
+                    )]
+                }
+            }
 
-            Statement::UpdateHash(e, offset) => match e.get_type() {
-                Type::Point => vec![format!(
-                    "update_hash_point({}, absorbing, {});",
-                    e.to_typed_string(),
-                    offset
-                )],
-                Type::Scalar => vec![format!(
-                    "update_hash_scalar({}, absorbing, {});",
-                    e.to_typed_string(),
-                    offset
-                )],
-            },
+            Statement::UpdateHash(_, _) => vec![],
 
             Statement::For {
                 memory_start,
@@ -353,7 +346,7 @@ impl Statement {
                 let mut output = vec![];
 
                 output.push(format!(
-                    "for (uint i = 0; i <= {}; i = i++) {{",
+                    "for (uint i = 0; i <= {}; i++) {{",
                     (memory_end - memory_start) / memory_step,
                 ));
                 match *t {
@@ -430,25 +423,16 @@ impl Statement {
                     ));
                     None
                 }
-                Type::Scalar => match e.to_mem_code() {
-                    Some(code) => {
-                        assert!(offset < &512);
-                        if SHOW_ORIGIN {
-                            ret.append(&mut self.to_origin_string());
-                        }
-                        Some((6u64 << 18) + (code << 9) + (*offset as u64))
-                    }
-                    None => {
-                        ret.append(&mut Self::opcodes_to_solidity_string(opcodes));
-                        opcodes.clear();
-                        ret.push(format!(
-                            "update_hash_scalar({}, absorbing, {});",
-                            e.to_typed_string(),
-                            offset
-                        ));
-                        None
-                    }
-                },
+                Type::Scalar => {
+                    ret.append(&mut Self::opcodes_to_solidity_string(opcodes));
+                    opcodes.clear();
+                    ret.push(format!(
+                        "update_hash_scalar({}, absorbing, {});",
+                        e.to_typed_string(),
+                        offset
+                    ));
+                    None
+                }
             },
 
             Statement::For { .. } => {
