@@ -37,11 +37,45 @@ pub enum Expression {
     Mul(Rc<Expression>, Rc<Expression>, Type),
     Div(Rc<Expression>, Rc<Expression>, Type),
     MulAdd(Rc<Expression>, Rc<Expression>, Rc<Expression>, Type),
+    MulAddPM(Rc<Expression>, BigUint, Type),
+    MulAddMT(usize, BigUint),
     Pow(Rc<Expression>, usize, Type),
     Hash(usize),
+    Temp(Type),
 }
 
 impl Expression {
+    pub fn is_memory(&self) -> bool {
+        match self {
+            Expression::Memory(..) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_transcript(&self) -> bool {
+        match self {
+            Expression::TransciprtOffset(..) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_temp(&self) -> bool {
+        match self {
+            Expression::Temp(..) => true,
+            _ => false,
+        }
+    }
+
+    pub fn try_get_offset(&self) -> Option<usize> {
+        match self {
+            Expression::Memory(offset, ..) => Some(*offset),
+            Expression::TransciprtOffset(offset, ..) => Some(*offset),
+            Expression::InstanceOffset(offset, ..) => Some(*offset),
+            Expression::TmpBufOffset(offset, ..) => Some(*offset),
+            _ => None,
+        }
+    }
+
     pub(crate) fn get_type(&self) -> Type {
         match &self {
             Expression::Memory(_, t)
@@ -57,6 +91,9 @@ impl Expression {
             Expression::Scalar(_) => Type::Scalar,
             Expression::Hash(_) => Type::Scalar,
             Expression::Pow(_, _, t) => (*t).clone(),
+            Expression::Temp(t) => (*t).clone(),
+            Expression::MulAddPM(_, _, t) => (*t).clone(),
+            Expression::MulAddMT(_, _) => Type::Scalar,
         }
     }
 
@@ -64,6 +101,8 @@ impl Expression {
         match self {
             Expression::Memory(idx, Type::Scalar) => format!("m[{}]", idx),
             Expression::Memory(idx, Type::Point) => format!("(m[{}], m[{}])", idx, idx + 1),
+            Expression::Temp(Type::Scalar) => format!("t0"),
+            Expression::Temp(Type::Point) => format!("(t0, t1)"),
             _ => unreachable!(),
         }
     }
@@ -77,12 +116,13 @@ impl Expression {
     }
 
     pub fn to_mem_code(&self) -> Option<u64> {
+        None
+        /*
         const MEM_SEP: u64 = 3u64 << 7;
         const CONST_SEP: u64 = 2u64 << 7;
         const CONST_LIMIT: u64 = 128u64;
         match self {
             Expression::Memory(idx, _) => {
-                //println!("idx {}", *idx);
                 //assert!(*idx <= 127);
                 Some(MEM_SEP + *idx as u64)
             }
@@ -101,29 +141,25 @@ impl Expression {
             }
             _ => None,
         }
+        */
     }
 
     pub fn to_short_code(&self) -> Option<u64> {
         const OP_SHIFT: usize = 18usize;
         const R0_SHIFT: usize = 9usize;
         match self {
-            Expression::Add(l, r, _) => l.to_mem_code().and_then(|idx0| {
+            Expression::Add(l, r, Type::Scalar) => l.to_mem_code().and_then(|idx0| {
                 r.to_mem_code()
                     .and_then(|idx1| Some((1u64 << OP_SHIFT) + (idx0 << R0_SHIFT) + idx1))
             }),
-            Expression::Sub(l, r, _) => l.to_mem_code().and_then(|idx0| {
+            Expression::Sub(l, r, Type::Scalar) => l.to_mem_code().and_then(|idx0| {
                 r.to_mem_code()
                     .and_then(|idx1| Some((2u64 << OP_SHIFT) + (idx0 << R0_SHIFT) + idx1))
             }),
-            Expression::Mul(l, r, _) => l.to_mem_code().and_then(|idx0| {
+            Expression::Mul(l, r, Type::Scalar) => l.to_mem_code().and_then(|idx0| {
                 r.to_mem_code()
                     .and_then(|idx1| Some((3u64 << OP_SHIFT) + (idx1 << R0_SHIFT) + idx0))
             }),
-            Expression::Div(l, r, _) => l.to_mem_code().and_then(|idx0| {
-                r.to_mem_code()
-                    .and_then(|idx1| Some((4u64 << OP_SHIFT) + (idx0 << R0_SHIFT) + idx1))
-            }),
-            Expression::Hash(offset) => Some((5u64 << OP_SHIFT) + (offset << R0_SHIFT) as u64),
             _ => None,
         }
     }
@@ -138,23 +174,35 @@ impl Expression {
             Expression::Memory(idx, Type::Point) => {
                 format!("m[{}], m[{}]", idx, idx + 1)
             }
-            Expression::Add(l, r, t) => format!(
-                "{}_add({}, {})",
-                t.to_libstring(),
+            Expression::Add(l, r, Type::Point) => format!(
+                "ecc_add({}, {})",
                 (*l).to_typed_string(),
                 (*r).to_typed_string()
             ),
-            Expression::Sub(l, r, t) => format!(
-                "{}_sub({}, {})",
-                t.to_libstring(),
+            Expression::Add(l, r, Type::Scalar) => format!(
+                "addmod({}, {}, q_mod)",
                 (*l).to_typed_string(),
                 (*r).to_typed_string()
             ),
-            Expression::Mul(s, p, t) => format!(
-                "{}_mul({}, {})",
-                t.to_libstring(),
+            Expression::Sub(l, r, Type::Point) => format!(
+                "ecc_sub({}, {})",
+                (*l).to_typed_string(),
+                (*r).to_typed_string()
+            ),
+            Expression::Sub(l, r, Type::Scalar) => format!(
+                "addmod({}, q_mod - {}, q_mod)",
+                (*l).to_typed_string(),
+                (*r).to_typed_string()
+            ),
+            Expression::Mul(s, p, Type::Point) => format!(
+                "ecc_mul({}, {})",
                 (*p).to_typed_string(),
                 (*s).to_typed_string()
+            ),
+            Expression::Mul(l, r, Type::Scalar) => format!(
+                "mulmod({}, {}, q_mod)",
+                (*l).to_typed_string(),
+                (*r).to_typed_string()
             ),
             Expression::Div(l, r, t) => format!(
                 "{}_div({}, {})",
@@ -188,6 +236,19 @@ impl Expression {
             Expression::Pow(base, exp, t) => {
                 assert_eq!(*t, Type::Scalar);
                 format!("fr_pow({}, {})", (*base).to_typed_string(), exp)
+            }
+            Expression::Temp(Type::Scalar) => "t0".to_owned(),
+            Expression::Temp(Type::Point) => "t0, t1".to_owned(),
+            Expression::MulAddPM(target, opcode, t) => {
+                format!(
+                    "{}_mul_add_pm(m, proof, {}, {})",
+                    t.to_libstring(),
+                    opcode,
+                    target.to_typed_string()
+                )
+            }
+            Expression::MulAddMT(m, opcode) => {
+                format!("fr_mul_add_mt(m, m[{}], {}, t0)", m, opcode)
             }
         }
     }
@@ -241,7 +302,13 @@ impl Expression {
     pub(crate) fn substitute(&self, lookup: &HashMap<usize, usize>) -> Expression {
         let replace = |expr: &Expression| match expr {
             Expression::Memory(o, t) => match lookup.get(o) {
-                Some(v) => Expression::Memory(*v, t.clone()),
+                Some(v) => {
+                    if *v == 0xdeadbeaf {
+                        Expression::Temp(t.clone())
+                    } else {
+                        Expression::Memory(*v, t.clone())
+                    }
+                }
                 None => expr.clone(),
             },
             _ => expr.clone(),
@@ -251,7 +318,7 @@ impl Expression {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub(crate) enum Statement {
     Assign(Rc<Expression>, Expression, Vec<BigUint>),
     UpdateHash(Rc<Expression>, usize),
@@ -270,13 +337,13 @@ impl Statement {
         const OP_SIZE: usize = 32usize;
         const CHUNK_SIZE: usize = 256usize;
 
-        if false && !opcodes.is_empty() {
+        if !opcodes.is_empty() {
             let chunks = opcodes.chunks(CHUNK_SIZE / OP_SIZE);
             let mut buf = vec![];
             for ops in chunks {
                 let mut bn = BigUint::from(0u64);
                 for op in ops {
-                    assert!(op < &(1u64 << OP_SIZE));
+                    //assert!(op < &(1u64 << OP_SIZE));
                     bn = bn << OP_SIZE;
                     bn = bn + op
                 }
@@ -323,24 +390,23 @@ impl Statement {
 
     fn to_origin_string(&self) -> Vec<String> {
         match self {
-            Statement::Assign(l, r, _) => vec![format!(
-                "{} = ({});",
-                (*l).to_untyped_string(),
-                (*r).to_typed_string(),
-            )],
+            Statement::Assign(l, r, _) => {
+                if let Expression::Hash(_) = r {
+                    vec![format!(
+                        "{} = ({});",
+                        (*l).to_untyped_string(),
+                        (*r).to_typed_string(),
+                    )]
+                } else {
+                    vec![format!(
+                        "//{} = ({});",
+                        (*l).to_untyped_string(),
+                        (*r).to_typed_string(),
+                    )]
+                }
+            }
 
-            Statement::UpdateHash(e, offset) => match e.get_type() {
-                Type::Point => vec![format!(
-                    "update_hash_point({}, absorbing, {});",
-                    e.to_typed_string(),
-                    offset
-                )],
-                Type::Scalar => vec![format!(
-                    "update_hash_scalar({}, absorbing, {});",
-                    e.to_typed_string(),
-                    offset
-                )],
-            },
+            Statement::UpdateHash(_, _) => vec![],
 
             Statement::For {
                 memory_start,
@@ -353,7 +419,7 @@ impl Statement {
                 let mut output = vec![];
 
                 output.push(format!(
-                    "for (uint i = 0; i <= {}; i = i++) {{",
+                    "for (uint i = 0; i <= {}; i++) {{",
                     (memory_end - memory_start) / memory_step,
                 ));
                 match *t {
@@ -430,25 +496,16 @@ impl Statement {
                     ));
                     None
                 }
-                Type::Scalar => match e.to_mem_code() {
-                    Some(code) => {
-                        assert!(offset < &512);
-                        if SHOW_ORIGIN {
-                            ret.append(&mut self.to_origin_string());
-                        }
-                        Some((6u64 << 18) + (code << 9) + (*offset as u64))
-                    }
-                    None => {
-                        ret.append(&mut Self::opcodes_to_solidity_string(opcodes));
-                        opcodes.clear();
-                        ret.push(format!(
-                            "update_hash_scalar({}, absorbing, {});",
-                            e.to_typed_string(),
-                            offset
-                        ));
-                        None
-                    }
-                },
+                Type::Scalar => {
+                    ret.append(&mut Self::opcodes_to_solidity_string(opcodes));
+                    opcodes.clear();
+                    ret.push(format!(
+                        "update_hash_scalar({}, absorbing, {});",
+                        e.to_typed_string(),
+                        offset
+                    ));
+                    None
+                }
             },
 
             Statement::For { .. } => {

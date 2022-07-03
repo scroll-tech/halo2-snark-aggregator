@@ -236,7 +236,7 @@ impl<P, S: Clone> EvaluationQuerySchema<P, S> {
                 } else {
                     let mut res: Vec<(_, _, Option<_>)> = vec![];
                     for s in vec![l, r] {
-                        for mut evalated in
+                        for evalated in
                             s.0.eval_prepare::<Scalar, A>(ctx, schip, one, scalar.clone())?
                         {
                             let found = res.iter_mut().find(|p| p.0 == evalated.0);

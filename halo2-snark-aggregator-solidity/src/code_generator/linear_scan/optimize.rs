@@ -196,7 +196,17 @@ impl Statement {
 
     pub fn combine_mul_add(&self, next: &Statement) -> Option<Statement> {
         let curr = match self {
-            Statement::Assign(assignee, Expression::Mul(l, r, t), _) => Some((assignee, l, r, t)),
+            Statement::Assign(assignee, Expression::Mul(l, r, t), _) => {
+                if true {
+                    Some((assignee, l, r, t))
+                } else {
+                    if *t == Type::Point {
+                        Some((assignee, l, r, t))
+                    } else {
+                        None
+                    }
+                }
+            }
             _ => None,
         };
 

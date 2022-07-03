@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 
 use crate::code_generator::ctx::Type;
 
@@ -10,17 +10,17 @@ pub(crate) struct MemoryBlock {
 
 pub(crate) struct MemoryPool {
     // 0, 1, 2, ...
-    pub(crate) free_256_block: HashSet<usize>,
+    pub(crate) free_256_block: BTreeSet<usize>,
     // 0, 2, 4, ...
-    pub(crate) free_512_block: HashSet<usize>,
+    pub(crate) free_512_block: BTreeSet<usize>,
     pub(crate) capability: usize,
 }
 
 impl Default for MemoryPool {
     fn default() -> Self {
         Self {
-            free_256_block: HashSet::<usize>::new(),
-            free_512_block: HashSet::<usize>::new(),
+            free_256_block: BTreeSet::<usize>::new(),
+            free_512_block: BTreeSet::<usize>::new(),
             capability: 0,
         }
     }

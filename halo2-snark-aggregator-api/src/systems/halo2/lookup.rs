@@ -90,6 +90,9 @@ impl<A: ArithEccChip> Evaluated<A> {
             .collect::<Result<Vec<_>, _>>()?;
         let table_eval = &schip.mul_add_accumulate(ctx, table_evals.iter().collect(), theta)?;
 
+        let t0 = &arith_ast!(one - (l_last + l_blind)).eval(ctx, schip)?;
+        let t1 = &arith_ast!(a_x - s_x).eval(ctx, schip)?;
+
         Ok(vec![
             // l_0(X) * (1 - z'(X)) = 0
             arith_ast!((l_0 * (one - z_x))).eval(ctx, schip)?,
@@ -100,15 +103,13 @@ impl<A: ArithEccChip> Evaluated<A> {
             //   - z(X) (\theta^{m-1} a_0(X) + ... + a_{m-1}(X) + \beta) (\theta^{m-1} s_0(X) + ... + s_{m-1}(X) + \gamma)
             // ) = 0
             arith_ast!(
-                ((left - ((product_eval * (input_eval + beta)) * (table_eval + gamma)))
-                    * (one - (l_last + l_blind)))
+                ((left - ((product_eval * (input_eval + beta)) * (table_eval + gamma))) * t0)
             )
             .eval(ctx, schip)?, //active rows
             // l_0(X) * (a'(X) - s'(X)) = 0
-            arith_ast!((l_0 * (a_x - s_x))).eval(ctx, schip)?,
+            arith_ast!((l_0 * t1)).eval(ctx, schip)?,
             // (1 - (l_last(X) + l_blind(X))) * (a′(X) − s′(X))⋅(a′(X) − a′(\omega^{-1} X)) = 0
-            arith_ast!((((a_x - s_x) * (a_x - a_invwx)) * (one - (l_last + l_blind))))
-                .eval(ctx, schip)?,
+            arith_ast!(((t1 * (a_x - a_invwx)) * t0)).eval(ctx, schip)?,
         ])
     }
 

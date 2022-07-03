@@ -4,7 +4,7 @@ pub(crate) mod optimize;
 
 use self::{
     live_interval::{build_intervals, Interval},
-    memory_pool::MemoryPool,
+    memory_pool::{MemoryBlock, MemoryPool},
     optimize::optimize,
 };
 use super::ctx::{CodeGeneratorCtx, Expression, Statement, Type};
@@ -21,33 +21,44 @@ fn linear_scan(
     intervals.into_iter().for_each(|i| {
         expire_old_intervals(active, &i, pool);
 
-        let mem_block = match i.t {
-            Type::Scalar => {
-                if pool.free_256_block.is_empty() {
-                    pool.expand();
-                }
-                pool.alloc_scalar()
+        let mem_block = if i.end == i.start + 1 {
+            MemoryBlock {
+                pos: 0xdeadbeaf,
+                t: Type::Scalar,
             }
-            Type::Point => {
-                if pool.free_512_block.is_empty() {
-                    pool.expand();
+        } else {
+            let mem_block = match i.t {
+                Type::Scalar => {
+                    if pool.free_256_block.is_empty() {
+                        pool.expand();
+                    }
+                    pool.alloc_scalar()
                 }
-                pool.alloc_point()
-            }
+                Type::Point => {
+                    if pool.free_512_block.is_empty() {
+                        pool.expand();
+                    }
+                    pool.alloc_point()
+                }
+            };
+
+            mem_block
         };
 
         let mut replaced_expr = HashMap::<usize, usize>::new();
         replaced_expr.insert(i.expr.clone(), mem_block.pos);
+
         for statement in &mut statements[i.start..] {
             *statement = statement.substitute(&replaced_expr);
         }
-
         for expression in expressions.as_mut_slice() {
             *expression = expression.substitute(&replaced_expr);
         }
 
-        i.mem_block = Some(mem_block);
-        active.insert(i.clone());
+        if mem_block.pos != 0xdeadbeaf {
+            i.mem_block = Some(mem_block);
+            active.insert(i.clone());
+        }
     });
 
     pool.capability
