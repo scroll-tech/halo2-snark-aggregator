@@ -30,7 +30,6 @@ impl Default for UpdateHashMerger {
     }
 }
 impl GroupOptimizer for UpdateHashMerger {
-    type Optimizer = Self;
 
     fn try_start(&mut self, statement: &Statement) -> Action {
         match statement {

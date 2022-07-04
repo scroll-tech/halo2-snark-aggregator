@@ -9,6 +9,7 @@ pub(crate) struct Interval {
     pub(crate) mem_block: Option<MemoryBlock>,
     pub(crate) start: usize,
     pub(crate) end: usize,
+    pub(crate) value: Expression,
 }
 
 pub(crate) fn build_intervals(
@@ -35,6 +36,7 @@ pub(crate) fn build_intervals(
                     expr: offset,
                     t: l.get_type(),
                     mem_block: None,
+                    value: r.clone()
                 };
 
                 lookup.insert(l.clone(), intervals.len());

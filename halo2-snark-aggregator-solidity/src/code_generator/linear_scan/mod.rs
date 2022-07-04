@@ -21,7 +21,7 @@ fn linear_scan(
     intervals.into_iter().for_each(|i| {
         expire_old_intervals(active, &i, pool);
 
-        let mem_block = if i.end == i.start + 1 {
+        let mem_block = if i.end == i.start + 1 && i.value.is_mul_add() {
             MemoryBlock {
                 pos: 0xdeadbeaf,
                 t: Type::Scalar,

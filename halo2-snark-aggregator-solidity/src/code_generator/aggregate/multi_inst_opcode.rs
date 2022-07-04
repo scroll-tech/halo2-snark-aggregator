@@ -1,14 +1,19 @@
-use crate::code_generator::ctx::{Expression, Statement};
+use std::rc::Rc;
+
+use num_bigint::BigUint;
 
 use super::{Action, GroupOptimizer};
+use crate::code_generator::ctx::{Expression, Statement, Type};
 
-const CAPABILITY: usize = 1;
+const CAPABILITY: usize = 16;
 
 pub(crate) struct MultiInstOpcode {
     unresolved_statements: Vec<Statement>,
     target: Option<Expression>,
     byte_pairs: Vec<(usize, usize)>,
     capability: usize,
+    t: Type,
+    samples: Vec<BigUint>,
 }
 
 impl Default for MultiInstOpcode {
@@ -18,6 +23,8 @@ impl Default for MultiInstOpcode {
             byte_pairs: Default::default(),
             capability: CAPABILITY,
             unresolved_statements: vec![],
+            t: Type::Scalar,
+            samples: vec![],
         }
     }
 }
@@ -28,15 +35,16 @@ impl MultiInstOpcode {
     }
 }
 
-fn extract_fr_mul_add(statement: &Statement) -> Option<(usize, usize, Expression)> {
+fn extract_fr_mul_add(statement: &Statement) -> Option<(usize, usize, Expression, Vec<BigUint>)> {
     match statement {
-        Statement::Assign(l, r, _) => match r {
-            crate::code_generator::ctx::Expression::MulAdd(a, b, c, _) => {
-                if a.is_transcript() && b.is_memory() && c == l {
+        Statement::Assign(l, r, samples) => match r {
+            crate::code_generator::ctx::Expression::MulAdd(a, b, c, Type::Scalar) => {
+                if a.is_transcript() && b.is_memory() && c.is_temp() && l.is_temp() {
                     Some((
                         a.try_get_offset().unwrap(),
                         b.try_get_offset().unwrap(),
                         c.as_ref().clone(),
+                        samples.clone(),
                     ))
                 } else {
                     None
@@ -49,13 +57,13 @@ fn extract_fr_mul_add(statement: &Statement) -> Option<(usize, usize, Expression
 }
 
 impl GroupOptimizer for MultiInstOpcode {
-    type Optimizer = Self;
-
     fn try_start(&mut self, statement: &crate::code_generator::ctx::Statement) -> super::Action {
-        if let Some((proof_offset, memory_offset, target)) = extract_fr_mul_add(statement) {
+        if let Some((proof_offset, memory_offset, target, samples)) = extract_fr_mul_add(statement)
+        {
             self.byte_pairs.push((proof_offset, memory_offset));
-
             self.target = Some(target);
+            self.samples = samples;
+            println!("start!");
             Action::Continue
         } else {
             Action::Skip
@@ -67,20 +75,36 @@ impl GroupOptimizer for MultiInstOpcode {
             return Action::Complete;
         }
 
-        if let Some((proof_offset, memory_offset, target)) = extract_fr_mul_add(statement) {
+        if let Some((proof_offset, memory_offset, target, samples)) = extract_fr_mul_add(statement)
+        {
             if target == *self.target.as_ref().unwrap() {
+                println!("merge!");
                 self.byte_pairs.push((proof_offset, memory_offset));
+                self.samples = samples;
                 Action::Continue
             } else {
-                Action::Terminate
+                Action::Abort
             }
         } else {
-            Action::Terminate
+            Action::Abort
         }
     }
 
     fn to_statement(&self) -> crate::code_generator::ctx::Statement {
-        todo!()
+        let opcode = self
+            .byte_pairs
+            .iter()
+            .rev()
+            .fold(0xffff, |acc, (p, m)| (acc << 16) | (m << 8) | p);
+        Statement::Assign(
+            Rc::new(Expression::Temp(self.t.clone())),
+            Expression::MulAddPM(
+                Rc::new(self.target.clone().unwrap()),
+                opcode,
+                self.t.clone(),
+            ),
+            self.samples.clone(),
+        )
     }
 
     fn unresolved_statements(&self) -> Vec<Statement> {
@@ -94,6 +118,6 @@ impl GroupOptimizer for MultiInstOpcode {
     }
 
     fn can_complete(&self) -> bool {
-        self.is_complete()
+        self.byte_pairs.len() > 1
     }
 }

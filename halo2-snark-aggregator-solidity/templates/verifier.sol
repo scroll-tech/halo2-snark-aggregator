@@ -157,6 +157,27 @@ contract Verifier {
         return fr_add(fr_mul(a, b), c);
     }
 
+    function fr_mul_add_pm(
+        uint256[] memory m,
+        uint256[] memory proof,
+        uint256 t,
+        uint256 opcode
+    ) internal pure returns (uint256) {
+        for (uint256 i = 0; i < 32; i += 2) {
+            uint256 a = opcode & 0xff;
+            if (a != 0xff) {
+                opcode >>= 8;
+                uint256 b = opcode & 0xff;
+                opcode >>= 8;
+                t = fr_add(fr_mul(proof[a], m[b]), t);
+            } else {
+                break;
+            }
+        }
+
+        return t;
+    }
+
     function fr_reverse(uint256 input) internal pure returns (uint256 v) {
         v = input;
 

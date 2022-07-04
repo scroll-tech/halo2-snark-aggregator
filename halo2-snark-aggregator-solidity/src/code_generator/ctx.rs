@@ -37,6 +37,7 @@ pub enum Expression {
     Mul(Rc<Expression>, Rc<Expression>, Type),
     Div(Rc<Expression>, Rc<Expression>, Type),
     MulAdd(Rc<Expression>, Rc<Expression>, Rc<Expression>, Type),
+    MulAddPM(Rc<Expression>, usize, Type),
     Pow(Rc<Expression>, usize, Type),
     Hash(usize),
     Temp(Type),
@@ -53,6 +54,20 @@ impl Expression {
     pub fn is_transcript(&self) -> bool {
         match self {
             Expression::TransciprtOffset(..) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_temp(&self) -> bool {
+        match self {
+            Expression::Temp(..) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_mul_add(&self) -> bool {
+        match self {
+            Expression::MulAdd(..) => true,
             _ => false,
         }
     }
@@ -83,6 +98,7 @@ impl Expression {
             Expression::Hash(_) => Type::Scalar,
             Expression::Pow(_, _, t) => (*t).clone(),
             Expression::Temp(t) => (*t).clone(),
+            Expression::MulAddPM(_, _, t) => (*t).clone(),
         }
     }
 
@@ -213,6 +229,14 @@ impl Expression {
             }
             Expression::Temp(Type::Scalar) => "t0".to_owned(),
             Expression::Temp(Type::Point) => "t0, t1".to_owned(),
+            Expression::MulAddPM(target, opcode, t) => {
+                format!(
+                    "{}_mul_add_pm(m, proof, {}, {})",
+                    t.to_libstring(),
+                    opcode,
+                    target.to_typed_string()
+                )
+            }
         }
     }
 
@@ -281,7 +305,7 @@ impl Expression {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub(crate) enum Statement {
     Assign(Rc<Expression>, Expression, Vec<BigUint>),
     UpdateHash(Rc<Expression>, usize),

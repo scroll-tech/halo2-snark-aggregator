@@ -1,8 +1,7 @@
-use crate::code_generator::aggregate::multi_inst_opcode::MultiInstOpcode;
-
 use self::update_hash::UpdateHashMerger;
 use super::ctx::{CodeGeneratorCtx, Statement};
-use std::{cell::RefCell, rc::Rc};
+use crate::code_generator::aggregate::multi_inst_opcode::MultiInstOpcode;
+use std::any::Any;
 
 mod multi_inst_opcode;
 mod update_hash;
@@ -21,14 +20,12 @@ pub(crate) enum Action {
     // Merged
     Continue,
     // Failed, should re-dump feeded statements
-    Terminate,
+    Abort,
     // Success
     Complete,
 }
 
-trait GroupOptimizer: Default {
-    type Optimizer: Sized;
-
+trait GroupOptimizer: Any {
     fn try_start(&mut self, statement: &Statement) -> Action;
     fn try_merge(&mut self, statement: &Statement) -> Action;
     fn to_statement(&self) -> Statement;
@@ -38,13 +35,15 @@ trait GroupOptimizer: Default {
 }
 
 pub(crate) fn aggregate(mut ctx: CodeGeneratorCtx) -> CodeGeneratorCtx {
-    let mut statements = vec![];
-
-    let update_hash_merger = Rc::new(RefCell::new(UpdateHashMerger::default()));
-    let multi_inst_opcode_merger = Rc::new(RefCell::new(MultiInstOpcode::default()));
+    let update_hash_merger = Box::new(UpdateHashMerger::default());
+    let multi_inst_opcode_merger = Box::new(MultiInstOpcode::default());
 
     // Replace todo! with multi_inst_opcode_merger
-    let optimizer: Vec<Rc<RefCell<_>>> = vec![update_hash_merger, todo!()];
+    let mut optimizer: Vec<Box<dyn GroupOptimizer>> =
+        vec![
+            update_hash_merger,
+            //multi_inst_opcode_merger
+        ];
     /*
      * Status of optimizer
      *
@@ -69,117 +68,57 @@ pub(crate) fn aggregate(mut ctx: CodeGeneratorCtx) -> CodeGeneratorCtx {
      *               not move iterator forward
      *   + Terminate: (Active -> Terminated -> Disabled) Unmergeable statement, optimizer should be flushed and try to enable a new optimizer
      */
-    let mut it = ctx.assignments.iter();
-    let mut cursor: Option<_> = it.next();
-    let mut status = Status::Disabled;
-    let mut opt_in_processing = None;
 
-    loop {
-        match cursor {
-            Some(statement) => {
-                match statement {
-                    // Only the following statements can be optimized
-                    super::ctx::Statement::Assign(..) | super::ctx::Statement::UpdateHash(..) => {
-                        if status == Status::Disabled {
-                            let mut action = Action::Skip;
+    for optimizer in optimizer.iter_mut() {
+        let mut it = ctx.assignments.iter();
+        let mut statements = vec![];
+        let mut status = Status::Disabled;
 
-                            for candidate_opt in optimizer.iter() {
-                                if candidate_opt.borrow_mut().try_start(statement)
-                                    == Action::Continue
-                                {
-                                    opt_in_processing = Some(candidate_opt);
-                                    action = Action::Continue;
-                                    break;
-                                }
-                            }
-
-                            // Disable -> Disable
-                            if action == Action::Skip {
-                                statements.push(statement.clone());
-                                cursor = it.next();
-                                continue;
-                            }
-
-                            // Disable -> Active
-                            if action == Action::Continue {
-                                status = Status::Active;
-                                cursor = it.next();
-                                continue;
-                            }
-
-                            unreachable!();
+        let mut cursor: Option<_> = it.next();
+        while let Some(statement) = cursor {
+            match status {
+                Status::Disabled => {
+                    match optimizer.as_mut().try_start(statement) {
+                        Action::Continue => {
+                            status = Status::Active;
                         }
-
-                        if status == Status::Active {
-                            let action =
-                                opt_in_processing.unwrap().borrow_mut().try_merge(statement);
-
-                            // active -> active
-                            if action == Action::Continue {
-                                cursor = it.next();
-
-                                status = Status::Active;
-                                continue;
-                            }
-
-                            if action == Action::Complete {
-                                statements.push(opt_in_processing.unwrap().borrow().to_statement());
-
-                                status = Status::Terminated;
-                                // should NOT move iterator
-                                continue;
-                            }
-
-                            // active -> terminated
-                            if action == Action::Terminate {
-                                statements.append(
-                                    &mut opt_in_processing
-                                        .unwrap()
-                                        .borrow()
-                                        .unresolved_statements(),
-                                );
-                                status = Status::Terminated;
-                                // should NOT move iterator
-                                continue;
-                            }
+                        Action::Skip => {
+                            statements.push(statement.clone());
                         }
-
-                        // terminated -> disabled
-                        if status == Status::Terminated {
-                            // flush opt
-                            opt_in_processing.unwrap().borrow_mut().reset();
-                            opt_in_processing = None;
-
-                            status = Status::Disabled;
-                            continue;
-                        }
+                        _ => unreachable!(),
                     }
-                    // Other statements cannot be genenated before this pass
-                    _ => unreachable!(),
+                    cursor = it.next();
                 }
-            }
-            None => {
-                if status != Status::Disabled {
-                    if opt_in_processing.unwrap().borrow().can_complete() {
-                        statements.push(opt_in_processing.unwrap().borrow().to_statement());
-                    } else {
-                        statements.append(
-                            &mut opt_in_processing.unwrap().borrow().unresolved_statements(),
-                        );
+                Status::Active => match optimizer.as_mut().try_merge(statement) {
+                    Action::Skip => unreachable!(),
+                    Action::Continue => cursor = it.next(),
+                    Action::Abort => {
+                        statements.append(&mut optimizer.as_ref().unresolved_statements());
+                        status = Status::Terminated;
                     }
-
-                    opt_in_processing = None;
+                    Action::Complete => {
+                        statements.push(optimizer.as_ref().to_statement());
+                        status = Status::Terminated;
+                    }
+                },
+                Status::Terminated => {
+                    optimizer.as_mut().reset();
                     status = Status::Disabled;
+                    continue;
                 }
-                break;
             }
         }
+
+        if status != Status::Disabled {
+            if optimizer.as_ref().can_complete() {
+                statements.push(optimizer.as_ref().to_statement());
+            } else {
+                statements.append(&mut optimizer.as_ref().unresolved_statements());
+            }
+        }
+
+        ctx.assignments = statements;
     }
-
-    assert!(status == Status::Disabled);
-    assert!(opt_in_processing.is_none());
-
-    ctx.assignments = statements;
 
     ctx
 }
