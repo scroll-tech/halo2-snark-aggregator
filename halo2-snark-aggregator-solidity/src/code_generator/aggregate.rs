@@ -1,134 +1,183 @@
-use std::{ops::Deref, rc::Rc};
+use crate::code_generator::aggregate::multi_inst_opcode::MultiInstOpcode;
 
-use crate::code_generator::ctx::Expression;
+use self::update_hash::UpdateHashMerger;
+use super::ctx::{CodeGeneratorCtx, Statement};
+use std::{cell::RefCell, rc::Rc};
 
-use super::ctx::{CodeGeneratorCtx, Statement, Type};
+mod multi_inst_opcode;
+mod update_hash;
 
-struct Merge {
-    memory_offset_start: usize,
-    memory_offset_end: usize,
-    absorbing_start: usize,
-    absorbing_end: usize,
-    step_memory_offset: usize,
-    step_absorbing_offset: usize,
-    in_processing: bool,
-    t: Type,
+#[derive(PartialEq)]
+pub(crate) enum Status {
+    Disabled,
+    Active,
+    Terminated,
 }
 
-impl Default for Merge {
-    fn default() -> Self {
-        Self {
-            memory_offset_start: Default::default(),
-            memory_offset_end: Default::default(),
-            absorbing_start: Default::default(),
-            absorbing_end: Default::default(),
-            step_memory_offset: Default::default(),
-            step_absorbing_offset: Default::default(),
-            in_processing: false,
-            t: Type::Scalar,
-        }
-    }
+#[derive(PartialEq)]
+pub(crate) enum Action {
+    // Failed to merge
+    Skip,
+    // Merged
+    Continue,
+    // Failed, should re-dump feeded statements
+    Terminate,
+    // Success
+    Complete,
 }
-impl Merge {
-    fn try_start(statement: &Statement) -> Option<Self> {
-        match statement {
-            Statement::UpdateHash(e, absorbing_offset) => match e.deref() {
-                super::ctx::Expression::TransciprtOffset(memory_offset, t) => Some(Self {
-                    memory_offset_start: *memory_offset,
-                    memory_offset_end: *memory_offset,
-                    absorbing_start: *absorbing_offset,
-                    absorbing_end: *absorbing_offset,
-                    step_memory_offset: if *t == Type::Scalar { 1 } else { 2 },
-                    step_absorbing_offset: if *t == Type::Scalar { 2 } else { 3 },
-                    in_processing: true,
-                    t: t.clone(),
-                }),
-                _ => None,
-            },
-            _ => None,
-        }
-    }
 
-    fn try_merge(&mut self, statement: &Statement) -> bool {
-        if let super::ctx::Statement::UpdateHash(e, absorbing_offset) = statement {
-            if let Expression::TransciprtOffset(memory_offset, ty) = &*(e.clone()) {
-                if memory_offset - self.memory_offset_end == self.step_memory_offset
-                    && absorbing_offset - self.absorbing_end == self.step_absorbing_offset
-                    && *ty == self.t
-                {
-                    self.memory_offset_end = *memory_offset;
-                    self.absorbing_end = *absorbing_offset;
-                    true
-                } else {
-                    false
-                }
-            } else {
-                false
-            }
-        } else {
-            false
-        }
-    }
+trait GroupOptimizer: Default {
+    type Optimizer: Sized;
 
-    fn to_statement(&self) -> Statement {
-        if self.memory_offset_start == self.memory_offset_end {
-            Statement::UpdateHash(
-                Rc::new(Expression::TransciprtOffset(
-                    self.memory_offset_start,
-                    Type::Scalar,
-                )),
-                self.absorbing_start,
-            )
-        } else {
-            Statement::For {
-                memory_start: self.memory_offset_start,
-                memory_end: self.memory_offset_end,
-                memory_step: self.step_memory_offset,
-                absorbing_start: self.absorbing_start,
-                absorbing_step: self.step_absorbing_offset,
-                t: self.t.clone(),
-            }
-        }
-    }
+    fn try_start(&mut self, statement: &Statement) -> Action;
+    fn try_merge(&mut self, statement: &Statement) -> Action;
+    fn to_statement(&self) -> Statement;
+    fn unresolved_statements(&self) -> Vec<Statement>;
+    fn reset(&mut self);
+    fn can_complete(&self) -> bool;
 }
 
 pub(crate) fn aggregate(mut ctx: CodeGeneratorCtx) -> CodeGeneratorCtx {
     let mut statements = vec![];
-    let mut merge = Merge::default();
 
-    macro_rules! flush_merge {
-        () => {
-            if merge.in_processing {
-                statements.push(merge.to_statement());
+    let update_hash_merger = Rc::new(RefCell::new(UpdateHashMerger::default()));
+    let multi_inst_opcode_merger = Rc::new(RefCell::new(MultiInstOpcode::default()));
 
-                merge = Merge::default();
-            }
-        };
-    }
+    // Replace todo! with multi_inst_opcode_merger
+    let optimizer: Vec<Rc<RefCell<_>>> = vec![update_hash_merger, todo!()];
+    /*
+     * Status of optimizer
+     *
+     *  +-------------------+
+     *  |  Skip             |
+     *  |                   v
+     *  +-----------------  Disabled(try to start for each statement)  <-+
+     *                                                                   |
+     *                      |    Continue                                |
+     *                                                                   |
+     *  +---------------->  Active(opt_in_processing.is_some())          | Terminate(stage 2)
+     *  | Continue                                                       |
+     *  +-----------------  |    Terminate/Complete                      |
+     *                                                                   |
+     *                      Terminated ----------------------------------+
+     *
+     * Action for state transition
+     *
+     *   + Skip: (Disabled -> Disabled) failed to merge in, processing statement should be output
+     *   + Continue: (Disabled/Active -> Active) merged, statement should be fed into optimizer
+     *   + Complete: Successfully group a batch of instructions, HOWEVER the current instruction is not included, so you should
+     *               not move iterator forward
+     *   + Terminate: (Active -> Terminated -> Disabled) Unmergeable statement, optimizer should be flushed and try to enable a new optimizer
+     */
+    let mut it = ctx.assignments.iter();
+    let mut cursor: Option<_> = it.next();
+    let mut status = Status::Disabled;
+    let mut opt_in_processing = None;
 
-    ctx.assignments
-        .iter()
-        .for_each(|statement| match statement {
-            super::ctx::Statement::Assign(..) => {
-                flush_merge!();
-                statements.push(statement.clone())
-            }
-            super::ctx::Statement::UpdateHash(e, _t) => {
-                if merge.in_processing && merge.try_merge(statement) {
-                    // do nothing
-                } else {
-                    flush_merge!();
-                    let merge_opt = Merge::try_start(statement);
-                    match merge_opt {
-                        Some(m) => merge = m,
-                        None => statements.push(statement.clone()),
+    loop {
+        match cursor {
+            Some(statement) => {
+                match statement {
+                    // Only the following statements can be optimized
+                    super::ctx::Statement::Assign(..) | super::ctx::Statement::UpdateHash(..) => {
+                        if status == Status::Disabled {
+                            let mut action = Action::Skip;
+
+                            for candidate_opt in optimizer.iter() {
+                                if candidate_opt.borrow_mut().try_start(statement)
+                                    == Action::Continue
+                                {
+                                    opt_in_processing = Some(candidate_opt);
+                                    action = Action::Continue;
+                                    break;
+                                }
+                            }
+
+                            // Disable -> Disable
+                            if action == Action::Skip {
+                                statements.push(statement.clone());
+                                cursor = it.next();
+                                continue;
+                            }
+
+                            // Disable -> Active
+                            if action == Action::Continue {
+                                status = Status::Active;
+                                cursor = it.next();
+                                continue;
+                            }
+
+                            unreachable!();
+                        }
+
+                        if status == Status::Active {
+                            let action =
+                                opt_in_processing.unwrap().borrow_mut().try_merge(statement);
+
+                            // active -> active
+                            if action == Action::Continue {
+                                cursor = it.next();
+
+                                status = Status::Active;
+                                continue;
+                            }
+
+                            if action == Action::Complete {
+                                statements.push(opt_in_processing.unwrap().borrow().to_statement());
+
+                                status = Status::Terminated;
+                                // should NOT move iterator
+                                continue;
+                            }
+
+                            // active -> terminated
+                            if action == Action::Terminate {
+                                statements.append(
+                                    &mut opt_in_processing
+                                        .unwrap()
+                                        .borrow()
+                                        .unresolved_statements(),
+                                );
+                                status = Status::Terminated;
+                                // should NOT move iterator
+                                continue;
+                            }
+                        }
+
+                        // terminated -> disabled
+                        if status == Status::Terminated {
+                            // flush opt
+                            opt_in_processing.unwrap().borrow_mut().reset();
+                            opt_in_processing = None;
+
+                            status = Status::Disabled;
+                            continue;
+                        }
                     }
+                    // Other statements cannot be genenated before this pass
+                    _ => unreachable!(),
                 }
             }
-            super::ctx::Statement::For { .. } => unreachable!(),
-        });
+            None => {
+                if status != Status::Disabled {
+                    if opt_in_processing.unwrap().borrow().can_complete() {
+                        statements.push(opt_in_processing.unwrap().borrow().to_statement());
+                    } else {
+                        statements.append(
+                            &mut opt_in_processing.unwrap().borrow().unresolved_statements(),
+                        );
+                    }
 
-    flush_merge!();
+                    opt_in_processing = None;
+                    status = Status::Disabled;
+                }
+                break;
+            }
+        }
+    }
+
+    assert!(status == Status::Disabled);
+    assert!(opt_in_processing.is_none());
 
     ctx.assignments = statements;
 

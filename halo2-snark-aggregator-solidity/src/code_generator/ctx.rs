@@ -43,6 +43,30 @@ pub enum Expression {
 }
 
 impl Expression {
+    pub fn is_memory(&self) -> bool {
+        match self {
+            Expression::Memory(..) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_transcript(&self) -> bool {
+        match self {
+            Expression::TransciprtOffset(..) => true,
+            _ => false,
+        }
+    }
+
+    pub fn try_get_offset(&self) -> Option<usize> {
+        match self {
+            Expression::Memory(offset, ..) => Some(*offset),
+            Expression::TransciprtOffset(offset, ..) => Some(*offset),
+            Expression::InstanceOffset(offset, ..) => Some(*offset),
+            Expression::TmpBufOffset(offset, ..) => Some(*offset),
+            _ => None,
+        }
+    }
+
     pub(crate) fn get_type(&self) -> Type {
         match &self {
             Expression::Memory(_, t)
