@@ -66,13 +66,6 @@ impl Expression {
         }
     }
 
-    pub fn is_mul_add(&self) -> bool {
-        match self {
-            Expression::MulAdd(..) => true,
-            _ => false,
-        }
-    }
-
     pub fn try_get_offset(&self) -> Option<usize> {
         match self {
             Expression::Memory(offset, ..) => Some(*offset),

@@ -96,6 +96,9 @@ impl<A: ArithEccChip> Evaluated<A> {
         //   z_i(\omega X) \prod (p(X) + \beta s_i(X) + \gamma)
         // - z_i(X) \prod (p(X) + \delta^i \beta X + \gamma)
         // )
+        let t0 = &arith_ast!((beta * x)).eval(ctx, schip)?;
+        let t1 = &arith_ast!(one - (l_last + l_blind)).eval(ctx, schip)?;
+
         for (chunk_index, ((set, evals), permutation_evals)) in self
             .sets
             .iter()
@@ -113,20 +116,21 @@ impl<A: ArithEccChip> Evaluated<A> {
             };
 
             let delta_pow = &delta_pow;
-            let mut d = arith_ast!(((beta * x) * delta_pow)).eval(ctx, schip)?;
+            let mut d = arith_ast!((t0 * delta_pow)).eval(ctx, schip)?;
 
             for (eval, permutation_eval) in evals.iter().zip(permutation_evals) {
+                let t2 = &arith_ast!(eval + gamma).eval(ctx, schip)?;
                 let delta_current = &d;
                 let l_current = &left;
                 let r_current = &right;
-                left = arith_ast!(((eval + (beta * permutation_eval) + gamma) * l_current))
+                left = arith_ast!(((t2 + (beta * permutation_eval)) * l_current))
                     .eval(ctx, schip)?;
                 right =
-                    arith_ast!(((eval + delta_current + gamma) * r_current)).eval(ctx, schip)?;
+                    arith_ast!(((t2 + delta_current) * r_current)).eval(ctx, schip)?;
                 d = arith_ast!((delta * delta_current)).eval(ctx, schip)?;
             }
             let (l, r) = (&left, &right);
-            res.push(arith_ast!(((l - r) * (one - (l_last + l_blind)))).eval(ctx, schip)?);
+            res.push(arith_ast!(((l - r) * t1)).eval(ctx, schip)?);
         }
 
         Ok(res)
