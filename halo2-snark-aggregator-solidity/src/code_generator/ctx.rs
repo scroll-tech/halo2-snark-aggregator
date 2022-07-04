@@ -123,6 +123,8 @@ impl Expression {
     }
 
     pub fn to_mem_code(&self) -> Option<u64> {
+        None
+        /*
         const MEM_SEP: u64 = 3u64 << 7;
         const CONST_SEP: u64 = 2u64 << 7;
         const CONST_LIMIT: u64 = 128u64;
@@ -146,6 +148,7 @@ impl Expression {
             }
             _ => None,
         }
+        */
     }
 
     pub fn to_short_code(&self) -> Option<u64> {
@@ -178,23 +181,35 @@ impl Expression {
             Expression::Memory(idx, Type::Point) => {
                 format!("m[{}], m[{}]", idx, idx + 1)
             }
-            Expression::Add(l, r, t) => format!(
-                "{}_add({}, {})",
-                t.to_libstring(),
+            Expression::Add(l, r, Type::Point) => format!(
+                "ecc_add({}, {})",
                 (*l).to_typed_string(),
                 (*r).to_typed_string()
             ),
-            Expression::Sub(l, r, t) => format!(
-                "{}_sub({}, {})",
-                t.to_libstring(),
+            Expression::Add(l, r, Type::Scalar) => format!(
+                "addmod({}, {}, q_mod)",
                 (*l).to_typed_string(),
                 (*r).to_typed_string()
             ),
-            Expression::Mul(s, p, t) => format!(
-                "{}_mul({}, {})",
-                t.to_libstring(),
+            Expression::Sub(l, r, Type::Point) => format!(
+                "ecc_sub({}, {})",
+                (*l).to_typed_string(),
+                (*r).to_typed_string()
+            ),
+            Expression::Sub(l, r, Type::Scalar) => format!(
+                "addmod({}, q_mod - {}, q_mod)",
+                (*l).to_typed_string(),
+                (*r).to_typed_string()
+            ),
+            Expression::Mul(s, p, Type::Point) => format!(
+                "ecc_mul({}, {})",
                 (*p).to_typed_string(),
                 (*s).to_typed_string()
+            ),
+            Expression::Mul(l, r, Type::Scalar) => format!(
+                "mulmod({}, {}, q_mod)",
+                (*l).to_typed_string(),
+                (*r).to_typed_string()
             ),
             Expression::Div(l, r, t) => format!(
                 "{}_div({}, {})",

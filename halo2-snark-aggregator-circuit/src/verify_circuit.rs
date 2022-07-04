@@ -524,7 +524,7 @@ impl CreateProof {
 
         let instances: &[&[&[C::ScalarExt]]] = &[&[&verify_circuit_instances[..]]];
         let mut transcript =
-            ShaWrite::<_, _, Challenge255<_>, sha3::Keccak256>::init(vec![], vec![]);
+            ShaWrite::<_, _, Challenge255<_>, sha2::Sha256>::init(vec![], vec![]);
         create_proof(
             &verify_circuit_params,
             &verify_circuit_pk,
@@ -615,7 +615,7 @@ impl VerifyCheck {
             verify_circuit_instance1.iter().map(|x| &x[..]).collect();
 
         let mut transcript =
-            ShaRead::<_, _, Challenge255<_>, sha3::Keccak256>::init(&self.proof[..]);
+            ShaRead::<_, _, Challenge255<_>, sha2::Sha256>::init(&self.proof[..]);
 
         verify_proof(
             &params,
