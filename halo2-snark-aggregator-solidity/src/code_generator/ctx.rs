@@ -37,7 +37,8 @@ pub enum Expression {
     Mul(Rc<Expression>, Rc<Expression>, Type),
     Div(Rc<Expression>, Rc<Expression>, Type),
     MulAdd(Rc<Expression>, Rc<Expression>, Rc<Expression>, Type),
-    MulAddPM(Rc<Expression>, usize, Type),
+    MulAddPM(Rc<Expression>, BigUint, Type),
+    MulAddMT(usize, BigUint),
     Pow(Rc<Expression>, usize, Type),
     Hash(usize),
     Temp(Type),
@@ -99,6 +100,7 @@ impl Expression {
             Expression::Pow(_, _, t) => (*t).clone(),
             Expression::Temp(t) => (*t).clone(),
             Expression::MulAddPM(_, _, t) => (*t).clone(),
+            Expression::MulAddMT(_, _) => Type::Scalar,
         }
     }
 
@@ -236,6 +238,9 @@ impl Expression {
                     opcode,
                     target.to_typed_string()
                 )
+            }
+            Expression::MulAddMT(m, opcode) => {
+                format!("fr_mul_add_mt(m, m[{}], {}, t0)", m, opcode)
             }
         }
     }

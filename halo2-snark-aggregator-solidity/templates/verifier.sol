@@ -6,8 +6,8 @@ contract Verifier {
     uint32 constant c_sep = 2 << 7;
 
     function convert_scalar(
-        uint256[] memory m,
-        uint256[] memory proof,
+        uint256[{{memory_size}}] memory m,
+        uint256[] calldata proof,
         uint256 v
     ) internal pure returns (uint256) {
         if (v >= m_sep) {
@@ -20,8 +20,8 @@ contract Verifier {
     }
 
     function convert_point(
-        uint256[] memory m,
-        uint256[] memory proof,
+        uint256[{{memory_size}}] memory m,
+        uint256[] calldata proof,
         uint256 v
     ) internal pure returns (uint256, uint256) {
         if (v >= m_sep) {
@@ -34,8 +34,8 @@ contract Verifier {
     }
 
     function update(
-        uint256[] memory m,
-        uint256[] memory proof,
+        uint256[{{memory_size}}] memory m,
+        uint256[] calldata proof,
         uint256[] memory absorbing,
         uint256 opcodes
     ) internal view {
@@ -56,9 +56,9 @@ contract Verifier {
                 buf[0] = convert_scalar(m, proof, r0);
                 buf[1] = convert_scalar(m, proof, r1);
                 if (op == 1) {
-                    m[l] = fr_add(buf[0], buf[1]);
+                    m[l] = addmod(buf[0], buf[1], q_mod);
                 } else if (op == 3) {
-                    m[l] = fr_mul(buf[0], buf[1]);
+                    m[l] = mulmod(buf[0], buf[1], q_mod);
                 } else if (op == 2) {
                     m[l] = fr_sub(buf[0], buf[1]);
                 } else if (op == 4) {
@@ -154,14 +154,14 @@ contract Verifier {
         uint256 b,
         uint256 c
     ) internal pure returns (uint256) {
-        return fr_add(fr_mul(a, b), c);
+        return addmod(mulmod(a, b, q_mod), c, q_mod);
     }
 
     function fr_mul_add_pm(
-        uint256[] memory m,
-        uint256[] memory proof,
-        uint256 t,
-        uint256 opcode
+        uint256[{{memory_size}}] memory m,
+        uint256[] calldata proof,
+        uint256 opcode,
+        uint256 t
     ) internal pure returns (uint256) {
         for (uint256 i = 0; i < 32; i += 2) {
             uint256 a = opcode & 0xff;
@@ -169,7 +169,26 @@ contract Verifier {
                 opcode >>= 8;
                 uint256 b = opcode & 0xff;
                 opcode >>= 8;
-                t = fr_add(fr_mul(proof[a], m[b]), t);
+                t = addmod(mulmod(proof[a], m[b], q_mod), t, q_mod);
+            } else {
+                break;
+            }
+        }
+
+        return t;
+    }
+
+    function fr_mul_add_mt(
+        uint256[76] memory m,
+        uint256 base,
+        uint256 opcode,
+        uint256 t
+    ) internal pure returns (uint256) {
+        for (uint256 i = 0; i < 32; i += 1) {
+            uint256 a = opcode & 0xff;
+            if (a != 0xff) {
+                opcode >>= 8;
+                t = addmod(mulmod(base, t, q_mod), m[a], q_mod);
             } else {
                 break;
             }
@@ -298,6 +317,28 @@ contract Verifier {
         (x, y) = ecc_mul(px, py, s);
         return ecc_add(x, y, qx, qy);
     }
+    
+    function ecc_mul_add_pm(
+        uint256[{{memory_size}}] memory m,
+        uint256[] calldata proof,
+        uint256 opcode,
+        uint256 t0,
+        uint256 t1
+    ) internal view returns (uint256, uint256) {
+        for (uint256 i = 0; i < 32; i += 2) {
+            uint256 a = opcode & 0xff;
+            if (a != 0xff) {
+                opcode >>= 8;
+                uint256 b = opcode & 0xff;
+                opcode >>= 8;
+                (t0, t1)= ecc_mul_add(proof[a], proof[a + 1], m[b], t0, t1);
+            } else {
+                break;
+            }
+        }
+
+        return (t0, t1);
+    }
 
     function update_hash_scalar(uint256 v, uint256[] memory absorbing, uint256 pos) internal pure {
         absorbing[pos++] = 0x02;
@@ -348,12 +389,12 @@ contract Verifier {
         n.y[1] = uint256({{n_g2_y1}});
     }
 
-    function get_wx_wg(uint256[] memory proof, uint256[] memory instances)
+    function get_wx_wg(uint256[] calldata proof, uint256[] memory instances)
         internal
         view
         returns (G1Point[2] memory)
     {
-        uint256[] memory m = new uint256[]({{memory_size}});
+        uint256[{{memory_size}}] memory m;
         uint256[] memory absorbing = new uint256[]({{absorbing_length}});
         uint256 t0 = 0;
         uint256 t1 = 0;
@@ -364,7 +405,7 @@ contract Verifier {
         return [ecc_from({{ wx }}), ecc_from({{ wg }})];
     }
 
-    function verify(uint256[] memory proof, uint256[] memory instances) public view {
+    function verify(uint256[] calldata proof, uint256[] memory instances) public view {
         // wx, wg
         G1Point[2] memory wx_wg = get_wx_wg(proof, instances);
         G1Point[] memory g1_points = new G1Point[](2);
