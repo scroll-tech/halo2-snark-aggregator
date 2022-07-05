@@ -84,13 +84,10 @@ pub(crate) fn memory_optimize(mut ctx: CodeGeneratorCtx) -> CodeGeneratorCtx {
     let empty_pool = &mut MemoryPool::default();
     let memory_offset = linear_scan(intervals, &mut assignments, &mut expressions, empty_pool);
 
-    CodeGeneratorCtx {
-        wx: expressions[0].clone(),
-        wg: expressions[1].clone(),
-        s_g2: ctx.s_g2,
-        n_g2: ctx.n_g2,
-        assignments: assignments,
-        memory_size: memory_offset,
-        absorbing_length: ctx.absorbing_length,
-    }
+    ctx.wx = expressions[0].clone();
+    ctx.wg = expressions[1].clone();
+    ctx.assignments = assignments;
+    ctx.memory_size = memory_offset;
+
+    ctx
 }

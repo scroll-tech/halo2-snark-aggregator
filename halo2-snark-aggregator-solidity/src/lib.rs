@@ -9,7 +9,6 @@ use crate::code_generator::ctx::SolidityCodeGeneratorContext;
 use crate::code_generator::linear_scan::memory_optimize;
 use crate::transcript::codegen::CodegenTranscriptRead;
 use code_generator::ctx::{CodeGeneratorCtx, G2Point, Statement};
-use halo2_ecc_circuit_lib::five::integer_chip::LIMBS;
 use halo2_proofs::arithmetic::{BaseExt, Field};
 use halo2_proofs::arithmetic::{CurveAffine, MultiMillerLoop};
 use halo2_proofs::plonk::VerifyingKey;
@@ -50,14 +49,22 @@ fn render_verifier_sol_template<C: CurveAffine>(
     ctx.insert("wx", &(args.wx).to_typed_string());
     ctx.insert("wg", &(args.wg).to_typed_string());
     ctx.insert("statements", &equations);
-    ctx.insert("s_g2_x0", &args.s_g2.x.0.to_str_radix(10));
-    ctx.insert("s_g2_x1", &args.s_g2.x.1.to_str_radix(10));
-    ctx.insert("s_g2_y0", &args.s_g2.y.0.to_str_radix(10));
-    ctx.insert("s_g2_y1", &args.s_g2.y.1.to_str_radix(10));
-    ctx.insert("n_g2_x0", &args.n_g2.x.0.to_str_radix(10));
-    ctx.insert("n_g2_x1", &args.n_g2.x.1.to_str_radix(10));
-    ctx.insert("n_g2_y0", &args.n_g2.y.0.to_str_radix(10));
-    ctx.insert("n_g2_y1", &args.n_g2.y.1.to_str_radix(10));
+    ctx.insert("target_circuit_s_g2_x0", &args.target_circuit_s_g2.x.0.to_str_radix(10));
+    ctx.insert("target_circuit_s_g2_x1", &args.target_circuit_s_g2.x.1.to_str_radix(10));
+    ctx.insert("target_circuit_s_g2_y0", &args.target_circuit_s_g2.y.0.to_str_radix(10));
+    ctx.insert("target_circuit_s_g2_y1", &args.target_circuit_s_g2.y.1.to_str_radix(10));
+    ctx.insert("target_circuit_n_g2_x0", &args.target_circuit_n_g2.x.0.to_str_radix(10));
+    ctx.insert("target_circuit_n_g2_x1", &args.target_circuit_n_g2.x.1.to_str_radix(10));
+    ctx.insert("target_circuit_n_g2_y0", &args.target_circuit_n_g2.y.0.to_str_radix(10));
+    ctx.insert("target_circuit_n_g2_y1", &args.target_circuit_n_g2.y.1.to_str_radix(10));
+    ctx.insert("verify_circuit_s_g2_x0", &args.verify_circuit_s_g2.x.0.to_str_radix(10));
+    ctx.insert("verify_circuit_s_g2_x1", &args.verify_circuit_s_g2.x.1.to_str_radix(10));
+    ctx.insert("verify_circuit_s_g2_y0", &args.verify_circuit_s_g2.y.0.to_str_radix(10));
+    ctx.insert("verify_circuit_s_g2_y1", &args.verify_circuit_s_g2.y.1.to_str_radix(10));
+    ctx.insert("verify_circuit_n_g2_x0", &args.verify_circuit_n_g2.x.0.to_str_radix(10));
+    ctx.insert("verify_circuit_n_g2_x1", &args.verify_circuit_n_g2.x.1.to_str_radix(10));
+    ctx.insert("verify_circuit_n_g2_y0", &args.verify_circuit_n_g2.y.0.to_str_radix(10));
+    ctx.insert("verify_circuit_n_g2_y1", &args.verify_circuit_n_g2.y.1.to_str_radix(10));
     ctx.insert("memory_size", &args.memory_size);
     ctx.insert("absorbing_length", &args.absorbing_length);
     tera.render("verifier.sol", &ctx)
@@ -88,7 +95,8 @@ pub(crate) fn get_xy_from_g2point<E: MultiMillerLoop>(point: E::G2Affine) -> G2P
 }
 
 pub struct SolidityGenerate {
-    pub params: Vec<u8>,
+    pub target_params: Vec<u8>,
+    pub verify_params: Vec<u8>,
     pub vk: Vec<u8>,
     // serialized instance
     pub instance: Vec<u8>,
@@ -101,7 +109,12 @@ impl SolidityGenerate {
         &self,
         template_folder: std::path::PathBuf,
     ) -> String {
-        let verify_circuit_params = Params::<C>::read(Cursor::new(&self.params)).unwrap();
+        let target_circuit_params = Params::<C>::read(Cursor::new(&self.target_params)).unwrap();
+        let target_params = target_circuit_params.verifier::<E>(4).unwrap();
+        let target_circuit_s_g2 = get_xy_from_g2point::<E>(target_params.s_g2);
+        let target_circuit_n_g2 = get_xy_from_g2point::<E>(-target_params.g2);
+
+        let verify_circuit_params = Params::<C>::read(Cursor::new(&self.verify_params)).unwrap();
         let verify_circuit_vk = {
             VerifyingKey::<C>::read::<_, Halo2VerifierCircuit<'_, E>>(
                 &mut Cursor::new(&self.vk),
@@ -110,8 +123,7 @@ impl SolidityGenerate {
             .unwrap()
         };
         let verify_circuit_instance = load_instances::<E>(&self.instance);
-
-        let params = verify_circuit_params.verifier::<E>(LIMBS * 4).unwrap();
+        let verify_params = verify_circuit_params.verifier::<E>(4).unwrap();
 
         let nchip = &SolidityFieldChip::new();
         let schip = nchip;
@@ -141,7 +153,7 @@ impl SolidityGenerate {
             pchip,
             &verify_circuit_instance2[..],
             &verify_circuit_vk,
-            &params,
+            &verify_params,
         )
         .unwrap();
         ctx.exit_instance();
@@ -153,7 +165,7 @@ impl SolidityGenerate {
             pchip,
             assigned_instances,
             &verify_circuit_vk,
-            &params,
+            &verify_params,
             &mut transcript,
             "".to_owned(),
         )
@@ -180,14 +192,16 @@ impl SolidityGenerate {
             }
         };
 
-        let s_g2 = get_xy_from_g2point::<E>(params.s_g2);
-        let n_g2 = get_xy_from_g2point::<E>(-params.g2);
+        let verify_circuit_s_g2 = get_xy_from_g2point::<E>(verify_params.s_g2);
+        let verify_circuit_n_g2 = get_xy_from_g2point::<E>(-verify_params.g2);
 
         let sol_ctx = CodeGeneratorCtx {
             wx: (*left.expr).clone(),
             wg: (*right.expr).clone(),
-            s_g2,
-            n_g2,
+            target_circuit_s_g2,
+            target_circuit_n_g2,
+            verify_circuit_s_g2,
+            verify_circuit_n_g2,
             assignments: ctx.statements.clone(),
             memory_size: ctx.memory_offset,
             absorbing_length: if ctx.absorbing_offset > ctx.max_absorbing_offset {

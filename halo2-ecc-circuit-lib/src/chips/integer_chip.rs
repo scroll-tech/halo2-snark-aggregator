@@ -229,6 +229,11 @@ pub trait IntegerChipOps<W: BaseExt, N: FieldExt> {
         a: &AssignedInteger<W, N>,
         b: &AssignedInteger<W, N>,
     ) -> Result<AssignedInteger<W, N>, Error>;
+    fn get_last_bit(
+        &self,
+        ctx: &mut Context<N>,
+        a: &AssignedInteger<W, N>,
+    ) -> Result<AssignedValue<N>, Error>;
     fn get_w(&self, a: &AssignedInteger<W, N>) -> Result<W, Error>;
 }
 

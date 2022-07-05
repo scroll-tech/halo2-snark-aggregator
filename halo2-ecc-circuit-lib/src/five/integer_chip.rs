@@ -1,5 +1,5 @@
 use super::config::{PREREQUISITE_CHECK, VAR_COLUMNS};
-use crate::chips::integer_chip::{AssignedInteger, IntegerChip, IntegerChipOps, IntegerChipHelper};
+use crate::chips::integer_chip::{AssignedInteger, IntegerChip, IntegerChipHelper, IntegerChipOps};
 use crate::gates::base_gate::BaseGateOps;
 use crate::gates::range_gate::RangeGateOps;
 use crate::{
@@ -11,6 +11,7 @@ use halo2_proofs::arithmetic::{BaseExt, FieldExt};
 use halo2_proofs::plonk::Error;
 use num_bigint::BigUint;
 use num_integer::Integer;
+use std::ops::Div;
 
 pub const LIMBS: usize = 4usize;
 pub const LIMB_COMMON_WIDTH_OF_COMMON_RANGE: usize = 4usize;
@@ -82,9 +83,11 @@ impl<'a, W: BaseExt, N: FieldExt> FiveColumnIntegerChip<'a, W, N> {
         }
 
         // TO OPTIMIZE: the two can be merged.
-        let native_diff =
-            self.base_gate()
-                .sum_with_constant(ctx, vec![(&native_a, one)], -self.helper.w_native)?;
+        let native_diff = self.base_gate().sum_with_constant(
+            ctx,
+            vec![(&native_a, one)],
+            -self.helper.w_native,
+        )?;
         let is_native_eq = self.base_gate().is_zero(ctx, &native_diff)?;
 
         // TO OPTIMIZE: the two can be merged.
@@ -318,7 +321,11 @@ impl<'a, W: BaseExt, N: FieldExt> FiveColumnIntegerChip<'a, W, N> {
 }
 
 impl<'a, W: BaseExt, N: FieldExt> IntegerChipOps<W, N> for FiveColumnIntegerChip<'a, W, N> {
-    fn assign_nonleading_limb(&self, ctx: &mut Context<N>, n: N) -> Result<AssignedValue<N>, Error> {
+    fn assign_nonleading_limb(
+        &self,
+        ctx: &mut Context<N>,
+        n: N,
+    ) -> Result<AssignedValue<N>, Error> {
         let zero = N::zero();
         let one = N::one();
 
@@ -862,5 +869,30 @@ impl<'a, W: BaseExt, N: FieldExt> IntegerChipOps<W, N> for FiveColumnIntegerChip
         let w_modulus = &self.helper.w_modulus;
         let limb_modulus = &self.helper.limb_modulus;
         Ok(a.w(limb_modulus, w_modulus))
+    }
+
+    fn get_last_bit(
+        &self,
+        ctx: &mut Context<N>,
+        a: &AssignedInteger<W, N>,
+    ) -> Result<AssignedValue<N>, Error> {
+        let zero = N::zero();
+        let one = N::one();
+        let base_gate = self.base_gate();
+        let bit = if field_to_bn(&a.limbs_le[0].value).is_odd() {
+            N::one()
+        } else {
+            N::zero()
+        };
+        let d = bn_to_field::<N>(&(field_to_bn(&a.limbs_le[0].value)).div(2u64));
+        let d = self.assign_nonleading_limb(ctx, d)?;
+        let cells = base_gate.one_line(
+            ctx,
+            vec![pair!(&d, N::from(2u64)), pair!(bit, one), pair!(&a.limbs_le[0], -one)],
+            zero,
+            (vec![], zero),
+        )?;
+        base_gate.assert_bit(ctx, &cells[1])?;
+        Ok(cells[1])
     }
 }

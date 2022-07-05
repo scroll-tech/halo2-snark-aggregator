@@ -174,7 +174,7 @@ contract Verifier {
         input_points[0] = ax;
         input_points[1] = ay;
         input_points[2] = bx;
-        input_points[3] = by;q
+        input_points[3] = by;
 
         assembly {
             ret := staticcall(gas(), 6, input_points, 0x80, r, 0x40)
@@ -309,24 +309,38 @@ contract Verifier {
         length = 1;
     }
 
-    function get_g2_s() internal pure returns (G2Point memory s) {
-        s.x[0] = uint256({{s_g2_x0}});
-        s.x[1] = uint256({{s_g2_x1}});
-        s.y[0] = uint256({{s_g2_y0}});
-        s.y[1] = uint256({{s_g2_y1}});
+    function get_verify_circuit_g2_s() internal pure returns (G2Point memory s) {
+        s.x[0] = uint256({{verify_circuit_s_g2_x0}});
+        s.x[1] = uint256({{verify_circuit_s_g2_x1}});
+        s.y[0] = uint256({{verify_circuit_s_g2_y0}});
+        s.y[1] = uint256({{verify_circuit_s_g2_y1}});
     }
 
-    function get_g2_n() internal pure returns (G2Point memory n) {
-        n.x[0] = uint256({{n_g2_x0}});
-        n.x[1] = uint256({{n_g2_x1}});
-        n.y[0] = uint256({{n_g2_y0}});
-        n.y[1] = uint256({{n_g2_y1}});
+    function get_verify_circuit_g2_n() internal pure returns (G2Point memory n) {
+        n.x[0] = uint256({{verify_circuit_n_g2_x0}});
+        n.x[1] = uint256({{verify_circuit_n_g2_x1}});
+        n.y[0] = uint256({{verify_circuit_n_g2_y0}});
+        n.y[1] = uint256({{verify_circuit_n_g2_y1}});
+    }
+
+    function get_target_circuit_g2_s() internal pure returns (G2Point memory s) {
+        s.x[0] = uint256({{target_circuit_s_g2_x0}});
+        s.x[1] = uint256({{target_circuit_s_g2_x1}});
+        s.y[0] = uint256({{target_circuit_s_g2_y0}});
+        s.y[1] = uint256({{target_circuit_s_g2_y1}});
+    }
+
+    function get_target_circuit_g2_n() internal pure returns (G2Point memory n) {
+        n.x[0] = uint256({{target_circuit_n_g2_x0}});
+        n.x[1] = uint256({{target_circuit_n_g2_x1}});
+        n.y[0] = uint256({{target_circuit_n_g2_y0}});
+        n.y[1] = uint256({{target_circuit_n_g2_y1}});
     }
 
     function get_wx_wg(uint256[] calldata proof, uint256[] calldata instances)
         internal
         view
-        returns (G1Point[2] memory)
+        returns (uint256, uint256, uint256, uint256)
     {
         uint256[{{memory_size}}] memory m;
         uint256[{{absorbing_length + 1}}] memory absorbing;
@@ -336,20 +350,49 @@ contract Verifier {
         {% for statement in statements %}
         {{statement}}
         {%- endfor %}
-        return [ecc_from({{ wx }}), ecc_from({{ wg }})];
+        return ({{ wx }}, {{ wg }});
     }
 
-    function verify(uint256[] calldata proof, uint256[] calldata instances) public view {
-        // wx, wg
-        G1Point[2] memory wx_wg = get_wx_wg(proof, instances);
-        G1Point[] memory g1_points = new G1Point[](2);
-        g1_points[0] = wx_wg[0];
-        g1_points[1] = wx_wg[1];
-        G2Point[] memory g2_points = new G2Point[](2);
-        g2_points[0] = get_g2_s();
-        g2_points[1] = get_g2_n();
+    function verify(
+        uint256[] calldata proof,
+        uint256[] calldata target_circuit_final_pair,
+        uint256[] calldata instances,
+        uint256[] calldata instances_commitment
+    ) public view {
+        assert(instances[0] == target_circuit_final_pair[0] & ((1 << 136) - 1));
+        assert(instances[1] == (target_circuit_final_pair[0] >> 136) + ((target_circuit_final_pair[1] & 1) << 136));
+        assert(instances[2] == target_circuit_final_pair[2] & ((1 << 136) - 1));
+        assert(instances[3] == (target_circuit_final_pair[2] >> 136) + ((target_circuit_final_pair[3] & 1) << 136));
 
-        bool checked = pairing(g1_points, g2_points);
+        uint256 x0 = 0;
+        uint256 x1 = 0;
+        uint256 y0 = 0;
+        uint256 y1 = 0;
+
+        G1Point[] memory g1_points = new G1Point[](2);
+        G2Point[] memory g2_points = new G2Point[](2);
+        bool checked = false;
+
+        // TODO: check instances <-> instances_commitment
+        (x0, y0, x1, y1) = get_wx_wg(proof, instances_commitment);
+        g1_points[0].x = x0;
+        g1_points[0].y = y0;
+        g1_points[1].x = x1;
+        g1_points[1].y = y1;
+        g2_points[0] = get_verify_circuit_g2_s();
+        g2_points[1] = get_verify_circuit_g2_n();
+
+        checked = pairing(g1_points, g2_points);
+        require(checked);
+
+        g1_points[0].x = target_circuit_final_pair[0];
+        g1_points[0].y = target_circuit_final_pair[1];
+        g1_points[1].x = target_circuit_final_pair[2];
+        g1_points[1].y = target_circuit_final_pair[3];
+        g2_points[0] = get_target_circuit_g2_s();
+        g2_points[1] = get_target_circuit_g2_n();
+
+        checked = pairing(g1_points, g2_points);
         require(checked);
     }
 }
