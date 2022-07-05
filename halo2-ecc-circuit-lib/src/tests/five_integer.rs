@@ -4,6 +4,7 @@ use crate::five::integer_chip::FiveColumnIntegerChip;
 use crate::five::range_gate::FiveColumnRangeGate;
 use crate::gates::base_gate::Context;
 use crate::gates::range_gate::RangeGateConfig;
+use crate::utils::field_to_bn;
 use halo2_proofs::arithmetic::{BaseExt, FieldExt};
 use halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner},
@@ -23,6 +24,7 @@ enum TestCase {
     Square,
     IsZero,
     Div,
+    LastBit,
 }
 
 impl Default for TestCase {
@@ -138,6 +140,28 @@ impl<W: BaseExt, N: FieldExt> TestFiveColumnIntegerChipCircuit<W, N> {
         Ok(())
     }
 
+    fn setup_test_last_bit(
+        &self,
+        integer_gate: &FiveColumnIntegerChip<'_, W, N>,
+        ctx: &mut Context<'_, N>,
+    ) -> Result<(), Error> {
+        let a = Self::random();
+        let c = if field_to_bn(&a).bit(0) {
+            N::one()
+        } else {
+            N::zero()
+        };
+
+        let mut assigned_a = integer_gate.assign_constant(ctx, a)?;
+        let assigned_c = integer_gate.base_gate().assign_constant(ctx, c)?;
+
+        let res = integer_gate.get_last_bit(ctx, &mut assigned_a)?;
+        integer_gate
+            .base_gate()
+            .assert_equal(ctx, &assigned_c, &res)?;
+        Ok(())
+    }
+
     fn setup_test_div(
         &self,
         integer_gate: &FiveColumnIntegerChip<'_, W, N>,
@@ -250,6 +274,7 @@ impl<W: BaseExt, N: FieldExt> Circuit<N> for TestFiveColumnIntegerChipCircuit<W,
                         TestCase::IsZero => self.setup_test_is_zero(&integer_gate, r),
                         TestCase::Div => self.setup_test_div(&integer_gate, r),
                         TestCase::Square => self.setup_test_square(&integer_gate, r),
+                        TestCase::LastBit => self.setup_test_last_bit(&integer_gate, r),
                     }?;
                 }
 
@@ -356,6 +381,21 @@ fn test_five_column_integer_chip_div() {
     const K: u32 = (COMMON_RANGE_BITS + 1) as u32;
     let circuit = TestFiveColumnIntegerChipCircuit::<Fq, Fr> {
         test_case: TestCase::Div,
+        _phantom_w: PhantomData,
+        _phantom_n: PhantomData,
+    };
+    let prover = match MockProver::run(K, &circuit, vec![]) {
+        Ok(prover) => prover,
+        Err(e) => panic!("{:#?}", e),
+    };
+    assert_eq!(prover.verify(), Ok(()));
+}
+
+#[test]
+fn test_five_column_integer_chip_last_bit() {
+    const K: u32 = (COMMON_RANGE_BITS + 1) as u32;
+    let circuit = TestFiveColumnIntegerChipCircuit::<Fq, Fr> {
+        test_case: TestCase::LastBit,
         _phantom_w: PhantomData,
         _phantom_n: PhantomData,
     };

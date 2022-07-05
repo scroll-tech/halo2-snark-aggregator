@@ -1,10 +1,9 @@
-use crate::sample_circuit::TargetCircuit;
-
 use super::chips::{ecc_chip::EccChip, encode_chip::PoseidonEncodeChip, scalar_chip::ScalarChip};
+use crate::sample_circuit::TargetCircuit;
 use halo2_ecc_circuit_lib::chips::integer_chip::IntegerChipOps;
 use halo2_ecc_circuit_lib::five::integer_chip::FiveColumnIntegerChipHelper;
-use halo2_ecc_circuit_lib::five::integer_chip::LIMBS;
 use halo2_ecc_circuit_lib::gates::base_gate::BaseGateOps;
+use halo2_ecc_circuit_lib::utils::field_to_bn;
 use halo2_ecc_circuit_lib::{
     chips::native_ecc_chip::NativeEccChip,
     five::{
@@ -117,8 +116,10 @@ impl<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> Circuit<C::ScalarExt>
         let schip = nchip;
         let pchip = &EccChip::new(&ecc_chip);
 
-        let mut w_x = None;
-        let mut w_g = None;
+        let mut x0_low = None;
+        let mut x0_high = None;
+        let mut x1_low = None;
+        let mut x1_high = None;
 
         layouter.assign_region(
             || "base",
@@ -183,42 +184,93 @@ impl<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> Circuit<C::ScalarExt>
                 integer_chip.reduce(ctx, &mut res.1.x)?;
                 integer_chip.reduce(ctx, &mut res.1.y)?;
 
-                w_x = Some(res.0);
-                w_g = Some(res.1);
+                // It uses last bit to identify y and -y, so the w_modulus must be odd.
+                assert!(integer_chip.helper.w_modulus.bit(0));
+
+                let y0_bit = integer_chip.get_last_bit(ctx, &res.0.y)?;
+                let y1_bit = integer_chip.get_last_bit(ctx, &res.1.y)?;
+
+                let zero = C::ScalarExt::from(0);
+
+                let x0_low_ = base_gate.sum_with_constant(
+                    ctx,
+                    vec![
+                        (
+                            &res.0.x.limbs_le[0],
+                            integer_chip.helper.limb_modulus_exps[0],
+                        ),
+                        (
+                            &res.0.x.limbs_le[1],
+                            integer_chip.helper.limb_modulus_exps[1],
+                        ),
+                    ],
+                    zero,
+                )?;
+
+                let x0_high_ = base_gate.sum_with_constant(
+                    ctx,
+                    vec![
+                        (
+                            &res.0.x.limbs_le[2],
+                            integer_chip.helper.limb_modulus_exps[0],
+                        ),
+                        (
+                            &res.0.x.limbs_le[3],
+                            integer_chip.helper.limb_modulus_exps[1],
+                        ),
+                        (&y0_bit, integer_chip.helper.limb_modulus_exps[2]),
+                    ],
+                    zero,
+                )?;
+
+                let x1_low_ = base_gate.sum_with_constant(
+                    ctx,
+                    vec![
+                        (
+                            &res.1.x.limbs_le[0],
+                            integer_chip.helper.limb_modulus_exps[0],
+                        ),
+                        (
+                            &res.1.x.limbs_le[1],
+                            integer_chip.helper.limb_modulus_exps[1],
+                        ),
+                    ],
+                    zero,
+                )?;
+
+                let x1_high_ = base_gate.sum_with_constant(
+                    ctx,
+                    vec![
+                        (
+                            &res.1.x.limbs_le[2],
+                            integer_chip.helper.limb_modulus_exps[0],
+                        ),
+                        (
+                            &res.1.x.limbs_le[3],
+                            integer_chip.helper.limb_modulus_exps[1],
+                        ),
+                        (&y1_bit, integer_chip.helper.limb_modulus_exps[2]),
+                    ],
+                    zero,
+                )?;
+
+                x0_low = Some(x0_low_);
+                x0_high = Some(x0_high_);
+                x1_low = Some(x1_low_);
+                x1_high = Some(x1_high_);
 
                 Ok(())
             },
         )?;
 
-        let w_x = w_x.unwrap();
-        let w_g = w_g.unwrap();
-
         {
             let mut layouter = layouter.namespace(|| "expose");
-            for i in 0..LIMBS {
-                layouter.constrain_instance(w_x.x.limbs_le[i].cell, config.instance, i)?;
-            }
-
-            for i in 0..LIMBS {
-                layouter.constrain_instance(w_x.y.limbs_le[i].cell, config.instance, i + LIMBS)?;
-            }
-
-            for i in 0..LIMBS {
-                layouter.constrain_instance(
-                    w_g.x.limbs_le[i].cell,
-                    config.instance,
-                    i + LIMBS * 2,
-                )?;
-            }
-
-            for i in 0..LIMBS {
-                layouter.constrain_instance(
-                    w_g.y.limbs_le[i].cell,
-                    config.instance,
-                    i + LIMBS * 3,
-                )?;
-            }
+            layouter.constrain_instance(x0_low.unwrap().cell, config.instance, 0)?;
+            layouter.constrain_instance(x0_high.unwrap().cell, config.instance, 1)?;
+            layouter.constrain_instance(x1_low.unwrap().cell, config.instance, 2)?;
+            layouter.constrain_instance(x1_high.unwrap().cell, config.instance, 3)?;
         }
+
         Ok(())
     }
 }
@@ -266,21 +318,14 @@ pub fn load_transcript<C: CurveAffine>(
 }
 
 pub fn load_instances<E: MultiMillerLoop>(buf: &[u8]) -> Vec<Vec<Vec<E::Scalar>>> {
-    let instances: Vec<Vec<Vec<Vec<u8>>>> = serde_json::from_reader(buf).unwrap();
-    instances
-        .into_iter()
-        .map(|l1| {
-            l1.into_iter()
-                .map(|l2| {
-                    l2.into_iter()
-                        .map(|buf| {
-                            <E::Scalar as BaseExt>::read(&mut std::io::Cursor::new(buf)).unwrap()
-                        })
-                        .collect()
-                })
-                .collect()
-        })
-        .collect()
+    let mut ret = vec![];
+    let cursor = &mut std::io::Cursor::new(buf);
+
+    while let Ok(a) = <E::Scalar as BaseExt>::read(cursor) {
+        ret.push(a);
+    }
+
+    vec![vec![ret]]
 }
 
 pub struct Setup {
@@ -367,12 +412,51 @@ impl Setup {
     }
 }
 
+pub fn final_pair_to_instances<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>>(
+    pair: &(C, C),
+) -> Vec<C::ScalarExt> {
+    let helper = FiveColumnIntegerChipHelper::<C::Base, C::ScalarExt>::new();
+    let w_x_x = helper.w_to_limb_n_le(&pair.0.coordinates().unwrap().x());
+    let w_x_y = helper.w_to_limb_n_le(&pair.0.coordinates().unwrap().y());
+    let w_g_x = helper.w_to_limb_n_le(&pair.1.coordinates().unwrap().x());
+    let w_g_y = helper.w_to_limb_n_le(&pair.1.coordinates().unwrap().y());
+
+    let get_last_bit = |n| {
+        if field_to_bn(n).bit(0) {
+            helper.limb_modulus_exps[2]
+        } else {
+            C::ScalarExt::from(0)
+        }
+    };
+
+    vec![
+        (w_x_x[0] * helper.limb_modulus_exps[0] + w_x_x[1] * helper.limb_modulus_exps[1]),
+        (w_x_x[2] * helper.limb_modulus_exps[0]
+            + w_x_x[3] * helper.limb_modulus_exps[1]
+            + get_last_bit(&w_x_y[0])),
+        (w_g_x[0] * helper.limb_modulus_exps[0] + w_g_x[1] * helper.limb_modulus_exps[1]),
+        (w_g_x[2] * helper.limb_modulus_exps[0]
+            + w_g_x[3] * helper.limb_modulus_exps[1]
+            + get_last_bit(&w_g_y[0])),
+    ]
+}
+
 pub fn calc_verify_circuit_instances<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>>(
     params: &ParamsVerifier<E>,
     vk: &VerifyingKey<C>,
     n_instances: Vec<Vec<Vec<Vec<E::Scalar>>>>,
     n_transcript: Vec<Vec<u8>>,
 ) -> Vec<C::ScalarExt> {
+    let pair = calc_verify_circuit_final_pair(params, vk, n_instances, n_transcript);
+    final_pair_to_instances::<C, E>(&pair)
+}
+
+pub fn calc_verify_circuit_final_pair<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>>(
+    params: &ParamsVerifier<E>,
+    vk: &VerifyingKey<C>,
+    n_instances: Vec<Vec<Vec<Vec<E::Scalar>>>>,
+    n_transcript: Vec<Vec<u8>>,
+) -> (C, C) {
     let nchip = MockFieldChip::<C::ScalarExt, Error>::default();
     let schip = MockFieldChip::<C::ScalarExt, Error>::default();
     let pchip = MockEccChip::<C, Error>::default();
@@ -419,18 +503,7 @@ pub fn calc_verify_circuit_instances<C: CurveAffine, E: MultiMillerLoop<G1Affine
     )
     .unwrap();
 
-    let helper = FiveColumnIntegerChipHelper::<C::Base, C::ScalarExt>::new();
-    let w_x_x = helper.w_to_limb_n_le(w_x.to_affine().coordinates().unwrap().x());
-    let w_x_y = helper.w_to_limb_n_le(w_x.to_affine().coordinates().unwrap().y());
-    let w_g_x = helper.w_to_limb_n_le(w_g.to_affine().coordinates().unwrap().x());
-    let w_g_y = helper.w_to_limb_n_le(w_g.to_affine().coordinates().unwrap().y());
-
-    w_x_x
-        .into_iter()
-        .chain(w_x_y.into_iter())
-        .chain(w_g_x.into_iter())
-        .chain(w_g_y.into_iter())
-        .collect()
+    (w_x.to_affine(), w_g.to_affine())
 }
 
 pub struct CreateProof {
@@ -452,7 +525,7 @@ impl CreateProof {
         CIRCUIT: TargetCircuit<C, E>,
     >(
         &self,
-    ) -> (Vec<Vec<C>>, Vec<u8>, Vec<u8>, Vec<u8>) {
+    ) -> ((C, C), Vec<C::ScalarExt>, Vec<Vec<C>>, Vec<u8>, Vec<u8>) {
         let setup = Setup {
             params: self.target_circuit_params.clone(),
             vk: self.target_circuit_vk.clone(),
@@ -490,12 +563,14 @@ impl CreateProof {
             (verify_circuit_instances, verify_circuit_transcripts)
         };
 
-        let verify_circuit_instances = calc_verify_circuit_instances(
+        let verify_circuit_final_pair = calc_verify_circuit_final_pair(
             &target_circuit_params_verifier,
             &target_circuit_vkey,
             instances,
             transcripts,
         );
+
+        let verify_circuit_instances = final_pair_to_instances::<C, E>(&verify_circuit_final_pair);
 
         let verify_circuit_params =
             Params::<C>::read(Cursor::new(&self.verify_circuit_params)).unwrap();
@@ -523,8 +598,7 @@ impl CreateProof {
         info!("Running keygen_pk took {} seconds.", elapsed_time.as_secs());
 
         let instances: &[&[&[C::ScalarExt]]] = &[&[&verify_circuit_instances[..]]];
-        let mut transcript =
-            ShaWrite::<_, _, Challenge255<_>, sha2::Sha256>::init(vec![], vec![]);
+        let mut transcript = ShaWrite::<_, _, Challenge255<_>, sha2::Sha256>::init(vec![], vec![]);
         create_proof(
             &verify_circuit_params,
             &verify_circuit_pk,
@@ -544,7 +618,7 @@ impl CreateProof {
 
         let instance_commitments: Vec<Vec<C>> = {
             let instances: &[&[&[C::ScalarExt]]] = &[&[&verify_circuit_instances]];
-            let params = verify_circuit_params.verifier::<E>(LIMBS * 4).unwrap();
+            let params = verify_circuit_params.verifier::<E>(4).unwrap();
 
             let instance_commitments: Vec<Vec<C>> = instances
                 .iter()
@@ -559,26 +633,10 @@ impl CreateProof {
             instance_commitments
         };
 
-        let instances = instances
-            .iter()
-            .map(|l1| {
-                l1.iter()
-                    .map(|l2| {
-                        l2.iter()
-                            .map(|c: &C::ScalarExt| {
-                                let mut buf = vec![];
-                                c.write(&mut buf).unwrap();
-                                buf
-                            })
-                            .collect()
-                    })
-                    .collect::<Vec<Vec<Vec<u8>>>>()
-            })
-            .collect::<Vec<Vec<Vec<Vec<u8>>>>>();
-
         (
+            verify_circuit_final_pair,
+            verify_circuit_instances,
             instance_commitments,
-            serde_json::to_vec(&instances).unwrap(),
             proof,
             proof_be,
         )
@@ -604,7 +662,7 @@ impl VerifyCheck {
 
         info!("build vk done");
 
-        let params = verify_circuit_params.verifier::<E>(LIMBS * 4).unwrap();
+        let params = verify_circuit_params.verifier::<E>(4).unwrap();
         let strategy = SingleVerifier::new(&params);
 
         let verify_circuit_instance1: Vec<Vec<&[E::Scalar]>> = verify_circuit_instance
@@ -614,8 +672,7 @@ impl VerifyCheck {
         let verify_circuit_instance2: Vec<&[&[E::Scalar]]> =
             verify_circuit_instance1.iter().map(|x| &x[..]).collect();
 
-        let mut transcript =
-            ShaRead::<_, _, Challenge255<_>, sha2::Sha256>::init(&self.proof[..]);
+        let mut transcript = ShaRead::<_, _, Challenge255<_>, sha2::Sha256>::init(&self.proof[..]);
 
         verify_proof(
             &params,

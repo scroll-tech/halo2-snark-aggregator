@@ -10,7 +10,6 @@ use halo2_proofs::{
     poly::commitment::Params,
 };
 use rand_core::OsRng;
-use serde_json::json;
 use std::io::Write;
 
 pub trait TargetCircuit<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> {
@@ -94,21 +93,13 @@ pub fn sample_circuit_random_run<
         folder.push(format!("sample_circuit_instance{}.data", index));
         let mut fd = std::fs::File::create(folder.as_path()).unwrap();
         folder.pop();
-        let instances = json!(instances
-            .iter()
-            .map(|l1| l1
-                .iter()
-                .map(|l2| l2
-                    .iter()
-                    .map(|c: &C::ScalarExt| {
-                        let mut buf = vec![];
-                        c.write(&mut buf).unwrap();
-                        buf
-                    })
-                    .collect())
-                .collect::<Vec<Vec<Vec<u8>>>>())
-            .collect::<Vec<Vec<Vec<Vec<u8>>>>>());
-        write!(fd, "{}", instances.to_string()).unwrap();
+        instances.iter().for_each(|l1| {
+            l1.iter().for_each(|l2| {
+                l2.iter().for_each(|c: &C::ScalarExt| {
+                    c.write(&mut fd).unwrap();
+                })
+            })
+        });
     }
 
     let vk = {

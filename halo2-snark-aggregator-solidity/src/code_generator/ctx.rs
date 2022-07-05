@@ -678,8 +678,10 @@ pub(crate) struct G2Point {
 pub(crate) struct CodeGeneratorCtx {
     pub(crate) wx: Expression,
     pub(crate) wg: Expression,
-    pub(crate) s_g2: G2Point,
-    pub(crate) n_g2: G2Point,
+    pub(crate) target_circuit_s_g2: G2Point,
+    pub(crate) target_circuit_n_g2: G2Point,
+    pub(crate) verify_circuit_s_g2: G2Point,
+    pub(crate) verify_circuit_n_g2: G2Point,
     pub(crate) assignments: Vec<Statement>,
     pub(crate) memory_size: usize,
     pub(crate) absorbing_length: usize,
