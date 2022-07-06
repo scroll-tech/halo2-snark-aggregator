@@ -555,12 +555,12 @@ pub fn assign_instance_commitment<
     instances: &[&[&[E::Scalar]]],
     vk: &VerifyingKey<E::G1Affine>,
     params: &ParamsVerifier<E>,
-) -> Result<Vec<Vec<A::AssignedPoint>>, A::Error> {
+) -> Result<(Vec<Vec<Vec<A::AssignedScalar>>>, Vec<Vec<A::AssignedPoint>>), A::Error> {
     for instances in instances.iter() {
         assert!(instances.len() == vk.cs.num_instance_columns)
     }
 
-    instances
+    let instances = instances
         .iter()
         .map(|instance| {
             instance
@@ -568,12 +568,28 @@ pub fn assign_instance_commitment<
                 .map(|instance| {
                     assert!(instance.len() <= params.n as usize - (vk.cs.blinding_factors() + 1));
 
+                    let mut assigned_scalars = vec![];
+                    for instance in instance.iter() {
+                        let s = schip.assign_var(ctx, instance.clone())?;
+                        assigned_scalars.push(s);
+                    }
+                    Ok(assigned_scalars)
+                })
+                .collect::<Result<Vec<_>, A::Error>>()
+        })
+        .collect::<Result<Vec<Vec<_>>, A::Error>>()?;
+
+    let commitments = instances
+        .iter()
+        .map(|instance| {
+            instance
+                .iter()
+                .map(|instance| {
                     let mut acc = None;
 
                     for (i, instance) in instance.iter().enumerate() {
                         let l = pchip.assign_const(ctx, params.g_lagrange[i])?;
-                        let s = schip.assign_var(ctx, instance.clone())?;
-                        let ls = pchip.scalar_mul(ctx, &s, &l)?;
+                        let ls = pchip.scalar_mul(ctx, &instance, &l)?;
 
                         match acc {
                             None => acc = Some(ls),
@@ -584,14 +600,18 @@ pub fn assign_instance_commitment<
                         }
                     }
 
-                    match acc {
+                    let c = match acc {
                         None => pchip.assign_const(ctx, E::G1Affine::identity()),
                         Some(acc) => pchip.normalize(ctx, &acc),
-                    }
+                    }?;
+
+                    Ok(c)
                 })
-                .collect::<Result<Vec<A::AssignedPoint>, A::Error>>()
+                .collect::<Result<Vec<_>, A::Error>>()
         })
-        .collect::<Result<Vec<Vec<A::AssignedPoint>>, A::Error>>()
+        .collect::<Result<Vec<Vec<_>>, A::Error>>()?;
+
+    Ok((instances, commitments))
 }
 
 pub fn verify_single_proof_no_eval<
@@ -697,21 +717,30 @@ pub fn verify_single_proof_in_chip<
     vk: &VerifyingKey<E::G1Affine>,
     params: &ParamsVerifier<E>,
     transcript: &mut T,
-) -> Result<(A::AssignedPoint, A::AssignedPoint), A::Error> {
-    let assigned_instances = assign_instance_commitment(ctx, schip, pchip, instances, vk, params)?;
+) -> Result<
+    (
+        A::AssignedPoint,
+        A::AssignedPoint,
+        Vec<Vec<Vec<A::AssignedScalar>>>,
+    ),
+    A::Error,
+> {
+    let (assigned_instances, assigned_instances_commitment) =
+        assign_instance_commitment(ctx, schip, pchip, instances, vk, params)?;
 
     let proof = verify_single_proof_no_eval(
         ctx,
         nchip,
         schip,
         pchip,
-        assigned_instances,
+        assigned_instances_commitment,
         vk,
         params,
         transcript,
         "".to_owned(),
     )?;
-    evaluate_multiopen_proof::<E, A, T>(ctx, schip, pchip, proof, params)
+    let (w_x, w_g) = evaluate_multiopen_proof::<E, A, T>(ctx, schip, pchip, proof, params)?;
+    Ok((w_x, w_g, assigned_instances))
 }
 
 pub struct ProofData<
@@ -758,7 +787,7 @@ pub fn verify_aggregation_proofs_in_chip<
                 .collect();
             let instances2: Vec<&[&[E::Scalar]]> = instances1.iter().map(|x| &x[..]).collect();
 
-            let assigned_instances =
+            let (assigned_instances, assigned_instance_commitments) =
                 assign_instance_commitment(ctx, schip, pchip, &instances2[..], vk, params)?;
 
             verify_single_proof_no_eval(
@@ -766,7 +795,7 @@ pub fn verify_aggregation_proofs_in_chip<
                 nchip,
                 schip,
                 pchip,
-                assigned_instances,
+                assigned_instance_commitments,
                 vk,
                 params,
                 &mut proof.transcript,
