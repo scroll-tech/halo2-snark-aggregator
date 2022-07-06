@@ -83,6 +83,14 @@ impl<'a, 'b, C: CurveAffine> ArithCommonChip for EccChip<'a, 'b, C> {
             Ok(C::from_xy(x, y).unwrap())
         }
     }
+
+    fn normalize(
+        &self,
+        ctx: &mut Self::Context,
+        v: &Self::AssignedValue,
+    ) -> Result<Self::AssignedValue, Self::Error> {
+        self.chip.reduce(ctx, &mut v.clone())
+    }
 }
 
 impl<'a, 'b, C: CurveAffine> ArithEccChip for EccChip<'a, 'b, C> {

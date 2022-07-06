@@ -66,6 +66,14 @@ impl<'a, 'b, N: FieldExt> ArithCommonChip for ScalarChip<'a, 'b, N> {
     fn to_value(&self, v: &Self::AssignedValue) -> Result<Self::Value, Self::Error> {
         Ok(v.value)
     }
+
+    fn normalize(
+        &self,
+        _ctx: &mut Self::Context,
+        v: &Self::AssignedValue,
+    ) -> Result<Self::AssignedValue, Self::Error> {
+        Ok(v.clone())
+    }
 }
 
 impl<'a, 'b, N: FieldExt> ArithFieldChip for ScalarChip<'a, 'b, N> {

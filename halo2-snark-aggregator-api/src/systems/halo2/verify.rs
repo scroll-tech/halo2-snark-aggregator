@@ -8,7 +8,7 @@ use super::{
 use crate::arith::{common::ArithCommonChip, ecc::ArithEccChip, field::ArithFieldChip};
 use crate::scalar;
 use crate::transcript::read::TranscriptRead;
-use group::Curve;
+use group::prime::PrimeCurveAffine;
 use group::Group;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::arithmetic::{Field, MillerLoopResult};
@@ -20,6 +20,7 @@ use halo2_proofs::{
 };
 use std::marker::PhantomData;
 use std::vec;
+
 pub struct VerifierParamsBuilder<
     'a,
     E: MultiMillerLoop,
@@ -549,6 +550,7 @@ pub fn assign_instance_commitment<
     >,
 >(
     ctx: &mut A::Context,
+    schip: &A::ScalarChip,
     pchip: &A,
     instances: &[&[&[E::Scalar]]],
     vk: &VerifyingKey<E::G1Affine>,
@@ -565,10 +567,27 @@ pub fn assign_instance_commitment<
                 .iter()
                 .map(|instance| {
                     assert!(instance.len() <= params.n as usize - (vk.cs.blinding_factors() + 1));
-                    let p = params.commit_lagrange(instance.to_vec()).to_affine();
-                    let p = pchip.assign_var(ctx, p)?;
 
-                    Ok(p)
+                    let mut acc = None;
+
+                    for (i, instance) in instance.iter().enumerate() {
+                        let l = pchip.assign_const(ctx, params.g_lagrange[i])?;
+                        let s = schip.assign_var(ctx, instance.clone())?;
+                        let ls = pchip.scalar_mul(ctx, &s, &l)?;
+
+                        match acc {
+                            None => acc = Some(ls),
+                            Some(acc_) => {
+                                let acc_ = pchip.add(ctx, &acc_, &ls)?;
+                                acc = Some(acc_);
+                            }
+                        }
+                    }
+
+                    match acc {
+                        None => pchip.assign_const(ctx, E::G1Affine::identity()),
+                        Some(acc) => pchip.normalize(ctx, &acc),
+                    }
                 })
                 .collect::<Result<Vec<A::AssignedPoint>, A::Error>>()
         })
@@ -679,7 +698,7 @@ pub fn verify_single_proof_in_chip<
     params: &ParamsVerifier<E>,
     transcript: &mut T,
 ) -> Result<(A::AssignedPoint, A::AssignedPoint), A::Error> {
-    let assigned_instances = assign_instance_commitment(ctx, pchip, instances, vk, params)?;
+    let assigned_instances = assign_instance_commitment(ctx, schip, pchip, instances, vk, params)?;
 
     let proof = verify_single_proof_no_eval(
         ctx,
@@ -740,7 +759,7 @@ pub fn verify_aggregation_proofs_in_chip<
             let instances2: Vec<&[&[E::Scalar]]> = instances1.iter().map(|x| &x[..]).collect();
 
             let assigned_instances =
-                assign_instance_commitment(ctx, pchip, &instances2[..], vk, params)?;
+                assign_instance_commitment(ctx, schip, pchip, &instances2[..], vk, params)?;
 
             verify_single_proof_no_eval(
                 ctx,

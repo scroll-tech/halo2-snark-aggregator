@@ -400,4 +400,16 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
         let mut neg_b = self.neg(ctx, b)?;
         self.add(ctx, a, &mut neg_b)
     }
+    fn reduce(
+        &self,
+        ctx: &mut Context<N>,
+        a: &mut AssignedPoint<C, N>,
+    ) -> Result<AssignedPoint<C, N>, Error> {
+        self.integer_chip().reduce(ctx, &mut a.x)?;
+        self.integer_chip().reduce(ctx, &mut a.y)?;
+        let z = a.z.clone();
+
+        let identity = self.assign_identity(ctx)?;
+        self.bisec_point(ctx, &z, &identity, &a)
+    }
 }

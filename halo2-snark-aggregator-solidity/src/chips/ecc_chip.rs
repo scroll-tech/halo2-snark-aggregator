@@ -159,6 +159,14 @@ impl<C: CurveAffine, E> ArithCommonChip for SolidityEccChip<C, E> {
     fn to_value(&self, v: &Self::AssignedValue) -> Result<C, Self::Error> {
         Ok(v.v.to_affine())
     }
+
+    fn normalize(
+        &self,
+        _ctx: &mut Self::Context,
+        v: &Self::AssignedValue,
+    ) -> Result<Self::AssignedValue, Self::Error> {
+        Ok(v.clone())
+    }
 }
 
 impl<C: CurveAffine, E> ArithEccChip for SolidityEccChip<C, E> {
