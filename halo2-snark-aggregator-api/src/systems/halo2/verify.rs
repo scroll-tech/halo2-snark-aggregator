@@ -555,7 +555,9 @@ pub fn assign_instance_commitment<
     instances: &[&[&[E::Scalar]]],
     vk: &VerifyingKey<E::G1Affine>,
     params: &ParamsVerifier<E>,
-) -> Result<(Vec<Vec<Vec<A::AssignedScalar>>>, Vec<Vec<A::AssignedPoint>>), A::Error> {
+) -> Result<(Vec<A::AssignedScalar>, Vec<Vec<A::AssignedPoint>>), A::Error> {
+    let mut plain_assigned_instances = vec![];
+
     for instances in instances.iter() {
         assert!(instances.len() == vk.cs.num_instance_columns)
     }
@@ -571,7 +573,8 @@ pub fn assign_instance_commitment<
                     let mut assigned_scalars = vec![];
                     for instance in instance.iter() {
                         let s = schip.assign_var(ctx, instance.clone())?;
-                        assigned_scalars.push(s);
+                        assigned_scalars.push(s.clone());
+                        plain_assigned_instances.push(s);
                     }
                     Ok(assigned_scalars)
                 })
@@ -614,7 +617,7 @@ pub fn assign_instance_commitment<
         })
         .collect::<Result<Vec<Vec<_>>, A::Error>>()?;
 
-    Ok((instances, commitments))
+    Ok((plain_assigned_instances, commitments))
 }
 
 pub fn verify_single_proof_no_eval<
@@ -720,15 +723,8 @@ pub fn verify_single_proof_in_chip<
     vk: &VerifyingKey<E::G1Affine>,
     params: &ParamsVerifier<E>,
     transcript: &mut T,
-) -> Result<
-    (
-        A::AssignedPoint,
-        A::AssignedPoint,
-        Vec<Vec<Vec<A::AssignedScalar>>>,
-    ),
-    A::Error,
-> {
-    let (assigned_instances, assigned_instances_commitment) =
+) -> Result<(A::AssignedPoint, A::AssignedPoint, Vec<A::AssignedScalar>), A::Error> {
+    let (plain_assigned_instances, assigned_instances_commitment) =
         assign_instance_commitment(ctx, schip, pchip, instances, vk, params)?;
 
     let proof = verify_single_proof_no_eval(
@@ -743,7 +739,7 @@ pub fn verify_single_proof_in_chip<
         "".to_owned(),
     )?;
     let (w_x, w_g) = evaluate_multiopen_proof::<E, A, T>(ctx, schip, pchip, proof, params)?;
-    Ok((w_x, w_g, assigned_instances))
+    Ok((w_x, w_g, plain_assigned_instances))
 }
 
 pub struct ProofData<
@@ -779,7 +775,9 @@ pub fn verify_aggregation_proofs_in_chip<
     params: &ParamsVerifier<E>,
     mut proofs: Vec<ProofData<E, A, T>>,
     transcript: &mut T,
-) -> Result<(A::AssignedPoint, A::AssignedPoint), A::Error> {
+) -> Result<(A::AssignedPoint, A::AssignedPoint, Vec<A::AssignedScalar>), A::Error> {
+    let mut plain_assigned_instances = vec![];
+
     let multiopen_proofs: Vec<MultiOpenProof<A>> = proofs
         .iter_mut()
         .map(|proof| {
@@ -792,6 +790,10 @@ pub fn verify_aggregation_proofs_in_chip<
 
             let (assigned_instances, assigned_instance_commitments) =
                 assign_instance_commitment(ctx, schip, pchip, &instances2[..], vk, params)?;
+
+            for assigned_instance in assigned_instances {
+                plain_assigned_instances.push(assigned_instance)
+            }
 
             verify_single_proof_no_eval(
                 ctx,
@@ -829,4 +831,5 @@ pub fn verify_aggregation_proofs_in_chip<
     let aggregated_proof = acc.unwrap();
 
     evaluate_multiopen_proof::<E, A, T>(ctx, schip, pchip, aggregated_proof, params)
+        .map(|pair| (pair.0, pair.1, plain_assigned_instances))
 }

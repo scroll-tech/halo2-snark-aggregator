@@ -17,6 +17,7 @@ use halo2_snark_aggregator_api::arith::{common::ArithCommonChip, ecc::ArithEccCh
 use halo2_snark_aggregator_api::systems::halo2::verify::{
     assign_instance_commitment, verify_single_proof_no_eval,
 };
+use halo2_snark_aggregator_circuit::sample_circuit::TargetCircuit;
 use halo2_snark_aggregator_circuit::verify_circuit::{load_instances, Halo2VerifierCircuit};
 use log::info;
 use num_bigint::BigUint;
@@ -46,26 +47,84 @@ fn render_verifier_sol_template<C: CurveAffine>(
     }
     equations.append(&mut Statement::opcodes_to_solidity_string(&mut opcodes));
 
+    let mut instance_assign = vec![];
+    for i in 4..args.instance_size {
+        instance_assign.push(format!(
+            "instances[{}] = target_circuit_final_pair[{}];",
+            i, i
+        ))
+    }
+
     ctx.insert("wx", &(args.wx).to_typed_string());
     ctx.insert("wg", &(args.wg).to_typed_string());
     ctx.insert("statements", &equations);
-    ctx.insert("target_circuit_s_g2_x0", &args.target_circuit_s_g2.x.0.to_str_radix(10));
-    ctx.insert("target_circuit_s_g2_x1", &args.target_circuit_s_g2.x.1.to_str_radix(10));
-    ctx.insert("target_circuit_s_g2_y0", &args.target_circuit_s_g2.y.0.to_str_radix(10));
-    ctx.insert("target_circuit_s_g2_y1", &args.target_circuit_s_g2.y.1.to_str_radix(10));
-    ctx.insert("target_circuit_n_g2_x0", &args.target_circuit_n_g2.x.0.to_str_radix(10));
-    ctx.insert("target_circuit_n_g2_x1", &args.target_circuit_n_g2.x.1.to_str_radix(10));
-    ctx.insert("target_circuit_n_g2_y0", &args.target_circuit_n_g2.y.0.to_str_radix(10));
-    ctx.insert("target_circuit_n_g2_y1", &args.target_circuit_n_g2.y.1.to_str_radix(10));
-    ctx.insert("verify_circuit_s_g2_x0", &args.verify_circuit_s_g2.x.0.to_str_radix(10));
-    ctx.insert("verify_circuit_s_g2_x1", &args.verify_circuit_s_g2.x.1.to_str_radix(10));
-    ctx.insert("verify_circuit_s_g2_y0", &args.verify_circuit_s_g2.y.0.to_str_radix(10));
-    ctx.insert("verify_circuit_s_g2_y1", &args.verify_circuit_s_g2.y.1.to_str_radix(10));
-    ctx.insert("verify_circuit_n_g2_x0", &args.verify_circuit_n_g2.x.0.to_str_radix(10));
-    ctx.insert("verify_circuit_n_g2_x1", &args.verify_circuit_n_g2.x.1.to_str_radix(10));
-    ctx.insert("verify_circuit_n_g2_y0", &args.verify_circuit_n_g2.y.0.to_str_radix(10));
-    ctx.insert("verify_circuit_n_g2_y1", &args.verify_circuit_n_g2.y.1.to_str_radix(10));
+    ctx.insert("instance_assign", &instance_assign);
+    ctx.insert(
+        "target_circuit_s_g2_x0",
+        &args.target_circuit_s_g2.x.0.to_str_radix(10),
+    );
+    ctx.insert(
+        "target_circuit_s_g2_x1",
+        &args.target_circuit_s_g2.x.1.to_str_radix(10),
+    );
+    ctx.insert(
+        "target_circuit_s_g2_y0",
+        &args.target_circuit_s_g2.y.0.to_str_radix(10),
+    );
+    ctx.insert(
+        "target_circuit_s_g2_y1",
+        &args.target_circuit_s_g2.y.1.to_str_radix(10),
+    );
+    ctx.insert(
+        "target_circuit_n_g2_x0",
+        &args.target_circuit_n_g2.x.0.to_str_radix(10),
+    );
+    ctx.insert(
+        "target_circuit_n_g2_x1",
+        &args.target_circuit_n_g2.x.1.to_str_radix(10),
+    );
+    ctx.insert(
+        "target_circuit_n_g2_y0",
+        &args.target_circuit_n_g2.y.0.to_str_radix(10),
+    );
+    ctx.insert(
+        "target_circuit_n_g2_y1",
+        &args.target_circuit_n_g2.y.1.to_str_radix(10),
+    );
+    ctx.insert(
+        "verify_circuit_s_g2_x0",
+        &args.verify_circuit_s_g2.x.0.to_str_radix(10),
+    );
+    ctx.insert(
+        "verify_circuit_s_g2_x1",
+        &args.verify_circuit_s_g2.x.1.to_str_radix(10),
+    );
+    ctx.insert(
+        "verify_circuit_s_g2_y0",
+        &args.verify_circuit_s_g2.y.0.to_str_radix(10),
+    );
+    ctx.insert(
+        "verify_circuit_s_g2_y1",
+        &args.verify_circuit_s_g2.y.1.to_str_radix(10),
+    );
+    ctx.insert(
+        "verify_circuit_n_g2_x0",
+        &args.verify_circuit_n_g2.x.0.to_str_radix(10),
+    );
+    ctx.insert(
+        "verify_circuit_n_g2_x1",
+        &args.verify_circuit_n_g2.x.1.to_str_radix(10),
+    );
+    ctx.insert(
+        "verify_circuit_n_g2_y0",
+        &args.verify_circuit_n_g2.y.0.to_str_radix(10),
+    );
+    ctx.insert(
+        "verify_circuit_n_g2_y1",
+        &args.verify_circuit_n_g2.y.1.to_str_radix(10),
+    );
     ctx.insert("memory_size", &args.memory_size);
+    ctx.insert("instance_size", &args.instance_size);
     ctx.insert("absorbing_length", &args.absorbing_length);
     tera.render("verifier.sol", &ctx)
         .expect("failed to render template")
@@ -102,15 +161,22 @@ pub struct SolidityGenerate {
     pub instance: Vec<u8>,
     // serialized proof
     pub proof: Vec<u8>,
+    pub nproofs: usize,
 }
 
 impl SolidityGenerate {
-    pub fn call<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>>(
+    pub fn call<
+        C: CurveAffine,
+        E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>,
+        CIRCUIT: TargetCircuit<C, E>,
+    >(
         &self,
         template_folder: std::path::PathBuf,
     ) -> String {
         let target_circuit_params = Params::<C>::read(Cursor::new(&self.target_params)).unwrap();
-        let target_params = target_circuit_params.verifier::<E>(4).unwrap();
+        let target_params = target_circuit_params
+            .verifier::<E>(CIRCUIT::PUBLIC_INPUT_SIZE)
+            .unwrap();
         let target_circuit_s_g2 = get_xy_from_g2point::<E>(target_params.s_g2);
         let target_circuit_n_g2 = get_xy_from_g2point::<E>(-target_params.g2);
 
@@ -123,7 +189,9 @@ impl SolidityGenerate {
             .unwrap()
         };
         let verify_circuit_instance = load_instances::<E>(&self.instance);
-        let verify_params = verify_circuit_params.verifier::<E>(4).unwrap();
+        let verify_params = verify_circuit_params
+            .verifier::<E>(4 + self.nproofs * CIRCUIT::PUBLIC_INPUT_SIZE)
+            .unwrap();
 
         let nchip = &SolidityFieldChip::new();
         let schip = nchip;
@@ -205,6 +273,7 @@ impl SolidityGenerate {
             verify_circuit_n_g2,
             assignments: ctx.statements.clone(),
             memory_size: ctx.memory_offset,
+            instance_size: ctx.instance_offset,
             absorbing_length: if ctx.absorbing_offset > ctx.max_absorbing_offset {
                 ctx.absorbing_offset
             } else {
