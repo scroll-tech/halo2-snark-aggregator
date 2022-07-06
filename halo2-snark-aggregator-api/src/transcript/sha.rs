@@ -9,7 +9,6 @@ use halo2_proofs::transcript::EncodedChallenge;
 use halo2_proofs::transcript::Transcript;
 use halo2_proofs::transcript::TranscriptRead;
 use halo2_proofs::transcript::TranscriptWrite;
-use num_bigint::BigUint;
 use std::io::{self, Read, Write};
 use std::marker::PhantomData;
 
@@ -43,9 +42,11 @@ impl<R: Read, C: CurveAffine, D: Digest + Clone> TranscriptRead<C, Challenge255<
     for ShaRead<R, C, Challenge255<C>, D>
 {
     fn read_point(&mut self) -> io::Result<C> {
-        let mut compressed = C::Repr::default();
-        self.reader.read_exact(compressed.as_mut())?;
-        let point: C = Option::from(C::from_bytes(&compressed)).ok_or_else(|| {
+        // let mut compressed = C::Repr::default();
+        let x = <C::Base as BaseExt>::read(&mut self.reader)?;
+        let y = <C::Base as BaseExt>::read(&mut self.reader)?;
+
+        let point: C = Option::from(C::from_xy(x, y)).ok_or_else(|| {
             io::Error::new(io::ErrorKind::Other, "invalid point encoding in proof")
         })?;
         self.common_point(point)?;
@@ -125,32 +126,24 @@ impl<R: Read, C: CurveAffine, D: Digest + Clone> Transcript<C, Challenge255<C>>
 pub struct ShaWrite<W: Write, C: CurveAffine, E: EncodedChallenge<C>, D: Digest> {
     state: D,
     writer: W,
-    writer_be: W,
     _marker: PhantomData<(C, E)>,
 }
 
 impl<W: Write, C: CurveAffine, E: EncodedChallenge<C>, D: Digest> ShaWrite<W, C, E, D> {
     /// Initialize a transcript given an output buffer.
-    pub fn init(writer: W, writer_be: W) -> Self {
+    pub fn init(writer: W) -> Self {
         ShaWrite {
             state: D::new(),
             writer,
-            writer_be,
             _marker: PhantomData,
         }
     }
 
     /// Conclude the interaction and return the output buffer (writer).
-    pub fn finalize(self) -> (W, W) {
+    pub fn finalize(self) -> W {
         // TODO: handle outstanding scalars? see issue #138
-        (self.writer, self.writer_be)
+        self.writer
     }
-}
-
-fn field_to_bn<B: BaseExt>(f: &B) -> BigUint {
-    let mut bytes: Vec<u8> = Vec::new();
-    f.write(&mut bytes).unwrap();
-    BigUint::from_bytes_le(&bytes[..])
 }
 
 impl<W: Write, C: CurveAffine, D: Digest + Clone> TranscriptWrite<C, Challenge255<C>>
@@ -158,7 +151,7 @@ impl<W: Write, C: CurveAffine, D: Digest + Clone> TranscriptWrite<C, Challenge25
 {
     fn write_point(&mut self, point: C) -> io::Result<()> {
         self.common_point(point)?;
-        let compressed = point.to_bytes();
+        // let compressed = point.to_bytes();
 
         let coords = point.coordinates();
         let x = coords
@@ -169,25 +162,15 @@ impl<W: Write, C: CurveAffine, D: Digest + Clone> TranscriptWrite<C, Challenge25
             .unwrap_or(<C as CurveAffine>::Base::zero());
 
         for base in vec![&x, &y] {
-            let mut buf = field_to_bn::<C::Base>(base).to_bytes_le();
-            buf.resize(32, 0u8);
-            buf.reverse();
-            self.writer_be.write_all(&buf).unwrap();
+            base.write(&mut self.writer)?;
         }
 
-        self.writer.write_all(compressed.as_ref())
+        Ok(())
     }
 
     fn write_scalar(&mut self, scalar: C::Scalar) -> io::Result<()> {
         self.common_scalar(scalar)?;
         let data = scalar.to_repr();
-
-        {
-            let mut buf = field_to_bn::<C::Scalar>(&scalar).to_bytes_le();
-            buf.resize(32, 0u8);
-            buf.reverse();
-            self.writer_be.write_all(&buf).unwrap();
-        }
 
         self.writer.write_all(data.as_ref())
     }

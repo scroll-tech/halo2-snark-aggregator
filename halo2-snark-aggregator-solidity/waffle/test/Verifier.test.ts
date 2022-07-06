@@ -51,7 +51,7 @@ describe("Verifier", () => {
   });
 
   let proof = fs.readFileSync(
-    "../../halo2-snark-aggregator-sdk/output/verify_circuit_proof_be.data"
+    "../../halo2-snark-aggregator-sdk/output/verify_circuit_proof.data"
   );
   let final_pair = fs.readFileSync(
     "../../halo2-snark-aggregator-sdk/output/verify_circuit_final_pair.data"
@@ -62,7 +62,7 @@ describe("Verifier", () => {
 
   it("Assigns initial balance", async () => {
     let a = await token.estimateGas.verify(
-      bufferToUint256BE(proof),
+      bufferToUint256LE(proof),
       bufferToUint256LE(final_pair),
     );
     console.log(a.toString());
