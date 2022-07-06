@@ -27,7 +27,6 @@ use halo2_proofs::{
     plonk::{Circuit, ConstraintSystem, Error, VerifyingKey},
     poly::commitment::{Params, ParamsVerifier},
 };
-use halo2_snark_aggregator_api::arith::common::ArithCommonChip;
 use halo2_snark_aggregator_api::mock::arith::{ecc::MockEccChip, field::MockFieldChip};
 use halo2_snark_aggregator_api::mock::transcript_encode::PoseidonEncode;
 use halo2_snark_aggregator_api::systems::halo2::verify::verify_aggregation_proofs_in_chip;
@@ -548,13 +547,7 @@ impl CreateProof {
         CIRCUIT: TargetCircuit<C, E>,
     >(
         &self,
-    ) -> (
-        (C, C, Vec<C::ScalarExt>),
-        Vec<C::ScalarExt>,
-        Vec<Vec<C>>,
-        Vec<u8>,
-        Vec<u8>,
-    ) {
+    ) -> ((C, C, Vec<C::ScalarExt>), Vec<C::ScalarExt>, Vec<u8>) {
         let setup = Setup {
             params: self.target_circuit_params.clone(),
             vk: self.target_circuit_vk.clone(),
@@ -627,7 +620,7 @@ impl CreateProof {
         info!("Running keygen_pk took {} seconds.", elapsed_time.as_secs());
 
         let instances: &[&[&[C::ScalarExt]]] = &[&[&verify_circuit_instances[..]]];
-        let mut transcript = ShaWrite::<_, _, Challenge255<_>, sha2::Sha256>::init(vec![], vec![]);
+        let mut transcript = ShaWrite::<_, _, Challenge255<_>, sha2::Sha256>::init(vec![]);
         create_proof(
             &verify_circuit_params,
             &verify_circuit_pk,
@@ -637,7 +630,7 @@ impl CreateProof {
             &mut transcript,
         )
         .expect("proof generation should not fail");
-        let (proof, proof_be) = transcript.finalize();
+        let proof = transcript.finalize();
 
         let elapsed_time = now.elapsed();
         println!(
@@ -645,32 +638,7 @@ impl CreateProof {
             elapsed_time.as_secs()
         );
 
-        let instance_commitments: Vec<Vec<C>> = {
-            let instances: &[&[&[C::ScalarExt]]] = &[&[&verify_circuit_instances]];
-            let params = verify_circuit_params
-                .verifier::<E>(CIRCUIT::PUBLIC_INPUT_SIZE * self.nproofs + 4)
-                .unwrap();
-
-            let instance_commitments: Vec<Vec<C>> = instances
-                .iter()
-                .map(|instance| {
-                    instance
-                        .iter()
-                        .map(|instance| params.commit_lagrange(instance.to_vec()).to_affine())
-                        .collect::<Vec<_>>()
-                })
-                .collect::<Vec<_>>();
-
-            instance_commitments
-        };
-
-        (
-            verify_circuit_final_pair,
-            verify_circuit_instances,
-            instance_commitments,
-            proof,
-            proof_be,
-        )
+        (verify_circuit_final_pair, verify_circuit_instances, proof)
     }
 }
 

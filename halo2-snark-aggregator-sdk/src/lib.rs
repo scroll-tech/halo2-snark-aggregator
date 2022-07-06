@@ -122,10 +122,6 @@ fn write_verify_circuit_proof(folder: &mut PathBuf, buf: &Vec<u8>) {
     write_file(folder, "verify_circuit_proof.data", buf)
 }
 
-fn write_verify_circuit_proof_be(folder: &mut PathBuf, buf: &Vec<u8>) {
-    write_file(folder, "verify_circuit_proof_be.data", buf)
-}
-
 fn write_verify_circuit_solidity(folder: &mut PathBuf, buf: &Vec<u8>) {
     write_file(folder, "verifier.sol", buf)
 }
@@ -216,12 +212,10 @@ pub fn builder<
             nproofs: args.nproofs,
         };
 
-        let (final_pair, instance, _instance_commitments, proof, proof_be) =
-            request.call::<_, Bn256, TargetCircuit>();
+        let (final_pair, instance, proof) = request.call::<_, Bn256, TargetCircuit>();
 
         write_verify_circuit_instance(&mut folder.clone(), &instance);
         write_verify_circuit_proof(&mut folder.clone(), &proof);
-        write_verify_circuit_proof_be(&mut folder.clone(), &proof_be);
         write_verify_circuit_final_pair(&mut folder.clone(), &final_pair);
     }
 
