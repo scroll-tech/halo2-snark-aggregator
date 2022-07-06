@@ -112,4 +112,13 @@ impl<'a, 'b, C: CurveAffine> ArithEccChip for EccChip<'a, 'b, C> {
     ) -> Result<Self::AssignedPoint, Self::Error> {
         self.chip.mul(ctx, &mut rhs.clone(), lhs)
     }
+
+    fn scalar_mul_constant(
+        &self,
+        ctx: &mut Self::Context,
+        lhs: &Self::AssignedScalar,
+        rhs: Self::Point,
+    ) -> Result<Self::AssignedPoint, Self::Error> {
+        self.chip.constant_mul(ctx, rhs.to_curve(), lhs)
+    }
 }

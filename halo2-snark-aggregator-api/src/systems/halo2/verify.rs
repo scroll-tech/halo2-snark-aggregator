@@ -588,8 +588,11 @@ pub fn assign_instance_commitment<
                     let mut acc = None;
 
                     for (i, instance) in instance.iter().enumerate() {
-                        let l = pchip.assign_const(ctx, params.g_lagrange[i])?;
-                        let ls = pchip.scalar_mul(ctx, &instance, &l)?;
+                        let ls = pchip.scalar_mul_constant(
+                            ctx,
+                            &instance,
+                            params.g_lagrange[i].clone(),
+                        )?;
 
                         match acc {
                             None => acc = Some(ls),

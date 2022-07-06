@@ -6,6 +6,7 @@ use crate::five::range_gate::FiveColumnRangeGate;
 use crate::gates::base_gate::Context;
 use crate::gates::range_gate::RangeGateConfig;
 use group::ff::Field;
+use group::Group;
 use halo2_proofs::arithmetic::CurveAffine;
 use halo2_proofs::plonk::Circuit;
 use halo2_proofs::{
@@ -22,6 +23,7 @@ enum TestCase {
     Add,
     Double,
     Mul,
+    ConstantMul,
     Sub,
 }
 
@@ -146,6 +148,41 @@ impl<C: CurveAffine> TestFiveColumnNativeEccChipCircuit<C> {
         Ok(())
     }
 
+    fn setup_test_constant_mul(
+        &self,
+        ecc_gate: &NativeEccChip<'_, C>,
+        ctx: &mut Context<'_, C::ScalarExt>,
+    ) -> Result<(), Error> {
+        let base_gate = ecc_gate.base_gate();
+
+        let s1 = Self::random();
+        let s2 = Self::random();
+
+        let s3 = s1 * s2;
+        let identity = C::ScalarExt::zero();
+
+        let p1 = C::generator() * s1;
+        let s2 = base_gate.assign_constant(ctx, s2)?;
+        let pi = C::CurveExt::identity();
+        let mut assigned_pi = ecc_gate.assign_identity(ctx)?;
+        let si = base_gate.assign_constant(ctx, identity)?;
+
+        let mut p3 = ecc_gate.assign_constant_point_from_scalar(ctx, s3)?;
+        let mut p3_ = ecc_gate.constant_mul(ctx, p1, &s2)?;
+        ecc_gate.assert_equal(ctx, &mut p3, &mut p3_)?;
+
+        let mut pi_ = ecc_gate.constant_mul(ctx, p1, &si)?;
+        ecc_gate.assert_equal(ctx, &mut assigned_pi, &mut pi_)?;
+
+        let mut pi_ = ecc_gate.constant_mul(ctx, pi, &s2)?;
+        ecc_gate.assert_equal(ctx, &mut assigned_pi, &mut pi_)?;
+
+        let mut pi_ = ecc_gate.constant_mul(ctx, pi, &si)?;
+        ecc_gate.assert_equal(ctx, &mut assigned_pi, &mut pi_)?;
+
+        Ok(())
+    }
+
     fn setup_test_double(
         &self,
         ecc_gate: &NativeEccChip<'_, C>,
@@ -222,6 +259,7 @@ impl<C: CurveAffine> Circuit<C::ScalarExt> for TestFiveColumnNativeEccChipCircui
                         TestCase::Double => self.setup_test_double(&ecc_gate, r),
                         TestCase::Mul => self.setup_test_mul(&ecc_gate, r),
                         TestCase::Sub => self.setup_test_sub(&ecc_gate, r),
+                        TestCase::ConstantMul => self.setup_test_constant_mul(&ecc_gate, r),
                     }?;
                 }
 
@@ -283,6 +321,21 @@ fn test_five_column_natvie_ecc_chip_sub() {
     const K: u32 = (COMMON_RANGE_BITS + 2) as u32;
     let chip = TestFiveColumnNativeEccChipCircuit::<G1Affine> {
         test_case: TestCase::Sub,
+        _phantom_w: PhantomData,
+        _phantom_n: PhantomData,
+    };
+    let prover = match MockProver::run(K, &chip, vec![]) {
+        Ok(prover) => prover,
+        Err(e) => panic!("{:#?}", e),
+    };
+    assert_eq!(prover.verify(), Ok(()));
+}
+
+#[test]
+fn test_five_column_natvie_ecc_chip_constant_mul() {
+    const K: u32 = (COMMON_RANGE_BITS + 2) as u32;
+    let chip = TestFiveColumnNativeEccChipCircuit::<G1Affine> {
+        test_case: TestCase::ConstantMul,
         _phantom_w: PhantomData,
         _phantom_n: PhantomData,
     };
