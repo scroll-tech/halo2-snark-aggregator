@@ -10,7 +10,7 @@ pub struct MockEccChipCtx {
 
 impl MockEccChipCtx {
     pub fn print(&self) {
-        println!("===== BEGIN: Halo2VerifierCircuit rows cost estimation ========");
+        log::debug!("===== BEGIN: Halo2VerifierCircuit rows cost estimation ========");
         let n = self.point_list.len();
         let rows = n * 79322;
         let mut k = 18;
@@ -20,15 +20,15 @@ impl MockEccChipCtx {
             }
             k += 1;
         }
-        println!("total ecmul: {}", n);
-        println!(
+        log::debug!("total ecmul: {}", n);
+        log::debug!(
             "rows needed by ecmul: {} = {} * 79322 = {:.2} * 2**{}",
             rows,
             n,
             (rows as f64) / ((1 << k) as f64),
             k
         );
-        println!("at least need k: {}", k);
+        log::debug!("at least need k: {}", k);
         let counter = self
             .point_list
             .iter()
@@ -39,18 +39,15 @@ impl MockEccChipCtx {
                 map
             });
         for (k, v) in counter {
-            println!(
+            log::debug!(
                 "circuit {}: num {}, percentage {:.2}%",
                 k,
                 v,
                 (v as f64 / n as f64) * 100f64
             );
         }
-        println!("all point list:");
-        for k in &self.point_list {
-            println!("{}", k);
-        }
-        println!("===== END: Halo2VerifierCircuit rows cost estimation ========");
+        log::trace!("all point list: {:?}", self.point_list);
+        log::debug!("===== END: Halo2VerifierCircuit rows cost estimation ========");
     }
 }
 

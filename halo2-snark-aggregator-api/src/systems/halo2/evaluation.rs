@@ -149,7 +149,7 @@ impl<P, S: Clone> EvaluationQuerySchema<P, S> {
         let mut s: Option<A::AssignedScalar> = None;
         for b in points.into_iter() {
             let scalar = Self::sum_scalar_array::<Scalar, A>(ctx, schip, b.2)?;
-            println!("eval point: {}", b.0);
+            log::trace!("eval point: {}", b.0);
             if b.0 == "" {
                 assert!(b.1.is_none());
                 assert!(s.is_none());

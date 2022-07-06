@@ -116,6 +116,7 @@ impl<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> Halo2VerifierCircuit<
         config: Halo2VerifierCircuitConfig,
         mut layouter: impl Layouter<C::ScalarExt>,
     ) -> Result<usize, Error> {
+        log::debug!("Halo2VerifierCircuit synthesize_impl start");
         let base_gate = FiveColumnBaseGate::new(config.base_gate_config);
         let range_gate = FiveColumnRangeGate::<'_, C::Base, C::ScalarExt, COMMON_RANGE_BITS>::new(
             config.range_gate_config,
@@ -234,6 +235,7 @@ impl<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> Halo2VerifierCircuit<
                 )?;
             }
         }
+        log::debug!("Halo2VerifierCircuit synthesize_impl done");
         Ok(max_offset)
     }
 }
