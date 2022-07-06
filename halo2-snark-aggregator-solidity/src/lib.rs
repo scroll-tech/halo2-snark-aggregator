@@ -150,6 +150,7 @@ impl SolidityGenerate {
         ctx.enter_instance();
         let assigned_instances = assign_instance_commitment(
             ctx,
+            schip,
             pchip,
             &verify_circuit_instance2[..],
             &verify_circuit_vk,

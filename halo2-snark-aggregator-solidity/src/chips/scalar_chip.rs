@@ -136,6 +136,14 @@ impl<F: FieldExt, E> ArithCommonChip for SolidityFieldChip<F, E> {
     fn to_value(&self, v: &Self::AssignedValue) -> Result<Self::Value, Self::Error> {
         Ok(v.v)
     }
+
+    fn normalize(
+        &self,
+        _ctx: &mut Self::Context,
+        v: &Self::AssignedValue,
+    ) -> Result<Self::AssignedValue, Self::Error> {
+        Ok(v.clone())
+    }
 }
 
 impl<F: FieldExt, E> ArithFieldChip for SolidityFieldChip<F, E> {

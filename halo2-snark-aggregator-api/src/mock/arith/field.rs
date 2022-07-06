@@ -1,6 +1,6 @@
-use std::marker::PhantomData;
 use crate::arith::{common::ArithCommonChip, field::ArithFieldChip};
 use halo2_proofs::arithmetic::FieldExt;
+use std::marker::PhantomData;
 
 pub struct MockFieldChip<F: FieldExt, E> {
     zero: F,
@@ -67,6 +67,14 @@ impl<F: FieldExt, E> ArithCommonChip for MockFieldChip<F, E> {
     }
 
     fn to_value(&self, v: &Self::AssignedValue) -> Result<Self::Value, Self::Error> {
+        Ok(*v)
+    }
+
+    fn normalize(
+        &self,
+        _ctx: &mut Self::Context,
+        v: &Self::AssignedValue,
+    ) -> Result<Self::AssignedValue, Self::Error> {
         Ok(*v)
     }
 }

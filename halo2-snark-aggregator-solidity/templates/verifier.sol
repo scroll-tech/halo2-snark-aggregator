@@ -99,7 +99,7 @@ contract Verifier {
     }
 
     function fr_mul_add_mt(
-        uint256[76] memory m,
+        uint256[{{memory_size}}] memory m,
         uint256 base,
         uint256 opcode,
         uint256 t
@@ -248,7 +248,7 @@ contract Verifier {
     }
     
     function ecc_mul_add_pm(
-        uint256[76] memory m,
+        uint256[{{memory_size}}] memory m,
         uint256[] calldata proof,
         uint256 opcode,
         uint256 t0,
@@ -337,7 +337,7 @@ contract Verifier {
         n.y[1] = uint256({{target_circuit_n_g2_y1}});
     }
 
-    function get_wx_wg(uint256[] calldata proof, uint256[] calldata instances)
+    function get_wx_wg(uint256[] calldata proof, uint256[4] memory instances)
         internal
         view
         returns (uint256, uint256, uint256, uint256)
@@ -355,14 +355,13 @@ contract Verifier {
 
     function verify(
         uint256[] calldata proof,
-        uint256[] calldata target_circuit_final_pair,
-        uint256[] calldata instances,
-        uint256[] calldata instances_commitment
+        uint256[] calldata target_circuit_final_pair
     ) public view {
-        assert(instances[0] == target_circuit_final_pair[0] & ((1 << 136) - 1));
-        assert(instances[1] == (target_circuit_final_pair[0] >> 136) + ((target_circuit_final_pair[1] & 1) << 136));
-        assert(instances[2] == target_circuit_final_pair[2] & ((1 << 136) - 1));
-        assert(instances[3] == (target_circuit_final_pair[2] >> 136) + ((target_circuit_final_pair[3] & 1) << 136));
+        uint256[4] memory instances;
+        instances[0] = target_circuit_final_pair[0] & ((1 << 136) - 1);
+        instances[1] = (target_circuit_final_pair[0] >> 136) + ((target_circuit_final_pair[1] & 1) << 136);
+        instances[2] = target_circuit_final_pair[2] & ((1 << 136) - 1);
+        instances[3] = (target_circuit_final_pair[2] >> 136) + ((target_circuit_final_pair[3] & 1) << 136);
 
         uint256 x0 = 0;
         uint256 x1 = 0;
@@ -374,7 +373,7 @@ contract Verifier {
         bool checked = false;
 
         // TODO: check instances <-> instances_commitment
-        (x0, y0, x1, y1) = get_wx_wg(proof, instances_commitment);
+        (x0, y0, x1, y1) = get_wx_wg(proof, instances);
         g1_points[0].x = x0;
         g1_points[0].y = y0;
         g1_points[1].x = x1;

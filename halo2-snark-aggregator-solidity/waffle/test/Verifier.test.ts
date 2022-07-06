@@ -73,8 +73,6 @@ describe("Verifier", () => {
     let a = await token.estimateGas.verify(
       bufferToUint256BE(proof),
       bufferToUint256LE(final_pair),
-      bufferToUint256LE(instances),
-      bufferToUint256BE(instances_commitment)
     );
     console.log(a.toString());
   });
