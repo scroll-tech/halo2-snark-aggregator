@@ -8,8 +8,7 @@ use halo2_snark_aggregator_circuit::sample_circuit::{
 use halo2_snark_aggregator_circuit::verify_circuit::{CreateProof, Setup, VerifyCheck};
 use halo2_snark_aggregator_solidity::SolidityGenerate;
 use log::info;
-use num_bigint::BigUint;
-use pairing_bn256::bn256::{Bn256, G1Affine};
+use pairing_bn256::bn256::{Bn256, Fr, G1Affine};
 use std::io::{Read, Write};
 use std::path::PathBuf;
 
@@ -93,31 +92,6 @@ fn write_verify_circuit_vk(folder: &mut PathBuf, verify_circuit_vk: &VerifyingKe
     verify_circuit_vk.write(&mut fd).unwrap();
 }
 
-fn field_to_bn<F: BaseExt>(f: &F) -> BigUint {
-    let mut bytes: Vec<u8> = Vec::new();
-    f.write(&mut bytes).unwrap();
-    BigUint::from_bytes_le(&bytes[..])
-}
-
-fn write_verify_circuit_instance_commitments_be(folder: &mut PathBuf, buf: &Vec<Vec<G1Affine>>) {
-    folder.push("verify_circuit_instance_commitments_be.data");
-    let mut fd = std::fs::File::create(folder.as_path()).unwrap();
-    folder.pop();
-
-    for v in buf {
-        for commitment in v {
-            let x = field_to_bn(&commitment.x);
-            let y = field_to_bn(&commitment.y);
-            let be = x
-                .to_bytes_be()
-                .into_iter()
-                .chain(y.to_bytes_be().into_iter())
-                .collect::<Vec<_>>();
-            fd.write_all(&be).unwrap()
-        }
-    }
-}
-
 fn write_verify_circuit_instance(
     folder: &mut PathBuf,
     buf: &Vec<<G1Affine as CurveAffine>::ScalarExt>,
@@ -129,15 +103,19 @@ fn write_verify_circuit_instance(
     buf.iter().for_each(|x| x.write(&mut fd).unwrap());
 }
 
-fn write_verify_circuit_final_pair(folder: &mut PathBuf, buf: &(G1Affine, G1Affine)) {
+fn write_verify_circuit_final_pair(folder: &mut PathBuf, pair: &(G1Affine, G1Affine, Vec<Fr>)) {
     folder.push("verify_circuit_final_pair.data");
     let mut fd = std::fs::File::create(folder.as_path()).unwrap();
     folder.pop();
 
-    buf.0.x.write(&mut fd).unwrap();
-    buf.0.y.write(&mut fd).unwrap();
-    buf.1.x.write(&mut fd).unwrap();
-    buf.1.y.write(&mut fd).unwrap();
+    pair.0.x.write(&mut fd).unwrap();
+    pair.0.y.write(&mut fd).unwrap();
+    pair.1.x.write(&mut fd).unwrap();
+    pair.1.y.write(&mut fd).unwrap();
+
+    pair.2.iter().for_each(|scalar| {
+        scalar.write(&mut fd).unwrap();
+    })
 }
 
 fn write_verify_circuit_proof(folder: &mut PathBuf, buf: &Vec<u8>) {
@@ -238,10 +216,9 @@ pub fn builder<
             nproofs: args.nproofs,
         };
 
-        let (final_pair, instance, instance_commitments, proof, proof_be) =
+        let (final_pair, instance, _instance_commitments, proof, proof_be) =
             request.call::<_, Bn256, TargetCircuit>();
 
-        write_verify_circuit_instance_commitments_be(&mut folder.clone(), &instance_commitments);
         write_verify_circuit_instance(&mut folder.clone(), &instance);
         write_verify_circuit_proof(&mut folder.clone(), &proof);
         write_verify_circuit_proof_be(&mut folder.clone(), &proof_be);
@@ -254,9 +231,10 @@ pub fn builder<
             vk: load_verify_circuit_vk(&mut folder.clone()),
             instance: load_verify_circuit_instance(&mut folder.clone()),
             proof: load_verify_circuit_proof(&mut folder.clone()),
+            nproofs: args.nproofs,
         };
 
-        request.call::<_, Bn256>().unwrap();
+        request.call::<_, Bn256, TargetCircuit>().unwrap();
 
         info!("verify check succeed")
     }
@@ -268,9 +246,10 @@ pub fn builder<
             vk: load_verify_circuit_vk(&mut folder.clone()),
             instance: load_verify_circuit_instance(&mut folder.clone()),
             proof: load_verify_circuit_proof(&mut folder.clone()),
+            nproofs: args.nproofs,
         };
 
-        let sol = request.call::<_, Bn256>(template_folder.unwrap());
+        let sol = request.call::<_, Bn256, TargetCircuit>(template_folder.unwrap());
 
         write_verify_circuit_solidity(&mut folder.clone(), &Vec::<u8>::from(sol.as_bytes()));
     }

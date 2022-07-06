@@ -337,7 +337,7 @@ contract Verifier {
         n.y[1] = uint256({{target_circuit_n_g2_y1}});
     }
 
-    function get_wx_wg(uint256[] calldata proof, uint256[4] memory instances)
+    function get_wx_wg(uint256[] calldata proof, uint256[{{instance_size}}] memory instances)
         internal
         view
         returns (uint256, uint256, uint256, uint256)
@@ -357,11 +357,14 @@ contract Verifier {
         uint256[] calldata proof,
         uint256[] calldata target_circuit_final_pair
     ) public view {
-        uint256[4] memory instances;
+        uint256[{{instance_size}}] memory instances;
         instances[0] = target_circuit_final_pair[0] & ((1 << 136) - 1);
         instances[1] = (target_circuit_final_pair[0] >> 136) + ((target_circuit_final_pair[1] & 1) << 136);
         instances[2] = target_circuit_final_pair[2] & ((1 << 136) - 1);
         instances[3] = (target_circuit_final_pair[2] >> 136) + ((target_circuit_final_pair[3] & 1) << 136);
+        {% for statement in instance_assign %}
+        {{statement}}
+        {%- endfor %}
 
         uint256 x0 = 0;
         uint256 x1 = 0;

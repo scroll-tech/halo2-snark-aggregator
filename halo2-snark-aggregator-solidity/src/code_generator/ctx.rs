@@ -552,7 +552,7 @@ pub struct SolidityCodeGeneratorContext {
     pub(crate) max_absorbing_offset: usize,
     pub(crate) memory_offset: usize,
     transcript_offset: usize,
-    instance_offset: usize,
+    pub(crate) instance_offset: usize,
     tmp_offset: usize,
     pub(crate) var_buf: Vec<u8>,
     pub(crate) statements: Vec<Statement>,
@@ -684,5 +684,6 @@ pub(crate) struct CodeGeneratorCtx {
     pub(crate) verify_circuit_n_g2: G2Point,
     pub(crate) assignments: Vec<Statement>,
     pub(crate) memory_size: usize,
+    pub(crate) instance_size: usize,
     pub(crate) absorbing_length: usize,
 }
