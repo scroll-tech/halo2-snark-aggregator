@@ -92,4 +92,13 @@ impl<C: CurveAffine, E> ArithEccChip for MockEccChip<C, E> {
     ) -> Result<Self::AssignedPoint, Self::Error> {
         Ok(*rhs * *lhs)
     }
+
+    fn scalar_mul_constant(
+        &self,
+        _ctx: &mut Self::Context,
+        lhs: &Self::AssignedScalar,
+        rhs: Self::Point,
+    ) -> Result<Self::AssignedPoint, Self::Error> {
+        Ok(rhs * *lhs)
+    }
 }

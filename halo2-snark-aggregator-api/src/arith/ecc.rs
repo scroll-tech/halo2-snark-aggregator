@@ -31,4 +31,11 @@ pub trait ArithEccChip:
         lhs: &Self::AssignedScalar,
         rhs: &Self::AssignedPoint,
     ) -> Result<Self::AssignedPoint, Self::Error>;
+
+    fn scalar_mul_constant(
+        &self,
+        ctx: &mut Self::Context,
+        lhs: &Self::AssignedScalar,
+        rhs: Self::Point,
+    ) -> Result<Self::AssignedPoint, Self::Error>;
 }

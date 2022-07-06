@@ -34,14 +34,13 @@ impl<'a, C: CurveAffine> NativeEccChip<'a, C> {
     }
 }
 
-const WINDOW_SIZE: usize = 4usize;
 
 impl<'a, C: CurveAffine> EccChipOps<C, C::ScalarExt> for NativeEccChip<'a, C> {
     fn integer_chip(&self) -> &dyn IntegerChipOps<C::Base, C::ScalarExt> {
         self.0.integer_chip
     }
 
-    fn decompose_scalar(
+    fn decompose_scalar<const WINDOW_SIZE: usize>(
         &self,
         ctx: &mut Context<C::ScalarExt>,
         s: &AssignedValue<C::ScalarExt>,
@@ -69,7 +68,7 @@ impl<'a, C: CurveAffine> EccChipOps<C, C::ScalarExt> for NativeEccChip<'a, C> {
             (vec![], C::ScalarExt::from(1u64 << WINDOW_SIZE)),
         )?;
         ret.push(
-            cells[0..4]
+            cells[0..WINDOW_SIZE]
                 .iter()
                 .map(|v| -> AssignedCondition<C::ScalarExt> { v.into() })
                 .collect::<Vec<_>>()
@@ -94,7 +93,7 @@ impl<'a, C: CurveAffine> EccChipOps<C, C::ScalarExt> for NativeEccChip<'a, C> {
                 (vec![], C::ScalarExt::from(1u64 << WINDOW_SIZE)),
             )?;
             ret.push(
-                cells[0..4]
+                cells[0..WINDOW_SIZE]
                     .iter()
                     .map(|v| -> AssignedCondition<C::ScalarExt> { v.into() })
                     .collect::<Vec<_>>()
@@ -114,7 +113,7 @@ impl<'a, C: CurveAffine> EccChipOps<C, C::ScalarExt> for NativeEccChip<'a, C> {
         let cells =
             base_gate.one_line_with_last_base(ctx, bits, pair!(s_n, -one), zero, (vec![], zero))?;
         ret.push(
-            cells[0..4]
+            cells[0..WINDOW_SIZE]
                 .iter()
                 .map(|v| -> AssignedCondition<C::ScalarExt> { v.into() })
                 .collect::<Vec<_>>()

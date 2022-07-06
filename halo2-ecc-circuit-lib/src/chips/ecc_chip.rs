@@ -5,6 +5,7 @@ use crate::gates::{
 };
 use group::ff::Field;
 use group::Curve;
+use group::Group;
 use halo2_proofs::{
     arithmetic::{CurveAffine, FieldExt},
     plonk::Error,
@@ -69,7 +70,7 @@ impl<'a, C: CurveAffine, N: FieldExt> EccChip<'a, C, N> {
     }
 }
 
-const WINDOW_SIZE: usize = 4usize;
+const CONFIG_WINDOW_SIZE: usize = 4usize;
 
 pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
     type AssignedScalar;
@@ -80,7 +81,7 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
     fn range_gate(&self) -> &dyn RangeGateOps<C::Base, N> {
         self.integer_chip().range_gate()
     }
-    fn decompose_scalar(
+    fn decompose_scalar<const WINDOW_SIZE: usize>(
         &self,
         ctx: &mut Context<N>,
         s: &Self::AssignedScalar,
@@ -91,18 +92,18 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
         a: &mut AssignedPoint<C, N>,
         s: &Self::AssignedScalar,
     ) -> Result<AssignedPoint<C, N>, Error> {
-        assert!(WINDOW_SIZE >= 1usize);
-        let windows_in_be = self.decompose_scalar(ctx, s)?;
+        assert!(CONFIG_WINDOW_SIZE >= 1usize);
+        let windows_in_be = self.decompose_scalar::<CONFIG_WINDOW_SIZE>(ctx, s)?;
         let identity = self.assign_identity(ctx)?;
         let mut candidates = vec![identity, a.clone()];
 
-        for i in 2..(1 << WINDOW_SIZE) {
+        for i in 2..(1 << CONFIG_WINDOW_SIZE) {
             let ai = self.add(ctx, &mut candidates[i - 1], a)?;
             candidates.push(ai)
         }
 
         let pick_candidate = |ctx: &mut Context<N>,
-                              bits_in_le: &[AssignedCondition<N>; WINDOW_SIZE]|
+                              bits_in_le: &[AssignedCondition<N>; CONFIG_WINDOW_SIZE]|
          -> Result<AssignedPoint<C, N>, Error> {
             let mut curr_candidates = candidates.clone();
             for bit in bits_in_le {
@@ -126,7 +127,7 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
         if let Some((first, pendings)) = windows_in_be.split_first() {
             let mut acc = pick_candidate(ctx, first)?;
             for bits_in_le in pendings {
-                for _ in 0..WINDOW_SIZE {
+                for _ in 0..CONFIG_WINDOW_SIZE {
                     acc = self.double(ctx, &mut acc)?;
                 }
 
@@ -137,6 +138,41 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
         } else {
             Err(Error::Synthesis)
         }
+    }
+    fn constant_mul(
+        &self,
+        ctx: &mut Context<N>,
+        a: C::CurveExt,
+        s: &Self::AssignedScalar,
+    ) -> Result<AssignedPoint<C, N>, Error> {
+        let bits_be = self.decompose_scalar::<2usize>(ctx, s)?;
+        let mut identity =
+            self.assign_constant_point_with_curvature(ctx, C::CurveExt::identity())?;
+        let mut acc = None;
+        let mut base = a;
+        for bit_le in bits_be.iter().rev() {
+            let candidate00 = &mut identity;
+            let candidate01 = &mut self.assign_constant_point_with_curvature(ctx, base + base)?;
+            let candidate10 = &mut self.assign_constant_point_with_curvature(ctx, base)?;
+            let candidate11 =
+                &mut self.assign_constant_point_with_curvature(ctx, base + base + base)?;
+
+            let candidate0 =
+                &mut self.bisec_point_with_curvature(ctx, &bit_le[0], candidate10, candidate00)?;
+            let candidate1 =
+                &mut self.bisec_point_with_curvature(ctx, &bit_le[0], candidate11, candidate01)?;
+
+            let mut slot =
+                self.bisec_point_with_curvature(ctx, &bit_le[1], candidate1, candidate0)?;
+
+            match acc {
+                None => acc = Some(slot),
+                Some(acc_) => acc = Some(self.add(ctx, &mut slot, &acc_)?),
+            }
+            base = base + base + base + base;
+        }
+
+        Ok(acc.unwrap())
     }
     fn curvature<'a>(
         &self,
@@ -299,6 +335,45 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
         let z = base_gate.assign_constant(ctx, z)?;
 
         Ok(AssignedPoint::new(x, y, z.into()))
+    }
+    fn assign_constant_point_with_curvature(
+        &self,
+        ctx: &mut Context<N>,
+        c: C::CurveExt,
+    ) -> Result<AssignedPoint<C, N>, Error> {
+        let coordinates = c.to_affine().coordinates();
+        let x = coordinates
+            .map(|v| v.x().clone())
+            .unwrap_or(C::Base::zero());
+        let y = coordinates
+            .map(|v| v.y().clone())
+            .unwrap_or(C::Base::zero());
+        let z = N::conditional_select(&N::zero(), &N::one(), c.to_affine().is_identity());
+
+        let base_gate = self.base_gate();
+        let integer_chip = self.integer_chip();
+
+        let curvature_v =
+            integer_chip.assign_constant(ctx, y * x.invert().unwrap_or(C::Base::zero()))?;
+        let curvature_z = base_gate.assign_constant(
+            ctx,
+            if x == C::Base::zero() {
+                N::one()
+            } else {
+                N::zero()
+            },
+        )?;
+
+        let x = integer_chip.assign_constant(ctx, x)?;
+        let y = integer_chip.assign_constant(ctx, y)?;
+        let z = base_gate.assign_constant(ctx, z)?;
+
+        Ok(AssignedPoint::new_with_curvature(
+            x,
+            y,
+            z.into(),
+            Some(AssignedCurvature::new(curvature_v, curvature_z.into())),
+        ))
     }
     fn assign_point(
         &self,

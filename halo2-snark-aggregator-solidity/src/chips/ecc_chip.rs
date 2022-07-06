@@ -207,4 +207,34 @@ impl<C: CurveAffine, E> ArithEccChip for SolidityEccChip<C, E> {
             is_const: lhs.is_const && rhs.is_const,
         })
     }
+
+    fn scalar_mul_constant(
+        &self,
+        ctx: &mut Self::Context,
+        lhs: &Self::AssignedScalar,
+        rhs: Self::Point,
+    ) -> Result<Self::AssignedPoint, Self::Error> {
+        let v = rhs * lhs.v;
+
+        if lhs.is_const {
+            return self.assign_const(ctx, v.to_affine());
+        }
+
+        let (x, y) = get_xy_from_point::<C>(rhs.to_curve());
+        let rhs = Expression::Point(x, y);
+        let r = Expression::Mul(lhs.expr.clone(), Rc::new(rhs), Type::Point);
+        let l = ctx.assign_memory(
+            r,
+            vec![
+                field_to_bn(v.to_affine().coordinates().unwrap().x()),
+                field_to_bn(v.to_affine().coordinates().unwrap().y()),
+            ],
+        );
+
+        Ok(SolidityEccExpr::<C::CurveExt> {
+            expr: l,
+            v,
+            is_const: lhs.is_const,
+        })
+    }
 }
