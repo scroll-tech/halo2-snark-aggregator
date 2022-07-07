@@ -1,0 +1,232 @@
+    Updating git repository `https://github.com/scroll-tech/zkevm-circuits.git`
+    Updating git submodule `https://github.com/OpenZeppelin/openzeppelin-contracts`
+   Compiling eth-types v0.1.0 (https://github.com/scroll-tech/zkevm-circuits.git?branch=scroll-dev-0607#66287f08)
+   Compiling gadgets v0.1.0 (https://github.com/scroll-tech/zkevm-circuits.git?branch=scroll-dev-0607#66287f08)
+   Compiling halo2-snark-aggregator-api v0.1.0 (https://github.com/scroll-tech/halo2-snark-aggregator?branch=scroll-dev-0607#f5751599)
+   Compiling types v0.1.0 (/home/ubuntu/common-rs/types)
+   Compiling keccak256 v0.1.0 (https://github.com/scroll-tech/zkevm-circuits.git?branch=scroll-dev-0607#66287f08)
+   Compiling halo2-snark-aggregator-circuit v0.1.0 (https://github.com/scroll-tech/halo2-snark-aggregator?branch=scroll-dev-0607#f5751599)
+   Compiling bus-mapping v0.1.0 (https://github.com/scroll-tech/zkevm-circuits.git?branch=scroll-dev-0607#66287f08)
+   Compiling halo2-snark-aggregator-solidity v0.1.0 (https://github.com/scroll-tech/halo2-snark-aggregator?branch=scroll-dev-0607#f5751599)
+   Compiling zkevm-circuits v0.1.0 (https://github.com/scroll-tech/zkevm-circuits.git?branch=scroll-dev-0607#66287f08)
+   Compiling zkevm v0.1.0 (/home/ubuntu/common-rs/zkevm)
+warning: unused import: `bail`
+ --> zkevm/src/prover.rs:8:14
+  |
+8 | use anyhow::{bail, Error};
+  |              ^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `halo2_proofs::pairing::group::ff::PrimeField`
+ --> zkevm/src/circuit/builder.rs:8:5
+  |
+8 | use halo2_proofs::pairing::group::ff::PrimeField;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: field is never read: `proof_rust`
+  --> zkevm/src/prover.rs:27:5
+   |
+27 |     proof_rust: Vec<u8>,
+   |     ^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: field is never read: `proof_solidity`
+  --> zkevm/src/prover.rs:28:5
+   |
+28 |     proof_solidity: Vec<u8>,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: field is never read: `instance`
+  --> zkevm/src/prover.rs:29:5
+   |
+29 |     instance: Vec<u8>,
+   |     ^^^^^^^^^^^^^^^^^
+
+warning: `zkevm` (lib test) generated 5 warnings (5 duplicates)
+warning: `zkevm` (lib) generated 5 warnings
+warning: unused import: `Read`
+  --> zkevm/tests/aggregation_playground.rs:23:23
+   |
+23 | use std::io::{Cursor, Read, Write};
+   |                       ^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `Write`
+  --> zkevm/tests/aggregation_playground.rs:23:29
+   |
+23 | use std::io::{Cursor, Read, Write};
+   |                             ^^^^^
+
+warning: variable `LIMBS` should have a snake case name
+   --> zkevm/tests/aggregation_playground.rs:282:9
+    |
+282 |     let LIMBS = 4;
+    |         ^^^^^ help: convert the identifier to snake case: `limbs`
+    |
+    = note: `#[warn(non_snake_case)]` on by default
+
+warning: `zkevm` (test "aggregation_playground") generated 3 warnings
+    Finished release [optimized] target(s) in 47.89s
+     Running unittests (/home/ubuntu/common-rs/target/release/deps/zkevm-a823e803ea94b77f)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/aggregation_playground.rs (/home/ubuntu/common-rs/target/release/deps/aggregation_playground-a3a98d843f898a6e)
+
+running 1 test
+[2022-07-06T09:43:43Z DEBUG aggregation_playground] DEBUG LOG example
+[2022-07-06T09:43:43Z INFO  aggregation_playground] INFO LOG example
+[2022-07-06T09:43:43Z WARN  aggregation_playground] WARN LOG example
+[2022-07-06T09:43:43Z ERROR aggregation_playground] ERROR LOG example
+STDOUT example
+STDERR example
+[2022-07-06T09:43:43Z INFO  aggregation_playground] loading setup params
+[2022-07-06T09:43:43Z INFO  aggregation_playground] using mode "sushi", testing with "./tests/trace-masterchef.json"
+[2022-07-06T09:43:43Z INFO  zkevm::utils] load_or_create_params ./test_params/params18
+[2022-07-06T09:43:43Z INFO  zkevm::utils] start loading params with degree 18
+[2022-07-06T09:43:43Z INFO  zkevm::utils] load params successfully!
+[2022-07-06T09:43:50Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:43:50Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:43:50Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:43:50Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:43:50Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:43:50Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:43:50Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:43:50Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:43:50Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:43:50Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:43:50Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:43:50Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:43:50Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:43:50Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:43:50Z DEBUG zkevm_circuits::state_circuit::lookups] upper_limb_difference fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:43:50Z DEBUG zkevm_circuits::state_circuit::lookups] upper_limb_difference is zero or lower_limb_difference fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:43:51Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:43:51Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:43:51Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:43:51Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:43:51Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:43:51Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:43:51Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:43:51Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:43:51Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:43:51Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:43:51Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:43:51Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:43:51Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:43:51Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:43:51Z DEBUG zkevm_circuits::state_circuit::lookups] upper_limb_difference fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:43:51Z DEBUG zkevm_circuits::state_circuit::lookups] upper_limb_difference is zero or lower_limb_difference fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:44:32Z INFO  zkevm::prover] Create evm proof of block 0x2cad…6271
+test test_4in1 has been running for over 60 seconds
+[2022-07-06T09:44:45Z INFO  zkevm::prover] mock prove done
+[2022-07-06T09:47:25Z INFO  zkevm::prover] Create evm proof of block 0x2cad…6271 Successfully!
+[2022-07-06T09:47:25Z INFO  zkevm::prover] Create state proof of block 0x2cad…6271
+[2022-07-06T09:47:25Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:47:25Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:47:25Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:47:25Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:47:25Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:47:25Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:47:25Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:47:25Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:47:25Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:47:25Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:47:25Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:47:25Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:47:25Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:47:25Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:47:25Z DEBUG zkevm_circuits::state_circuit::lookups] upper_limb_difference fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:47:25Z DEBUG zkevm_circuits::state_circuit::lookups] upper_limb_difference is zero or lower_limb_difference fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:47:26Z INFO  zkevm::prover] mock prove done
+[2022-07-06T09:47:26Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:47:26Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:47:26Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:47:26Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:47:26Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:47:26Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:47:26Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:47:26Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:47:26Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:47:26Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:47:26Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:47:26Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:47:26Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:47:26Z DEBUG zkevm_circuits::state_circuit::lookups] mpi limb fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:47:26Z DEBUG zkevm_circuits::state_circuit::lookups] upper_limb_difference fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:47:26Z DEBUG zkevm_circuits::state_circuit::lookups] upper_limb_difference is zero or lower_limb_difference fits into u16 u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-07-06T09:51:56Z INFO  zkevm::prover] Create state proof of block 0x2cad…6271 Successfully!
+[2022-07-06T09:51:56Z INFO  zkevm::prover] Create poseidon proof of block 0x2cad…6271
+[2022-07-06T09:51:56Z INFO  zkevm::prover] mock prove done
+[2022-07-06T09:52:02Z INFO  zkevm::prover] Create poseidon proof of block 0x2cad…6271 Successfully!
+[2022-07-06T09:52:02Z INFO  zkevm::prover] Create zktrie proof of block 0x2cad…6271
+[2022-07-06T09:52:03Z INFO  zkevm::prover] mock prove done
+[2022-07-06T09:53:20Z INFO  zkevm::prover] Create zktrie proof of block 0x2cad…6271 Successfully!
+[2022-07-06T09:53:21Z INFO  zkevm::utils] load_or_create_params ./test_params/params18
+[2022-07-06T09:53:21Z INFO  zkevm::utils] start loading params with degree 18
+[2022-07-06T09:53:21Z INFO  zkevm::utils] load params successfully!
+[2022-07-06T09:53:21Z INFO  aggregation_playground] output files to output_20220706_094343_sushi
+[2022-07-06T09:53:21Z INFO  aggregation_playground] calc_verify_circuit_instances start
+[2022-07-06T09:53:21Z DEBUG halo2_snark_aggregator_api::systems::halo2::verify] enter verify_aggregation_proofs_in_chip_impl
+[2022-07-06T09:53:22Z DEBUG halo2_snark_aggregator_api::systems::halo2::verify] exiting verify_aggregation_proofs_in_chip_impl
+[2022-07-06T09:53:22Z DEBUG halo2_snark_aggregator_api::mock::arith::field] ===== BEGIN: Halo2VerifierCircuit rows cost estimation ========
+[2022-07-06T09:53:22Z DEBUG halo2_snark_aggregator_api::mock::arith::field] total ecmul: 678
+[2022-07-06T09:53:22Z DEBUG halo2_snark_aggregator_api::mock::arith::field] rows needed by ecmul: 53780316 = 678 * 79322 = 0.80 * 2**26
+[2022-07-06T09:53:22Z DEBUG halo2_snark_aggregator_api::mock::arith::field] at least need k: 26
+[2022-07-06T09:53:22Z DEBUG halo2_snark_aggregator_api::mock::arith::field] circuit evm: num 317, percentage 46.76%
+[2022-07-06T09:53:22Z DEBUG halo2_snark_aggregator_api::mock::arith::field] circuit state: num 198, percentage 29.20%
+[2022-07-06T09:53:22Z DEBUG halo2_snark_aggregator_api::mock::arith::field] circuit zktrie: num 119, percentage 17.55%
+[2022-07-06T09:53:22Z DEBUG halo2_snark_aggregator_api::mock::arith::field] circuit poseidon: num 44, percentage 6.49%
+[2022-07-06T09:53:22Z DEBUG halo2_snark_aggregator_api::mock::arith::field] ===== END: Halo2VerifierCircuit rows cost estimation ========
+[2022-07-06T09:53:22Z INFO  aggregation_playground] verify_circuit_instances [0x00000000000000000000000000000000000000000000000e92e98f78db47f082, 0x00000000000000000000000000000000000000000000000cedaba507b4741013, 0x0000000000000000000000000000000000000000000000049f0219860b7831db, 0x000000000000000000000000000000000000000000000000000093564c37f87d, 0x000000000000000000000000000000000000000000000005420ae340feee1e6b, 0x00000000000000000000000000000000000000000000000d6c8d0a9896383d05, 0x000000000000000000000000000000000000000000000008a712102312c814ea, 0x0000000000000000000000000000000000000000000000000002d07f50b81022, 0x0000000000000000000000000000000000000000000000003f1b3b526961fc5d, 0x00000000000000000000000000000000000000000000000e22e1212328561e34, 0x00000000000000000000000000000000000000000000000c07dc577b671f22ef, 0x0000000000000000000000000000000000000000000000000001acc5c5eecbac, 0x0000000000000000000000000000000000000000000000082456da7b5c9c5a76, 0x000000000000000000000000000000000000000000000004adc3397447fdaeda, 0x0000000000000000000000000000000000000000000000083ca54cbdb37d4072, 0x000000000000000000000000000000000000000000000000000002b88ed9d7f7]
+[2022-07-06T09:53:22Z INFO  aggregation_playground] calc_verify_circuit_instances done
+[2022-07-06T09:53:22Z INFO  aggregation_playground] setup
+[2022-07-06T09:53:22Z INFO  zkevm::utils] load_or_create_params ./test_params/params26
+[2022-07-06T09:53:22Z INFO  zkevm::utils] start loading params with degree 26
+[2022-07-06T09:54:08Z INFO  zkevm::utils] load params successfully!
+[2022-07-06T09:54:08Z INFO  aggregation_playground] setup done
+[2022-07-06T09:54:51Z DEBUG halo2_snark_aggregator_circuit::verify_circuit] Halo2VerifierCircuit synthesize_impl start
+[2022-07-06T09:54:51Z DEBUG halo2_snark_aggregator_api::systems::halo2::verify] enter verify_aggregation_proofs_in_chip_impl
+[2022-07-06T09:57:14Z DEBUG halo2_snark_aggregator_api::systems::halo2::verify] exiting verify_aggregation_proofs_in_chip_impl
+[2022-07-06T09:57:14Z DEBUG halo2_snark_aggregator_circuit::verify_circuit] Halo2VerifierCircuit synthesize_impl done
+[2022-07-06T09:57:14Z DEBUG halo2_snark_aggregator_circuit::verify_circuit] Halo2VerifierCircuit synthesize_impl start
+[2022-07-06T09:57:16Z DEBUG halo2_snark_aggregator_api::systems::halo2::verify] enter verify_aggregation_proofs_in_chip_impl
+[2022-07-06T09:59:33Z DEBUG halo2_snark_aggregator_api::systems::halo2::verify] exiting verify_aggregation_proofs_in_chip_impl
+[2022-07-06T09:59:33Z DEBUG halo2_snark_aggregator_circuit::verify_circuit] Halo2VerifierCircuit synthesize_impl done
+[2022-07-06T10:03:27Z INFO  aggregation_playground] vk done
+[2022-07-06T10:03:27Z INFO  aggregation_playground] gen pk
+[2022-07-06T10:04:10Z DEBUG halo2_snark_aggregator_circuit::verify_circuit] Halo2VerifierCircuit synthesize_impl start
+[2022-07-06T10:04:10Z DEBUG halo2_snark_aggregator_api::systems::halo2::verify] enter verify_aggregation_proofs_in_chip_impl
+[2022-07-06T10:06:33Z DEBUG halo2_snark_aggregator_api::systems::halo2::verify] exiting verify_aggregation_proofs_in_chip_impl
+[2022-07-06T10:06:33Z DEBUG halo2_snark_aggregator_circuit::verify_circuit] Halo2VerifierCircuit synthesize_impl done
+[2022-07-06T10:06:33Z DEBUG halo2_snark_aggregator_circuit::verify_circuit] Halo2VerifierCircuit synthesize_impl start
+[2022-07-06T10:06:38Z DEBUG halo2_snark_aggregator_api::systems::halo2::verify] enter verify_aggregation_proofs_in_chip_impl
+[2022-07-06T10:09:01Z DEBUG halo2_snark_aggregator_api::systems::halo2::verify] exiting verify_aggregation_proofs_in_chip_impl
+[2022-07-06T10:09:01Z DEBUG halo2_snark_aggregator_circuit::verify_circuit] Halo2VerifierCircuit synthesize_impl done
+[2022-07-06T10:40:00Z INFO  aggregation_playground] pk done
+[2022-07-06T10:40:00Z INFO  aggregation_playground] proving with real prover
+[2022-07-06T10:41:18Z DEBUG halo2_snark_aggregator_circuit::verify_circuit] Halo2VerifierCircuit synthesize_impl start
+[2022-07-06T10:41:18Z DEBUG halo2_snark_aggregator_api::systems::halo2::verify] enter verify_aggregation_proofs_in_chip_impl
+[2022-07-06T10:43:41Z DEBUG halo2_snark_aggregator_api::systems::halo2::verify] exiting verify_aggregation_proofs_in_chip_impl
+[2022-07-06T10:43:41Z DEBUG halo2_snark_aggregator_circuit::verify_circuit] Halo2VerifierCircuit synthesize_impl done
+[2022-07-06T10:43:41Z DEBUG halo2_snark_aggregator_circuit::verify_circuit] Halo2VerifierCircuit synthesize_impl start
+[2022-07-06T10:43:41Z DEBUG halo2_snark_aggregator_api::systems::halo2::verify] enter verify_aggregation_proofs_in_chip_impl
+[2022-07-06T10:45:47Z DEBUG halo2_snark_aggregator_api::systems::halo2::verify] exiting verify_aggregation_proofs_in_chip_impl
+[2022-07-06T10:45:47Z DEBUG halo2_snark_aggregator_circuit::verify_circuit] Halo2VerifierCircuit synthesize_impl done
+[2022-07-06T11:35:54Z INFO  aggregation_playground] proving done
+[2022-07-06T11:36:09Z INFO  aggregation_playground] verify done
+test test_4in1 ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 6746.78s
+
+     Running tests/integration.rs (/home/ubuntu/common-rs/target/release/deps/integration-ac4eeaa92dc79a31)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+

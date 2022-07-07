@@ -18,6 +18,7 @@ use halo2_proofs::{
     plonk::{Expression, VerifyingKey},
     poly::commitment::ParamsVerifier,
 };
+use sha2::digest::typenum::private::PrivateIntegerAdd;
 use std::marker::PhantomData;
 use std::vec;
 pub struct VerifierParamsBuilder<
@@ -626,8 +627,11 @@ fn evaluate_multiopen_proof<
 ) -> Result<(A::AssignedPoint, A::AssignedPoint), A::Error> {
     let one = schip.assign_one(ctx)?;
 
+    pchip.print_debug_info(ctx, "before proof.w_x.eval");
     let (left_s, left_e) = proof.w_x.eval::<_, A>(ctx, schip, pchip, &one)?;
+    pchip.print_debug_info(ctx, "after proof.w_x.eval / before proof.w_g.eval");
     let (right_s, right_e) = proof.w_g.eval::<_, A>(ctx, schip, pchip, &one)?;
+    pchip.print_debug_info(ctx, "after proof.w_g.eval");
 
     let generator = pchip.assign_one(ctx)?;
     let left = match left_e {
@@ -637,6 +641,7 @@ fn evaluate_multiopen_proof<
             pchip.add(ctx, &left_s, &s)?
         }
     };
+
     let right = match right_e {
         None => right_s,
         Some(eval) => {
@@ -728,9 +733,44 @@ pub fn verify_aggregation_proofs_in_chip<
     mut proofs: Vec<ProofData<E, A, T>>,
     transcript: &mut T,
 ) -> Result<(A::AssignedPoint, A::AssignedPoint), A::Error> {
+    let vks = vec![vk.clone(); proofs.len()];
+    verify_aggregation_proofs_in_chip_impl(
+        ctx,
+        nchip,
+        schip,
+        pchip,
+        &vks,
+        params,
+        &mut proofs,
+        transcript,
+    )
+}
+
+pub fn verify_aggregation_proofs_in_chip_impl<
+    E: MultiMillerLoop,
+    A: ArithEccChip<
+        Point = E::G1Affine,
+        Scalar = <E::G1Affine as CurveAffine>::ScalarExt,
+        Native = <E::G1Affine as CurveAffine>::ScalarExt,
+    >,
+    T: TranscriptRead<A>,
+>(
+    ctx: &mut A::Context,
+    nchip: &A::NativeChip,
+    schip: &A::ScalarChip,
+    pchip: &A,
+    vks: &[VerifyingKey<E::G1Affine>],
+    params: &ParamsVerifier<E>,
+    proofs: &mut Vec<ProofData<E, A, T>>,
+    transcript: &mut T,
+) -> Result<(A::AssignedPoint, A::AssignedPoint), A::Error> {
+    log::debug!("enter verify_aggregation_proofs_in_chip_impl");
+    debug_assert_eq!(vks.len(), proofs.len());
     let multiopen_proofs: Vec<MultiOpenProof<A>> = proofs
         .iter_mut()
-        .map(|proof| {
+        .zip(vks.iter())
+        .enumerate()
+        .map(|(idx, (proof, vk))| {
             let instances1: Vec<Vec<&[E::Scalar]>> = proof
                 .instances
                 .iter()
@@ -741,7 +781,7 @@ pub fn verify_aggregation_proofs_in_chip<
             let assigned_instances =
                 assign_instance_commitment(ctx, pchip, &instances2[..], vk, params)?;
 
-            verify_single_proof_no_eval(
+            let r = verify_single_proof_no_eval(
                 ctx,
                 nchip,
                 schip,
@@ -751,10 +791,10 @@ pub fn verify_aggregation_proofs_in_chip<
                 params,
                 &mut proof.transcript,
                 proof.key.clone(),
-            )
+            );
+            r
         })
         .collect::<Result<_, A::Error>>()?;
-
     for proof in proofs.iter_mut() {
         let scalar = proof
             .transcript
@@ -776,5 +816,8 @@ pub fn verify_aggregation_proofs_in_chip<
     }
     let aggregated_proof = acc.unwrap();
 
-    evaluate_multiopen_proof::<E, A, T>(ctx, schip, pchip, aggregated_proof, params)
+    let r = evaluate_multiopen_proof::<E, A, T>(ctx, schip, pchip, aggregated_proof, params);
+    pchip.print_debug_info(ctx, "after evaluate_multiopen_proof");
+    log::debug!("exiting verify_aggregation_proofs_in_chip_impl");
+    r
 }

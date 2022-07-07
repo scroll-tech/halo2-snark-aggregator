@@ -149,7 +149,7 @@ impl<P, S: Clone> EvaluationQuerySchema<P, S> {
         let mut s: Option<A::AssignedScalar> = None;
         for b in points.into_iter() {
             let scalar = Self::sum_scalar_array::<Scalar, A>(ctx, schip, b.2)?;
-
+            log::trace!("eval point: {}", b.0);
             if b.0 == "" {
                 assert!(b.1.is_none());
                 assert!(s.is_none());
@@ -158,7 +158,13 @@ impl<P, S: Clone> EvaluationQuerySchema<P, S> {
                 assert!(b.1.is_some());
                 let p = match scalar {
                     None => b.1.unwrap(),
-                    Some(s) => pchip.scalar_mul(ctx, &s, b.1.as_ref().unwrap())?,
+                    Some(s) => {
+                        pchip.print_debug_info(ctx, &format!("before ecmul of {}", b.0));
+                        pchip.record_scalar_mul(ctx, &b.0);
+                        let r = pchip.scalar_mul(ctx, &s, b.1.as_ref().unwrap())?;
+                        pchip.print_debug_info(ctx, &format!("after ecmul of {}", b.0));
+                        r
+                    }
                 };
                 p_acc = match p_acc {
                     None => Some(p),
