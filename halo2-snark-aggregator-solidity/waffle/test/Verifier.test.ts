@@ -36,12 +36,14 @@ describe("Verifier", () => {
     */
   });
 
+  let outputDir = process.env.OUTPUT || "../../halo2-snark-aggregator/output"
+  console.log("reading proof from", outputDir);
   let instances = fs.readFileSync(
-    "../../halo2-snark-aggregator/output/verify_circuit_instance_commitments_be.data"
+    outputDir + "/verify_circuit_instance_commitments_be.data"
   );
   console.log(instances);
   let proof = fs.readFileSync(
-    "../../halo2-snark-aggregator/output/verify_circuit_proof_be.data"
+    outputDir + "/verify_circuit_proof_be.data"
   );
   console.log("proof length", proof.length);
 
