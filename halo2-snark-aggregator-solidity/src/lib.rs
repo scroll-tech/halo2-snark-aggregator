@@ -18,10 +18,8 @@ use halo2_snark_aggregator_api::systems::halo2::verify::{
     assign_instance_commitment, verify_single_proof_no_eval,
 };
 use halo2_snark_aggregator_circuit::sample_circuit::TargetCircuit;
-use halo2_snark_aggregator_circuit::verify_circuit::{load_instances, Halo2VerifierCircuit};
 use log::info;
 use num_bigint::BigUint;
-use std::io::Cursor;
 use tera::{Context, Tera};
 
 fn render_verifier_sol_template<C: CurveAffine>(
@@ -153,43 +151,34 @@ pub(crate) fn get_xy_from_g2point<E: MultiMillerLoop>(point: E::G2Affine) -> G2P
     G2Point { x, y }
 }
 
-pub struct SolidityGenerate {
-    pub target_params: Vec<u8>,
-    pub verify_params: Vec<u8>,
-    pub vk: Vec<u8>,
+pub struct SolidityGenerate<'a, C: CurveAffine> {
+    pub target_params: &'a Params<C>,
+    pub verify_params: &'a Params<C>,
+    pub verify_vk: &'a VerifyingKey<C>,
     // serialized instance
-    pub instance: Vec<u8>,
+    pub verify_circuit_instance: Vec<Vec<Vec<C::ScalarExt>>>,
     // serialized proof
     pub proof: Vec<u8>,
     pub nproofs: usize,
 }
 
-impl SolidityGenerate {
+impl<'a, C: CurveAffine> SolidityGenerate<'a, C> {
     pub fn call<
-        C: CurveAffine,
         E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>,
         CIRCUIT: TargetCircuit<C, E>,
     >(
         &self,
         template_folder: std::path::PathBuf,
     ) -> String {
-        let target_circuit_params = Params::<C>::read(Cursor::new(&self.target_params)).unwrap();
-        let target_params = target_circuit_params
+        let target_params = self
+            .target_params
             .verifier::<E>(CIRCUIT::PUBLIC_INPUT_SIZE)
             .unwrap();
         let target_circuit_s_g2 = get_xy_from_g2point::<E>(target_params.s_g2);
         let target_circuit_n_g2 = get_xy_from_g2point::<E>(-target_params.g2);
 
-        let verify_circuit_params = Params::<C>::read(Cursor::new(&self.verify_params)).unwrap();
-        let verify_circuit_vk = {
-            VerifyingKey::<C>::read::<_, Halo2VerifierCircuit<'_, E>>(
-                &mut Cursor::new(&self.vk),
-                &verify_circuit_params,
-            )
-            .unwrap()
-        };
-        let verify_circuit_instance = load_instances::<E>(&self.instance);
-        let verify_params = verify_circuit_params
+        let verify_params = self
+            .verify_params
             .verifier::<E>(4 + self.nproofs * CIRCUIT::PUBLIC_INPUT_SIZE)
             .unwrap();
 
@@ -208,7 +197,8 @@ impl SolidityGenerate {
             )
             .unwrap();
 
-        let verify_circuit_instance1: Vec<Vec<&[E::Scalar]>> = verify_circuit_instance
+        let verify_circuit_instance1: Vec<Vec<&[E::Scalar]>> = self
+            .verify_circuit_instance
             .iter()
             .map(|x| x.iter().map(|y| &y[..]).collect())
             .collect();
@@ -221,7 +211,7 @@ impl SolidityGenerate {
             schip,
             pchip,
             &verify_circuit_instance2[..],
-            &verify_circuit_vk,
+            &self.verify_vk,
             &verify_params,
         )
         .unwrap();
@@ -233,7 +223,7 @@ impl SolidityGenerate {
             schip,
             pchip,
             assigned_instances,
-            &verify_circuit_vk,
+            &self.verify_vk,
             &verify_params,
             &mut transcript,
             "".to_owned(),
