@@ -125,36 +125,6 @@ impl<A: ArithEccChip> EvaluationQuery<A> {
 }
 
 impl<P, S: Clone> EvaluationQuerySchema<P, S> {
-    fn sum_scalar_array<
-        Scalar: FieldExt,
-        A: ArithEccChip<AssignedPoint = P, AssignedScalar = S, Scalar = Scalar>,
-    >(
-        ctx: &mut A::Context,
-        schip: &A::ScalarChip,
-        a: Vec<Option<A::AssignedScalar>>,
-    ) -> Result<Option<A::AssignedScalar>, A::Error> {
-        assert_ne!(a.len(), 0);
-
-        if a.len() == 1 {
-            Ok(a[0].clone())
-        } else {
-            let constant = a.iter().filter(|a| a.is_none()).count();
-            let vars: Vec<&A::AssignedScalar> = a.iter().filter_map(|p| p.as_ref()).collect();
-
-            if vars.len() == 0 {
-                Ok(Some(
-                    schip.assign_const(ctx, Scalar::from(constant as u64))?,
-                ))
-            } else {
-                Ok(Some(schip.sum_with_constant(
-                    ctx,
-                    vars,
-                    Scalar::from(constant as u64),
-                )?))
-            }
-        }
-    }
-
     pub fn eval<
         Scalar: FieldExt,
         A: ArithEccChip<AssignedPoint = P, AssignedScalar = S, Scalar = Scalar>,

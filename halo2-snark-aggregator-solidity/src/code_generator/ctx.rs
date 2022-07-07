@@ -330,6 +330,12 @@ pub(crate) enum Statement {
         absorbing_step: usize,
         t: Type,
     },
+    ForMMMMul {
+        start: (usize, usize, usize),
+        step: (usize, usize, usize),
+        n: usize,
+        t: Type,
+    },
 }
 
 impl Statement {
@@ -419,22 +425,40 @@ impl Statement {
                 let mut output = vec![];
 
                 output.push(format!(
-                    "for (uint i = 0; i <= {}; i++) {{",
+                    "for (t0 = 0; t0 <= {}; t0++) {{",
                     (memory_end - memory_start) / memory_step,
                 ));
                 match *t {
                     Type::Scalar => {
                         output.push(format!(
-                            "    update_hash_scalar(proof[{} + i * {}], absorbing, {} + i * {});",
+                            "    update_hash_scalar(proof[{} + t0 * {}], absorbing, {} + t0 * {});",
                             memory_start, memory_step, absorbing_start, absorbing_step
                         ));
                     }
                     Type::Point => {
                         output.push(format!(
-                            "    update_hash_point(proof[{} + i * {}], proof[{} + i * {}], absorbing, {} + i * {});",
+                            "    update_hash_point(proof[{} + t0 * {}], proof[{} + t0 * {}], absorbing, {} + t0 * {});",
                             memory_start, memory_step, memory_start + 1, memory_step,absorbing_start, absorbing_step
                         ));
                     }
+                }
+
+                output.push(format!("}}"));
+
+                output
+            }
+            Statement::ForMMMMul { start, step, n, t } => {
+                let mut output = vec![];
+
+                output.push(format!("for (t0 = 0; t0 < {}; t0++) {{", n,));
+                match *t {
+                    Type::Scalar => {
+                        output.push(format!(
+                            "    m[{} + t0 * {}] = (mulmod(m[{} + t0 * {}], m[{} + t0 * {}], q_mod));",
+                            start.0, step.0, start.1, step.1, start.2, step.2,
+                        ));
+                    }
+                    Type::Point => unreachable!(),
                 }
 
                 output.push(format!("}}"));
@@ -508,7 +532,7 @@ impl Statement {
                 }
             },
 
-            Statement::For { .. } => {
+            _ => {
                 ret.append(&mut self.to_origin_string());
                 None
             }
@@ -539,6 +563,7 @@ impl Statement {
                 Statement::UpdateHash(Rc::new(e.substitute(lookup)), *offset)
             }
             Statement::For { .. } => self.clone(),
+            Statement::ForMMMMul { .. } => unreachable!(),
         }
     }
 }

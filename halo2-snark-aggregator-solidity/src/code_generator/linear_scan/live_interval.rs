@@ -57,7 +57,7 @@ pub(crate) fn build_intervals(
                     }
                 });
             }
-            Statement::For { .. } => unreachable!(),
+            _ => unreachable!(),
         });
 
     expressions.iter().for_each(|expression| {
