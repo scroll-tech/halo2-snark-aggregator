@@ -375,7 +375,6 @@ contract Verifier {
         G2Point[] memory g2_points = new G2Point[](2);
         bool checked = false;
 
-        // TODO: check instances <-> instances_commitment
         (x0, y0, x1, y1) = get_wx_wg(proof, instances);
         g1_points[0].x = x0;
         g1_points[0].y = y0;
