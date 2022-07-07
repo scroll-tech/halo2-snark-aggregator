@@ -5,12 +5,18 @@ use halo2_proofs::poly::commitment::Params;
 use halo2_snark_aggregator_circuit::sample_circuit::{
     sample_circuit_random_run, sample_circuit_setup,
 };
-use halo2_snark_aggregator_circuit::verify_circuit::{CreateProof, Setup, VerifyCheck};
+use halo2_snark_aggregator_circuit::verify_circuit::{
+    load_instances, CreateProof, Halo2VerifierCircuit, Setup, VerifyCheck,
+};
 use halo2_snark_aggregator_solidity::SolidityGenerate;
 use log::info;
 use pairing_bn256::bn256::{Bn256, Fr, G1Affine};
-use std::io::{Read, Write};
+use std::io::{Cursor, Read, Write};
 use std::path::PathBuf;
+
+#[cfg(feature = "benches")]
+#[cfg(test)]
+mod benches;
 
 #[derive(Parser)]
 struct Cli {
@@ -44,12 +50,31 @@ fn write_file(folder: &mut PathBuf, filename: &str, buf: &Vec<u8>) {
     fd.write(buf).unwrap();
 }
 
-fn load_target_circuit_params(folder: &mut PathBuf) -> Vec<u8> {
+fn read_target_circuit_params(folder: &mut PathBuf) -> Vec<u8> {
     read_file(folder, "sample_circuit.params")
 }
 
-fn load_target_circuit_vk(folder: &mut PathBuf) -> Vec<u8> {
+fn load_target_circuit_params(folder: &mut PathBuf) -> Params<G1Affine> {
+    Params::<G1Affine>::read(Cursor::new(&read_target_circuit_params(
+        &mut folder.clone(),
+    )))
+    .unwrap()
+}
+
+fn read_target_circuit_vk(folder: &mut PathBuf) -> Vec<u8> {
     read_file(folder, "sample_circuit.vkey")
+}
+
+fn load_target_circuit_vk<
+    TargetCircuit: halo2_snark_aggregator_circuit::sample_circuit::TargetCircuit<G1Affine, Bn256>,
+>(
+    folder: &mut PathBuf,
+) -> VerifyingKey<G1Affine> {
+    VerifyingKey::<G1Affine>::read::<_, TargetCircuit::Circuit>(
+        &mut Cursor::new(&read_target_circuit_vk(&mut folder.clone())),
+        &load_target_circuit_params(&mut folder.clone()),
+    )
+    .unwrap()
 }
 
 fn load_target_circuit_instance(folder: &mut PathBuf, index: usize) -> Vec<u8> {
@@ -60,16 +85,36 @@ fn load_target_circuit_proof(folder: &mut PathBuf, index: usize) -> Vec<u8> {
     read_file(folder, &format!("sample_circuit_proof{}.data", index))
 }
 
-fn load_verify_circuit_params(folder: &mut PathBuf) -> Vec<u8> {
+fn read_verify_circuit_params(folder: &mut PathBuf) -> Vec<u8> {
     read_file(folder, "verify_circuit.params")
 }
 
-fn load_verify_circuit_vk(folder: &mut PathBuf) -> Vec<u8> {
+fn load_verify_circuit_params(folder: &mut PathBuf) -> Params<G1Affine> {
+    Params::<G1Affine>::read(Cursor::new(&read_verify_circuit_params(
+        &mut folder.clone(),
+    )))
+    .unwrap()
+}
+
+fn read_verify_circuit_vk(folder: &mut PathBuf) -> Vec<u8> {
     read_file(folder, "verify_circuit.vkey")
 }
 
-fn load_verify_circuit_instance(folder: &mut PathBuf) -> Vec<u8> {
+fn load_verify_circuit_vk(folder: &mut PathBuf) -> VerifyingKey<G1Affine> {
+    VerifyingKey::<G1Affine>::read::<_, Halo2VerifierCircuit<'_, Bn256>>(
+        &mut Cursor::new(&read_verify_circuit_vk(&mut folder.clone())),
+        &load_verify_circuit_params(&mut folder.clone()),
+    )
+    .unwrap()
+}
+
+fn read_verify_circuit_instance(folder: &mut PathBuf) -> Vec<u8> {
     read_file(folder, "verify_circuit_instance.data")
+}
+
+fn load_verify_circuit_instance(folder: &mut PathBuf) -> Vec<Vec<Vec<Fr>>> {
+    let instances = read_verify_circuit_instance(&mut folder.clone());
+    load_instances::<Bn256>(&instances)
 }
 
 fn load_verify_circuit_proof(folder: &mut PathBuf) -> Vec<u8> {
@@ -169,8 +214,10 @@ pub fn builder<
     }
 
     if args.command == "verify_setup" {
-        let instances = (0..args.nproofs)
-            .map(|index| load_target_circuit_instance(&mut folder.clone(), index))
+        let target_circuit_instances = (0..args.nproofs)
+            .map(|index| {
+                load_instances::<Bn256>(&load_target_circuit_instance(&mut folder.clone(), index))
+            })
             .collect::<Vec<_>>();
 
         let proofs = (0..args.nproofs)
@@ -178,14 +225,14 @@ pub fn builder<
             .collect::<Vec<_>>();
 
         let request = Setup {
-            params: load_target_circuit_params(&mut folder.clone()),
-            vk: load_target_circuit_vk(&mut folder.clone()),
-            instances,
+            target_circuit_params: &load_target_circuit_params(&mut folder.clone()),
+            target_circuit_vk: &load_target_circuit_vk::<TargetCircuit>(&mut folder.clone()),
+            target_circuit_instances,
             proofs,
             nproofs: args.nproofs,
         };
 
-        let (params, vk) = request.call::<_, Bn256, TargetCircuit, VERIFY_CIRCUIT_K>();
+        let (params, vk) = request.call::<Bn256, TargetCircuit, VERIFY_CIRCUIT_K>();
 
         write_verify_circuit_params(&mut folder.clone(), &params);
         write_verify_circuit_vk(&mut folder.clone(), &vk);
@@ -193,7 +240,9 @@ pub fn builder<
 
     if args.command == "verify_run" {
         let instances = (0..args.nproofs)
-            .map(|index| load_target_circuit_instance(&mut folder.clone(), index))
+            .map(|index| {
+                load_instances::<Bn256>(&load_target_circuit_instance(&mut folder.clone(), index))
+            })
             .collect::<Vec<_>>();
 
         let proofs = (0..args.nproofs)
@@ -201,9 +250,9 @@ pub fn builder<
             .collect::<Vec<_>>();
 
         let request = CreateProof {
-            target_circuit_params: load_target_circuit_params(&mut folder.clone()),
-            target_circuit_vk: load_target_circuit_vk(&mut folder.clone()),
-            verify_circuit_params: load_verify_circuit_params(&mut folder.clone()),
+            target_circuit_params: &load_target_circuit_params(&mut folder.clone()),
+            target_circuit_vk: &load_target_circuit_vk::<TargetCircuit>(&mut folder.clone()),
+            verify_circuit_params: &load_verify_circuit_params(&mut folder.clone()),
             verify_circuit_vk: load_verify_circuit_vk(&mut folder.clone()),
             template_instances: instances.clone(),
             template_proofs: proofs.clone(),
@@ -212,7 +261,7 @@ pub fn builder<
             nproofs: args.nproofs,
         };
 
-        let (final_pair, instance, proof) = request.call::<_, Bn256, TargetCircuit>();
+        let (_, final_pair, instance, proof) = request.call::<Bn256, TargetCircuit>();
 
         write_verify_circuit_instance(&mut folder.clone(), &instance);
         write_verify_circuit_proof(&mut folder.clone(), &proof);
@@ -220,30 +269,30 @@ pub fn builder<
     }
 
     if args.command == "verify_check" {
-        let request = VerifyCheck {
-            params: load_verify_circuit_params(&mut folder.clone()),
-            vk: load_verify_circuit_vk(&mut folder.clone()),
-            instance: load_verify_circuit_instance(&mut folder.clone()),
+        let request = VerifyCheck::<G1Affine> {
+            verify_params: &load_verify_circuit_params(&mut folder.clone()),
+            verify_vk: &load_verify_circuit_vk(&mut folder.clone()),
+            verify_instance: load_verify_circuit_instance(&mut folder.clone()),
             proof: load_verify_circuit_proof(&mut folder.clone()),
             nproofs: args.nproofs,
         };
 
-        request.call::<_, Bn256, TargetCircuit>().unwrap();
+        request.call::<Bn256, TargetCircuit>().unwrap();
 
         info!("verify check succeed")
     }
 
     if args.command == "verify_solidity" {
-        let request = SolidityGenerate {
-            target_params: load_target_circuit_params(&mut folder.clone()),
-            verify_params: load_verify_circuit_params(&mut folder.clone()),
-            vk: load_verify_circuit_vk(&mut folder.clone()),
-            instance: load_verify_circuit_instance(&mut folder.clone()),
+        let request = SolidityGenerate::<G1Affine> {
+            target_params: &load_target_circuit_params(&mut folder.clone()),
+            verify_params: &load_verify_circuit_params(&mut folder.clone()),
+            verify_vk: &load_verify_circuit_vk(&mut folder.clone()),
+            verify_circuit_instance: load_verify_circuit_instance(&mut folder.clone()),
             proof: load_verify_circuit_proof(&mut folder.clone()),
             nproofs: args.nproofs,
         };
 
-        let sol = request.call::<_, Bn256, TargetCircuit>(template_folder.unwrap());
+        let sol = request.call::<Bn256, TargetCircuit>(template_folder.unwrap());
 
         write_verify_circuit_solidity(&mut folder.clone(), &Vec::<u8>::from(sol.as_bytes()));
     }
