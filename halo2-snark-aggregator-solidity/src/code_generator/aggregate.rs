@@ -1,8 +1,12 @@
-use self::{update_hash::UpdateHashMerger, multi_mul_add_mt::MulAddMTOptimizer};
+use self::{
+    aggregate_fr_pow::AggregateFrPowOptimizer, multi_mul_add_mt::MulAddMTOptimizer,
+    update_hash::UpdateHashMerger,
+};
 use super::ctx::{CodeGeneratorCtx, Statement};
 use crate::code_generator::aggregate::multi_mul_add_pm::MulAddPMOptimizer;
 use std::any::Any;
 
+mod aggregate_fr_pow;
 mod multi_mul_add_mt;
 mod multi_mul_add_pm;
 mod update_hash;
@@ -39,12 +43,14 @@ pub(crate) fn aggregate(mut ctx: CodeGeneratorCtx) -> CodeGeneratorCtx {
     let update_hash_merger = Box::new(UpdateHashMerger::default());
     let multi_muladd_pm_merger = Box::new(MulAddPMOptimizer::default());
     let multi_muladd_mt_merger = Box::new(MulAddMTOptimizer::default());
+    let aggregate_fr_pow = Box::new(AggregateFrPowOptimizer::default());
 
     // Replace todo! with multi_muladd_pm_merger
     let mut optimizer: Vec<Box<dyn GroupOptimizer>> = vec![
         update_hash_merger,
         multi_muladd_pm_merger,
         multi_muladd_mt_merger,
+        aggregate_fr_pow,
     ];
     /*
      * Status of optimizer
