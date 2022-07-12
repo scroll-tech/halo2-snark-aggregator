@@ -1,7 +1,8 @@
 use crate::{
     arith::{common::ArithCommonChip, ecc::ArithEccChip, field::ArithFieldChip},
     systems::halo2::{transcript::PoseidonTranscriptRead, verify::verify_single_proof_in_chip},
-    transcript::encode::Encode, tests::systems::halo2::add_mul_test::test_circuit::test_circuit_builder,
+    tests::systems::halo2::add_mul_test::test_circuit::test_circuit_builder,
+    transcript::encode::Encode,
 };
 use halo2_proofs::arithmetic::{CurveAffine, Field};
 use halo2_proofs::{

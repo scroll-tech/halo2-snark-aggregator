@@ -34,7 +34,6 @@ impl<'a, C: CurveAffine> NativeEccChip<'a, C> {
     }
 }
 
-
 impl<'a, C: CurveAffine> EccChipOps<C, C::ScalarExt> for NativeEccChip<'a, C> {
     fn integer_chip(&self) -> &dyn IntegerChipOps<C::Base, C::ScalarExt> {
         self.0.integer_chip

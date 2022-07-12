@@ -123,10 +123,9 @@ impl<A: ArithEccChip> Evaluated<A> {
                 let delta_current = &d;
                 let l_current = &left;
                 let r_current = &right;
-                left = arith_ast!(((t2 + (beta * permutation_eval)) * l_current))
-                    .eval(ctx, schip)?;
-                right =
-                    arith_ast!(((t2 + delta_current) * r_current)).eval(ctx, schip)?;
+                left =
+                    arith_ast!(((t2 + (beta * permutation_eval)) * l_current)).eval(ctx, schip)?;
+                right = arith_ast!(((t2 + delta_current) * r_current)).eval(ctx, schip)?;
                 d = arith_ast!((delta * delta_current)).eval(ctx, schip)?;
             }
             let (l, r) = (&left, &right);

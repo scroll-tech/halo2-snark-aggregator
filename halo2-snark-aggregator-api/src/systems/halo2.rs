@@ -1,10 +1,10 @@
+pub mod evaluation;
+pub mod expression;
 pub mod lagrange;
 pub mod lookup;
-pub mod permutation;
-pub mod verify;
-pub mod params;
-pub mod evaluation;
-pub mod transcript;
-pub mod expression;
-pub mod vanish;
 pub mod multiopen;
+pub mod params;
+pub mod permutation;
+pub mod transcript;
+pub mod vanish;
+pub mod verify;
