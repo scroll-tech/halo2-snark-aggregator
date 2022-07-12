@@ -30,7 +30,6 @@ impl Default for UpdateHashMerger {
     }
 }
 impl GroupOptimizer for UpdateHashMerger {
-
     fn try_start(&mut self, statement: &Statement) -> Action {
         match statement {
             Statement::UpdateHash(e, absorbing_offset) => match e.deref() {

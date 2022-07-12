@@ -18,6 +18,6 @@ pub trait Encode<A: ArithEccChip> {
         ctx: &mut A::Context,
         nchip: &A::NativeChip,
         schip: &A::ScalarChip,
-        v: &[A::AssignedNative]
+        v: &[A::AssignedNative],
     ) -> Result<A::AssignedScalar, A::Error>;
 }

@@ -118,8 +118,11 @@ impl<N: FieldExt> TestFiveColumnBaseGateCircuit<N> {
 
         let assigned_result = base_gate.assign_constant(ctx, result)?;
 
-        let op_result =
-            base_gate.sum_with_constant(ctx, assigned_vars.iter().zip(coeffs).collect(), constant)?;
+        let op_result = base_gate.sum_with_constant(
+            ctx,
+            assigned_vars.iter().zip(coeffs).collect(),
+            constant,
+        )?;
 
         base_gate.assert_equal(ctx, &assigned_result, &op_result)?;
         Ok(())

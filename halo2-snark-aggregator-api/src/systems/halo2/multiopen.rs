@@ -37,11 +37,12 @@ impl<A: ArithEccChip> VerifierParams<A> {
             .into_iter()
             .enumerate()
             .map(|(i, p)| {
-                let point = p.1.0;
+                let point = p.1 .0;
 
-                let acc = p.1.1
-                    .into_iter()
-                    .reduce(|acc, q| scalar!(self.v) * acc + q);
+                let acc =
+                    p.1 .1
+                        .into_iter()
+                        .reduce(|acc, q| scalar!(self.v) * acc + q);
 
                 Ok(EvaluationProof {
                     s: acc.unwrap(),

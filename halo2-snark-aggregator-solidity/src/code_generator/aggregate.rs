@@ -1,6 +1,6 @@
 use self::{
-    aggregate_fr_pow::AggregateFrPowOptimizer, multi_mul_add_mt::MulAddMTOptimizer,
-    update_hash::UpdateHashMerger, aggregate_mul_seq::AggregateMulSeqOptimizer,
+    aggregate_fr_pow::AggregateFrPowOptimizer, aggregate_mul_seq::AggregateMulSeqOptimizer,
+    multi_mul_add_mt::MulAddMTOptimizer, update_hash::UpdateHashMerger,
 };
 use super::ctx::{CodeGeneratorCtx, Statement};
 use crate::code_generator::aggregate::multi_mul_add_pm::MulAddPMOptimizer;
@@ -53,7 +53,7 @@ pub(crate) fn aggregate(mut ctx: CodeGeneratorCtx) -> CodeGeneratorCtx {
         multi_muladd_pm_merger,
         multi_muladd_mt_merger,
         aggregate_fr_pow,
-        aggregate_mul_seq
+        aggregate_mul_seq,
     ];
     /*
      * Status of optimizer

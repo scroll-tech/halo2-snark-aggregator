@@ -1,7 +1,7 @@
-pub mod gates;
 pub mod chips;
-pub mod utils;
 pub mod five;
+pub mod gates;
+pub mod utils;
 
 #[cfg(test)]
 mod tests;

@@ -888,7 +888,11 @@ impl<'a, W: BaseExt, N: FieldExt> IntegerChipOps<W, N> for FiveColumnIntegerChip
         let d = self.assign_nonleading_limb(ctx, d)?;
         let cells = base_gate.one_line(
             ctx,
-            vec![pair!(&d, N::from(2u64)), pair!(bit, one), pair!(&a.limbs_le[0], -one)],
+            vec![
+                pair!(&d, N::from(2u64)),
+                pair!(bit, one),
+                pair!(&a.limbs_le[0], -one),
+            ],
             zero,
             (vec![], zero),
         )?;
