@@ -36,7 +36,7 @@ pub(crate) fn build_intervals(
                     expr: offset,
                     t: l.get_type(),
                     mem_block: None,
-                    value: r.clone()
+                    value: r.clone(),
                 };
 
                 lookup.insert(l.clone(), intervals.len());
