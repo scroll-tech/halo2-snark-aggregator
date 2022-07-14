@@ -6,7 +6,7 @@ use crate::{
     arith::{common::ArithCommonChip, ecc::ArithEccChip, field::ArithFieldChip},
     systems::halo2::{
         transcript::PoseidonTranscriptRead,
-        verify::{verify_aggregation_proofs_in_chip, ProofData},
+        verify::{verify_aggregation_proofs_in_chip, ProofData, CircuitProof},
     },
 };
 use halo2_proofs::arithmetic::CurveAffine;
@@ -118,14 +118,13 @@ pub fn test_verify_aggregation_proof_in_chip<
         33usize,
     )
     .unwrap();
+
     verify_aggregation_proofs_in_chip(
         ctx,
         nchip,
         schip,
         pchip,
-        &vk,
-        &params_verifier,
-        proof_data_list,
+        vec![CircuitProof {vk:&vk, params:&params_verifier, proofs:proof_data_list}],
         &mut transcript,
     )
     .unwrap();

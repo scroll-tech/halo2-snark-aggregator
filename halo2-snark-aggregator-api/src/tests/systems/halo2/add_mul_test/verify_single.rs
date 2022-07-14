@@ -1,6 +1,11 @@
+use std::marker::PhantomData;
+
 use crate::{
     arith::{common::ArithCommonChip, ecc::ArithEccChip, field::ArithFieldChip},
-    systems::halo2::{transcript::PoseidonTranscriptRead, verify::verify_single_proof_in_chip},
+    systems::halo2::{
+        transcript::PoseidonTranscriptRead,
+        verify::{verify_single_proof_in_chip, ProofData, CircuitProof},
+    },
     tests::systems::halo2::add_mul_test::test_circuit::test_circuit_builder,
     transcript::encode::Encode,
 };
@@ -77,7 +82,7 @@ pub fn test_verify_single_proof_in_chip<
 
     let params_verifier: &ParamsVerifier<Bn256> = &params.verifier(public_inputs_size).unwrap();
 
-    let mut transcript = PoseidonTranscriptRead::<_, G1Affine, _, EncodeChip, 9usize, 8usize>::new(
+    let transcript = PoseidonTranscriptRead::<_, G1Affine, _, EncodeChip, 9usize, 8usize>::new(
         &proof[..],
         ctx,
         &nchip,
@@ -86,14 +91,33 @@ pub fn test_verify_single_proof_in_chip<
     )
     .unwrap();
 
+    let pdata = ProofData {
+        instances: &instances.into_iter().map(|x| {
+            x.into_iter().map(|y| {
+                y.into_iter().map(|z| {z.clone()}).collect::<Vec<Fp>>()
+            }).collect::<Vec<Vec<Fp>>>()
+        }).collect::<Vec<Vec<Vec<Fp>>>>(),
+        transcript,
+        key: format!("p{}", 0),
+        _phantom: PhantomData,
+    };
+
+    let mut transcript = PoseidonTranscriptRead::<_, G1Affine, _, EncodeChip, 9usize, 8usize>::new(
+        &proof[..],
+        ctx,
+        nchip,
+        8usize,
+        33usize,
+    )
+    .unwrap();
+
+
     verify_single_proof_in_chip(
         ctx,
         nchip,
         schip,
         pchip,
-        instances,
-        pk.get_vk(),
-        params_verifier,
+        &mut CircuitProof {vk:pk.get_vk(), params:&params_verifier, proofs:vec![pdata]},
         &mut transcript,
     )
     .unwrap();

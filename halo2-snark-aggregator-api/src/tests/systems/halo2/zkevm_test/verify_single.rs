@@ -1,7 +1,12 @@
+use std::marker::PhantomData;
+
 use crate::{
     arith::{common::ArithCommonChip, ecc::ArithEccChip, field::ArithFieldChip},
-    systems::halo2::{transcript::PoseidonTranscriptRead, verify::verify_single_proof_in_chip},
-    tests::systems::halo2::zkevm_test::zkevm_circuit::TestCircuit,
+    systems::halo2::{
+        transcript::PoseidonTranscriptRead,
+        verify::{verify_single_proof_in_chip, CircuitProof, ProofData},
+    },
+    tests::systems::halo2::{zkevm_test::zkevm_circuit::TestCircuit},
     transcript::encode::Encode,
 };
 use ark_std::{end_timer, start_timer};
@@ -77,6 +82,26 @@ pub fn test_verify_single_proof_in_chip<
     )
     .unwrap();
 
+    let pdata = ProofData {
+        instances: &instances.into_iter().map(|x| {
+            x.into_iter().map(|y| {
+                y.into_iter().map(|z| {z.clone()}).collect::<Vec<Fr>>()
+            }).collect::<Vec<Vec<Fr>>>()
+        }).collect::<Vec<Vec<Vec<Fr>>>>(),
+        transcript,
+        key: format!("p{}", 0),
+        _phantom: PhantomData,
+    };
+
+    let mut transcript = PoseidonTranscriptRead::<_, G1Affine, _, EncodeChip, 9usize, 8usize>::new(
+        &proof[..],
+        ctx,
+        nchip,
+        8usize,
+        33usize,
+    )
+    .unwrap();
+
     let msg = format!("Verify proof");
     let start = start_timer!(|| msg);
     verify_single_proof_in_chip(
@@ -84,9 +109,7 @@ pub fn test_verify_single_proof_in_chip<
         nchip,
         schip,
         pchip,
-        instances,
-        pk.get_vk(),
-        params_verifier,
+        &mut CircuitProof {vk:pk.get_vk(), params:&params_verifier, proofs:vec![pdata]},
         &mut transcript,
     )
     .unwrap();

@@ -1,5 +1,6 @@
 use std::marker::PhantomData;
 
+use crate::systems::halo2::verify::CircuitProof;
 use crate::tests::systems::halo2::add_mul_test::test_circuit::test_circuit_builder;
 use crate::transcript::encode::Encode;
 use crate::{
@@ -131,9 +132,7 @@ pub fn test_verify_aggregation_proof_in_chip<
         nchip,
         schip,
         pchip,
-        &vk,
-        &params_verifier,
-        proof_data_list,
+        vec![CircuitProof {vk:&vk, params:&params_verifier, proofs:proof_data_list}],
         &mut transcript,
     )
     .unwrap();

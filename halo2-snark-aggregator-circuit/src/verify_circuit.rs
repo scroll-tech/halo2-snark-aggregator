@@ -2,7 +2,8 @@ use super::chips::{ecc_chip::EccChip, encode_chip::PoseidonEncodeChip, scalar_ch
 use crate::sample_circuit::TargetCircuit;
 use halo2_ecc_circuit_lib::chips::integer_chip::IntegerChipOps;
 use halo2_ecc_circuit_lib::five::integer_chip::FiveColumnIntegerChipHelper;
-use halo2_ecc_circuit_lib::gates::base_gate::BaseGateOps;
+use halo2_ecc_circuit_lib::gates::base_gate::{BaseGateOps, AssignedValue};
+use halo2_ecc_circuit_lib::chips::ecc_chip::{AssignedPoint};
 use halo2_ecc_circuit_lib::utils::field_to_bn;
 use halo2_ecc_circuit_lib::{
     chips::native_ecc_chip::NativeEccChip,
@@ -27,9 +28,9 @@ use halo2_proofs::{
     plonk::{Circuit, ConstraintSystem, Error, VerifyingKey},
     poly::commitment::{Params, ParamsVerifier},
 };
-use halo2_snark_aggregator_api::mock::arith::{ecc::MockEccChip, field::MockFieldChip};
+use halo2_snark_aggregator_api::mock::arith::{ecc::{MockEccChip}, field::MockFieldChip};
 use halo2_snark_aggregator_api::mock::transcript_encode::PoseidonEncode;
-use halo2_snark_aggregator_api::systems::halo2::verify::verify_aggregation_proofs_in_chip;
+use halo2_snark_aggregator_api::systems::halo2::verify::{verify_aggregation_proofs_in_chip, CircuitProof};
 use halo2_snark_aggregator_api::systems::halo2::{
     transcript::PoseidonTranscriptRead, verify::ProofData,
 };
@@ -64,21 +65,88 @@ pub struct Halo2VerifierCircuit<'a, E: MultiMillerLoop> {
     pub(crate) nproofs: usize,
 }
 
-impl<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>>
-    Circuit<C::ScalarExt> for Halo2VerifierCircuit<'a, E>
-{
+#[derive(Clone)]
+pub struct Halo2CircuitInstance<'a, E: MultiMillerLoop> {
+    pub(crate) params: &'a ParamsVerifier<E>,
+    pub(crate) vk: &'a VerifyingKey<E::G1Affine>,
+    pub(crate) n_instances: Vec<Vec<Vec<Vec<E::Scalar>>>>,
+    pub(crate) n_transcript: Vec<Vec<u8>>,
+}
+
+pub struct Halo2CircuitInstances<'a, E: MultiMillerLoop, const N: usize> ([Halo2CircuitInstance<'a, E>; N]);
+
+
+impl<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>, const N: usize>
+    Halo2CircuitInstances<'a, E, N> {
+    pub fn calc_verify_circuit_final_pair(
+        &self
+    ) -> (C, C, Vec<<C as CurveAffine>::ScalarExt>) {
+        let nchip = MockFieldChip::<C::ScalarExt, Error>::default();
+        let schip = MockFieldChip::<C::ScalarExt, Error>::default();
+        let pchip = MockEccChip::<C, Error>::default();
+        let ctx = &mut ();
+
+        let circuit_proofs = self.0.iter().map(|instance| {
+            let mut proof_data_list = vec![];
+            for (i, instances) in instance.n_instances.iter().enumerate() {
+                let transcript = PoseidonTranscriptRead::<_, C, _, PoseidonEncode, 9usize, 8usize>::new(
+                    &instance.n_transcript[i][..],
+                    ctx,
+                    &schip,
+                    8usize,
+                    33usize,
+                )
+                .unwrap();
+
+                proof_data_list.push(ProofData {
+                    instances,
+                    transcript,
+                    key: format!("p{}", i),
+                    _phantom: PhantomData,
+                })
+            }
+
+
+            CircuitProof {vk:instance.vk, params:instance.params, proofs:proof_data_list}
+
+        }).collect();
+
+        let empty_vec = vec![];
+        let mut transcript = PoseidonTranscriptRead::<_, C, _, PoseidonEncode, 9usize, 8usize>::new(
+            &empty_vec[..],
+            ctx,
+            &nchip,
+            8usize,
+            33usize,
+        )
+        .unwrap();
+
+
+        let (w_x, w_g, instances) = verify_aggregation_proofs_in_chip(
+            ctx,
+            &nchip,
+            &schip,
+            &pchip,
+            circuit_proofs,
+            &mut transcript,
+        )
+        .unwrap();
+
+        (w_x.to_affine(), w_g.to_affine(), instances)
+    }
+}
+
+pub struct Halo2VerifierCircuits<'a, E: MultiMillerLoop, const N:usize> ([Halo2VerifierCircuit<'a, E>; N]);
+
+impl<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>, const N:usize>
+    Circuit<C::ScalarExt> for Halo2VerifierCircuits<'a, E, N> {
+
     type Config = Halo2VerifierCircuitConfig;
     type FloorPlanner = V1;
 
     fn without_witnesses(&self) -> Self {
-        Self {
-            params: self.params,
-            vk: self.vk,
-            proofs: (0..self.nproofs).map(|_| self.proofs[0].clone()).collect(),
-            nproofs: self.nproofs,
-        }
+        Halo2VerifierCircuits(self.0.clone().map(|c| c.without_witnesses()))
     }
-
     fn configure(meta: &mut ConstraintSystem<C::ScalarExt>) -> Self::Config {
         let base_gate_config = FiveColumnBaseGate::configure(meta);
         let range_gate_config =
@@ -96,26 +164,21 @@ impl<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>
             instance,
         }
     }
-
     fn synthesize(
         &self,
         config: Self::Config,
         mut layouter: impl Layouter<C::ScalarExt>,
     ) -> Result<(), Error> {
-        let base_gate = FiveColumnBaseGate::new(config.base_gate_config);
+        let base_gate = FiveColumnBaseGate::new(config.base_gate_config.clone());
         let range_gate = FiveColumnRangeGate::<'_, C::Base, C::ScalarExt, COMMON_RANGE_BITS>::new(
-            config.range_gate_config,
+            config.range_gate_config.clone(),
             &base_gate,
         );
-        let integer_chip = FiveColumnIntegerChip::new(&range_gate);
-        let ecc_chip = NativeEccChip::new(&integer_chip);
-        range_gate
-            .init_table(&mut layouter, &integer_chip.helper.integer_modulus)
-            .unwrap();
 
-        let nchip = &ScalarChip::new(&base_gate);
-        let schip = nchip;
-        let pchip = &EccChip::new(&ecc_chip);
+        let mut layouter = layouter.namespace(|| "mult-circuit");
+        let mut res = self.synthesize_proof(&base_gate, &range_gate, &mut layouter)?;
+
+        let integer_chip = FiveColumnIntegerChip::new(&range_gate);
 
         let mut x0_low = None;
         let mut x0_high = None;
@@ -129,57 +192,6 @@ impl<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>
                 let base_offset = 0usize;
                 let mut aux = Context::new(region, base_offset);
                 let ctx = &mut aux;
-
-                let mut proof_data_list: Vec<
-                    ProofData<
-                        E,
-                        _,
-                        PoseidonTranscriptRead<_, C, _, PoseidonEncodeChip<_>, 9usize, 8usize>,
-                    >,
-                > = vec![];
-
-                for i in 0..self.nproofs {
-                    let transcript = PoseidonTranscriptRead::<
-                        _,
-                        C,
-                        _,
-                        PoseidonEncodeChip<_>,
-                        9usize,
-                        8usize,
-                    >::new(
-                        &self.proofs[i].transcript[..], ctx, schip, 8usize, 33usize
-                    )?;
-
-                    proof_data_list.push(ProofData {
-                        instances: &self.proofs[i].instances,
-                        transcript,
-                        key: format!("p{}", i),
-                        _phantom: PhantomData,
-                    })
-                }
-
-                let empty_vec = vec![];
-                let mut transcript =
-                    PoseidonTranscriptRead::<_, C, _, PoseidonEncodeChip<_>, 9usize, 8usize>::new(
-                        &empty_vec[..],
-                        ctx,
-                        schip,
-                        8usize,
-                        33usize,
-                    )?;
-                let mut res = verify_aggregation_proofs_in_chip(
-                    ctx,
-                    nchip,
-                    schip,
-                    pchip,
-                    &self.vk,
-                    &self.params,
-                    proof_data_list,
-                    &mut transcript,
-                )?;
-
-                base_gate.assert_false(ctx, &res.0.z)?;
-                base_gate.assert_false(ctx, &res.1.z)?;
 
                 integer_chip.reduce(ctx, &mut res.0.x)?;
                 integer_chip.reduce(ctx, &mut res.0.y)?;
@@ -260,14 +272,13 @@ impl<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>
                 x0_high = Some(x0_high_);
                 x1_low = Some(x1_low_);
                 x1_high = Some(x1_high_);
-
-                instances = Some(res.2);
-
+                instances = Some(res.2.clone());
                 Ok(())
             },
         )?;
 
-        {
+
+        Ok ({
             let mut layouter = layouter.namespace(|| "expose");
             layouter.constrain_instance(x0_low.unwrap().cell, config.instance, 0)?;
             layouter.constrain_instance(x0_high.unwrap().cell, config.instance, 1)?;
@@ -280,9 +291,145 @@ impl<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>
                     .unwrap();
                 row = row + 1;
             }
-        }
+        })
 
-        Ok(())
+    }
+}
+
+
+impl<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>, const N: usize>
+    Halo2VerifierCircuits<'a, E, N> {
+    fn synthesize_proof(
+        &self,
+        base_gate: &FiveColumnBaseGate<C::ScalarExt>,
+        range_gate: &FiveColumnRangeGate<'_, C::Base, C::ScalarExt, COMMON_RANGE_BITS>,
+        layouter: &mut impl Layouter<C::ScalarExt>,
+    ) ->Result<(AssignedPoint<C, <C as CurveAffine>::ScalarExt>,
+                AssignedPoint<C, <C as CurveAffine>::ScalarExt>,
+                Vec<AssignedValue<<C as CurveAffine>::ScalarExt>>,
+        ), Error> {
+        let integer_chip = FiveColumnIntegerChip::new(range_gate);
+        let ecc_chip = NativeEccChip::new(&integer_chip);
+        range_gate
+            .init_table(layouter, &integer_chip.helper.integer_modulus)
+            .unwrap();
+
+        let nchip = &ScalarChip::new(base_gate);
+        let schip = nchip;
+        let pchip = &EccChip::new(&ecc_chip);
+
+        let mut r = None;
+
+        layouter.assign_region(
+            || "base",
+            |region| {
+                let base_offset = 0usize;
+                let mut aux = Context::new(region, base_offset);
+                let ctx = &mut aux;
+
+                let circuit_proofs = self.0.iter().map(|instance| {
+                    let mut proof_data_list: Vec<
+                        ProofData<
+                            E,
+                            _,
+                            PoseidonTranscriptRead<_, C, _, PoseidonEncodeChip<_>, 9usize, 8usize>,
+                        >,
+                    > = vec![];
+
+                    for i in 0..instance.nproofs {
+                        let transcript = PoseidonTranscriptRead::<
+                            _,
+                            C,
+                            _,
+                            PoseidonEncodeChip<_>,
+                            9usize,
+                            8usize,
+                        >::new(
+                            &instance.proofs[i].transcript[..], ctx, schip, 8usize, 33usize
+                        )?;
+
+                        proof_data_list.push(ProofData {
+                            instances: &instance.proofs[i].instances,
+                            transcript,
+                            key: format!("p{}", i),
+                            _phantom: PhantomData,
+                        })
+                    }
+
+                    Ok(CircuitProof {vk: instance.vk, params: instance.params, proofs: proof_data_list})
+
+                }).into_iter().collect::<Result<Vec<CircuitProof<_,_,_>>, Error>>()?;
+
+                let empty_vec = vec![];
+                let mut transcript =
+                    PoseidonTranscriptRead::<_, C, _, PoseidonEncodeChip<_>, 9usize, 8usize>::new(
+                        &empty_vec[..],
+                        ctx,
+                        schip,
+                        8usize,
+                        33usize,
+                    )?;
+                let res = verify_aggregation_proofs_in_chip(
+                    ctx,
+                    nchip,
+                    schip,
+                    pchip,
+                    circuit_proofs,
+                    &mut transcript,
+                )?;
+
+                base_gate.assert_false(ctx, &res.0.z)?;
+                base_gate.assert_false(ctx, &res.1.z)?;
+                r = Some (res);
+                Ok(())
+
+            },
+        )?;
+
+        Ok(r.unwrap())
+
+    }
+}
+
+impl<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>>
+    Circuit<C::ScalarExt> for Halo2VerifierCircuit<'a, E>
+{
+    type Config = Halo2VerifierCircuitConfig;
+    type FloorPlanner = V1;
+
+    fn without_witnesses(&self) -> Self {
+        Self {
+            params: self.params,
+            vk: self.vk,
+            proofs: (0..self.nproofs).map(|_| self.proofs[0].clone()).collect(),
+            nproofs: self.nproofs,
+        }
+    }
+
+    fn configure(meta: &mut ConstraintSystem<C::ScalarExt>) -> Self::Config {
+        let base_gate_config = FiveColumnBaseGate::configure(meta);
+        let range_gate_config =
+            FiveColumnRangeGate::<'_, C::Base, C::ScalarExt, COMMON_RANGE_BITS>::configure(
+                meta,
+                &base_gate_config,
+            );
+
+        let instance = meta.instance_column();
+        meta.enable_equality(instance);
+
+        Self::Config {
+            base_gate_config,
+            range_gate_config,
+            instance,
+        }
+    }
+
+    fn synthesize(
+        &self,
+        config: Self::Config,
+        layouter: impl Layouter<C::ScalarExt>,
+    ) -> Result<(), Error> {
+        Halo2VerifierCircuits ([self.clone()]).synthesize(config, layouter)
     }
 }
 
@@ -489,63 +636,9 @@ pub fn calc_verify_circuit_instances<
     n_instances: Vec<Vec<Vec<Vec<E::Scalar>>>>,
     n_transcript: Vec<Vec<u8>>,
 ) -> Vec<C::ScalarExt> {
-    let pair = calc_verify_circuit_final_pair(params, vk, n_instances, n_transcript);
+    let pair = Halo2CircuitInstances([Halo2CircuitInstance{params, vk, n_instances, n_transcript}])
+        .calc_verify_circuit_final_pair();
     final_pair_to_instances::<C, E>(&pair)
-}
-
-pub fn calc_verify_circuit_final_pair<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>>(
-    params: &ParamsVerifier<E>,
-    vk: &VerifyingKey<C>,
-    n_instances: Vec<Vec<Vec<Vec<E::Scalar>>>>,
-    n_transcript: Vec<Vec<u8>>,
-) -> (C, C, Vec<<C as CurveAffine>::ScalarExt>) {
-    let nchip = MockFieldChip::<C::ScalarExt, Error>::default();
-    let schip = MockFieldChip::<C::ScalarExt, Error>::default();
-    let pchip = MockEccChip::<C, Error>::default();
-    let ctx = &mut ();
-
-    let mut proof_data_list = vec![];
-    for (i, instances) in n_instances.iter().enumerate() {
-        let transcript = PoseidonTranscriptRead::<_, C, _, PoseidonEncode, 9usize, 8usize>::new(
-            &n_transcript[i][..],
-            ctx,
-            &schip,
-            8usize,
-            33usize,
-        )
-        .unwrap();
-
-        proof_data_list.push(ProofData {
-            instances,
-            transcript,
-            key: format!("p{}", i),
-            _phantom: PhantomData,
-        })
-    }
-
-    let empty_vec = vec![];
-    let mut transcript = PoseidonTranscriptRead::<_, C, _, PoseidonEncode, 9usize, 8usize>::new(
-        &empty_vec[..],
-        ctx,
-        &nchip,
-        8usize,
-        33usize,
-    )
-    .unwrap();
-
-    let (w_x, w_g, instances) = verify_aggregation_proofs_in_chip(
-        ctx,
-        &nchip,
-        &schip,
-        &pchip,
-        vk,
-        params,
-        proof_data_list,
-        &mut transcript,
-    )
-    .unwrap();
-
-    (w_x.to_affine(), w_g.to_affine(), instances)
 }
 
 pub struct CreateProof<'a, C: CurveAffine> {
@@ -607,12 +700,12 @@ impl<C: CurveAffine> CreateProof<'_, C> {
             (verify_circuit_instances, verify_circuit_transcripts)
         };
 
-        let verify_circuit_final_pair = calc_verify_circuit_final_pair(
-            &target_circuit_params_verifier,
-            &self.target_circuit_vk,
-            instances,
-            transcripts,
-        );
+        let verify_circuit_final_pair = Halo2CircuitInstances([Halo2CircuitInstance {
+                params: &target_circuit_params_verifier,
+                vk: &self.target_circuit_vk,
+                n_instances: instances,
+                n_transcript: transcripts,
+            }]).calc_verify_circuit_final_pair();
 
         let verify_circuit_instances = final_pair_to_instances::<C, E>(&verify_circuit_final_pair);
 

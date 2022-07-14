@@ -6,7 +6,7 @@ use crate::{
     arith::{common::ArithCommonChip, ecc::ArithEccChip, field::ArithFieldChip},
     systems::halo2::{
         transcript::PoseidonTranscriptRead,
-        verify::{verify_aggregation_proofs_in_chip, ProofData},
+        verify::{verify_aggregation_proofs_in_chip, ProofData, CircuitProof},
     },
 };
 use ark_std::{end_timer, start_timer};
@@ -131,9 +131,7 @@ pub fn test_verify_aggregation_proof_in_chip<
         nchip,
         schip,
         pchip,
-        pk.get_vk(),
-        &params_verifier,
-        proof_data_list,
+        vec![CircuitProof {vk:pk.get_vk(), params:&params_verifier, proofs:proof_data_list}],
         &mut transcript,
     )
     .unwrap();
