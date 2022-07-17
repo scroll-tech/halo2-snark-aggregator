@@ -132,7 +132,11 @@ pub fn test_verify_aggregation_proof_in_chip<
         nchip,
         schip,
         pchip,
-        vec![CircuitProof {vk:&vk, params:&params_verifier, proofs:proof_data_list}],
+        vec![CircuitProof {
+            vk: &vk,
+            params: &params_verifier,
+            proofs: proof_data_list,
+        }],
         &mut transcript,
     )
     .unwrap();

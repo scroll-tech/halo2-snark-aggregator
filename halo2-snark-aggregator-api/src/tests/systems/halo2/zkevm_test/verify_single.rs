@@ -6,7 +6,7 @@ use crate::{
         transcript::PoseidonTranscriptRead,
         verify::{verify_single_proof_in_chip, CircuitProof, ProofData},
     },
-    tests::systems::halo2::{zkevm_test::zkevm_circuit::TestCircuit},
+    tests::systems::halo2::zkevm_test::zkevm_circuit::TestCircuit,
     transcript::encode::Encode,
 };
 use ark_std::{end_timer, start_timer};
@@ -83,11 +83,14 @@ pub fn test_verify_single_proof_in_chip<
     .unwrap();
 
     let pdata = ProofData {
-        instances: &instances.into_iter().map(|x| {
-            x.into_iter().map(|y| {
-                y.into_iter().map(|z| {z.clone()}).collect::<Vec<Fr>>()
-            }).collect::<Vec<Vec<Fr>>>()
-        }).collect::<Vec<Vec<Vec<Fr>>>>(),
+        instances: &instances
+            .into_iter()
+            .map(|x| {
+                x.into_iter()
+                    .map(|y| y.into_iter().map(|z| z.clone()).collect::<Vec<Fr>>())
+                    .collect::<Vec<Vec<Fr>>>()
+            })
+            .collect::<Vec<Vec<Vec<Fr>>>>(),
         transcript,
         key: format!("p{}", 0),
         _phantom: PhantomData,
@@ -109,7 +112,11 @@ pub fn test_verify_single_proof_in_chip<
         nchip,
         schip,
         pchip,
-        &mut CircuitProof {vk:pk.get_vk(), params:&params_verifier, proofs:vec![pdata]},
+        &mut CircuitProof {
+            vk: pk.get_vk(),
+            params: &params_verifier,
+            proofs: vec![pdata],
+        },
         &mut transcript,
     )
     .unwrap();

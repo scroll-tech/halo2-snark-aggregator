@@ -724,7 +724,6 @@ pub struct ProofData<
     pub _phantom: PhantomData<A>,
 }
 
-
 pub struct CircuitProof<
     'a,
     E: MultiMillerLoop,
@@ -753,7 +752,7 @@ pub fn verify_single_proof_in_chip<
     nchip: &A::NativeChip,
     schip: &A::ScalarChip,
     pchip: &A,
-    circuit: &mut CircuitProof<E,A,T>,
+    circuit: &mut CircuitProof<E, A, T>,
     transcript: &mut T,
 ) -> Result<(A::AssignedPoint, A::AssignedPoint, Vec<A::AssignedScalar>), A::Error> {
     let instances1: Vec<Vec<&[E::Scalar]>> = circuit.proofs[0]
@@ -762,8 +761,14 @@ pub fn verify_single_proof_in_chip<
         .map(|x| x.iter().map(|y| &y[..]).collect())
         .collect();
     let instances2: Vec<&[&[E::Scalar]]> = instances1.iter().map(|x| &x[..]).collect();
-    let (plain_assigned_instances, assigned_instances_commitment) =
-        assign_instance_commitment(ctx, schip, pchip, &instances2[..], circuit.vk, circuit.params)?;
+    let (plain_assigned_instances, assigned_instances_commitment) = assign_instance_commitment(
+        ctx,
+        schip,
+        pchip,
+        &instances2[..],
+        circuit.vk,
+        circuit.params,
+    )?;
 
     let proof = verify_single_proof_no_eval(
         ctx,
@@ -776,10 +781,10 @@ pub fn verify_single_proof_in_chip<
         transcript,
         "".to_owned(),
     )?;
-    let (w_x, w_g) = evaluate_multiopen_proof::<E, A, T>(ctx, schip, pchip, proof/*, circuit.params*/)?;
+    let (w_x, w_g) =
+        evaluate_multiopen_proof::<E, A, T>(ctx, schip, pchip, proof /*, circuit.params*/)?;
     Ok((w_x, w_g, plain_assigned_instances))
 }
-
 
 pub fn verify_aggregation_proofs_in_chip<
     E: MultiMillerLoop,
@@ -794,55 +799,68 @@ pub fn verify_aggregation_proofs_in_chip<
     nchip: &A::NativeChip,
     schip: &A::ScalarChip,
     pchip: &A,
-    mut circuits: Vec<CircuitProof<E,A,T>>,
+    mut circuits: Vec<CircuitProof<E, A, T>>,
     transcript: &mut T,
 ) -> Result<(A::AssignedPoint, A::AssignedPoint, Vec<A::AssignedScalar>), A::Error> {
     let mut plain_assigned_instances = vec![];
 
-    let multiopen_proofs: Vec<Vec<MultiOpenProof<A>>> = circuits.iter_mut()
+    let multiopen_proofs: Vec<Vec<MultiOpenProof<A>>> = circuits
+        .iter_mut()
         .map(|circuit_proof| {
-            let r = circuit_proof.proofs
-            .iter_mut()
-            .map(|proof| {
-                let instances1: Vec<Vec<&[E::Scalar]>> = proof
-                    .instances
-                    .iter()
-                    .map(|x| x.iter().map(|y| &y[..]).collect())
-                    .collect();
-                let instances2: Vec<&[&[E::Scalar]]> = instances1.iter().map(|x| &x[..]).collect();
+            let r = circuit_proof
+                .proofs
+                .iter_mut()
+                .map(|proof| {
+                    let instances1: Vec<Vec<&[E::Scalar]>> = proof
+                        .instances
+                        .iter()
+                        .map(|x| x.iter().map(|y| &y[..]).collect())
+                        .collect();
+                    let instances2: Vec<&[&[E::Scalar]]> =
+                        instances1.iter().map(|x| &x[..]).collect();
 
-                let (assigned_instances, assigned_instance_commitments) =
-                    assign_instance_commitment(ctx, schip, pchip, &instances2[..], circuit_proof.vk, circuit_proof.params)?;
+                    let (assigned_instances, assigned_instance_commitments) =
+                        assign_instance_commitment(
+                            ctx,
+                            schip,
+                            pchip,
+                            &instances2[..],
+                            circuit_proof.vk,
+                            circuit_proof.params,
+                        )?;
 
-                for assigned_instance in assigned_instances {
-                    plain_assigned_instances.push(assigned_instance)
-                }
+                    for assigned_instance in assigned_instances {
+                        plain_assigned_instances.push(assigned_instance)
+                    }
 
-                verify_single_proof_no_eval(
-                    ctx,
-                    nchip,
-                    schip,
-                    pchip,
-                    assigned_instance_commitments,
-                    circuit_proof.vk,
-                    circuit_proof.params,
-                    &mut proof.transcript,
-                    proof.key.clone(),
-                )
-            }).collect::<Result<Vec<MultiOpenProof<A>>, A::Error>>();
+                    verify_single_proof_no_eval(
+                        ctx,
+                        nchip,
+                        schip,
+                        pchip,
+                        assigned_instance_commitments,
+                        circuit_proof.vk,
+                        circuit_proof.params,
+                        &mut proof.transcript,
+                        proof.key.clone(),
+                    )
+                })
+                .collect::<Result<Vec<MultiOpenProof<A>>, A::Error>>();
 
             /* update aggregation challenge */
             for p in circuit_proof.proofs.iter_mut() {
-                let scalar = p
-                    .transcript
-                    .squeeze_challenge_scalar(ctx, nchip, schip)?;
+                let scalar = p.transcript.squeeze_challenge_scalar(ctx, nchip, schip)?;
                 transcript.common_scalar(ctx, nchip, schip, &scalar)?;
-            };
+            }
 
-            return r
-        }).collect::<Result<Vec<Vec<MultiOpenProof<A>>>, A::Error>>()?;
+            return r;
+        })
+        .collect::<Result<Vec<Vec<MultiOpenProof<A>>>, A::Error>>()?;
 
-    let proofs = multiopen_proofs.into_iter().flatten().collect::<Vec<MultiOpenProof<A>>>();
+    let proofs = multiopen_proofs
+        .into_iter()
+        .flatten()
+        .collect::<Vec<MultiOpenProof<A>>>();
 
     let aggregation_challenge = transcript.squeeze_challenge_scalar(ctx, nchip, schip)?;
 

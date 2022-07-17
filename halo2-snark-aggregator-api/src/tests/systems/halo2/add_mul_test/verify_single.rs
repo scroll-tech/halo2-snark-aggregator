@@ -4,7 +4,7 @@ use crate::{
     arith::{common::ArithCommonChip, ecc::ArithEccChip, field::ArithFieldChip},
     systems::halo2::{
         transcript::PoseidonTranscriptRead,
-        verify::{verify_single_proof_in_chip, ProofData, CircuitProof},
+        verify::{verify_single_proof_in_chip, CircuitProof, ProofData},
     },
     tests::systems::halo2::add_mul_test::test_circuit::test_circuit_builder,
     transcript::encode::Encode,
@@ -92,11 +92,14 @@ pub fn test_verify_single_proof_in_chip<
     .unwrap();
 
     let pdata = ProofData {
-        instances: &instances.into_iter().map(|x| {
-            x.into_iter().map(|y| {
-                y.into_iter().map(|z| {z.clone()}).collect::<Vec<Fp>>()
-            }).collect::<Vec<Vec<Fp>>>()
-        }).collect::<Vec<Vec<Vec<Fp>>>>(),
+        instances: &instances
+            .into_iter()
+            .map(|x| {
+                x.into_iter()
+                    .map(|y| y.into_iter().map(|z| z.clone()).collect::<Vec<Fp>>())
+                    .collect::<Vec<Vec<Fp>>>()
+            })
+            .collect::<Vec<Vec<Vec<Fp>>>>(),
         transcript,
         key: format!("p{}", 0),
         _phantom: PhantomData,
@@ -111,13 +114,16 @@ pub fn test_verify_single_proof_in_chip<
     )
     .unwrap();
 
-
     verify_single_proof_in_chip(
         ctx,
         nchip,
         schip,
         pchip,
-        &mut CircuitProof {vk:pk.get_vk(), params:&params_verifier, proofs:vec![pdata]},
+        &mut CircuitProof {
+            vk: pk.get_vk(),
+            params: &params_verifier,
+            proofs: vec![pdata],
+        },
         &mut transcript,
     )
     .unwrap();
