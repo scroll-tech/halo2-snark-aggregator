@@ -190,8 +190,8 @@ mod evm_circ_benches {
         let instances = calc_verify_circuit_instances(
             &target_circuit_verifier_params,
             &target_circuit_pk.get_vk(),
-            vec![instances1],
-            vec![proof1],
+            &vec![instances1],
+            &vec![proof1],
         );
 
         let prover = match MockProver::run(K, &verify_circuit, vec![instances]) {

@@ -6,7 +6,8 @@ use halo2_snark_aggregator_circuit::sample_circuit::{
     sample_circuit_random_run, sample_circuit_setup,
 };
 use halo2_snark_aggregator_circuit::verify_circuit::{
-    load_instances, CreateProof, Halo2VerifierCircuit, Setup, VerifyCheck,
+    load_instances, CreateProof, Halo2VerifierCircuit, MultiCircuitsCreateProof,
+    MultiCircuitsSetup, Setup, SingleProofWitness, VerifyCheck,
 };
 use halo2_snark_aggregator_solidity::SolidityGenerate;
 use log::info;
@@ -224,15 +225,25 @@ pub fn builder<
             .map(|index| load_target_circuit_proof(&mut folder.clone(), index))
             .collect::<Vec<_>>();
 
-        let request = Setup {
+        let single_proof_witness = target_circuit_instances
+            .iter()
+            .zip(proofs.iter())
+            .map(|(instances, transcript)| SingleProofWitness::<Bn256> {
+                instances,
+                transcript,
+            })
+            .collect::<Vec<_>>();
+
+        let setup = Setup {
             target_circuit_params: &load_target_circuit_params(&mut folder.clone()),
             target_circuit_vk: &load_target_circuit_vk::<TargetCircuit>(&mut folder.clone()),
-            target_circuit_instances,
-            proofs,
+            proofs: single_proof_witness,
             nproofs: args.nproofs,
         };
 
-        let (params, vk) = request.call::<Bn256, TargetCircuit, VERIFY_CIRCUIT_K>();
+        let request = MultiCircuitsSetup([setup]);
+
+        let (params, vk) = request.call::<VERIFY_CIRCUIT_K>();
 
         write_verify_circuit_params(&mut folder.clone(), &params);
         write_verify_circuit_vk(&mut folder.clone(), &vk);
@@ -249,19 +260,31 @@ pub fn builder<
             .map(|index| load_target_circuit_proof(&mut folder.clone(), index))
             .collect::<Vec<_>>();
 
-        let request = CreateProof {
+        let single_proof_witness = instances
+            .iter()
+            .zip(proofs.iter())
+            .map(|(instances, transcript)| SingleProofWitness::<Bn256> {
+                instances,
+                transcript,
+            })
+            .collect::<Vec<_>>();
+
+        let single_proof = CreateProof {
             target_circuit_params: &load_target_circuit_params(&mut folder.clone()),
             target_circuit_vk: &load_target_circuit_vk::<TargetCircuit>(&mut folder.clone()),
-            verify_circuit_params: &load_verify_circuit_params(&mut folder.clone()),
-            verify_circuit_vk: load_verify_circuit_vk(&mut folder.clone()),
-            template_instances: instances.clone(),
-            template_proofs: proofs.clone(),
-            instances: instances,
-            proofs: proofs,
+
+            template_proofs: single_proof_witness.clone(),
+            proofs: single_proof_witness,
             nproofs: args.nproofs,
         };
 
-        let (_, final_pair, instance, proof) = request.call::<Bn256, TargetCircuit>();
+        let request = MultiCircuitsCreateProof::<_, _, 1> {
+            target_circuit_proofs: [single_proof],
+            verify_circuit_params: &load_verify_circuit_params(&mut folder.clone()),
+            verify_circuit_vk: load_verify_circuit_vk(&mut folder.clone()),
+        };
+
+        let (_, final_pair, instance, proof) = request.call();
 
         write_verify_circuit_instance(&mut folder.clone(), &instance);
         write_verify_circuit_proof(&mut folder.clone(), &proof);
@@ -273,11 +296,11 @@ pub fn builder<
             verify_params: &load_verify_circuit_params(&mut folder.clone()),
             verify_vk: &load_verify_circuit_vk(&mut folder.clone()),
             verify_instance: load_verify_circuit_instance(&mut folder.clone()),
-            proof: load_verify_circuit_proof(&mut folder.clone()),
-            nproofs: args.nproofs,
+            verify_proof: load_verify_circuit_proof(&mut folder.clone()),
+            verify_public_inputs_size: 4 + args.nproofs * TargetCircuit::PUBLIC_INPUT_SIZE,
         };
 
-        request.call::<Bn256, TargetCircuit>().unwrap();
+        request.call::<Bn256>().unwrap();
 
         info!("verify check succeed")
     }

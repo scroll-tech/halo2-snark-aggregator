@@ -73,7 +73,7 @@ pub fn test_verify_single_proof_in_chip<
     let params_verifier: &ParamsVerifier<Bn256> =
         &general_params.verifier((K * 2) as usize).unwrap();
 
-    let mut transcript = PoseidonTranscriptRead::<_, G1Affine, _, EncodeChip, 9usize, 8usize>::new(
+    let transcript = PoseidonTranscriptRead::<_, G1Affine, _, EncodeChip, 9usize, 8usize>::new(
         &proof[..],
         ctx,
         &nchip,
