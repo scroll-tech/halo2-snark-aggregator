@@ -1151,6 +1151,7 @@ dependencies = [
  "log",
  "num-bigint",
  "pairing_bn256",
+ "paste",
  "rand",
  "rand_core",
  "rayon",

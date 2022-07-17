@@ -4,7 +4,7 @@ use halo2_proofs::{
     plonk::{Circuit, ConstraintSystem, Error, Expression},
 };
 use halo2_snark_aggregator_circuit::sample_circuit::TargetCircuit;
-use halo2_snark_aggregator_sdk::builder;
+use halo2_snark_aggregator_sdk::zkaggregate;
 use pairing_bn256::bn256::{Bn256, Fr, G1Affine};
 use zkevm_circuits::evm_circuit::{witness::Block, EvmCircuit};
 
@@ -53,6 +53,8 @@ impl<F: Field> Circuit<F> for TestCircuit<F> {
 impl TargetCircuit<G1Affine, Bn256> for TestCircuit<Fr> {
     const TARGET_CIRCUIT_K: u32 = 18;
     const PUBLIC_INPUT_SIZE: usize = (Self::TARGET_CIRCUIT_K * 2) as usize;
+    const N_PROOFS: usize = 1;
+    const NAME: &'static str = "zkevm";
 
     type Circuit = TestCircuit<Fr>;
 
@@ -61,6 +63,10 @@ impl TargetCircuit<G1Affine, Bn256> for TestCircuit<Fr> {
     }
 }
 
+type ZkEvm = TestCircuit<Fr>;
+zkaggregate! {1, ZkEvm}
+
 pub fn main() {
-    builder::<TestCircuit<Fr>, 25>();
+    let builder = zkcli::builder(25);
+    builder.run()
 }

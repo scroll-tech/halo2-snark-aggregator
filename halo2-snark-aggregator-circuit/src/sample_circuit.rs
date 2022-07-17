@@ -15,6 +15,8 @@ use std::io::Write;
 pub trait TargetCircuit<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> {
     const TARGET_CIRCUIT_K: u32;
     const PUBLIC_INPUT_SIZE: usize;
+    const N_PROOFS: usize;
+    const NAME: &'static str;
 
     type Circuit: Circuit<C::ScalarExt> + Default;
 
@@ -35,14 +37,14 @@ pub fn sample_circuit_setup<
     let vk = keygen_vk(&params, &circuit).expect("keygen_vk should not fail");
 
     {
-        folder.push("sample_circuit.params");
+        folder.push(format!("sample_circuit_{}.params", CIRCUIT::NAME));
         let mut fd = std::fs::File::create(folder.as_path()).unwrap();
         folder.pop();
         params.write(&mut fd).unwrap();
     }
 
     {
-        folder.push("sample_circuit.vkey");
+        folder.push(format!("sample_circuit_{}.vkey", CIRCUIT::NAME));
         let mut fd = std::fs::File::create(folder.as_path()).unwrap();
         folder.pop();
         vk.write(&mut fd).unwrap();
@@ -60,14 +62,14 @@ pub fn sample_circuit_random_run<
     index: usize,
 ) {
     let params = {
-        folder.push("sample_circuit.params");
+        folder.push(format!("sample_circuit_{}.params", CIRCUIT::NAME));
         let mut fd = std::fs::File::open(folder.as_path()).unwrap();
         folder.pop();
         Params::<C>::read(&mut fd).unwrap()
     };
 
     let vk = {
-        folder.push("sample_circuit.vkey");
+        folder.push(format!("sample_circuit_{}.vkey", CIRCUIT::NAME));
         let mut fd = std::fs::File::open(folder.as_path()).unwrap();
         folder.pop();
         VerifyingKey::<C>::read::<_, CIRCUIT::Circuit>(&mut fd, &params).unwrap()
@@ -83,14 +85,22 @@ pub fn sample_circuit_random_run<
     let proof = transcript.finalize();
 
     {
-        folder.push(format!("sample_circuit_proof{}.data", index));
+        folder.push(format!(
+            "sample_circuit_proof_{}{}.data",
+            CIRCUIT::NAME,
+            index
+        ));
         let mut fd = std::fs::File::create(folder.as_path()).unwrap();
         folder.pop();
         fd.write_all(&proof).unwrap();
     }
 
     {
-        folder.push(format!("sample_circuit_instance{}.data", index));
+        folder.push(format!(
+            "sample_circuit_instance_{}{}.data",
+            CIRCUIT::NAME,
+            index
+        ));
         let mut fd = std::fs::File::create(folder.as_path()).unwrap();
         folder.pop();
         instances.iter().for_each(|l1| {
@@ -103,7 +113,7 @@ pub fn sample_circuit_random_run<
     }
 
     let vk = {
-        folder.push("sample_circuit.vkey");
+        folder.push(format!("sample_circuit_{}.vkey", CIRCUIT::NAME));
         let mut fd = std::fs::File::open(folder.as_path()).unwrap();
         folder.pop();
         VerifyingKey::<C>::read::<_, CIRCUIT::Circuit>(&mut fd, &params).unwrap()

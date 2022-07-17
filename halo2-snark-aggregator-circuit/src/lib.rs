@@ -1,4 +1,5 @@
 pub mod chips;
+pub mod fs;
 pub mod sample_circuit;
 pub mod verify_circuit;
 

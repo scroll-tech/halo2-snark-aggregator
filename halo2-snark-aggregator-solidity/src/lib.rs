@@ -1,6 +1,9 @@
 pub(crate) mod chips;
 pub(crate) mod code_generator;
 pub(crate) mod transcript;
+
+use std::path::PathBuf;
+
 use crate::chips::{
     ecc_chip::SolidityEccChip, encode_chip::PoseidonEncode, scalar_chip::SolidityFieldChip,
 };
@@ -17,9 +20,11 @@ use halo2_snark_aggregator_api::arith::{common::ArithCommonChip, ecc::ArithEccCh
 use halo2_snark_aggregator_api::systems::halo2::verify::{
     assign_instance_commitment, verify_single_proof_no_eval,
 };
+use halo2_snark_aggregator_circuit::fs::{load_target_circuit_params, load_target_circuit_vk};
 use halo2_snark_aggregator_circuit::sample_circuit::TargetCircuit;
 use log::info;
 use num_bigint::BigUint;
+use pairing_bn256::bn256::{Bn256, G1Affine};
 use tera::{Context, Tera};
 
 fn render_verifier_sol_template<C: CurveAffine>(
@@ -151,35 +156,55 @@ pub(crate) fn get_xy_from_g2point<E: MultiMillerLoop>(point: E::G2Affine) -> G2P
     G2Point { x, y }
 }
 
-pub struct SolidityGenerate<'a, C: CurveAffine> {
-    pub target_params: &'a Params<C>,
+pub struct SolidityGenerate<C: CurveAffine> {
+    pub target_circuit_params: Params<C>,
+    pub target_circuit_vk: VerifyingKey<C>,
+    pub nproofs: usize,
+}
+
+impl SolidityGenerate<G1Affine> {
+    pub fn new<SingleCircuit: TargetCircuit<G1Affine, Bn256>>(
+        folder: &PathBuf,
+    ) -> SolidityGenerate<G1Affine> {
+        SolidityGenerate {
+            target_circuit_params: load_target_circuit_params::<SingleCircuit>(&mut folder.clone()),
+            target_circuit_vk: load_target_circuit_vk::<SingleCircuit>(&mut folder.clone()),
+            nproofs: SingleCircuit::N_PROOFS,
+        }
+    }
+}
+
+pub struct MultiCircuitSolidityGenerate<'a, C: CurveAffine, const N: usize> {
+    pub target_circuits_params: [SolidityGenerate<C>; N],
     pub verify_params: &'a Params<C>,
     pub verify_vk: &'a VerifyingKey<C>,
     // serialized instance
     pub verify_circuit_instance: Vec<Vec<Vec<C::ScalarExt>>>,
     // serialized proof
     pub proof: Vec<u8>,
-    pub nproofs: usize,
+    pub verify_public_inputs_size: usize,
 }
 
-impl<'a, C: CurveAffine> SolidityGenerate<'a, C> {
-    pub fn call<
-        E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>,
-        CIRCUIT: TargetCircuit<C, E>,
-    >(
+impl<'a, C: CurveAffine, const N: usize> MultiCircuitSolidityGenerate<'a, C, N> {
+    pub fn call<E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>>(
         &self,
         template_folder: std::path::PathBuf,
     ) -> String {
-        let target_params = self
-            .target_params
-            .verifier::<E>(CIRCUIT::PUBLIC_INPUT_SIZE)
+        let target_params = self.target_circuits_params[0]
+            .target_circuit_params
+            .verifier::<E>(
+                self.target_circuits_params[0]
+                    .target_circuit_vk
+                    .cs
+                    .num_instance_columns,
+            )
             .unwrap();
         let target_circuit_s_g2 = get_xy_from_g2point::<E>(target_params.s_g2);
         let target_circuit_n_g2 = get_xy_from_g2point::<E>(-target_params.g2);
 
         let verify_params = self
             .verify_params
-            .verifier::<E>(4 + self.nproofs * CIRCUIT::PUBLIC_INPUT_SIZE)
+            .verifier::<E>(self.verify_public_inputs_size)
             .unwrap();
 
         let nchip = &SolidityFieldChip::new();
