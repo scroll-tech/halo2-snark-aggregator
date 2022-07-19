@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 clap = { version = "3.1.11", features = ["derive"] }
 env_logger = "0.9.0"
-halo2_proofs = { git = "https://github.com/scroll-tech/halo2.git", branch = "scroll-dev-0607" }
+halo2_proofs = { git = "https://github.com/scroll-tech/halo2-gpu.git", branch = "common_rs" }
 halo2-snark-aggregator-circuit = { path = "../halo2-snark-aggregator-circuit" }
 halo2-snark-aggregator-solidity = { path = "../halo2-snark-aggregator-solidity" }
 log = "0.4.17"
