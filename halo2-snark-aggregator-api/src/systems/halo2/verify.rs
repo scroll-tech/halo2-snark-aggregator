@@ -593,7 +593,7 @@ pub fn verify_single_proof_no_eval<
     params: &ParamsVerifier<E>,
     transcript: &mut T,
     key: String,
-) -> Result<MultiOpenProof<A>, A::Error> {
+) -> Result<(MultiOpenProof<A>, Vec<<A as ArithEccChip>::AssignedPoint>), A::Error> {
     let params_builder = VerifierParamsBuilder {
         ctx,
         nchip,
@@ -607,7 +607,11 @@ pub fn verify_single_proof_no_eval<
     };
 
     let chip_params = params_builder.build_params()?;
-    chip_params.batch_multi_open_proofs(ctx, schip)
+    let advice_commitments = chip_params.advice_commitments.clone();
+    Ok((
+        chip_params.batch_multi_open_proofs(ctx, schip)?,
+        advice_commitments[0].clone(),
+    ))
 }
 
 fn evaluate_multiopen_proof<
@@ -682,10 +686,10 @@ pub fn verify_single_proof_in_chip<
     vk: &VerifyingKey<E::G1Affine>,
     params: &ParamsVerifier<E>,
     transcript: &mut T,
-) -> Result<(A::AssignedPoint, A::AssignedPoint), A::Error> {
+) -> Result<((A::AssignedPoint, A::AssignedPoint), Vec<A::AssignedPoint>), A::Error> {
     let assigned_instances = assign_instance_commitment(ctx, pchip, instances, vk, params)?;
 
-    let proof = verify_single_proof_no_eval(
+    let (proof, advice_commits) = verify_single_proof_no_eval(
         ctx,
         nchip,
         schip,
@@ -696,7 +700,8 @@ pub fn verify_single_proof_in_chip<
         transcript,
         "".to_owned(),
     )?;
-    evaluate_multiopen_proof::<E, A, T>(ctx, schip, pchip, proof, params)
+    let proof = evaluate_multiopen_proof::<E, A, T>(ctx, schip, pchip, proof, params)?;
+    Ok((proof, advice_commits))
 }
 
 pub struct ProofData<
@@ -732,7 +737,13 @@ pub fn verify_aggregation_proofs_in_chip<
     params: &ParamsVerifier<E>,
     mut proofs: Vec<ProofData<E, A, T>>,
     transcript: &mut T,
-) -> Result<(A::AssignedPoint, A::AssignedPoint), A::Error> {
+) -> Result<
+    (
+        (A::AssignedPoint, A::AssignedPoint),
+        Vec<Vec<A::AssignedPoint>>,
+    ),
+    A::Error,
+> {
     let vks = vec![vk.clone(); proofs.len()];
     verify_aggregation_proofs_in_chip_impl(
         ctx,
@@ -763,10 +774,16 @@ pub fn verify_aggregation_proofs_in_chip_impl<
     params: &ParamsVerifier<E>,
     proofs: &mut Vec<ProofData<E, A, T>>,
     transcript: &mut T,
-) -> Result<(A::AssignedPoint, A::AssignedPoint), A::Error> {
+) -> Result<
+    (
+        (A::AssignedPoint, A::AssignedPoint),
+        Vec<Vec<A::AssignedPoint>>,
+    ),
+    A::Error,
+> {
     log::debug!("enter verify_aggregation_proofs_in_chip_impl");
     debug_assert_eq!(vks.len(), proofs.len());
-    let multiopen_proofs: Vec<MultiOpenProof<A>> = proofs
+    let multiopen_proofs: Vec<(MultiOpenProof<A>, Vec<A::AssignedPoint>)> = proofs
         .iter_mut()
         .zip(vks.iter())
         .enumerate()
@@ -805,19 +822,21 @@ pub fn verify_aggregation_proofs_in_chip_impl<
     let aggregation_challenge = transcript.squeeze_challenge_scalar(ctx, nchip, schip)?;
 
     let mut acc: Option<MultiOpenProof<A>> = None;
-    for proof in multiopen_proofs.into_iter() {
+    let mut commits: Vec<Vec<A::AssignedPoint>> = vec![];
+    for (proof, c) in multiopen_proofs.into_iter() {
         acc = match acc {
             None => Some(proof),
             Some(acc) => Some(MultiOpenProof {
                 w_x: acc.w_x * scalar!(aggregation_challenge) + proof.w_x,
                 w_g: acc.w_g * scalar!(aggregation_challenge) + proof.w_g,
             }),
-        }
+        };
+        commits.push(c)
     }
     let aggregated_proof = acc.unwrap();
 
-    let r = evaluate_multiopen_proof::<E, A, T>(ctx, schip, pchip, aggregated_proof, params);
+    let r = evaluate_multiopen_proof::<E, A, T>(ctx, schip, pchip, aggregated_proof, params)?;
     pchip.print_debug_info(ctx, "after evaluate_multiopen_proof");
     log::debug!("exiting verify_aggregation_proofs_in_chip_impl");
-    r
+    Ok((r, commits))
 }

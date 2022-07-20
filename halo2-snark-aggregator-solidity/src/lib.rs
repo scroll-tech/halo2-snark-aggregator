@@ -174,7 +174,7 @@ impl<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> SolidityGenerate2<C, E> {
         .unwrap();
         ctx.exit_instance();
 
-        let proof = verify_single_proof_no_eval(
+        let (proof, _) = verify_single_proof_no_eval(
             ctx,
             nchip,
             schip,

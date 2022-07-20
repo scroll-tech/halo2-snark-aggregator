@@ -171,6 +171,7 @@ pub fn main() {
             instances,
             proofs,
             nproofs: args.nproofs,
+            coherent: vec![],
         };
 
         let (params, vk) = request.call::<_, Bn256>();
@@ -198,6 +199,7 @@ pub fn main() {
             instances: instances,
             proofs: proofs,
             nproofs: args.nproofs,
+            coherent: vec![],
         };
 
         let (instance_commitments, instance, proof, proof_be) = request.call::<_, Bn256>();
