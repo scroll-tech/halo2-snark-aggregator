@@ -349,7 +349,31 @@ impl<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> TargetCircuit<C, E> for T
     }
 }
 
-zkaggregate! {1, vec![], TestCircuit}
+pub struct TestCircuit2;
+
+impl<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> TargetCircuit<C, E> for TestCircuit2 {
+    const TARGET_CIRCUIT_K: u32 = 7;
+    const PUBLIC_INPUT_SIZE: usize = 1;
+    const N_PROOFS: usize = 2;
+    const NAME: &'static str = "simple_example2";
+
+    type Circuit = MyCircuit<C::ScalarExt>;
+
+    fn instance_builder() -> (Self::Circuit, Vec<Vec<C::ScalarExt>>) {
+        let constant = C::Scalar::from(7);
+        let a = C::Scalar::random(OsRng);
+        let b = C::Scalar::random(OsRng);
+        let circuit = MyCircuit {
+            constant,
+            a: Some(a),
+            b: Some(b),
+        };
+        let instances = vec![vec![constant * a.square() * b.square()]];
+        (circuit, instances)
+    }
+}
+
+zkaggregate! {2, vec![], TestCircuit, TestCircuit2}
 
 pub fn main() {
     let builder = zkcli::builder(22);

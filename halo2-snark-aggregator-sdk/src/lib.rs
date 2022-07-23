@@ -4,7 +4,7 @@ mod benches;
 
 #[macro_export]
 macro_rules! zkaggregate {
-    ( $n:expr, $( $x:ident ),+ ) => {
+    ( $n:expr, $coherent:expr, $( $x:ident ),+ ) => {
         mod zkcli {
             $(
                 use crate::$x;
@@ -121,7 +121,10 @@ macro_rules! zkaggregate {
                         )*
                     ];
 
-                    let request = MultiCircuitsSetup::<_, _, $n>(setup);
+                    let request = MultiCircuitsSetup::<_, _, $n> {
+                        setups: setup,
+                        coherent: $coherent
+                    };
 
                     let (params, vk) = request.call(self.verify_circuit_k);
 
@@ -140,6 +143,7 @@ macro_rules! zkaggregate {
                         target_circuit_proofs,
                         verify_circuit_params: &load_verify_circuit_params(&mut self.folder.clone()),
                         verify_circuit_vk: load_verify_circuit_vk(&mut self.folder.clone()),
+                        coherent: $coherent
                     };
 
                     let (_, final_pair, instance, proof) = request.call();
