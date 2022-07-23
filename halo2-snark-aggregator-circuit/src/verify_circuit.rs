@@ -775,7 +775,7 @@ impl CreateProof<G1Affine, Bn256> {
             .collect::<Vec<_>>();
 
         let proofs = (0..SingleCircuit::N_PROOFS)
-            .map(|index| load_target_circuit_instance::<SingleCircuit>(&mut folder.clone(), index))
+            .map(|index| load_target_circuit_proof::<SingleCircuit>(&mut folder.clone(), index))
             .collect::<Vec<_>>();
 
         let single_proof_witness = instances
