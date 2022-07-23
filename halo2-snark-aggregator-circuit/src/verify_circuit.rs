@@ -6,13 +6,12 @@ use crate::fs::{
 use crate::sample_circuit::TargetCircuit;
 
 use super::chips::{ecc_chip::EccChip, encode_chip::PoseidonEncodeChip, scalar_chip::ScalarChip};
-use halo2_ecc_circuit_lib::chips::ecc_chip::AssignedPoint;
+use halo2_ecc_circuit_lib::chips::{ecc_chip::{EccChipOps, AssignedPoint}, native_ecc_chip::NativeEccChip};
 use halo2_ecc_circuit_lib::chips::integer_chip::IntegerChipOps;
 use halo2_ecc_circuit_lib::five::integer_chip::FiveColumnIntegerChipHelper;
 use halo2_ecc_circuit_lib::gates::base_gate::{AssignedValue, BaseGateOps};
 use halo2_ecc_circuit_lib::utils::field_to_bn;
 use halo2_ecc_circuit_lib::{
-    chips::native_ecc_chip::NativeEccChip,
     five::{
         base_gate::{FiveColumnBaseGate, FiveColumnBaseGateConfig},
         integer_chip::FiveColumnIntegerChip,
@@ -149,7 +148,7 @@ impl<
             )
             .unwrap();
 
-        let (w_x, w_g, instances) = verify_aggregation_proofs_in_chip(
+        let (w_x, w_g, instances, _) = verify_aggregation_proofs_in_chip(
             ctx,
             &nchip,
             &schip,
@@ -163,9 +162,10 @@ impl<
     }
 }
 
-pub struct Halo2VerifierCircuits<'a, E: MultiMillerLoop, const N: usize>(
-    pub [Halo2VerifierCircuit<'a, E>; N],
-);
+pub struct Halo2VerifierCircuits<'a, E: MultiMillerLoop, const N: usize> {
+    pub circuits: [Halo2VerifierCircuit<'a, E>; N],
+    pub coherent: Vec<[(usize, usize); 2]>,
+}
 
 impl<
         'a,
@@ -178,7 +178,10 @@ impl<
     type FloorPlanner = V1;
 
     fn without_witnesses(&self) -> Self {
-        Halo2VerifierCircuits(self.0.clone().map(|c| c.without_witnesses()))
+        Halo2VerifierCircuits {
+            circuits: self.circuits.clone().map(|c| c.without_witnesses()),
+            coherent: self.coherent.clone()
+        }
     }
     fn configure(meta: &mut ConstraintSystem<C::ScalarExt>) -> Self::Config {
         let base_gate_config = FiveColumnBaseGate::configure(meta);
@@ -367,7 +370,7 @@ impl<
                 let ctx = &mut aux;
 
                 let circuit_proofs = self
-                    .0
+                    .circuits
                     .iter()
                     .map(|instance| {
                         let mut proof_data_list: Vec<
@@ -427,7 +430,7 @@ impl<
                         8usize,
                         33usize,
                     )?;
-                let res = verify_aggregation_proofs_in_chip(
+                let (p1, p2, v, mut commits) = verify_aggregation_proofs_in_chip(
                     ctx,
                     nchip,
                     schip,
@@ -436,9 +439,18 @@ impl<
                     &mut transcript,
                 )?;
 
-                base_gate.assert_false(ctx, &res.0.z)?;
-                base_gate.assert_false(ctx, &res.1.z)?;
-                r = Some(res);
+                for coherent in &self.coherent {
+                    ecc_chip.assert_equal(
+                        ctx,
+                        &mut commits[coherent[0].0][coherent[0].1].clone(),
+                        &mut commits[coherent[1].0][coherent[1].1],
+                    )?;
+                }
+
+
+                base_gate.assert_false(ctx, &p1.z)?;
+                base_gate.assert_false(ctx, &p2.z)?;
+                r = Some((p1, p2, v));
                 Ok(())
             },
         )?;
@@ -485,14 +497,17 @@ impl<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>
         config: Self::Config,
         layouter: impl Layouter<C::ScalarExt>,
     ) -> Result<(), Error> {
-        Halo2VerifierCircuits([self.clone()]).synthesize(config, layouter)
+        Halo2VerifierCircuits {circuits: [self.clone()], coherent:vec![]}.synthesize(config, layouter)
     }
 }
 
 fn verify_circuit_builder<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C>, const N: usize>(
-    circuits: [Halo2VerifierCircuit<'a, E>; N],
+    circuits: [Halo2VerifierCircuit<'a, E>; N], coherent:Vec<[(usize, usize);2]>
 ) -> Halo2VerifierCircuits<'a, E, N> {
-    Halo2VerifierCircuits(circuits)
+    Halo2VerifierCircuits{
+        circuits,
+        coherent,
+    }
 }
 
 pub fn load_params<C: CurveAffine>(folder: &mut std::path::PathBuf, file_name: &str) -> Params<C> {
@@ -585,7 +600,10 @@ pub struct MultiCircuitsSetup<
     C: CurveAffine,
     E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>,
     const N: usize,
->(pub [Setup<C, E>; N]);
+> {
+    pub setups: [Setup<C, E>; N],
+    pub coherent: Vec<[(usize, usize); 2]>
+}
 
 fn from_0_to_n<const N: usize>() -> [usize; N] {
     let mut arr = [0; N];
@@ -600,10 +618,10 @@ impl<C: CurveAffine, E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>, co
 {
     fn new_verify_circuit_info(&self, setup: bool) -> [SetupOutcome<C, E>; N] {
         from_0_to_n::<N>().map(|circuit_index| {
-            let target_circuit_verifier_params = self.0[circuit_index]
+            let target_circuit_verifier_params = self.setups[circuit_index]
                 .target_circuit_params
                 .verifier::<E>(
-                    self.0[circuit_index]
+                    self.setups[circuit_index]
                         .target_circuit_vk
                         .cs
                         .num_instance_columns,
@@ -613,20 +631,20 @@ impl<C: CurveAffine, E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>, co
             let mut target_circuit_transcripts = vec![];
             let mut target_circuit_instances = vec![];
 
-            for i in 0..self.0[circuit_index].nproofs {
+            for i in 0..self.setups[circuit_index].nproofs {
                 let index = if setup { 0 } else { i };
                 target_circuit_transcripts
-                    .push(self.0[circuit_index].proofs[index].transcript.clone());
+                    .push(self.setups[circuit_index].proofs[index].transcript.clone());
                 target_circuit_instances
-                    .push(self.0[circuit_index].proofs[index].instances.clone());
+                    .push(self.setups[circuit_index].proofs[index].instances.clone());
             }
 
             SetupOutcome::<C, E> {
                 params_verifier: target_circuit_verifier_params,
-                vk: self.0[circuit_index].target_circuit_vk.clone(),
+                vk: self.setups[circuit_index].target_circuit_vk.clone(),
                 instances: target_circuit_instances,
                 proofs: target_circuit_transcripts,
-                nproofs: self.0[circuit_index].nproofs,
+                nproofs: self.setups[circuit_index].nproofs,
             }
         })
     }
@@ -681,7 +699,7 @@ impl<C: CurveAffine, E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>, co
                     .collect(),
                 nproofs: setup_outcome[i].nproofs,
             }
-        }));
+        }), self.coherent.clone());
         info!("circuit build done");
 
         // TODO: Do not use this setup in production
@@ -775,7 +793,7 @@ impl CreateProof<G1Affine, Bn256> {
             .collect::<Vec<_>>();
 
         let proofs = (0..SingleCircuit::N_PROOFS)
-            .map(|index| load_target_circuit_instance::<SingleCircuit>(&mut folder.clone(), index))
+            .map(|index| load_target_circuit_proof::<SingleCircuit>(&mut folder.clone(), index))
             .collect::<Vec<_>>();
 
         let single_proof_witness = instances
@@ -810,6 +828,7 @@ pub struct MultiCircuitsCreateProof<
     pub target_circuit_proofs: [CreateProof<C, E>; N],
     pub verify_circuit_params: &'a Params<C>,
     pub verify_circuit_vk: VerifyingKey<C>,
+    pub coherent: Vec<[(usize, usize); 2]>,
 }
 
 impl<C: CurveAffine, E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>, const N: usize>
@@ -824,12 +843,13 @@ impl<C: CurveAffine, E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>, co
         Vec<u8>,
     ) {
         let setup = MultiCircuitsSetup {
-            0: self.target_circuit_proofs.map(|target_circuit| Setup {
+            setups: self.target_circuit_proofs.map(|target_circuit| Setup {
                 target_circuit_params: target_circuit.target_circuit_params,
                 target_circuit_vk: target_circuit.target_circuit_vk,
                 proofs: target_circuit.template_proofs, // template_proofs?
                 nproofs: target_circuit.nproofs,
             }),
+            coherent: self.coherent.clone()
         };
 
         let now = std::time::Instant::now();
@@ -851,7 +871,7 @@ impl<C: CurveAffine, E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>, co
                         .collect(),
                     nproofs: setup_outcome[i].nproofs,
                 }
-            }))
+            }), self.coherent)
         };
 
         /*

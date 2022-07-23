@@ -242,7 +242,7 @@ impl<'a, C: CurveAffine, const N: usize> MultiCircuitSolidityGenerate<'a, C, N> 
         .unwrap();
         ctx.exit_instance();
 
-        let proof = verify_single_proof_no_eval(
+        let (proof, _) = verify_single_proof_no_eval(
             ctx,
             nchip,
             schip,
