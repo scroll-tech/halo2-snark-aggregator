@@ -232,7 +232,7 @@ impl<'a, C: CurveAffine, const N: usize> MultiCircuitSolidityGenerate<'a, C, N> 
                 ctx,
                 schip,
                 8usize,
-                33usize,
+                63usize,
             )
             .unwrap();
 
