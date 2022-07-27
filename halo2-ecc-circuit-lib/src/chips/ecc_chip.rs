@@ -139,6 +139,85 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
             Err(Error::Synthesis)
         }
     }
+    fn shamir(
+        &self,
+        ctx: &mut Context<N>,
+        points: &mut Vec<AssignedPoint<C, N>>,
+        scalars: &Vec<Self::AssignedScalar>,
+    ) -> Result<AssignedPoint<C, N>, Error> {
+        assert!(CONFIG_WINDOW_SIZE >= 1usize);
+        assert!(points.len() == scalars.len());
+        let windows_in_be = scalars
+            .iter()
+            .map(|s| self.decompose_scalar::<CONFIG_WINDOW_SIZE>(ctx, s))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let identity = self.assign_identity(ctx)?;
+        let point_candidates: Vec<Vec<AssignedPoint<_, _>>> = points
+            .iter_mut()
+            .map(|a| {
+                let mut candidates = vec![identity.clone(), a.clone()];
+                for i in 2..(1 << CONFIG_WINDOW_SIZE) {
+                    let mut ai = self.add(ctx, &mut candidates[i - 1], a)?;
+                    self.curvature(ctx, &mut ai)?;
+                    candidates.push(ai)
+                }
+                Ok(candidates)
+            })
+            .collect::<Result<Vec<_>, Error>>()?;
+
+        let pick_candidate = |ctx: &mut Context<N>,
+                              pi: usize,
+                              bits_in_le: &[AssignedCondition<N>; CONFIG_WINDOW_SIZE]|
+         -> Result<AssignedPoint<C, N>, Error> {
+            let mut curr_candidates: Vec<AssignedPoint<_, _>> = point_candidates[pi].clone();
+            for bit in bits_in_le {
+                let mut next_candidates = vec![];
+                let len = curr_candidates.len() / 2;
+                let mut it = curr_candidates.iter_mut();
+
+                for _ in 0..len {
+                    let a0 = it.next().ok_or(Error::Synthesis)?;
+                    let a1 = it.next().ok_or(Error::Synthesis)?;
+
+                    let cell = self.bisec_point_with_curvature(ctx, &bit, a1, a0)?;
+                    next_candidates.push(cell);
+                }
+                curr_candidates = next_candidates;
+            }
+
+            Ok(curr_candidates.first().unwrap().clone())
+        };
+
+        let mut acc = None;
+
+        for wi in 0..windows_in_be[0].len() {
+            let mut inner_acc = None;
+            for pi in 0..points.len() {
+                let mut ci = pick_candidate(ctx, pi, &windows_in_be[pi][wi])?;
+                match inner_acc {
+                    None => inner_acc = Some(ci),
+                    Some(_inner_acc) => {
+                        let p = self.add(ctx, &mut ci, &_inner_acc)?;
+                        inner_acc = Some(p);
+                    }
+                }
+            }
+
+            match acc {
+                None => acc = inner_acc,
+                Some(mut _acc) => {
+                    for _ in 0..CONFIG_WINDOW_SIZE {
+                        _acc = self.double(ctx, &mut _acc)?;
+                    }
+                    _acc = self.add(ctx, &mut inner_acc.unwrap(), &_acc)?;
+                    acc = Some(_acc);
+                }
+            }
+        }
+
+        Ok(acc.unwrap())
+    }
     fn constant_mul(
         &self,
         ctx: &mut Context<N>,

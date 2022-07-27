@@ -23,6 +23,7 @@ enum TestCase {
     Add,
     Double,
     Mul,
+    ShaMir,
     ConstantMul,
     Sub,
 }
@@ -148,6 +149,38 @@ impl<C: CurveAffine> TestFiveColumnNativeEccChipCircuit<C> {
         Ok(())
     }
 
+    fn setup_test_shamir(
+        &self,
+        ecc_gate: &NativeEccChip<'_, C>,
+        ctx: &mut Context<'_, C::ScalarExt>,
+    ) -> Result<(), Error> {
+        let base_gate = ecc_gate.base_gate();
+
+        let s1 = Self::random();
+        let s2 = Self::random();
+        let s3 = Self::random();
+        let s4 = Self::random();
+
+        let p1 = ecc_gate.assign_constant_point_from_scalar(ctx, s1)?;
+        let p2 = ecc_gate.assign_constant_point_from_scalar(ctx, s2)?;
+        let assigned_s3 = base_gate.assign_constant(ctx, s3)?;
+        let assigned_s4 = base_gate.assign_constant(ctx, s4)?;
+
+        let mut p = ecc_gate.shamir(
+            ctx,
+            &mut vec![p1.clone(), p2],
+            &vec![assigned_s3, assigned_s4],
+        )?;
+        let mut p_ = ecc_gate.assign_constant_point_from_scalar(ctx, s1 * s3 + s2 * s4)?;
+        ecc_gate.assert_equal(ctx, &mut p, &mut p_)?;
+        
+        let mut p = ecc_gate.shamir(ctx, &mut vec![p1], &vec![assigned_s3])?;
+        let mut p_ = ecc_gate.assign_constant_point_from_scalar(ctx, s1 * s3)?;
+        ecc_gate.assert_equal(ctx, &mut p, &mut p_)?;
+
+        Ok(())
+    }
+
     fn setup_test_constant_mul(
         &self,
         ecc_gate: &NativeEccChip<'_, C>,
@@ -260,6 +293,7 @@ impl<C: CurveAffine> Circuit<C::ScalarExt> for TestFiveColumnNativeEccChipCircui
                         TestCase::Mul => self.setup_test_mul(&ecc_gate, r),
                         TestCase::Sub => self.setup_test_sub(&ecc_gate, r),
                         TestCase::ConstantMul => self.setup_test_constant_mul(&ecc_gate, r),
+                        TestCase::ShaMir => self.setup_test_shamir(&ecc_gate, r),
                     }?;
                 }
 
@@ -336,6 +370,21 @@ fn test_five_column_natvie_ecc_chip_constant_mul() {
     const K: u32 = (COMMON_RANGE_BITS + 2) as u32;
     let chip = TestFiveColumnNativeEccChipCircuit::<G1Affine> {
         test_case: TestCase::ConstantMul,
+        _phantom_w: PhantomData,
+        _phantom_n: PhantomData,
+    };
+    let prover = match MockProver::run(K, &chip, vec![]) {
+        Ok(prover) => prover,
+        Err(e) => panic!("{:#?}", e),
+    };
+    assert_eq!(prover.verify(), Ok(()));
+}
+
+#[test]
+fn test_five_column_natvie_ecc_chip_shamir() {
+    const K: u32 = (COMMON_RANGE_BITS + 2) as u32;
+    let chip = TestFiveColumnNativeEccChipCircuit::<G1Affine> {
+        test_case: TestCase::ShaMir,
         _phantom_w: PhantomData,
         _phantom_n: PhantomData,
     };
