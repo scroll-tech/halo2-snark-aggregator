@@ -190,6 +190,13 @@ impl<'a, C: CurveAffine, const N: usize> MultiCircuitSolidityGenerate<'a, C, N> 
         &self,
         template_folder: std::path::PathBuf,
     ) -> String {
+        /*
+        for i in self.target_circuits_params.iter() {
+            let v = i.target_circuit_params.verifier::<E>(i.target_circuit_vk.cs.num_instance_columns).unwrap();
+            println!("g2 {:?}", v.s_g2);
+        }
+        */
+
         let target_params = self.target_circuits_params[0]
             .target_circuit_params
             .verifier::<E>(

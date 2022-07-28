@@ -332,6 +332,7 @@ impl<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> TargetCircuit<C, E> for T
     const PUBLIC_INPUT_SIZE: usize = 1;
     const N_PROOFS: usize = 2;
     const NAME: &'static str = "simple_example";
+    const PARAMS_NAME: &'static str = "simple_example";
 
     type Circuit = MyCircuit<C::ScalarExt>;
 
@@ -356,6 +357,7 @@ impl<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> TargetCircuit<C, E> for T
     const PUBLIC_INPUT_SIZE: usize = 1;
     const N_PROOFS: usize = 2;
     const NAME: &'static str = "simple_example2";
+    const PARAMS_NAME: &'static str = "simple_example";
 
     type Circuit = MyCircuit<C::ScalarExt>;
 

@@ -161,9 +161,6 @@ macro_rules! zkaggregate {
                 }
 
                 fn dispatch_verify_solidity(&self) {
-                    // multiple circuits is not supported yet.
-                    assert_eq!($n, 1);
-
                     let target_circuits_params: [SolidityGenerate<_>; $n] = [
                         $(
                             SolidityGenerate::new::<$x>(&self.folder),
