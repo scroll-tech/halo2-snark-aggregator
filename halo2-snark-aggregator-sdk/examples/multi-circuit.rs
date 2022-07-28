@@ -378,6 +378,6 @@ impl<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> TargetCircuit<C, E> for T
 zkaggregate! {2, vec![], TestCircuit, TestCircuit2}
 
 pub fn main() {
-    let builder = zkcli::builder(22);
+    let builder = zkcli::builder(23);
     builder.run()
 }
