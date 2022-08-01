@@ -121,4 +121,13 @@ impl<'a, 'b, C: CurveAffine> ArithEccChip for EccChip<'a, 'b, C> {
     ) -> Result<Self::AssignedPoint, Self::Error> {
         self.chip.constant_mul(ctx, rhs.to_curve(), lhs)
     }
+
+    fn multi_exp(
+        &self,
+        ctx: &mut Self::Context,
+        mut points: Vec<Self::AssignedPoint>,
+        scalars: Vec<Self::AssignedScalar>,
+    ) -> Result<Self::AssignedPoint, Self::Error> {
+        self.chip.shamir(ctx, &mut points, &scalars)
+    }
 }

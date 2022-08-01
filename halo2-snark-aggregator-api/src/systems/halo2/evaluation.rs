@@ -124,7 +124,7 @@ impl<A: ArithEccChip> EvaluationQuery<A> {
     }
 }
 
-impl<P, S: Clone> EvaluationQuerySchema<P, S> {
+impl<P: Clone, S: Clone> EvaluationQuerySchema<P, S> {
     pub fn eval<
         Scalar: FieldExt,
         A: ArithEccChip<AssignedPoint = P, AssignedScalar = S, Scalar = Scalar>,
@@ -136,30 +136,24 @@ impl<P, S: Clone> EvaluationQuerySchema<P, S> {
         one: &A::AssignedScalar,
     ) -> Result<(A::AssignedPoint, Option<A::AssignedScalar>), A::Error> {
         let points = self.eval_prepare::<Scalar, A>(ctx, schip, one, None)?;
-
-        let mut p_acc: Option<A::AssignedPoint> = None;
-        let mut s: Option<A::AssignedScalar> = None;
-        for b in points.into_iter() {
-            let scalar = b.2;
-
-            if b.0 == "" {
-                assert!(b.1.is_none());
-                assert!(s.is_none());
-                s = scalar;
-            } else {
-                assert!(b.1.is_some());
-                let p = match scalar {
-                    None => b.1.unwrap(),
-                    Some(s) => pchip.scalar_mul(ctx, &s, b.1.as_ref().unwrap())?,
-                };
-                p_acc = match p_acc {
-                    None => Some(p),
-                    Some(p_acc) => Some(pchip.add(ctx, &p_acc, &p)?),
-                }
-            }
+        let s = points
+            .iter()
+            .find(|b| b.0 == "")
+            .map(|b| b.2.as_ref().unwrap().clone());
+        let p_wo_scalar = points
+            .iter()
+            .filter_map(|b| if b.2.is_none() { b.1.clone() } else { None })
+            .collect::<Vec<_>>();
+        let (p_l, s_l) = points
+            .into_iter()
+            .filter_map(|(_, p, s)| p.and_then(|p| s.and_then(|s| Some((p, s)))))
+            .unzip();
+        let mut acc = pchip.multi_exp(ctx, p_l, s_l)?;
+        for p in p_wo_scalar {
+            acc = pchip.add(ctx, &acc, &p)?;
         }
 
-        Ok((p_acc.unwrap(), s))
+        Ok((acc, s))
     }
 
     fn eval_prepare<
