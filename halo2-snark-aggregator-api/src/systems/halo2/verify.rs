@@ -831,7 +831,6 @@ pub fn verify_aggregation_proofs_in_chip<
   {
     let mut plain_assigned_instances = vec![];
 
-
     let multiopen_proofs: Vec<Vec<(MultiOpenProof<A>, Vec<A::AssignedPoint>)>> = circuits
     //let multiopen_proofs: Vec<Vec<MultiOpenProof<A>>> = circuits
         .iter_mut()

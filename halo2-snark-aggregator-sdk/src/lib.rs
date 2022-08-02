@@ -18,7 +18,7 @@ macro_rules! zkaggregate {
                 sample_circuit_random_run, sample_circuit_setup, TargetCircuit,
             };
             use halo2_snark_aggregator_circuit::verify_circuit::{
-                load_instances, CreateProof, Halo2VerifierCircuit, MultiCircuitsCreateProof,
+                CreateProof, Halo2VerifierCircuit, MultiCircuitsCreateProof,
                 MultiCircuitsSetup, Setup, SingleProofWitness, VerifyCheck, SingleProofPair,
             };
             use halo2_snark_aggregator_solidity::{SolidityGenerate, MultiCircuitSolidityGenerate};
@@ -36,8 +36,6 @@ macro_rules! zkaggregate {
                 // TODO: replace it with subcommand
                 #[clap(short, long)]
                 command: String,
-                #[clap(short, long)]
-                nproofs: usize,
                 #[clap(short, long, parse(from_os_str))]
                 folder_path: std::path::PathBuf,
                 #[clap(short, long, parse(from_os_str))]
@@ -117,7 +115,7 @@ macro_rules! zkaggregate {
                 fn dispatch_verify_setup(&self) {
                     let setup: [Setup<_, _>; $n] = [
                         $(
-                            Setup::new::<$x>(&self.folder),
+                            Setup::new::<$x, _>(&self.folder, &<$x as TargetCircuit<G1Affine, Bn256>>::load_instances),
                         )*
                     ];
 
@@ -135,7 +133,7 @@ macro_rules! zkaggregate {
                 fn dispatch_verify_run(&self) {
                     let target_circuit_proofs: [CreateProof<_, _>; $n] = [
                         $(
-                            CreateProof::new::<$x>(&self.folder),
+                            CreateProof::new::<$x, _>(&self.folder, &<$x as TargetCircuit<G1Affine, Bn256>>::load_instances),
                         )*
                     ];
 

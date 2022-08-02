@@ -166,9 +166,16 @@ impl SolidityGenerate<G1Affine> {
     pub fn new<SingleCircuit: TargetCircuit<G1Affine, Bn256>>(
         folder: &PathBuf,
     ) -> SolidityGenerate<G1Affine> {
+        let target_circuit_params =
+            load_target_circuit_params::<G1Affine, Bn256, SingleCircuit>(&mut folder.clone());
+        let target_circuit_vk = load_target_circuit_vk::<G1Affine, Bn256, SingleCircuit>(
+            &mut folder.clone(),
+            &target_circuit_params,
+        );
+
         SolidityGenerate {
-            target_circuit_params: load_target_circuit_params::<SingleCircuit>(&mut folder.clone()),
-            target_circuit_vk: load_target_circuit_vk::<SingleCircuit>(&mut folder.clone()),
+            target_circuit_params,
+            target_circuit_vk,
             nproofs: SingleCircuit::N_PROOFS,
         }
     }

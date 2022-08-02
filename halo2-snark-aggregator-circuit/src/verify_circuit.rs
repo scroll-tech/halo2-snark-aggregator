@@ -5,7 +5,6 @@ use crate::fs::{
 };
 use crate::sample_circuit::TargetCircuit;
 
-
 use super::chips::{ecc_chip::EccChip, encode_chip::PoseidonEncodeChip, scalar_chip::ScalarChip};
 use halo2_ecc_circuit_lib::chips::integer_chip::IntegerChipOps;
 use halo2_ecc_circuit_lib::chips::{
@@ -27,17 +26,19 @@ use halo2_proofs::circuit::floor_planner::V1;
 use halo2_proofs::plonk::{create_proof, keygen_vk, ProvingKey};
 use halo2_proofs::plonk::{Column, Instance};
 use halo2_proofs::{
-    arithmetic::BaseExt,
-    plonk::{keygen_pk, verify_proof, SingleVerifier},
-    transcript::Challenge255,
-};
-use halo2_proofs::{
     arithmetic::{CurveAffine, MultiMillerLoop},
     circuit::Layouter,
     plonk::{Circuit, ConstraintSystem, Error, VerifyingKey},
     poly::commitment::{Params, ParamsVerifier},
 };
-use halo2_snark_aggregator_api::mock::arith::{ecc::MockEccChip, field::{MockFieldChip, MockChipCtx}};
+use halo2_proofs::{
+    plonk::{keygen_pk, verify_proof, SingleVerifier},
+    transcript::Challenge255,
+};
+use halo2_snark_aggregator_api::mock::arith::{
+    ecc::MockEccChip,
+    field::{MockChipCtx, MockFieldChip},
+};
 use halo2_snark_aggregator_api::mock::transcript_encode::PoseidonEncode;
 use halo2_snark_aggregator_api::systems::halo2::verify::{
     verify_aggregation_proofs_in_chip, CircuitProof,
@@ -47,7 +48,7 @@ use halo2_snark_aggregator_api::systems::halo2::{
 };
 use halo2_snark_aggregator_api::transcript::sha::{ShaRead, ShaWrite};
 use log::info;
-use pairing_bn256::bn256::{Bn256, G1Affine};
+use pairing_bn256::bn256::{Bn256, Fr, G1Affine};
 use pairing_bn256::group::Curve;
 use rand_core::OsRng;
 use std::env::var;
@@ -542,17 +543,6 @@ pub fn load_transcript<C: CurveAffine>(
     buf
 }
 
-pub fn load_instances<E: MultiMillerLoop>(buf: &[u8]) -> Vec<Vec<Vec<E::Scalar>>> {
-    let mut ret = vec![];
-    let cursor = &mut std::io::Cursor::new(buf);
-
-    while let Ok(a) = <E::Scalar as BaseExt>::read(cursor) {
-        ret.push(a);
-    }
-
-    vec![vec![ret]]
-}
-
 pub struct Setup<C: CurveAffine, E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>> {
     pub name: String,
     pub target_circuit_params: Rc<Params<C>>,
@@ -562,12 +552,16 @@ pub struct Setup<C: CurveAffine, E: MultiMillerLoop<G1Affine = C, Scalar = C::Sc
 }
 
 impl Setup<G1Affine, Bn256> {
-    pub fn new<SingleCircuit: TargetCircuit<G1Affine, Bn256>>(
+    pub fn new<SingleCircuit: TargetCircuit<G1Affine, Bn256>, L>(
         folder: &PathBuf,
-    ) -> Setup<G1Affine, Bn256> {
+        load_instances: L,
+    ) -> Setup<G1Affine, Bn256>
+    where
+        L: Fn(&Vec<u8>) -> Vec<Vec<Vec<Fr>>>,
+    {
         let target_circuit_instances = (0..SingleCircuit::N_PROOFS)
             .map(|index| {
-                load_instances::<Bn256>(&load_target_circuit_instance::<SingleCircuit>(
+                load_instances(&load_target_circuit_instance::<SingleCircuit>(
                     &mut folder.clone(),
                     index,
                 ))
@@ -587,14 +581,17 @@ impl Setup<G1Affine, Bn256> {
             })
             .collect::<Vec<_>>();
 
+        let target_circuit_params =
+            load_target_circuit_params::<G1Affine, Bn256, SingleCircuit>(&mut folder.clone());
+        let target_circuit_vk = load_target_circuit_vk::<G1Affine, Bn256, SingleCircuit>(
+            &mut folder.clone(),
+            &target_circuit_params,
+        );
+
         Setup {
             name: format!("{:?}", folder),
-            target_circuit_params: Rc::new(load_target_circuit_params::<SingleCircuit>(
-                &mut folder.clone(),
-            )),
-            target_circuit_vk: Rc::new(load_target_circuit_vk::<SingleCircuit>(
-                &mut folder.clone(),
-            )),
+            target_circuit_params: Rc::new(target_circuit_params),
+            target_circuit_vk: Rc::new(target_circuit_vk),
             proofs: single_proof_witness,
             nproofs: SingleCircuit::N_PROOFS,
         }
@@ -801,12 +798,16 @@ pub struct CreateProof<C: CurveAffine, E: MultiMillerLoop<G1Affine = C, Scalar =
 }
 
 impl CreateProof<G1Affine, Bn256> {
-    pub fn new<SingleCircuit: TargetCircuit<G1Affine, Bn256>>(
+    pub fn new<SingleCircuit: TargetCircuit<G1Affine, Bn256>, L>(
         folder: &PathBuf,
-    ) -> CreateProof<G1Affine, Bn256> {
+        load_instances: L,
+    ) -> CreateProof<G1Affine, Bn256>
+    where
+        L: Fn(&Vec<u8>) -> Vec<Vec<Vec<Fr>>>,
+    {
         let instances = (0..SingleCircuit::N_PROOFS)
             .map(|index| {
-                load_instances::<Bn256>(&load_target_circuit_instance::<SingleCircuit>(
+                load_instances(&load_target_circuit_instance::<SingleCircuit>(
                     &mut folder.clone(),
                     index,
                 ))
@@ -826,14 +827,17 @@ impl CreateProof<G1Affine, Bn256> {
             })
             .collect::<Vec<_>>();
 
+        let target_circuit_params =
+            load_target_circuit_params::<G1Affine, Bn256, SingleCircuit>(&mut folder.clone());
+        let target_circuit_vk = load_target_circuit_vk::<G1Affine, Bn256, SingleCircuit>(
+            &mut folder.clone(),
+            &target_circuit_params,
+        );
+
         CreateProof {
             name: format!("{:?}", folder),
-            target_circuit_params: Rc::new(load_target_circuit_params::<SingleCircuit>(
-                &mut folder.clone(),
-            )),
-            target_circuit_vk: Rc::new(load_target_circuit_vk::<SingleCircuit>(
-                &mut folder.clone(),
-            )),
+            target_circuit_params: Rc::new(target_circuit_params),
+            target_circuit_vk: Rc::new(target_circuit_vk),
             template_proofs: single_proof_witness.clone(),
             proofs: single_proof_witness,
             nproofs: SingleCircuit::N_PROOFS,

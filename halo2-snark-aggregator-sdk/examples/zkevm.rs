@@ -56,11 +56,16 @@ impl TargetCircuit<G1Affine, Bn256> for TestCircuit<Fr> {
     const N_PROOFS: usize = 1;
     const NAME: &'static str = "zkevm";
     const PARAMS_NAME: &'static str = "zkevm";
+    const READABLE_VKEY: bool = false;
 
     type Circuit = TestCircuit<Fr>;
 
     fn instance_builder() -> (Self::Circuit, Vec<Vec<Fr>>) {
-        (Self::Circuit::default(), vec![vec![]])
+        (Self::Circuit::default(), vec![])
+    }
+
+    fn load_instances(buf: &Vec<u8>) -> Vec<Vec<Vec<Fr>>> {
+        vec![vec![]]
     }
 }
 
