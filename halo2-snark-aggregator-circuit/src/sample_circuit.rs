@@ -17,6 +17,7 @@ pub trait TargetCircuit<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> {
     const PUBLIC_INPUT_SIZE: usize;
     const N_PROOFS: usize;
     const NAME: &'static str;
+    const PARAMS_NAME: &'static str;
 
     type Circuit: Circuit<C::ScalarExt> + Default;
 
@@ -37,14 +38,14 @@ pub fn sample_circuit_setup<
     let vk = keygen_vk(&params, &circuit).expect("keygen_vk should not fail");
 
     {
-        folder.push(format!("sample_circuit_{}.params", CIRCUIT::NAME));
+        folder.push(format!("sample_circuit_{}.params", CIRCUIT::PARAMS_NAME));
         let mut fd = std::fs::File::create(folder.as_path()).unwrap();
         folder.pop();
         params.write(&mut fd).unwrap();
     }
 
     {
-        folder.push(format!("sample_circuit_{}.vkey", CIRCUIT::NAME));
+        folder.push(format!("sample_circuit_{}.vkey", CIRCUIT::PARAMS_NAME));
         let mut fd = std::fs::File::create(folder.as_path()).unwrap();
         folder.pop();
         vk.write(&mut fd).unwrap();
@@ -62,14 +63,14 @@ pub fn sample_circuit_random_run<
     index: usize,
 ) {
     let params = {
-        folder.push(format!("sample_circuit_{}.params", CIRCUIT::NAME));
+        folder.push(format!("sample_circuit_{}.params", CIRCUIT::PARAMS_NAME));
         let mut fd = std::fs::File::open(folder.as_path()).unwrap();
         folder.pop();
         Params::<C>::read(&mut fd).unwrap()
     };
 
     let vk = {
-        folder.push(format!("sample_circuit_{}.vkey", CIRCUIT::NAME));
+        folder.push(format!("sample_circuit_{}.vkey", CIRCUIT::PARAMS_NAME));
         let mut fd = std::fs::File::open(folder.as_path()).unwrap();
         folder.pop();
         VerifyingKey::<C>::read::<_, CIRCUIT::Circuit>(&mut fd, &params).unwrap()
@@ -113,7 +114,7 @@ pub fn sample_circuit_random_run<
     }
 
     let vk = {
-        folder.push(format!("sample_circuit_{}.vkey", CIRCUIT::NAME));
+        folder.push(format!("sample_circuit_{}.vkey", CIRCUIT::PARAMS_NAME));
         let mut fd = std::fs::File::open(folder.as_path()).unwrap();
         folder.pop();
         VerifyingKey::<C>::read::<_, CIRCUIT::Circuit>(&mut fd, &params).unwrap()

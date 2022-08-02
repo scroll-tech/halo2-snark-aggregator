@@ -61,7 +61,7 @@ describe("Verifier", () => {
   console.log(bufferToUint256LE(final_pair));
 
   it("Assigns initial balance", async () => {
-    let a = await token.estimateGas.verify(
+    let a = await token.verify(
       bufferToUint256LE(proof),
       bufferToUint256LE(final_pair),
     );

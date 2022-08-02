@@ -55,6 +55,7 @@ impl TargetCircuit<G1Affine, Bn256> for TestCircuit<Fr> {
     const PUBLIC_INPUT_SIZE: usize = (Self::TARGET_CIRCUIT_K * 2) as usize;
     const N_PROOFS: usize = 1;
     const NAME: &'static str = "zkevm";
+    const PARAMS_NAME: &'static str = "zkevm";
 
     type Circuit = TestCircuit<Fr>;
 
@@ -64,7 +65,7 @@ impl TargetCircuit<G1Affine, Bn256> for TestCircuit<Fr> {
 }
 
 type ZkEvm = TestCircuit<Fr>;
-zkaggregate! {1, ZkEvm}
+zkaggregate! {1, vec![], ZkEvm}
 
 pub fn main() {
     let builder = zkcli::builder(25);
