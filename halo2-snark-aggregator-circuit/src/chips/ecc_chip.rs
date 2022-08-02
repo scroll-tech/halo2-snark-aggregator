@@ -8,7 +8,10 @@ use halo2_ecc_circuit_lib::{
 };
 use halo2_proofs::arithmetic::Field;
 use halo2_proofs::{arithmetic::CurveAffine, plonk::Error};
-use halo2_snark_aggregator_api::arith::{common::ArithCommonChip, ecc::ArithEccChip};
+use halo2_snark_aggregator_api::arith::{
+    common::ArithCommonChip,
+    ecc::ArithEccChip
+};
 use std::marker::PhantomData;
 
 pub struct EccChip<'a, 'b, C: CurveAffine> {

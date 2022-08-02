@@ -1,7 +1,7 @@
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
 
 pub trait ArithCommonChip {
-    type Context;
+    type Context: Display;
     type Value: Clone + PartialEq + Debug;
     type AssignedValue: Clone + Debug;
     type Error;

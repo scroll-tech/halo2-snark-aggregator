@@ -5,6 +5,7 @@ use crate::fs::{
 };
 use crate::sample_circuit::TargetCircuit;
 
+
 use super::chips::{ecc_chip::EccChip, encode_chip::PoseidonEncodeChip, scalar_chip::ScalarChip};
 use halo2_ecc_circuit_lib::chips::integer_chip::IntegerChipOps;
 use halo2_ecc_circuit_lib::chips::{
@@ -36,7 +37,7 @@ use halo2_proofs::{
     plonk::{Circuit, ConstraintSystem, Error, VerifyingKey},
     poly::commitment::{Params, ParamsVerifier},
 };
-use halo2_snark_aggregator_api::mock::arith::{ecc::MockEccChip, field::MockFieldChip};
+use halo2_snark_aggregator_api::mock::arith::{ecc::MockEccChip, field::{MockFieldChip, MockChipCtx}};
 use halo2_snark_aggregator_api::mock::transcript_encode::PoseidonEncode;
 use halo2_snark_aggregator_api::systems::halo2::verify::{
     verify_aggregation_proofs_in_chip, CircuitProof,
@@ -106,7 +107,7 @@ impl<
         let nchip = MockFieldChip::<C::ScalarExt, Error>::default();
         let schip = MockFieldChip::<C::ScalarExt, Error>::default();
         let pchip = MockEccChip::<C, Error>::default();
-        let ctx = &mut ();
+        let ctx = &mut MockChipCtx::default();
 
         let circuit_proofs = self
             .0

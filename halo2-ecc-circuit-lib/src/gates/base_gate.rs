@@ -4,6 +4,7 @@ use halo2_proofs::{
     plonk::{Advice, Column, ConstraintSystem, Error, Fixed},
     poly::Rotation,
 };
+
 use std::marker::PhantomData;
 
 #[derive(Clone, Copy, Debug)]
@@ -120,6 +121,12 @@ impl<'a, N: FieldExt> Context<'a, N> {
             region: Box::new(region),
             offset: Box::new(offset),
         }
+    }
+}
+
+impl<'a, N: FieldExt> std::fmt::Display for Context<'a, N> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "(total offset: {})", self.offset)
     }
 }
 
