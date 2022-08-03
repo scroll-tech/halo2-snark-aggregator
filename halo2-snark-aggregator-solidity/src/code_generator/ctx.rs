@@ -628,6 +628,12 @@ impl SolidityCodeGeneratorContext {
     }
 }
 
+impl std::fmt::Display for SolidityCodeGeneratorContext {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "(memory offset： {})", self.memory_offset)
+    }
+}
+
 impl SolidityCodeGeneratorContext {
     pub fn new() -> Self {
         SolidityCodeGeneratorContext {

@@ -8,6 +8,18 @@ pub struct MockFieldChip<F: FieldExt, E> {
     _data: PhantomData<E>,
 }
 
+#[derive(Default, Clone)]
+pub struct MockChipCtx {
+    pub point_list: Vec<String>,
+    pub tag: String,
+}
+
+impl std::fmt::Display for MockChipCtx {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "(total points: {})", self.point_list.len())
+    }
+}
+
 impl<F: FieldExt, E> Default for MockFieldChip<F, E> {
     fn default() -> Self {
         Self {
@@ -19,7 +31,7 @@ impl<F: FieldExt, E> Default for MockFieldChip<F, E> {
 }
 
 impl<F: FieldExt, E> ArithCommonChip for MockFieldChip<F, E> {
-    type Context = ();
+    type Context = MockChipCtx;
     type Value = F;
     type AssignedValue = F;
     type Error = E;

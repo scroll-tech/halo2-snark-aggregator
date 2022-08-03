@@ -675,6 +675,7 @@ fn evaluate_multiopen_proof<
 ) -> Result<(A::AssignedPoint, A::AssignedPoint), A::Error> {
     let one = schip.assign_one(ctx)?;
 
+    println!("debug context before evaluate multiopen proof: {}", ctx);
     let (left_s, left_e) = proof.w_x.eval::<_, A>(ctx, schip, pchip, &one)?;
     let (right_s, right_e) = proof.w_g.eval::<_, A>(ctx, schip, pchip, &one)?;
 
@@ -709,6 +710,7 @@ fn evaluate_multiopen_proof<
     assert!(success);
 
     */
+    println!("debug context after evaluate multiopen proof: {}", ctx);
 
     Ok((left, right))
 }

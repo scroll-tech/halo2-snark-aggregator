@@ -1,5 +1,6 @@
 use super::field::MockFieldChip;
 use crate::arith::{common::ArithCommonChip, ecc::ArithEccChip};
+use crate::mock::arith::field::MockChipCtx;
 use group::{Curve, Group};
 use halo2_proofs::arithmetic::CurveAffine;
 use std::marker::PhantomData;
@@ -21,14 +22,14 @@ impl<C: CurveAffine, E> Default for MockEccChip<C, E> {
 }
 
 impl<C: CurveAffine, E> ArithCommonChip for MockEccChip<C, E> {
-    type Context = ();
+    type Context = MockChipCtx;
     type Value = C;
     type AssignedValue = C::CurveExt;
     type Error = E;
 
     fn add(
         &self,
-        _ctx: &mut (),
+        _ctx: &mut Self::Context,
         a: &C::CurveExt,
         b: &C::CurveExt,
     ) -> Result<C::CurveExt, Self::Error> {
@@ -37,26 +38,26 @@ impl<C: CurveAffine, E> ArithCommonChip for MockEccChip<C, E> {
 
     fn sub(
         &self,
-        _ctx: &mut (),
+        _ctx: &mut Self::Context,
         a: &C::CurveExt,
         b: &C::CurveExt,
     ) -> Result<C::CurveExt, Self::Error> {
         Ok(*a - *b)
     }
 
-    fn assign_zero(&self, _ctx: &mut ()) -> Result<C::CurveExt, Self::Error> {
+    fn assign_zero(&self, _ctx: &mut Self::Context) -> Result<C::CurveExt, Self::Error> {
         Ok(self.zero)
     }
 
-    fn assign_one(&self, _ctx: &mut ()) -> Result<C::CurveExt, Self::Error> {
+    fn assign_one(&self, _ctx: &mut Self::Context) -> Result<C::CurveExt, Self::Error> {
         Ok(self.one)
     }
 
-    fn assign_const(&self, _ctx: &mut (), c: C) -> Result<C::CurveExt, Self::Error> {
+    fn assign_const(&self, _ctx: &mut Self::Context, c: C) -> Result<C::CurveExt, Self::Error> {
         Ok(c.to_curve())
     }
 
-    fn assign_var(&self, _ctx: &mut (), v: C) -> Result<C::CurveExt, Self::Error> {
+    fn assign_var(&self, _ctx: &mut Self::Context, v: C) -> Result<C::CurveExt, Self::Error> {
         Ok(v.to_curve())
     }
 
@@ -66,11 +67,12 @@ impl<C: CurveAffine, E> ArithCommonChip for MockEccChip<C, E> {
 
     fn normalize(
         &self,
-        _ctx: &mut (),
+        _ctx: &mut Self::Context,
         v: &Self::AssignedValue,
     ) -> Result<Self::AssignedValue, Self::Error> {
         Ok(v.clone())
     }
+
 }
 
 impl<C: CurveAffine, E> ArithEccChip for MockEccChip<C, E> {
@@ -101,4 +103,26 @@ impl<C: CurveAffine, E> ArithEccChip for MockEccChip<C, E> {
     ) -> Result<Self::AssignedPoint, Self::Error> {
         Ok(rhs * *lhs)
     }
+
+    fn multi_exp(
+        &self,
+        ctx: &mut Self::Context,
+        points: Vec<Self::AssignedPoint>,
+        scalars: Vec<Self::AssignedScalar>,
+    ) -> Result<Self::AssignedPoint, Self::Error> {
+        ctx.point_list = points.clone().into_iter().map(|x| format!("{:?}", x)).collect();
+        let mut acc = None;
+        for (p, s) in points.iter().zip(scalars.iter()) {
+            let curr = self.scalar_mul(ctx, s, p)?;
+            acc = match acc {
+                None => Some(curr),
+                Some(_acc) => {
+                    let p = self.add(ctx, &_acc, &curr)?;
+                    Some(p)
+                }
+            }
+        }
+        Ok(acc.unwrap())
+    }
+
 }

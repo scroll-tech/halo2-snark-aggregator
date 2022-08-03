@@ -8,7 +8,10 @@ use halo2_ecc_circuit_lib::{
 };
 use halo2_proofs::arithmetic::Field;
 use halo2_proofs::{arithmetic::CurveAffine, plonk::Error};
-use halo2_snark_aggregator_api::arith::{common::ArithCommonChip, ecc::ArithEccChip};
+use halo2_snark_aggregator_api::arith::{
+    common::ArithCommonChip,
+    ecc::ArithEccChip
+};
 use std::marker::PhantomData;
 
 pub struct EccChip<'a, 'b, C: CurveAffine> {
@@ -120,5 +123,14 @@ impl<'a, 'b, C: CurveAffine> ArithEccChip for EccChip<'a, 'b, C> {
         rhs: Self::Point,
     ) -> Result<Self::AssignedPoint, Self::Error> {
         self.chip.constant_mul(ctx, rhs.to_curve(), lhs)
+    }
+
+    fn multi_exp(
+        &self,
+        ctx: &mut Self::Context,
+        mut points: Vec<Self::AssignedPoint>,
+        scalars: Vec<Self::AssignedScalar>,
+    ) -> Result<Self::AssignedPoint, Self::Error> {
+        self.chip.shamir(ctx, &mut points, &scalars)
     }
 }
