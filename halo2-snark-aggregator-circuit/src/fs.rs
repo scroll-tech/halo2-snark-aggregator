@@ -36,7 +36,10 @@ pub fn write_file(folder: &mut PathBuf, filename: &str, buf: &Vec<u8>) {
 pub fn read_target_circuit_params<Circuit: TargetCircuit<G1Affine, Bn256>>(
     folder: &mut PathBuf,
 ) -> Vec<u8> {
-    read_file(folder, &format!("sample_circuit_{}.params", Circuit::PARAMS_NAME))
+    read_file(
+        folder,
+        &format!("sample_circuit_{}.params", Circuit::PARAMS_NAME),
+    )
 }
 
 pub fn load_target_circuit_params<Circuit: TargetCircuit<G1Affine, Bn256>>(
@@ -51,7 +54,10 @@ pub fn load_target_circuit_params<Circuit: TargetCircuit<G1Affine, Bn256>>(
 pub fn read_target_circuit_vk<Circuit: TargetCircuit<G1Affine, Bn256>>(
     folder: &mut PathBuf,
 ) -> Vec<u8> {
-    read_file(folder, &format!("sample_circuit_{}.vkey", Circuit::PARAMS_NAME))
+    read_file(
+        folder,
+        &format!("sample_circuit_{}.vkey", Circuit::PARAMS_NAME),
+    )
 }
 
 pub fn load_target_circuit_vk<Circuit: TargetCircuit<G1Affine, Bn256>>(

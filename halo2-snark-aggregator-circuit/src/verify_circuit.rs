@@ -5,7 +5,6 @@ use crate::fs::{
 };
 use crate::sample_circuit::TargetCircuit;
 
-
 use super::chips::{ecc_chip::EccChip, encode_chip::PoseidonEncodeChip, scalar_chip::ScalarChip};
 use halo2_ecc_circuit_lib::chips::integer_chip::IntegerChipOps;
 use halo2_ecc_circuit_lib::chips::{
@@ -37,7 +36,10 @@ use halo2_proofs::{
     plonk::{Circuit, ConstraintSystem, Error, VerifyingKey},
     poly::commitment::{Params, ParamsVerifier},
 };
-use halo2_snark_aggregator_api::mock::arith::{ecc::MockEccChip, field::{MockFieldChip, MockChipCtx}};
+use halo2_snark_aggregator_api::mock::arith::{
+    ecc::MockEccChip,
+    field::{MockChipCtx, MockFieldChip},
+};
 use halo2_snark_aggregator_api::mock::transcript_encode::PoseidonEncode;
 use halo2_snark_aggregator_api::systems::halo2::verify::{
     verify_aggregation_proofs_in_chip, CircuitProof,
@@ -78,22 +80,22 @@ pub struct SingleProofWitness<'a, E: MultiMillerLoop> {
 
 #[derive(Clone)]
 pub struct Halo2VerifierCircuit<'a, E: MultiMillerLoop> {
-    pub(crate) params: &'a ParamsVerifier<E>,
-    pub(crate) vk: &'a VerifyingKey<E::G1Affine>,
-    pub(crate) proofs: Vec<SingleProofWitness<'a, E>>,
-    pub(crate) nproofs: usize,
+    pub params: &'a ParamsVerifier<E>,
+    pub vk: &'a VerifyingKey<E::G1Affine>,
+    pub proofs: Vec<SingleProofWitness<'a, E>>,
+    pub nproofs: usize,
 }
 
 #[derive(Clone)]
 pub struct Halo2CircuitInstance<'a, E: MultiMillerLoop> {
-    pub(crate) params: &'a ParamsVerifier<E>,
-    pub(crate) vk: &'a VerifyingKey<E::G1Affine>,
-    pub(crate) n_instances: &'a Vec<Vec<Vec<Vec<E::Scalar>>>>,
-    pub(crate) n_transcript: &'a Vec<Vec<u8>>,
+    pub params: &'a ParamsVerifier<E>,
+    pub vk: &'a VerifyingKey<E::G1Affine>,
+    pub n_instances: &'a Vec<Vec<Vec<Vec<E::Scalar>>>>,
+    pub n_transcript: &'a Vec<Vec<u8>>,
 }
 
 pub struct Halo2CircuitInstances<'a, E: MultiMillerLoop, const N: usize>(
-    [Halo2CircuitInstance<'a, E>; N],
+    pub [Halo2CircuitInstance<'a, E>; N],
 );
 
 impl<

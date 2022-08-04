@@ -174,8 +174,8 @@ impl SolidityGenerate<G1Affine> {
     }
 }
 
-pub struct MultiCircuitSolidityGenerate<'a, C: CurveAffine, const N: usize> {
-    pub target_circuits_params: [SolidityGenerate<C>; N],
+pub struct MultiCircuitSolidityGenerate<'a, C: CurveAffine> {
+    //pub target_circuits_params: [SolidityGenerate<C>; N],
     pub verify_params: &'a Params<C>,
     pub verify_vk: &'a VerifyingKey<C>,
     // serialized instance
@@ -185,26 +185,15 @@ pub struct MultiCircuitSolidityGenerate<'a, C: CurveAffine, const N: usize> {
     pub verify_public_inputs_size: usize,
 }
 
-impl<'a, C: CurveAffine, const N: usize> MultiCircuitSolidityGenerate<'a, C, N> {
+impl<'a, C: CurveAffine> MultiCircuitSolidityGenerate<'a, C> {
     pub fn call<E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>>(
         &self,
         template_folder: std::path::PathBuf,
     ) -> String {
-        /*
-        for i in self.target_circuits_params.iter() {
-            let v = i.target_circuit_params.verifier::<E>(i.target_circuit_vk.cs.num_instance_columns).unwrap();
-            println!("g2 {:?}", v.s_g2);
-        }
-        */
-
-        let target_params = self.target_circuits_params[0]
-            .target_circuit_params
-            .verifier::<E>(
-                self.target_circuits_params[0]
-                    .target_circuit_vk
-                    .cs
-                    .num_instance_columns,
-            )
+        // adhoc...
+        let target_params = self
+            .verify_params
+            .verifier::<E>(self.verify_public_inputs_size)
             .unwrap();
         let target_circuit_s_g2 = get_xy_from_g2point::<E>(target_params.s_g2);
         let target_circuit_n_g2 = get_xy_from_g2point::<E>(-target_params.g2);
