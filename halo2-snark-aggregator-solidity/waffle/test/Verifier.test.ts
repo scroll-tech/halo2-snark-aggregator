@@ -51,10 +51,11 @@ describe("Verifier", () => {
   });
 
   let proof = fs.readFileSync(
-    "../../halo2-snark-aggregator-sdk/output/verify_circuit_proof.data"
+    "output/verify_circuit_proof.data"
   );
   let final_pair = fs.readFileSync(
-    "../../halo2-snark-aggregator-sdk/output/verify_circuit_final_pair.data"
+    "output/verify_circuit_final_pair.data"
+//	  "output/verify_circuit_instance.data"
   );
   console.log("proof length", proof.length);
 

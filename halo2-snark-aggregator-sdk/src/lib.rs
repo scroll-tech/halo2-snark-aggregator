@@ -167,8 +167,8 @@ macro_rules! zkaggregate {
                         )*
                     ];
 
-                    let request = MultiCircuitSolidityGenerate::<G1Affine, $n> {
-                        target_circuits_params,
+                    let request = MultiCircuitSolidityGenerate::<G1Affine> {
+                        //target_circuits_params,
                         verify_params: &load_verify_circuit_params(&mut self.folder.clone()),
                         verify_vk: &load_verify_circuit_vk(&mut self.folder.clone()),
                         verify_circuit_instance: load_verify_circuit_instance(
