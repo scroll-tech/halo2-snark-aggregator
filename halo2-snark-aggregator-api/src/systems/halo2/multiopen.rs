@@ -14,6 +14,14 @@ pub struct MultiOpenProof<A: ArithEccChip> {
     pub w_g: EvaluationQuerySchema<A::AssignedPoint, A::AssignedScalar>,
 }
 
+impl<A: ArithEccChip> std::fmt::Display for MultiOpenProof<A> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let nb_points = self.w_x.estimate(None) + self.w_g.estimate(None);
+        write!(f, "(estimated scalar mult of points: {})", nb_points)
+    }
+}
+
+
 impl<A: ArithEccChip> VerifierParams<A> {
     fn get_point_schemas<'a>(
         &'a self,

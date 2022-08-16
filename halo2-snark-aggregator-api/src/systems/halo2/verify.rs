@@ -741,6 +741,7 @@ pub struct CircuitProof<
     >,
     T: TranscriptRead<A>,
 > {
+    pub name: String,
     pub vk: &'a VerifyingKey<E::G1Affine>,
     pub params: &'a ParamsVerifier<E>,
     pub proofs: Vec<ProofData<'a, E, A, T>>,
@@ -797,6 +798,8 @@ pub fn verify_single_proof_in_chip<
         transcript,
         "".to_owned(),
     )?;
+
+    print!("get single proof {}", circuit.name);
     let (w_x, w_g) =
         evaluate_multiopen_proof::<E, A, T>(ctx, schip, pchip, proof /*, circuit.params*/)?;
     Ok((w_x, w_g, plain_assigned_instances, advice_commitments))
@@ -859,7 +862,7 @@ pub fn verify_aggregation_proofs_in_chip<
                         plain_assigned_instances.push(assigned_instance)
                     }
 
-                    verify_single_proof_no_eval(
+                    let (p, c) = verify_single_proof_no_eval(
                         ctx,
                         nchip,
                         schip,
@@ -869,7 +872,11 @@ pub fn verify_aggregation_proofs_in_chip<
                         circuit_proof.params,
                         &mut proof.transcript,
                         proof.key.clone(),
-                    )
+                    )?;
+
+                    println!("get proof {} {}", circuit_proof.name, p);
+
+                    Ok((p,c))
                 })
                 .collect::<Result<Vec<(MultiOpenProof<A>, Vec<A::AssignedPoint>)>, A::Error>>();
 
@@ -895,10 +902,12 @@ pub fn verify_aggregation_proofs_in_chip<
     for (proof, c) in proofs.into_iter() {
         acc = match acc {
             None => Some(proof),
-            Some(acc) => Some(MultiOpenProof {
-                w_x: acc.w_x * scalar!(aggregation_challenge) + proof.w_x,
-                w_g: acc.w_g * scalar!(aggregation_challenge) + proof.w_g,
-            }),
+            Some(acc) => {
+                Some(MultiOpenProof {
+                    w_x: acc.w_x * scalar!(aggregation_challenge) + proof.w_x,
+                    w_g: acc.w_g * scalar!(aggregation_challenge) + proof.w_g,
+                })
+            }
         };
         commits.push(c)
     }
