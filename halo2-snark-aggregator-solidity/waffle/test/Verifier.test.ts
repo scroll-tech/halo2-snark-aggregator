@@ -50,11 +50,16 @@ describe("Verifier", () => {
 */
   });
 
+  let output = "output_20220829_081935_PACK";
+  output = "output_20220829_091728_multiple";
+  output = "output_20220804_051128_nft";
+  output = "output_20220810_053634_nft";
+  output = "output_20220829_045303_greeter";
   let proof = fs.readFileSync(
-    "output/verify_circuit_proof.data"
+    output + "/verify_circuit_proof.data"
   );
   let final_pair = fs.readFileSync(
-    "output/verify_circuit_final_pair.data"
+    output + "/verify_circuit_final_pair.data"
 //	  "output/verify_circuit_instance.data"
   );
   console.log("proof length", proof.length);

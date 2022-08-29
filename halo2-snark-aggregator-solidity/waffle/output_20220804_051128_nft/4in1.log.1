@@ -1,0 +1,233 @@
+    Updating git repository `https://github.com/scroll-tech/zkevm-circuits`
+    Updating git submodule `https://github.com/OpenZeppelin/openzeppelin-contracts`
+   Compiling halo2-ecc-circuit-lib v0.1.0 (/home/ubuntu/halo2-snark-aggregator/halo2-ecc-circuit-lib)
+   Compiling eth-types v0.1.0 (https://github.com/scroll-tech/zkevm-circuits?branch=scroll-dev-0714#57c0f53b)
+   Compiling halo2-snark-aggregator-api v0.1.0 (/home/ubuntu/halo2-snark-aggregator/halo2-snark-aggregator-api)
+   Compiling halo2-snark-aggregator-circuit v0.1.0 (/home/ubuntu/halo2-snark-aggregator/halo2-snark-aggregator-circuit)
+   Compiling halo2-snark-aggregator-solidity v0.1.0 (/home/ubuntu/halo2-snark-aggregator/halo2-snark-aggregator-solidity)
+   Compiling zkevm v0.1.0 (/home/ubuntu/common-rs/zkevm)
+    Finished release [optimized] target(s) in 1m 05s
+     Running unittests (/home/ubuntu/common-rs/target/release/deps/zkevm-2192bc3e293d250a)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/aggregation_tests.rs (/home/ubuntu/common-rs/target/release/deps/aggregation_tests-fccbe15be9bd1df6)
+
+running 1 test
+[2022-08-04T05:11:28Z DEBUG aggregation_tests] DEBUG LOG example
+[2022-08-04T05:11:28Z INFO  aggregation_tests] INFO LOG example
+[2022-08-04T05:11:28Z WARN  aggregation_tests] WARN LOG example
+[2022-08-04T05:11:28Z ERROR aggregation_tests] ERROR LOG example
+STDOUT example
+STDERR example
+[2022-08-04T05:11:28Z INFO  aggregation_tests] output dir output_20220804_051128_nft
+[2022-08-04T05:11:28Z INFO  aggregation_tests] loading setup params
+[2022-08-04T05:11:28Z INFO  aggregation_tests] using mode "nft", testing with "./tests/traces/nft.json"
+[2022-08-04T05:11:28Z INFO  aggregation_tests] output files to output_20220804_051128_nft
+[2022-08-04T05:11:28Z INFO  zkevm::utils] load_or_create_params ./test_params/params18
+[2022-08-04T05:11:28Z INFO  zkevm::utils] start loading params with degree 18
+[2022-08-04T05:11:28Z INFO  zkevm::utils] load params successfully!
+[2022-08-04T05:11:28Z INFO  zkevm::utils] load_or_create_params ./test_params/params26
+[2022-08-04T05:11:28Z INFO  zkevm::utils] start loading params with degree 26
+[2022-08-04T05:12:17Z INFO  zkevm::utils] load params successfully!
+[2022-08-04T05:12:17Z INFO  zkevm::prover] target_params_verifier ParamsVerifier { k: 18, n: 262144, g1: (0x0000000000000000000000000000000000000000000000000000000000000001, 0x0000000000000000000000000000000000000000000000000000000000000002), g2: (Fq2 { c0: 0x1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed, c1: 0x198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2 }, Fq2 { c0: 0x12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa, c1: 0x090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b }), s_g2: (Fq2 { c0: 0x097aa085249a574ff7d1aaa2b498623f2923d159833cfde765a657aff8e0b527, c1: 0x2c358c680be102b15427cd4f58158ea3267a938ac04e1de564fd577bb7258960 }, Fq2 { c0: 0x1899775af20ee6b6b62d0b1c9dd6ad2e954af70764a84584c7cec5e522339fd9, c1: 0x0f77730977b52fe9c4d6cee4c281a3ace737795a9788d0ac3d9f3a9692708c75 }), g_lagrange: [] }
+[2022-08-04T05:12:17Z INFO  zkevm::prover] agg_params_verifier ParamsVerifier { k: 26, n: 67108864, g1: (0x0000000000000000000000000000000000000000000000000000000000000001, 0x0000000000000000000000000000000000000000000000000000000000000002), g2: (Fq2 { c0: 0x1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed, c1: 0x198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2 }, Fq2 { c0: 0x12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa, c1: 0x090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b }), s_g2: (Fq2 { c0: 0x097aa085249a574ff7d1aaa2b498623f2923d159833cfde765a657aff8e0b527, c1: 0x2c358c680be102b15427cd4f58158ea3267a938ac04e1de564fd577bb7258960 }, Fq2 { c0: 0x1899775af20ee6b6b62d0b1c9dd6ad2e954af70764a84584c7cec5e522339fd9, c1: 0x0f77730977b52fe9c4d6cee4c281a3ace737795a9788d0ac3d9f3a9692708c75 }), g_lagrange: [] }
+[2022-08-04T05:12:17Z INFO  bus_mapping::circuit_input_builder] handling 0th(inner idx: 0) tx 0x0000000000000000000000000000000000000000000000000000000000000000
+[2022-08-04T05:12:17Z DEBUG bus_mapping::evm::opcodes::sha3] incomplete SHA3 implementation
+[2022-08-04T05:12:17Z INFO  bus_mapping::circuit_input_builder] handling 1th(inner idx: 1) tx 0x0000000000000000000000000000000000000000000000000000000000000000
+[2022-08-04T05:12:17Z DEBUG bus_mapping::evm::opcodes::sha3] incomplete SHA3 implementation
+[2022-08-04T05:12:17Z DEBUG bus_mapping::evm::opcodes::sha3] incomplete SHA3 implementation
+[2022-08-04T05:12:17Z DEBUG bus_mapping::evm::opcodes::sha3] incomplete SHA3 implementation
+[2022-08-04T05:12:17Z INFO  bus_mapping::circuit_input_builder] handling 2th(inner idx: 2) tx 0x0000000000000000000000000000000000000000000000000000000000000000
+[2022-08-04T05:12:17Z DEBUG bus_mapping::evm::opcodes::sha3] incomplete SHA3 implementation
+[2022-08-04T05:12:17Z DEBUG bus_mapping::evm::opcodes::sha3] incomplete SHA3 implementation
+[2022-08-04T05:12:17Z DEBUG bus_mapping::evm::opcodes::sha3] incomplete SHA3 implementation
+[2022-08-04T05:12:17Z DEBUG bus_mapping::evm::opcodes::sha3] incomplete SHA3 implementation
+[2022-08-04T05:12:17Z DEBUG bus_mapping::evm::opcodes::sha3] incomplete SHA3 implementation
+[2022-08-04T05:12:17Z DEBUG bus_mapping::evm::opcodes::sha3] incomplete SHA3 implementation
+[2022-08-04T05:12:17Z DEBUG bus_mapping::evm::opcodes::sha3] incomplete SHA3 implementation
+[2022-08-04T05:12:17Z DEBUG zkevm_circuits::evm_circuit::witness] SHA3 is implemented with DummyGadget
+[2022-08-04T05:12:17Z DEBUG zkevm_circuits::evm_circuit::witness] EXP is implemented with DummyGadget
+[2022-08-04T05:12:17Z DEBUG zkevm_circuits::evm_circuit::witness] SHA3 is implemented with DummyGadget
+[2022-08-04T05:12:17Z DEBUG zkevm_circuits::evm_circuit::witness] EXP is implemented with DummyGadget
+[2022-08-04T05:12:17Z DEBUG zkevm_circuits::evm_circuit::witness] SHA3 is implemented with DummyGadget
+[2022-08-04T05:12:17Z DEBUG zkevm_circuits::evm_circuit::witness] SHA3 is implemented with DummyGadget
+[2022-08-04T05:12:17Z DEBUG zkevm_circuits::evm_circuit::witness] EXP is implemented with DummyGadget
+[2022-08-04T05:12:17Z DEBUG zkevm_circuits::evm_circuit::witness] SHA3 is implemented with DummyGadget
+[2022-08-04T05:12:17Z DEBUG zkevm_circuits::evm_circuit::witness] EXP is implemented with DummyGadget
+[2022-08-04T05:12:17Z DEBUG zkevm_circuits::evm_circuit::witness] SHA3 is implemented with DummyGadget
+[2022-08-04T05:12:17Z DEBUG zkevm_circuits::evm_circuit::witness] EXP is implemented with DummyGadget
+[2022-08-04T05:12:17Z DEBUG zkevm_circuits::evm_circuit::witness] SHA3 is implemented with DummyGadget
+[2022-08-04T05:12:17Z DEBUG zkevm_circuits::evm_circuit::witness] EXP is implemented with DummyGadget
+[2022-08-04T05:12:17Z DEBUG zkevm_circuits::evm_circuit::witness] SHA3 is implemented with DummyGadget
+[2022-08-04T05:12:17Z DEBUG zkevm_circuits::evm_circuit::witness] EXP is implemented with DummyGadget
+[2022-08-04T05:12:17Z DEBUG zkevm_circuits::evm_circuit::witness] SHA3 is implemented with DummyGadget
+[2022-08-04T05:12:17Z DEBUG zkevm_circuits::evm_circuit::witness] SHA3 is implemented with DummyGadget
+[2022-08-04T05:12:17Z DEBUG zkevm_circuits::evm_circuit::witness] SHA3 is implemented with DummyGadget
+[2022-08-04T05:12:17Z DEBUG zkevm_circuits::evm_circuit::witness] EXP is implemented with DummyGadget
+[2022-08-04T05:12:17Z INFO  zkevm::prover] Create evm proof of block 0x1ad1…83bb
+[2022-08-04T05:12:17Z DEBUG zkevm::prover] memory usage when before init pk of evm: 27GB
+[2022-08-04T05:12:18Z DEBUG zkevm_circuits::evm_circuit::execution] assign for region done
+[2022-08-04T05:12:18Z DEBUG zkevm_circuits::evm_circuit::execution] assign for region done
+[2022-08-04T05:12:18Z DEBUG zkevm_circuits::evm_circuit::execution] assign_block done
+[2022-08-04T05:12:19Z DEBUG zkevm_circuits::evm_circuit::execution] assign for region done
+[2022-08-04T05:12:19Z DEBUG zkevm_circuits::evm_circuit::execution] assign for region done
+[2022-08-04T05:12:19Z DEBUG zkevm_circuits::evm_circuit::execution] assign_block done
+[2022-08-04T05:12:24Z DEBUG zkevm::prover] memory usage when after init pk of evm: 28GB
+[2022-08-04T05:12:26Z INFO  zkevm_circuits::evm_circuit::execution] offset 1900 tx_num 1 total_gas 24351 assign last step ExecStep { call_index: 0, rw_indices: [(CallContext, 27), (CallContext, 28), (TxRefund, 0), (Account, 6), (Account, 7), (TxReceipt, 0), (TxReceipt, 1), (TxReceipt, 2), (CallContext, 29)], execution_state: EndTx, rw_counter: 797, program_counter: 0, stack_pointer: 1024, gas_left: 2997433, gas_cost: 0, memory_size: 0, reversible_write_counter: 0, log_id: 0, opcode: None } of tx Transaction { id: 1, nonce: 16, gas: 3021784, gas_price: 1500005886, caller_address: 0xec9c8b21a9f8e5eb22373edf7d0860df0b98eba5, callee_address: 0x5847653f3c2e05aef6838550513fda1a8528dcb3, is_create: false, value: 0, call_data: [], call_data_length: 36, call_data_gas_cost: 264, calls: [], steps: [] }
+[2022-08-04T05:12:26Z INFO  zkevm_circuits::evm_circuit::execution] offset 4849 tx_num 2 total_gas 76583 assign last step ExecStep { call_index: 0, rw_indices: [(CallContext, 83), (CallContext, 84), (TxRefund, 3), (Account, 12), (Account, 13), (TxReceipt, 3), (TxReceipt, 4), (TxReceipt, 5), (TxReceipt, 6), (CallContext, 85)], execution_state: EndTx, rw_counter: 1908, program_counter: 0, stack_pointer: 1024, gas_left: 2970960, gas_cost: 0, memory_size: 0, reversible_write_counter: 0, log_id: 1, opcode: None } of tx Transaction { id: 2, nonce: 118, gas: 3023192, gas_price: 3262, caller_address: 0x4cb1ab63af5d8931ce09673ebd8ae2ce16fd6571, callee_address: 0x5847653f3c2e05aef6838550513fda1a8528dcb3, is_create: false, value: 0, call_data: [], call_data_length: 68, call_data_gas_cost: 632, calls: [], steps: [] }
+[2022-08-04T05:12:26Z INFO  zkevm_circuits::evm_circuit::execution] offset 10355 tx_num 3 total_gas 122717 assign last step ExecStep { call_index: 0, rw_indices: [(CallContext, 172), (CallContext, 173), (TxRefund, 8), (Account, 18), (Account, 19), (TxReceipt, 7), (TxReceipt, 8), (TxReceipt, 9), (TxReceipt, 10)], execution_state: EndTx, rw_counter: 4082, program_counter: 0, stack_pointer: 1024, gas_left: 2978466, gas_cost: 0, memory_size: 0, reversible_write_counter: 0, log_id: 2, opcode: None } of tx Transaction { id: 3, nonce: 119, gas: 3024600, gas_price: 3262, caller_address: 0x4cb1ab63af5d8931ce09673ebd8ae2ce16fd6571, callee_address: 0x5847653f3c2e05aef6838550513fda1a8528dcb3, is_create: false, value: 0, call_data: [], call_data_length: 100, call_data_gas_cost: 1000, calls: [], steps: [] }
+[2022-08-04T05:12:26Z DEBUG zkevm_circuits::evm_circuit::execution] assign for region done
+[2022-08-04T05:12:26Z INFO  zkevm_circuits::evm_circuit::execution] offset 1900 tx_num 1 total_gas 24351 assign last step ExecStep { call_index: 0, rw_indices: [(CallContext, 27), (CallContext, 28), (TxRefund, 0), (Account, 6), (Account, 7), (TxReceipt, 0), (TxReceipt, 1), (TxReceipt, 2), (CallContext, 29)], execution_state: EndTx, rw_counter: 797, program_counter: 0, stack_pointer: 1024, gas_left: 2997433, gas_cost: 0, memory_size: 0, reversible_write_counter: 0, log_id: 0, opcode: None } of tx Transaction { id: 1, nonce: 16, gas: 3021784, gas_price: 1500005886, caller_address: 0xec9c8b21a9f8e5eb22373edf7d0860df0b98eba5, callee_address: 0x5847653f3c2e05aef6838550513fda1a8528dcb3, is_create: false, value: 0, call_data: [], call_data_length: 36, call_data_gas_cost: 264, calls: [], steps: [] }
+[2022-08-04T05:12:26Z INFO  zkevm_circuits::evm_circuit::execution] offset 4849 tx_num 2 total_gas 76583 assign last step ExecStep { call_index: 0, rw_indices: [(CallContext, 83), (CallContext, 84), (TxRefund, 3), (Account, 12), (Account, 13), (TxReceipt, 3), (TxReceipt, 4), (TxReceipt, 5), (TxReceipt, 6), (CallContext, 85)], execution_state: EndTx, rw_counter: 1908, program_counter: 0, stack_pointer: 1024, gas_left: 2970960, gas_cost: 0, memory_size: 0, reversible_write_counter: 0, log_id: 1, opcode: None } of tx Transaction { id: 2, nonce: 118, gas: 3023192, gas_price: 3262, caller_address: 0x4cb1ab63af5d8931ce09673ebd8ae2ce16fd6571, callee_address: 0x5847653f3c2e05aef6838550513fda1a8528dcb3, is_create: false, value: 0, call_data: [], call_data_length: 68, call_data_gas_cost: 632, calls: [], steps: [] }
+[2022-08-04T05:12:26Z INFO  zkevm_circuits::evm_circuit::execution] offset 10355 tx_num 3 total_gas 122717 assign last step ExecStep { call_index: 0, rw_indices: [(CallContext, 172), (CallContext, 173), (TxRefund, 8), (Account, 18), (Account, 19), (TxReceipt, 7), (TxReceipt, 8), (TxReceipt, 9), (TxReceipt, 10)], execution_state: EndTx, rw_counter: 4082, program_counter: 0, stack_pointer: 1024, gas_left: 2978466, gas_cost: 0, memory_size: 0, reversible_write_counter: 0, log_id: 2, opcode: None } of tx Transaction { id: 3, nonce: 119, gas: 3024600, gas_price: 3262, caller_address: 0x4cb1ab63af5d8931ce09673ebd8ae2ce16fd6571, callee_address: 0x5847653f3c2e05aef6838550513fda1a8528dcb3, is_create: false, value: 0, call_data: [], call_data_length: 100, call_data_gas_cost: 1000, calls: [], steps: [] }
+[2022-08-04T05:12:26Z DEBUG zkevm_circuits::evm_circuit::execution] assign for region done
+[2022-08-04T05:12:26Z DEBUG zkevm_circuits::evm_circuit::execution] assign_block done
+test test_4in1 has been running for over 60 seconds
+[2022-08-04T05:15:13Z INFO  zkevm::prover] Create evm proof of block 0x1ad1…83bb Successfully!
+[2022-08-04T05:15:13Z INFO  bus_mapping::circuit_input_builder] handling 0th(inner idx: 0) tx 0x0000000000000000000000000000000000000000000000000000000000000000
+[2022-08-04T05:15:13Z DEBUG bus_mapping::evm::opcodes::sha3] incomplete SHA3 implementation
+[2022-08-04T05:15:13Z INFO  bus_mapping::circuit_input_builder] handling 1th(inner idx: 1) tx 0x0000000000000000000000000000000000000000000000000000000000000000
+[2022-08-04T05:15:13Z DEBUG bus_mapping::evm::opcodes::sha3] incomplete SHA3 implementation
+[2022-08-04T05:15:13Z DEBUG bus_mapping::evm::opcodes::sha3] incomplete SHA3 implementation
+[2022-08-04T05:15:13Z DEBUG bus_mapping::evm::opcodes::sha3] incomplete SHA3 implementation
+[2022-08-04T05:15:13Z INFO  bus_mapping::circuit_input_builder] handling 2th(inner idx: 2) tx 0x0000000000000000000000000000000000000000000000000000000000000000
+[2022-08-04T05:15:13Z DEBUG bus_mapping::evm::opcodes::sha3] incomplete SHA3 implementation
+[2022-08-04T05:15:13Z DEBUG bus_mapping::evm::opcodes::sha3] incomplete SHA3 implementation
+[2022-08-04T05:15:13Z DEBUG bus_mapping::evm::opcodes::sha3] incomplete SHA3 implementation
+[2022-08-04T05:15:13Z DEBUG bus_mapping::evm::opcodes::sha3] incomplete SHA3 implementation
+[2022-08-04T05:15:13Z DEBUG bus_mapping::evm::opcodes::sha3] incomplete SHA3 implementation
+[2022-08-04T05:15:13Z DEBUG bus_mapping::evm::opcodes::sha3] incomplete SHA3 implementation
+[2022-08-04T05:15:13Z DEBUG bus_mapping::evm::opcodes::sha3] incomplete SHA3 implementation
+[2022-08-04T05:15:13Z DEBUG zkevm_circuits::evm_circuit::witness] SHA3 is implemented with DummyGadget
+[2022-08-04T05:15:13Z DEBUG zkevm_circuits::evm_circuit::witness] EXP is implemented with DummyGadget
+[2022-08-04T05:15:13Z DEBUG zkevm_circuits::evm_circuit::witness] SHA3 is implemented with DummyGadget
+[2022-08-04T05:15:13Z DEBUG zkevm_circuits::evm_circuit::witness] EXP is implemented with DummyGadget
+[2022-08-04T05:15:13Z DEBUG zkevm_circuits::evm_circuit::witness] SHA3 is implemented with DummyGadget
+[2022-08-04T05:15:13Z DEBUG zkevm_circuits::evm_circuit::witness] SHA3 is implemented with DummyGadget
+[2022-08-04T05:15:13Z DEBUG zkevm_circuits::evm_circuit::witness] EXP is implemented with DummyGadget
+[2022-08-04T05:15:13Z DEBUG zkevm_circuits::evm_circuit::witness] SHA3 is implemented with DummyGadget
+[2022-08-04T05:15:13Z DEBUG zkevm_circuits::evm_circuit::witness] EXP is implemented with DummyGadget
+[2022-08-04T05:15:13Z DEBUG zkevm_circuits::evm_circuit::witness] SHA3 is implemented with DummyGadget
+[2022-08-04T05:15:13Z DEBUG zkevm_circuits::evm_circuit::witness] EXP is implemented with DummyGadget
+[2022-08-04T05:15:13Z DEBUG zkevm_circuits::evm_circuit::witness] SHA3 is implemented with DummyGadget
+[2022-08-04T05:15:13Z DEBUG zkevm_circuits::evm_circuit::witness] EXP is implemented with DummyGadget
+[2022-08-04T05:15:13Z DEBUG zkevm_circuits::evm_circuit::witness] SHA3 is implemented with DummyGadget
+[2022-08-04T05:15:13Z DEBUG zkevm_circuits::evm_circuit::witness] EXP is implemented with DummyGadget
+[2022-08-04T05:15:13Z DEBUG zkevm_circuits::evm_circuit::witness] SHA3 is implemented with DummyGadget
+[2022-08-04T05:15:13Z DEBUG zkevm_circuits::evm_circuit::witness] SHA3 is implemented with DummyGadget
+[2022-08-04T05:15:13Z DEBUG zkevm_circuits::evm_circuit::witness] SHA3 is implemented with DummyGadget
+[2022-08-04T05:15:13Z DEBUG zkevm_circuits::evm_circuit::witness] EXP is implemented with DummyGadget
+[2022-08-04T05:15:13Z INFO  zkevm::prover] Create state proof of block 0x1ad1…83bb
+[2022-08-04T05:15:13Z DEBUG zkevm::prover] memory usage when before init pk of state: 28GB
+[2022-08-04T05:15:13Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T05:15:13Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T05:15:13Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T05:15:13Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T05:15:13Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T05:15:13Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T05:15:13Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T05:15:13Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T05:15:13Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T05:15:13Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T05:15:13Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T05:15:13Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T05:15:13Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T05:15:13Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T05:15:13Z DEBUG zkevm_circuits::state_circuit::lookups] "limb_difference fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T05:15:13Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T05:15:13Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T05:15:13Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T05:15:13Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T05:15:13Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T05:15:13Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T05:15:13Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T05:15:13Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T05:15:13Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T05:15:13Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T05:15:13Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T05:15:13Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T05:15:13Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T05:15:13Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T05:15:13Z DEBUG zkevm_circuits::state_circuit::lookups] "limb_difference fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T05:15:20Z DEBUG zkevm::prover] memory usage when after init pk of state: 30GB
+[2022-08-04T05:15:20Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T05:15:20Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T05:15:20Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T05:15:20Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T05:15:20Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T05:15:20Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T05:15:20Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T05:15:20Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T05:15:20Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T05:15:20Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T05:15:20Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T05:15:20Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T05:15:20Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T05:15:20Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T05:15:20Z DEBUG zkevm_circuits::state_circuit::lookups] "limb_difference fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T05:18:00Z INFO  zkevm::prover] Create state proof of block 0x1ad1…83bb Successfully!
+[2022-08-04T05:18:00Z INFO  zkevm::prover] Create poseidon proof of block 0x1ad1…83bb
+[2022-08-04T05:18:00Z DEBUG zkevm::prover] memory usage when before init pk of poseidon: 30GB
+[2022-08-04T05:18:13Z DEBUG zkevm::prover] memory usage when after init pk of poseidon: 32GB
+[2022-08-04T05:18:32Z INFO  zkevm::prover] Create poseidon proof of block 0x1ad1…83bb Successfully!
+[2022-08-04T05:18:32Z INFO  zkevm::prover] Create zktrie proof of block 0x1ad1…83bb
+[2022-08-04T05:18:32Z DEBUG zkevm::prover] memory usage when before init pk of zktrie: 32GB
+[2022-08-04T05:18:47Z DEBUG zkevm::prover] memory usage when after init pk of zktrie: 34GB
+[2022-08-04T05:20:12Z INFO  zkevm::prover] Create zktrie proof of block 0x1ad1…83bb Successfully!
+debug context before evaluate multiopen proof: (total points: 0)
+debug context after evaluate multiopen proof: (total points: 670)
+[2022-08-04T05:20:13Z INFO  zkevm::prover] init_agg_pk: init from verifier circuit
+debug context before evaluate multiopen proof: (total offset: 884978)
+debug context after evaluate multiopen proof: (total offset: 22799254)
+debug context before evaluate multiopen proof: (total offset: 884978)
+debug context after evaluate multiopen proof: (total offset: 22799254)
+debug context before evaluate multiopen proof: (total offset: 884978)
+debug context after evaluate multiopen proof: (total offset: 22799254)
+debug context before evaluate multiopen proof: (total offset: 884978)
+debug context after evaluate multiopen proof: (total offset: 22799254)
+[2022-08-04T06:00:06Z INFO  zkevm::prover] init_agg_pk: init done
+[2022-08-04T06:00:06Z INFO  zkevm::prover] create agg proof
+debug context before evaluate multiopen proof: (total offset: 884978)
+debug context after evaluate multiopen proof: (total offset: 22799254)
+debug context before evaluate multiopen proof: (total offset: 884978)
+debug context after evaluate multiopen proof: (total offset: 22799254)
+[2022-08-04T06:49:41Z INFO  zkevm::prover] create agg proof done
+[2022-08-04T06:49:51Z INFO  zkevm::utils] start loading params with degree 18
+[2022-08-04T06:49:52Z INFO  zkevm::utils] load params successfully!
+[2022-08-04T06:49:52Z INFO  zkevm::utils] start loading params with degree 26
+[2022-08-04T06:50:40Z INFO  zkevm::utils] load params successfully!
+[2022-08-04T06:50:41Z DEBUG zkevm_circuits::evm_circuit::execution] assign for region done
+[2022-08-04T06:50:41Z DEBUG zkevm_circuits::evm_circuit::execution] assign for region done
+[2022-08-04T06:50:41Z DEBUG zkevm_circuits::evm_circuit::execution] assign_block done
+[2022-08-04T06:50:41Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T06:50:41Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T06:50:41Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T06:50:41Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T06:50:41Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T06:50:41Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T06:50:41Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T06:50:41Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T06:50:41Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T06:50:41Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T06:50:41Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T06:50:41Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T06:50:41Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T06:50:41Z DEBUG zkevm_circuits::state_circuit::lookups] "mpi limb fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T06:50:41Z DEBUG zkevm_circuits::state_circuit::lookups] "limb_difference fits into u16" u16 range check is skipped because `QUICK_CHECK` is enabled
+[2022-08-04T06:51:34Z DEBUG globset] glob converted to regex: Glob { glob: "*", re: "(?-u)^[^/]*$", opts: GlobOptions { case_insensitive: false, literal_separator: true, backslash_escape: true }, tokens: Tokens([ZeroOrMore]) }
+[2022-08-04T06:51:34Z DEBUG globset] built glob set; 0 literals, 0 basenames, 0 extensions, 0 prefixes, 0 suffixes, 0 required extensions, 1 regexes
+[2022-08-04T06:51:34Z INFO  halo2_snark_aggregator_solidity] generate solidity succeeds
+[2022-08-04T06:51:34Z INFO  aggregation_tests] write to output_20220804_051128_nft/verifier.sol
+test test_4in1 ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6006.03s
+
+     Running tests/integration.rs (/home/ubuntu/common-rs/target/release/deps/integration-d05619634c17a980)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
