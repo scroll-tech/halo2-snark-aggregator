@@ -51,10 +51,10 @@ describe("Verifier", () => {
   });
 
   let output = "output_20220829_081935_PACK";
-  output = "output_20220829_091728_multiple";
-  output = "output_20220804_051128_nft";
-  output = "output_20220810_053634_nft";
-  output = "output_20220829_045303_greeter";
+//  output = "output_20220829_091728_multiple";
+  //output = "output_20220804_051128_nft";
+ // output = "output_20220810_053634_nft";
+//  output = "output_20220829_045303_greeter";
   let proof = fs.readFileSync(
     output + "/verify_circuit_proof.data"
   );
