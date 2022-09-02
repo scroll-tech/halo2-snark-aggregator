@@ -1,5 +1,5 @@
 use halo2_proofs::{
-    arithmetic::{CurveAffine, Field, FieldExt, MultiMillerLoop},
+    arithmetic::{BaseExt, CurveAffine, Field, FieldExt, MultiMillerLoop},
     circuit::{AssignedCell, Chip, Layouter, Region, SimpleFloorPlanner},
     plonk::{Advice, Circuit, Column, ConstraintSystem, Error, Fixed, Instance},
     poly::Rotation,
@@ -327,12 +327,15 @@ impl<F: FieldExt> Circuit<F> for MyCircuit<F> {
 
 pub struct TestCircuit;
 
-impl<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> TargetCircuit<C, E> for TestCircuit {
+impl<C: CurveAffine, E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>> TargetCircuit<C, E>
+    for TestCircuit
+{
     const TARGET_CIRCUIT_K: u32 = 7;
     const PUBLIC_INPUT_SIZE: usize = 1;
     const N_PROOFS: usize = 2;
     const NAME: &'static str = "simple_example";
     const PARAMS_NAME: &'static str = "simple_example";
+    const READABLE_VKEY: bool = true;
 
     type Circuit = MyCircuit<C::ScalarExt>;
 
@@ -347,6 +350,17 @@ impl<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> TargetCircuit<C, E> for T
         };
         let instances = vec![vec![constant * a.square() * b.square()]];
         (circuit, instances)
+    }
+
+    fn load_instances(buf: &Vec<u8>) -> Vec<Vec<Vec<<C as CurveAffine>::ScalarExt>>> {
+        let mut ret = vec![];
+        let cursor = &mut std::io::Cursor::new(buf);
+
+        while let Ok(a) = <E::Scalar as BaseExt>::read(cursor) {
+            ret.push(a);
+        }
+
+        vec![vec![ret]]
     }
 }
 

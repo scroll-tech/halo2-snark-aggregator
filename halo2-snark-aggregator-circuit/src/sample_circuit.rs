@@ -1,6 +1,5 @@
 use halo2_proofs::arithmetic::BaseExt;
 use halo2_proofs::plonk::keygen_vk;
-use halo2_proofs::plonk::VerifyingKey;
 use halo2_proofs::plonk::{create_proof, keygen_pk};
 use halo2_proofs::transcript::PoseidonRead;
 use halo2_proofs::transcript::{Challenge255, PoseidonWrite};
@@ -12,16 +11,21 @@ use halo2_proofs::{
 use rand_core::OsRng;
 use std::io::Write;
 
+use crate::fs::load_target_circuit_params;
+use crate::fs::load_target_circuit_vk;
+
 pub trait TargetCircuit<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> {
     const TARGET_CIRCUIT_K: u32;
     const PUBLIC_INPUT_SIZE: usize;
     const N_PROOFS: usize;
     const NAME: &'static str;
     const PARAMS_NAME: &'static str;
+    const READABLE_VKEY: bool;
 
     type Circuit: Circuit<C::ScalarExt> + Default;
 
     fn instance_builder() -> (Self::Circuit, Vec<Vec<C::ScalarExt>>);
+    fn load_instances(buf: &Vec<u8>) -> Vec<Vec<Vec<C::ScalarExt>>>;
 }
 
 pub fn sample_circuit_setup<
@@ -62,20 +66,9 @@ pub fn sample_circuit_random_run<
     instances: &[&[C::Scalar]],
     index: usize,
 ) {
-    let params = {
-        folder.push(format!("sample_circuit_{}.params", CIRCUIT::PARAMS_NAME));
-        let mut fd = std::fs::File::open(folder.as_path()).unwrap();
-        folder.pop();
-        Params::<C>::read(&mut fd).unwrap()
-    };
+    let params = load_target_circuit_params::<C, E, CIRCUIT>(&mut folder);
 
-    let vk = {
-        folder.push(format!("sample_circuit_{}.vkey", CIRCUIT::PARAMS_NAME));
-        let mut fd = std::fs::File::open(folder.as_path()).unwrap();
-        folder.pop();
-        VerifyingKey::<C>::read::<_, CIRCUIT::Circuit>(&mut fd, &params).unwrap()
-    };
-
+    let vk = load_target_circuit_vk::<C, E, CIRCUIT>(&mut folder, &params);
     let pk = keygen_pk(&params, vk, &circuit).expect("keygen_pk should not fail");
 
     // let instances: &[&[&[C::Scalar]]] = &[&[&[constant * a.square() * b.square()]]];
@@ -113,18 +106,12 @@ pub fn sample_circuit_random_run<
         });
     }
 
-    let vk = {
-        folder.push(format!("sample_circuit_{}.vkey", CIRCUIT::PARAMS_NAME));
-        let mut fd = std::fs::File::open(folder.as_path()).unwrap();
-        folder.pop();
-        VerifyingKey::<C>::read::<_, CIRCUIT::Circuit>(&mut fd, &params).unwrap()
-    };
     let params = params.verifier::<E>(CIRCUIT::PUBLIC_INPUT_SIZE).unwrap();
     let strategy = halo2_proofs::plonk::SingleVerifier::new(&params);
     let mut transcript = PoseidonRead::<_, _, Challenge255<_>>::init(&proof[..]);
     halo2_proofs::plonk::verify_proof::<E, _, _, _>(
         &params,
-        &vk,
+        &pk.get_vk(),
         strategy,
         instances,
         &mut transcript,

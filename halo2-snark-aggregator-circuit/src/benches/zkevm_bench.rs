@@ -178,6 +178,7 @@ mod evm_circ_benches {
         let target_circuit_instance = instances1.clone();
         let target_circuit_proof = proof1.clone();
         let verify_circuit = Halo2VerifierCircuit {
+            name: String::from("zkevm"),
             params: &target_circuit_verifier_params,
             vk: target_circuit_pk.get_vk(),
             nproofs,
@@ -188,6 +189,7 @@ mod evm_circ_benches {
         };
 
         let instances = calc_verify_circuit_instances(
+            String::from("zkevm"),
             &target_circuit_verifier_params,
             &target_circuit_pk.get_vk(),
             &vec![instances1],

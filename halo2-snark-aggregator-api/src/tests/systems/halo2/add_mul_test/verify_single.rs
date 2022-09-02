@@ -120,6 +120,7 @@ pub fn test_verify_single_proof_in_chip<
         schip,
         pchip,
         &mut CircuitProof {
+            name: String::from("test_circuit_add_mul"),
             vk: pk.get_vk(),
             params: &params_verifier,
             proofs: vec![pdata],
@@ -133,7 +134,7 @@ pub fn test_verify_single_proof_in_chip<
 mod tests {
     use super::*;
     use crate::mock::{
-        arith::{ecc::MockEccChip, field::MockFieldChip},
+        arith::{ecc::MockEccChip, field::{MockFieldChip, MockChipCtx}},
         transcript_encode::PoseidonEncode,
     };
     use halo2_proofs::plonk::Error;
@@ -143,7 +144,7 @@ mod tests {
         let nchip = MockFieldChip::default();
         let schip = MockFieldChip::default();
         let pchip = MockEccChip::default();
-        let ctx = &mut ();
+        let ctx = &mut MockChipCtx::default();
         test_verify_single_proof_in_chip::<
             MockFieldChip<Fp, Error>,
             MockFieldChip<Fp, Error>,
