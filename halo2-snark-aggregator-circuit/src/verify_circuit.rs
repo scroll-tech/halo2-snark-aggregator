@@ -378,6 +378,9 @@ impl<
                 let mut aux = Context::new(region, base_offset);
                 let ctx = &mut aux;
 
+                // Check context is used in shape layout or not
+                ctx.in_shape_mode = base_gate.in_shape_mode(ctx)?;
+
                 let circuit_proofs = self
                     .circuits
                     .iter()

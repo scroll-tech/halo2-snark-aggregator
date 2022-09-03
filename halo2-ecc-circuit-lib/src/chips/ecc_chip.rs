@@ -189,28 +189,50 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
             Ok(curr_candidates.first().unwrap().clone())
         };
 
-        let mut acc = None;
+        let mut acc: Option<AssignedPoint<C, N>> = None;
+
+        let mut round_size = None;
 
         for wi in 0..windows_in_be[0].len() {
-            let mut inner_acc = None;
-            for pi in 0..points.len() {
-                let mut ci = pick_candidate(ctx, pi, &windows_in_be[pi][wi])?;
-                match inner_acc {
-                    None => inner_acc = Some(ci),
-                    Some(_inner_acc) => {
-                        let p = self.add(ctx, &mut ci, &_inner_acc)?;
-                        inner_acc = Some(p);
+            let mut get_inner = | round_size: Option<usize> | -> Result<(usize, AssignedPoint<C, N>), Error> {
+                match (round_size, ctx.in_shape_mode()) {
+                    (Some(rsize), true)  => {
+                        ctx.expand(rsize, acc.as_ref().unwrap().z.cell, acc.as_ref().unwrap().z.value)?;
+                        // Hack: acc is not accurate but we depends on overflow bits
+                        Ok((rsize, acc.clone().unwrap())) //Hack: In shape phase we dont care the result
+                    },
+                    _ => {
+                        let c = (*ctx.offset).clone();
+                        let mut inner_acc = None;
+                        for pi in 0..points.len() {
+                            let mut ci = pick_candidate(ctx, pi, &windows_in_be[pi][wi])?;
+                            match inner_acc {
+                                None => inner_acc = Some(ci),
+                                Some(_inner_acc) => {
+                                    let p = self.add(ctx, &mut ci, &_inner_acc)?;
+                                    inner_acc = Some(p);
+                                }
+                            }
+                        };
+                        let rsize = *ctx.offset - c;
+                        // Record the size of each around so that we can skip them in shape mode.
+                        Ok((rsize, inner_acc.unwrap()))
                     }
                 }
+            };
+
+            let (rsize, mut inner_acc) = get_inner(round_size)?;
+            if wi != 0 {
+                round_size = Some (rsize);
             }
 
             match acc {
-                None => acc = inner_acc,
+                None => acc = Some (inner_acc),
                 Some(mut _acc) => {
                     for _ in 0..CONFIG_WINDOW_SIZE {
                         _acc = self.double(ctx, &mut _acc)?;
                     }
-                    _acc = self.add(ctx, &mut inner_acc.unwrap(), &_acc)?;
+                    _acc = self.add(ctx, &mut inner_acc, &_acc)?;
                     acc = Some(_acc);
                 }
             }
