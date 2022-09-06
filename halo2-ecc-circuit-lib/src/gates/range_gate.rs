@@ -4,8 +4,8 @@ use crate::{
     utils::{field_to_bn, get_d_range_bits_in_mul},
 };
 use halo2_proofs::{
-    arithmetic::{BaseExt, FieldExt},
-    circuit::Layouter,
+    arithmetic::{ FieldExt},
+    circuit::{Layouter, Value},
     plonk::{Column, Error, Fixed, TableColumn},
 };
 use num_bigint::BigUint;
@@ -28,7 +28,7 @@ pub struct RangeGateConfig {
 
 pub struct RangeGate<
     'a,
-    W: BaseExt,
+    W: FieldExt,
     N: FieldExt,
     const VAR_COLUMNS: usize,
     const MUL_COLUMNS: usize,
@@ -39,7 +39,7 @@ pub struct RangeGate<
     pub _phantom: PhantomData<W>,
 }
 
-pub trait RangeGateOps<W: BaseExt, N: FieldExt> {
+pub trait RangeGateOps<W: FieldExt, N: FieldExt> {
     fn base_gate(&self) -> &dyn BaseGateOps<N>;
     fn one_line_in_common_range(
         &self,
@@ -76,7 +76,7 @@ pub trait RangeGateOps<W: BaseExt, N: FieldExt> {
 
 impl<
         'a,
-        W: BaseExt,
+        W: FieldExt,
         N: FieldExt,
         const VAR_COLUMNS: usize,
         const MUL_COLUMNS: usize,
@@ -94,7 +94,7 @@ impl<
             || "common_range_selector",
             self.config.common_range_selector,
             *ctx.offset,
-            || Ok(N::one()),
+            || Value::known(N::one()),
         )?;
         let assigned_values =
             self.base_gate
@@ -114,13 +114,13 @@ impl<
             || "common_range_selector",
             self.config.common_range_selector,
             *ctx.offset,
-            || Ok(N::one()),
+            || Value::known(N::one()),
         )?;
         ctx.region.assign_fixed(
             || "w_ceil_leading_limb_range_selector",
             self.config.w_ceil_leading_limb_range_selector,
             *ctx.offset,
-            || Ok(N::one()),
+            || Value::known(N::one()),
         )?;
         let assigned_values =
             self.base_gate
@@ -140,13 +140,13 @@ impl<
             || "common_range_selector",
             self.config.common_range_selector,
             *ctx.offset,
-            || Ok(N::one()),
+            || Value::known(N::one()),
         )?;
         ctx.region.assign_fixed(
             || "n_floor_leading_limb_range_selector",
             self.config.n_floor_leading_limb_range_selector,
             *ctx.offset,
-            || Ok(N::one()),
+            || Value::known(N::one()),
         )?;
         let assigned_values =
             self.base_gate
@@ -166,13 +166,13 @@ impl<
             || "common_range_selector",
             self.config.common_range_selector,
             *ctx.offset,
-            || Ok(N::one()),
+            || Value::known(N::one()),
         )?;
         ctx.region.assign_fixed(
             || "d_leading_limb_range_selector",
             self.config.d_leading_limb_range_selector,
             *ctx.offset,
-            || Ok(N::one()),
+            || Value::known(N::one()),
         )?;
         let assigned_values =
             self.base_gate
@@ -188,7 +188,7 @@ impl<
 
 impl<
         'a,
-        W: BaseExt,
+        W: FieldExt,
         N: FieldExt,
         const VAR_COLUMNS: usize,
         const MUL_COLUMNS: usize,
@@ -238,7 +238,7 @@ impl<
                         || "common range table",
                         self.config.common_range_table_column,
                         i,
-                        || Ok(N::from(i as u64)),
+                        || Value::known(N::from(i as u64)),
                     )?;
                 }
                 Ok(())
@@ -253,7 +253,7 @@ impl<
                         || "w ceil leading limb range table",
                         self.config.w_ceil_leading_limb_range_table_column,
                         i,
-                        || Ok(N::from(i as u64)),
+                        || Value::known(N::from(i as u64)),
                     )?;
                 }
                 Ok(())
@@ -268,7 +268,7 @@ impl<
                         || "n floor leading limb range table",
                         self.config.n_floor_leading_limb_range_table_column,
                         i,
-                        || Ok(N::from(i as u64)),
+                        || Value::known(N::from(i as u64)),
                     )?;
                 }
                 Ok(())
@@ -283,7 +283,7 @@ impl<
                         || "d leading limb range table",
                         self.config.d_leading_limb_range_table_column,
                         i,
-                        || Ok(N::from(i as u64)),
+                        || Value::known(N::from(i as u64)),
                     )?;
                 }
                 Ok(())

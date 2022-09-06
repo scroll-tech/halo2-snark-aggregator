@@ -14,7 +14,7 @@ use halo2_proofs::{
     dev::MockProver,
     plonk::{ConstraintSystem, Error},
 };
-use pairing_bn256::bn256::G1Affine;
+use halo2curves::bn256::G1Affine;
 use rand::SeedableRng;
 use rand_xorshift::XorShiftRng;
 use std::marker::PhantomData;

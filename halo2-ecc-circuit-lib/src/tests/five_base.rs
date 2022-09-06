@@ -8,7 +8,7 @@ use halo2_proofs::{
     dev::MockProver,
     plonk::{Circuit, ConstraintSystem, Error},
 };
-use pairing_bn256::bn256::Fr;
+use halo2curves::bn256::Fr;
 use rand::SeedableRng;
 use rand_xorshift::XorShiftRng;
 use std::marker::PhantomData;

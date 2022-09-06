@@ -1,6 +1,6 @@
 use halo2_proofs::{
     arithmetic::FieldExt,
-    circuit::{Cell, Region},
+    circuit::{Cell, Region, Value},
     plonk::{Advice, Column, ConstraintSystem, Error, Fixed},
     poly::Rotation,
 };
@@ -742,7 +742,7 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize>
                     || format!("coeff_{}", i),
                     self.config.coeff[i],
                     *ctx.offset,
-                    || Ok(coeff),
+                    || Value::known(coeff),
                 )?
                 .cell();
 
@@ -753,7 +753,7 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize>
                     || format!("base_{}", i),
                     self.config.base[i],
                     *ctx.offset,
-                    || Ok(base.value()),
+                    || Value::known(base.value()),
                 )?
                 .cell();
 
@@ -771,7 +771,7 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize>
                 || format!("mul_coeff_{}", i),
                 self.config.mul_coeff[i],
                 *ctx.offset,
-                || Ok(mul_coeff),
+                || Value::known(mul_coeff),
             )?;
         }
 
@@ -779,13 +779,13 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize>
             || "constant",
             self.config.constant,
             *ctx.offset,
-            || Ok(constant),
+            || Value::known(constant),
         )?;
         ctx.region.as_mut().assign_fixed(
             || "next_coeff",
             self.config.next_coeff,
             *ctx.offset,
-            || Ok(next),
+            || Value::known(next),
         )?;
 
         *ctx.offset += 1;

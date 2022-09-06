@@ -7,7 +7,7 @@ use crate::{
     pair, pair_empty,
     utils::{bn_to_field, decompose_bn, field_to_bn},
 };
-use halo2_proofs::arithmetic::{BaseExt, FieldExt};
+use halo2_proofs::arithmetic::{FieldExt};
 use halo2_proofs::plonk::Error;
 use num_bigint::BigUint;
 use num_integer::Integer;
@@ -27,7 +27,7 @@ const OVERFLOW_THRESHOLD: usize = 1usize << OVERFLOW_THRESHOLD_SHIFT;
 pub type FiveColumnIntegerChip<'a, W, N> = IntegerChip<'a, W, N, LIMBS, LIMB_COMMON_WIDTH>;
 pub type FiveColumnIntegerChipHelper<W, N> = IntegerChipHelper<W, N, LIMBS, LIMB_COMMON_WIDTH>;
 
-impl<'a, W: BaseExt, N: FieldExt> FiveColumnIntegerChip<'a, W, N> {
+impl<'a, W: FieldExt, N: FieldExt> FiveColumnIntegerChip<'a, W, N> {
     fn find_w_modulus_ceil(&self, a: &AssignedInteger<W, N>) -> [BigUint; LIMBS] {
         let max_a = (a.overflows + 1) * (BigUint::from(1u64) << self.helper.w_ceil_bits);
         let (n, rem) = max_a.div_rem(&self.helper.w_modulus);
@@ -320,7 +320,7 @@ impl<'a, W: BaseExt, N: FieldExt> FiveColumnIntegerChip<'a, W, N> {
     }
 }
 
-impl<'a, W: BaseExt, N: FieldExt> IntegerChipOps<W, N> for FiveColumnIntegerChip<'a, W, N> {
+impl<'a, W: FieldExt, N: FieldExt> IntegerChipOps<W, N> for FiveColumnIntegerChip<'a, W, N> {
     fn assign_nonleading_limb(
         &self,
         ctx: &mut Context<N>,

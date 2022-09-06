@@ -3,11 +3,10 @@ use crate::gates::{
     base_gate::{AssignedCondition, BaseGateOps, Context},
     range_gate::RangeGateOps,
 };
+use group::{Group, Curve};
 use group::ff::Field;
-use group::Curve;
-use group::Group;
+use halo2curves::{FieldExt,CurveAffine};
 use halo2_proofs::{
-    arithmetic::{CurveAffine, FieldExt},
     plonk::Error,
 };
 
