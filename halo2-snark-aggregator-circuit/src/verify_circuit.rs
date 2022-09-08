@@ -79,24 +79,24 @@ pub struct SingleProofWitness<'a, E: MultiMillerLoop> {
 
 #[derive(Clone)]
 pub struct Halo2VerifierCircuit<'a, E: MultiMillerLoop> {
-    pub(crate) name: String,
-    pub(crate) params: &'a ParamsVerifier<E>,
-    pub(crate) vk: &'a VerifyingKey<E::G1Affine>,
-    pub(crate) proofs: Vec<SingleProofWitness<'a, E>>,
-    pub(crate) nproofs: usize,
+    pub name: String,
+    pub params: &'a ParamsVerifier<E>,
+    pub vk: &'a VerifyingKey<E::G1Affine>,
+    pub proofs: Vec<SingleProofWitness<'a, E>>,
+    pub nproofs: usize,
 }
 
 #[derive(Clone)]
 pub struct Halo2CircuitInstance<'a, E: MultiMillerLoop> {
-    pub(crate) name: String,
-    pub(crate) params: &'a ParamsVerifier<E>,
-    pub(crate) vk: &'a VerifyingKey<E::G1Affine>,
-    pub(crate) n_instances: &'a Vec<Vec<Vec<Vec<E::Scalar>>>>,
-    pub(crate) n_transcript: &'a Vec<Vec<u8>>,
+    pub name: String,
+    pub params: &'a ParamsVerifier<E>,
+    pub vk: &'a VerifyingKey<E::G1Affine>,
+    pub n_instances: &'a Vec<Vec<Vec<Vec<E::Scalar>>>>,
+    pub n_transcript: &'a Vec<Vec<u8>>,
 }
 
 pub struct Halo2CircuitInstances<'a, E: MultiMillerLoop, const N: usize>(
-    [Halo2CircuitInstance<'a, E>; N],
+    pub [Halo2CircuitInstance<'a, E>; N],
 );
 
 impl<
