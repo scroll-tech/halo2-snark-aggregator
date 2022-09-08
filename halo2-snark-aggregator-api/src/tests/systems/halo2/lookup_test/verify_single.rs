@@ -9,14 +9,14 @@ use crate::{
     tests::systems::halo2::lookup_test::test_circuit::test_circuit_builder,
     transcript::encode::Encode,
 };
-use halo2_proofs::arithmetic::CurveAffine;
+use halo2_proofs::{arithmetic::CurveAffine, poly::kzg::commitment::ParamsVerifierKZG};
 use halo2_proofs::{
-    pairing::bn256::Fr as Fp,
     plonk::{create_proof, keygen_pk, keygen_vk},
-    poly::commitment::{Params, ParamsVerifier},
+    poly::commitment::Params,
     transcript::{Challenge255, PoseidonWrite},
 };
-use pairing_bn256::bn256::{Bn256, G1Affine};
+use halo2curves::bn256::Fr as Fp;
+use halo2curves::bn256::{Bn256, G1Affine};
 use rand::rngs::OsRng;
 
 const K: u32 = 6;
@@ -79,7 +79,7 @@ pub fn test_verify_single_proof_in_chip<
     .expect("proof generation should not fail");
     let proof = transcript.finalize();
 
-    let params_verifier: &ParamsVerifier<Bn256> = &params.verifier((K * 2) as usize).unwrap();
+    let params_verifier: &ParamsVerifierKZG<Bn256> = &params.verifier((K * 2) as usize).unwrap();
 
     let transcript = PoseidonTranscriptRead::<_, G1Affine, _, EncodeChip, 9usize, 8usize>::new(
         &proof[..],
@@ -133,7 +133,10 @@ pub fn test_verify_single_proof_in_chip<
 mod tests {
     use super::*;
     use crate::mock::{
-        arith::{ecc::MockEccChip, field::{MockFieldChip, MockChipCtx}},
+        arith::{
+            ecc::MockEccChip,
+            field::{MockChipCtx, MockFieldChip},
+        },
         transcript_encode::PoseidonEncode,
     };
     use halo2_proofs::plonk::Error;

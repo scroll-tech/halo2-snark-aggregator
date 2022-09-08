@@ -2,8 +2,8 @@ use crate::gates::base_gate::{AssignedCondition, BaseGateOps};
 use crate::gates::base_gate::{AssignedValue, Context};
 use crate::gates::range_gate::RangeGateOps;
 use crate::utils::{bn_to_field, field_to_bn, get_d_range_bits_in_mul};
-use halo2curves::{ FieldExt};
 use halo2_proofs::plonk::Error;
+use halo2curves::FieldExt;
 use num_bigint::BigUint;
 use num_integer::Integer;
 use std::{marker::PhantomData, vec};
@@ -47,7 +47,8 @@ impl<W: FieldExt, N: FieldExt> AssignedInteger<W, N> {
     }
 }
 
-pub struct IntegerChipHelper<W: FieldExt, N: FieldExt, const LIMBS: usize, const LIMB_WIDTH: usize> {
+pub struct IntegerChipHelper<W: FieldExt, N: FieldExt, const LIMBS: usize, const LIMB_WIDTH: usize>
+{
     pub limb_modulus: BigUint,
     pub integer_modulus: BigUint,
     pub limb_modulus_on_n: N,

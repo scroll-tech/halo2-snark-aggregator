@@ -2,15 +2,26 @@ use crate::{
     arith::{common::ArithCommonChip, ecc::ArithEccChip},
     transcript::encode::Encode,
 };
-use halo2_proofs::{
-    arithmetic::{BaseExt, CurveAffine, Field, FieldExt},
-    transcript::{bn_to_field, field_to_bn},
-};
+use halo2_proofs::arithmetic::{CurveAffine, Field, FieldExt};
+use num_bigint::BigUint;
 
-fn base_to_scalar<B: BaseExt, S: FieldExt>(base: &B) -> S {
+pub fn field_to_bn<F: FieldExt>(f: &F) -> BigUint {
+    BigUint::from_bytes_le(f.to_repr().as_ref())
+}
+
+/// Input a big integer `bn`, compute a field element `f`
+/// such that `f == bn % F::MODULUS`.
+pub fn bn_to_field<F: FieldExt>(bn: &BigUint) -> F {
+    let mut buf = bn.to_bytes_le();
+    buf.resize(64, 0u8);
+
+    let mut buf_array = [0u8; 64];
+    buf_array.copy_from_slice(buf.as_ref());
+    F::from_bytes_wide(&buf_array)
+}
+
+fn base_to_scalar<B: FieldExt, S: FieldExt>(base: &B) -> S {
     let bn = field_to_bn(base);
-    let modulus = field_to_bn(&-B::one()) + 1u64;
-    let bn = bn % modulus;
     bn_to_field(&bn)
 }
 

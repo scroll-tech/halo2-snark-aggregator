@@ -1,6 +1,6 @@
 //! Evm circuit benchmarks
 
-use eth_types::Field;
+use group::ff::Field;
 use halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner},
     plonk::{Circuit, ConstraintSystem, Error, Expression},

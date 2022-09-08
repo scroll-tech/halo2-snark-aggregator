@@ -10,12 +10,15 @@ use crate::scalar;
 use crate::transcript::read::TranscriptRead;
 use group::prime::PrimeCurveAffine;
 use halo2_proofs::arithmetic::{Field, FieldExt};
-use halo2_proofs::{arithmetic::BaseExt, poly::Rotation};
+use halo2_proofs::poly::commitment::{Params, ParamsProver};
+use halo2_proofs::poly::kzg::commitment::{ParamsKZG, ParamsVerifierKZG};
+use halo2_proofs::poly::Rotation;
 use halo2_proofs::{
-    arithmetic::{CurveAffine, MultiMillerLoop},
+    arithmetic::CurveAffine,
     plonk::{Expression, VerifyingKey},
-    poly::commitment::ParamsVerifier,
 };
+use halo2curves::pairing::MultiMillerLoop;
+use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::vec;
 
@@ -31,7 +34,7 @@ pub struct VerifierParamsBuilder<
     pchip: &'a A,
     assigned_instances: Vec<Vec<A::AssignedPoint>>,
     vk: &'a VerifyingKey<E::G1Affine>,
-    params: &'a ParamsVerifier<E>,
+    params: &'a ParamsKZG<E>,
     transcript: &'a mut T,
     key: String,
 }
@@ -39,7 +42,7 @@ pub struct VerifierParamsBuilder<
 // Follow the sequence of official halo2
 impl<
         'a,
-        E: MultiMillerLoop,
+        E: MultiMillerLoop + Debug,
         A: ArithEccChip<
             Point = E::G1Affine,
             Scalar = <E::G1Affine as CurveAffine>::ScalarExt,
@@ -168,33 +171,9 @@ impl<
         Ok(match expr {
             Expression::Constant(c) => Expression::Constant(self.schip.assign_const(self.ctx, c)?),
             Expression::Selector(s) => Expression::Selector(s),
-            Expression::Fixed {
-                query_index,
-                column_index,
-                rotation,
-            } => Expression::Fixed {
-                query_index,
-                column_index,
-                rotation,
-            },
-            Expression::Advice {
-                query_index,
-                column_index,
-                rotation,
-            } => Expression::Advice {
-                query_index,
-                column_index,
-                rotation,
-            },
-            Expression::Instance {
-                query_index,
-                column_index,
-                rotation,
-            } => Expression::Instance {
-                query_index,
-                column_index,
-                rotation,
-            },
+            Expression::Fixed(fixed_query) => Expression::Fixed(fixed_query),
+            Expression::Advice(advice_query) => Expression::Advice(advice_query),
+            Expression::Instance(instance_query) => Expression::Instance(instance_query),
             Expression::Negated(b) => Expression::Negated(
                 Box::<Expression<A::AssignedScalar>>::new(self.convert_expression(*b)?),
             ),
@@ -254,22 +233,28 @@ impl<
                 .zip(instance_evals.iter())
                 .map(|(advice_evals, instance_evals)| {
                     self.vk
-                        .cs
+                        .cs()
                         .permutation
                         .columns
-                        .chunks(self.vk.cs.degree() - 2)
+                        .chunks(self.vk.cs().degree() - 2)
                         .map(|columns| {
                             columns
                                 .iter()
                                 .map(|column| match column.column_type() {
-                                    halo2_proofs::plonk::Any::Advice => advice_evals
-                                        [self.vk.cs.get_any_query_index(*column, Rotation::cur())]
+                                    halo2_proofs::plonk::Any::Advice => advice_evals[self
+                                        .vk
+                                        .cs()
+                                        .get_any_query_index(*column, Rotation::cur())]
                                     .clone(),
-                                    halo2_proofs::plonk::Any::Fixed => fixed_evals
-                                        [self.vk.cs.get_any_query_index(*column, Rotation::cur())]
+                                    halo2_proofs::plonk::Any::Fixed => fixed_evals[self
+                                        .vk
+                                        .cs()
+                                        .get_any_query_index(*column, Rotation::cur())]
                                     .clone(),
-                                    halo2_proofs::plonk::Any::Instance => instance_evals
-                                        [self.vk.cs.get_any_query_index(*column, Rotation::cur())]
+                                    halo2_proofs::plonk::Any::Instance => instance_evals[self
+                                        .vk
+                                        .cs()
+                                        .get_any_query_index(*column, Rotation::cur())]
                                     .clone(),
                                 })
                                 .collect::<Vec<_>>()
@@ -287,10 +272,10 @@ impl<
                 |(i, (permutation_evaluated_set, permutation_evaluated_eval))| {
                     permutation::Evaluated {
                         x: x.clone(),
-                        blinding_factors: self.vk.cs.blinding_factors(),
+                        blinding_factors: self.vk.cs().blinding_factors(),
                         sets: permutation_evaluated_set,
                         evals: permutation_evaluated_eval,
-                        chunk_len: self.vk.cs.degree() - 2,
+                        chunk_len: self.vk.cs().degree() - 2,
                         key: format!("{}_{}", self.key.clone(), i),
                     }
                 },
@@ -313,7 +298,7 @@ impl<
                 permuted
                     .into_iter()
                     .zip(product_commitment.into_iter())
-                    .zip(self.vk.cs.lookups.iter())
+                    .zip(self.vk.cs().lookups.iter())
                     .enumerate()
                     .map(|(j, ((permuted, product_commitment), argument))| {
                         let product_eval = self.load_scalar()?;
@@ -359,13 +344,14 @@ impl<
 
         let num_proofs = instance_commitments.len();
 
-        let advice_commitments = self.load_n_m_points(num_proofs, self.vk.cs.num_advice_columns)?;
+        let advice_commitments =
+            self.load_n_m_points(num_proofs, self.vk.cs().num_advice_columns)?;
 
         let theta = self.squeeze_challenge_scalar()?;
 
         let lookups_permuted = (0..num_proofs)
             .map(|_| {
-                (0..self.vk.cs.lookups.len())
+                (0..self.vk.cs().lookups.len())
                     .map(|_| {
                         let permuted_input_commitment = self.load_point()?;
                         let permuted_table_commitment = self.load_point()?;
@@ -385,10 +371,10 @@ impl<
         let permutations_committed = self.load_n_m_points(
             num_proofs,
             self.vk
-                .cs
+                .cs()
                 .permutation
                 .columns
-                .chunks(self.vk.cs.degree() - 2)
+                .chunks(self.vk.cs().degree() - 2)
                 .len(),
         )?;
 
@@ -406,21 +392,21 @@ impl<
         let random_commitment = self.load_point()?;
 
         let y = self.squeeze_challenge_scalar()?;
-        let h_commitments = self.load_n_points(self.vk.domain.get_quotient_poly_degree())?;
-        let l = self.vk.cs.blinding_factors() as u32 + 1;
-        let n = self.params.n as u32;
-        let omega = self.vk.domain.get_omega();
+        let h_commitments = self.load_n_points(self.vk.get_domain().get_quotient_poly_degree())?;
+        let l = self.vk.cs().blinding_factors() as u32 + 1;
+        let n = self.params.n() as u32;
+        let omega = self.vk.get_domain().get_omega();
 
         let x = self.squeeze_challenge_scalar()?;
 
         let instance_evals =
-            self.load_n_m_scalars(num_proofs, self.vk.cs.instance_queries.len())?;
-        let advice_evals = self.load_n_m_scalars(num_proofs, self.vk.cs.advice_queries.len())?;
-        let fixed_evals = self.load_n_scalars(self.vk.cs.fixed_queries.len())?;
+            self.load_n_m_scalars(num_proofs, self.vk.cs().instance_queries.len())?;
+        let advice_evals = self.load_n_m_scalars(num_proofs, self.vk.cs().advice_queries.len())?;
+        let fixed_evals = self.load_n_scalars(self.vk.cs().fixed_queries.len())?;
 
         let random_eval = self.load_scalar()?;
 
-        let permutation_evals = self.load_n_scalars(self.vk.permutation.commitments.len())?;
+        let permutation_evals = self.load_n_scalars(self.vk.permutation().commitments.len())?;
         let permutation_evaluated = self.build_permutation_evaluated(
             &x,
             permutations_committed,
@@ -433,7 +419,7 @@ impl<
 
         let fixed_commitments = self
             .vk
-            .fixed_commitments
+            .fixed_commitments()
             .iter()
             .map(|&affine| self.pchip.assign_const(self.ctx, affine))
             .collect::<Result<Vec<_>, _>>()?;
@@ -455,7 +441,7 @@ impl<
             key: self.key.clone(),
             gates: self
                 .vk
-                .cs
+                .cs()
                 .gates
                 .iter()
                 .map(|gate| {
@@ -472,7 +458,7 @@ impl<
             instance_evals,
             instance_queries: self
                 .vk
-                .cs
+                .cs()
                 .instance_queries
                 .iter()
                 .map(|column| (column.0.index, column.1 .0 as i32))
@@ -481,7 +467,7 @@ impl<
             advice_evals,
             advice_queries: self
                 .vk
-                .cs
+                .cs()
                 .advice_queries
                 .iter()
                 .map(|column| (column.0.index, column.1 .0 as i32))
@@ -490,14 +476,14 @@ impl<
             fixed_evals,
             fixed_queries: self
                 .vk
-                .cs
+                .cs()
                 .fixed_queries
                 .iter()
                 .map(|column| (column.0.index, column.1 .0 as i32))
                 .collect(),
             permutation_commitments: self
                 .vk
-                .permutation
+                .permutation()
                 .commitments
                 .iter()
                 .map(|commit| self.pchip.assign_const(self.ctx, *commit))
@@ -523,7 +509,7 @@ impl<
             v,
             omega: self
                 .schip
-                .assign_const(self.ctx, self.vk.domain.get_omega())?,
+                .assign_const(self.ctx, self.vk.get_domain().get_omega())?,
             w,
             zero: self
                 .schip
@@ -540,7 +526,7 @@ impl<
 }
 
 pub fn assign_instance_commitment<
-    E: MultiMillerLoop,
+    E: MultiMillerLoop + Debug,
     A: ArithEccChip<
         Point = E::G1Affine,
         Scalar = <E::G1Affine as CurveAffine>::ScalarExt,
@@ -552,12 +538,12 @@ pub fn assign_instance_commitment<
     pchip: &A,
     instances: &[&[&[E::Scalar]]],
     vk: &VerifyingKey<E::G1Affine>,
-    params: &ParamsVerifier<E>,
+    params: &ParamsVerifierKZG<E>,
 ) -> Result<(Vec<A::AssignedScalar>, Vec<Vec<A::AssignedPoint>>), A::Error> {
     let mut plain_assigned_instances = vec![];
 
     for instances in instances.iter() {
-        assert!(instances.len() == vk.cs.num_instance_columns)
+        assert!(instances.len() == vk.cs().num_instance_columns)
     }
 
     let instances = instances
@@ -566,7 +552,9 @@ pub fn assign_instance_commitment<
             instance
                 .iter()
                 .map(|instance| {
-                    assert!(instance.len() <= params.n as usize - (vk.cs.blinding_factors() + 1));
+                    assert!(
+                        instance.len() <= params.n() as usize - (vk.cs().blinding_factors() + 1)
+                    );
 
                     let mut assigned_scalars = vec![];
                     for instance in instance.iter() {
@@ -589,11 +577,8 @@ pub fn assign_instance_commitment<
                     let mut acc = None;
 
                     for (i, instance) in instance.iter().enumerate() {
-                        let ls = pchip.scalar_mul_constant(
-                            ctx,
-                            &instance,
-                            params.g_lagrange[i].clone(),
-                        )?;
+                        let ls =
+                            pchip.scalar_mul_constant(ctx, &instance, params.get_g()[i].clone())?;
 
                         match acc {
                             None => acc = Some(ls),
@@ -619,7 +604,7 @@ pub fn assign_instance_commitment<
 }
 
 pub fn verify_single_proof_no_eval<
-    E: MultiMillerLoop,
+    E: MultiMillerLoop + Debug,
     A: ArithEccChip<
         Point = E::G1Affine,
         Scalar = <E::G1Affine as CurveAffine>::ScalarExt,
@@ -633,7 +618,7 @@ pub fn verify_single_proof_no_eval<
     pchip: &A,
     assigned_instances: Vec<Vec<A::AssignedPoint>>,
     vk: &VerifyingKey<E::G1Affine>,
-    params: &ParamsVerifier<E>,
+    params: &ParamsVerifierKZG<E>,
     transcript: &mut T,
     key: String,
 ) -> Result<(MultiOpenProof<A>, Vec<<A as ArithEccChip>::AssignedPoint>), A::Error> {
@@ -655,7 +640,6 @@ pub fn verify_single_proof_no_eval<
         chip_params.batch_multi_open_proofs(ctx, schip)?,
         advice_commitments[0].clone(),
     ))
-
 }
 
 fn evaluate_multiopen_proof<
@@ -743,12 +727,12 @@ pub struct CircuitProof<
 > {
     pub name: String,
     pub vk: &'a VerifyingKey<E::G1Affine>,
-    pub params: &'a ParamsVerifier<E>,
+    pub params: &'a ParamsVerifierKZG<E>,
     pub proofs: Vec<ProofData<'a, E, A, T>>,
 }
 
 pub fn verify_single_proof_in_chip<
-    E: MultiMillerLoop,
+    E: MultiMillerLoop + Debug,
     A: ArithEccChip<
         Point = E::G1Affine,
         Scalar = <E::G1Affine as CurveAffine>::ScalarExt,
@@ -764,14 +748,13 @@ pub fn verify_single_proof_in_chip<
     transcript: &mut T,
 ) -> Result<
     (
-        A::AssignedPoint, // w_x
-        A::AssignedPoint, // w_g
+        A::AssignedPoint,       // w_x
+        A::AssignedPoint,       // w_g
         Vec<A::AssignedScalar>, // plain assigned instance
-        Vec<A::AssignedPoint>, // advice commitments
+        Vec<A::AssignedPoint>,  // advice commitments
     ),
-    A::Error>
-  {
-
+    A::Error,
+> {
     let instances1: Vec<Vec<&[E::Scalar]>> = circuit.proofs[0]
         .instances
         .iter()
@@ -806,7 +789,7 @@ pub fn verify_single_proof_in_chip<
 }
 
 pub fn verify_aggregation_proofs_in_chip<
-    E: MultiMillerLoop,
+    E: MultiMillerLoop + Debug,
     A: ArithEccChip<
         Point = E::G1Affine,
         Scalar = <E::G1Affine as CurveAffine>::ScalarExt,
@@ -822,17 +805,17 @@ pub fn verify_aggregation_proofs_in_chip<
     transcript: &mut T,
 ) -> Result<
     (
-        A::AssignedPoint, // w_x
-        A::AssignedPoint, // w_g
-        Vec<A::AssignedScalar>, // plain assigned instance
+        A::AssignedPoint,           // w_x
+        A::AssignedPoint,           // w_g
+        Vec<A::AssignedScalar>,     // plain assigned instance
         Vec<Vec<A::AssignedPoint>>, // advice commitments
     ),
-    A::Error>
-  {
+    A::Error,
+> {
     let mut plain_assigned_instances = vec![];
 
     let multiopen_proofs: Vec<Vec<(MultiOpenProof<A>, Vec<A::AssignedPoint>)>> = circuits
-    //let multiopen_proofs: Vec<Vec<MultiOpenProof<A>>> = circuits
+        //let multiopen_proofs: Vec<Vec<MultiOpenProof<A>>> = circuits
         .iter_mut()
         .map(|circuit_proof| {
             let r = circuit_proof
@@ -875,7 +858,7 @@ pub fn verify_aggregation_proofs_in_chip<
 
                     println!("get proof {} {}", circuit_proof.name, p);
 
-                    Ok((p,c))
+                    Ok((p, c))
                 })
                 .collect::<Result<Vec<(MultiOpenProof<A>, Vec<A::AssignedPoint>)>, A::Error>>();
 
@@ -901,12 +884,10 @@ pub fn verify_aggregation_proofs_in_chip<
     for (proof, c) in proofs.into_iter() {
         acc = match acc {
             None => Some(proof),
-            Some(acc) => {
-                Some(MultiOpenProof {
-                    w_x: acc.w_x * scalar!(aggregation_challenge) + proof.w_x,
-                    w_g: acc.w_g * scalar!(aggregation_challenge) + proof.w_g,
-                })
-            }
+            Some(acc) => Some(MultiOpenProof {
+                w_x: acc.w_x * scalar!(aggregation_challenge) + proof.w_x,
+                w_g: acc.w_g * scalar!(aggregation_challenge) + proof.w_g,
+            }),
         };
         commits.push(c)
     }

@@ -3,12 +3,10 @@ use crate::gates::{
     base_gate::{AssignedCondition, BaseGateOps, Context},
     range_gate::RangeGateOps,
 };
-use group::{Group, Curve};
 use group::ff::Field;
-use halo2curves::{FieldExt,CurveAffine};
-use halo2_proofs::{
-    plonk::Error,
-};
+use group::{Curve, Group};
+use halo2_proofs::plonk::Error;
+use halo2curves::{CurveAffine, FieldExt};
 
 #[derive(Clone, Debug)]
 pub struct AssignedCurvature<C: CurveAffine, N: FieldExt> {

@@ -1,4 +1,4 @@
-use halo2_proofs::arithmetic::{FieldExt};
+use halo2_proofs::arithmetic::FieldExt;
 use num_bigint::BigUint;
 use num_integer::Integer;
 
@@ -16,7 +16,6 @@ pub fn bn_to_field<F: FieldExt>(bn: &BigUint) -> F {
     buf_array.copy_from_slice(buf.as_ref());
     F::from_bytes_wide(&buf_array)
 }
-
 
 pub fn decompose_bn<F: FieldExt>(v: &BigUint, modulus_shift: usize, chunks: usize) -> Vec<(F, F)> {
     let modulus = BigUint::from(1u64) << modulus_shift;

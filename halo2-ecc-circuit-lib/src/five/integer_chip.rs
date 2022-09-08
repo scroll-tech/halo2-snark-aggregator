@@ -7,7 +7,7 @@ use crate::{
     pair, pair_empty,
     utils::{bn_to_field, decompose_bn, field_to_bn},
 };
-use halo2_proofs::arithmetic::{FieldExt};
+use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Error;
 use num_bigint::BigUint;
 use num_integer::Integer;

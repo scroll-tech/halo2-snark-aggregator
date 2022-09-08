@@ -1,7 +1,7 @@
 use super::config::{MUL_COLUMNS, VAR_COLUMNS};
 use crate::five::base_gate::{FiveColumnBaseGate, FiveColumnBaseGateConfig};
 use crate::gates::range_gate::{RangeGate, RangeGateConfig};
-use halo2_proofs::arithmetic::{FieldExt};
+use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::poly::Rotation;
 use std::marker::PhantomData;

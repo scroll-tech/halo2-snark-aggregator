@@ -11,14 +11,18 @@ use crate::{
     },
 };
 use halo2_proofs::arithmetic::{CurveAffine, Field};
+use halo2_proofs::poly::commitment::ParamsProver;
+use halo2_proofs::poly::kzg::commitment::ParamsVerifierKZG;
 use halo2_proofs::{
-    pairing::bn256::Fr as Fp,
     plonk::{create_proof, keygen_pk, keygen_vk},
-    poly::commitment::{Params, ParamsVerifier},
+    poly::commitment::Params,
+    poly::kzg::commitment::KZGCommitmentScheme,
+    poly::kzg::commitment::ParamsKZG,
     transcript::{Challenge255, PoseidonWrite},
 };
-use pairing_bn256::bn256::{Bn256, G1Affine};
-use rand::SeedableRng;
+use halo2curves::bn256::Fr as Fp;
+use halo2curves::bn256::{Bn256, G1Affine};
+use rand::{thread_rng, SeedableRng};
 use rand_pcg::Pcg32;
 use rand_xorshift::XorShiftRng;
 
@@ -56,12 +60,13 @@ pub fn test_verify_aggregation_proof_in_chip<
         Fp::random(rng)
     }
 
+    let mut test_rng = thread_rng();
     let circuit_template = test_circuit_builder(Fp::zero(), Fp::zero());
-    let params = Params::<G1Affine>::unsafe_setup::<Bn256>(K);
+    let params = ParamsKZG::<Bn256>::setup(K, &mut test_rng);
     let vk = keygen_vk(&params, &circuit_template).expect("keygen_vk should not fail");
 
     let public_inputs_size = 1;
-    let params_verifier: &ParamsVerifier<Bn256> = &params.verifier(public_inputs_size).unwrap();
+    let params_verifier: &ParamsVerifierKZG<Bn256> = &params.verifier_params();
 
     let mut n_instances: Vec<_> = vec![];
     let mut n_proof: Vec<_> = vec![];
@@ -75,7 +80,8 @@ pub fn test_verify_aggregation_proof_in_chip<
         let circuit = test_circuit_builder(a, b);
         let instances = vec![vec![vec![c]]];
         let pk = keygen_pk(&params, vk, &circuit).expect("keygen_pk should not fail");
-        let mut transcript = PoseidonWrite::<_, _, Challenge255<_>>::init(vec![]);
+        let mut transcript =
+            PoseidonWrite::<Vec<u8>, G1Affine, Challenge255<G1Affine>>::init(vec![]);
 
         let instances1: Vec<Vec<&[Fp]>> = instances
             .iter()
@@ -83,7 +89,7 @@ pub fn test_verify_aggregation_proof_in_chip<
             .collect();
         let instances2: Vec<&[&[Fp]]> = instances1.iter().map(|x| &x[..]).collect();
 
-        create_proof(
+        create_proof::<KZGCommitmentScheme<Bn256>, ParamsKZG<Bn256>, _, _, _, _>(
             &params,
             &pk,
             &[circuit],
@@ -147,7 +153,10 @@ pub fn test_verify_aggregation_proof_in_chip<
 mod tests {
     use super::*;
     use crate::mock::{
-        arith::{ecc::MockEccChip, field::{MockFieldChip, MockChipCtx}},
+        arith::{
+            ecc::MockEccChip,
+            field::{MockChipCtx, MockFieldChip},
+        },
         transcript_encode::PoseidonEncode,
     };
     use halo2_proofs::plonk::Error;

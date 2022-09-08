@@ -249,28 +249,22 @@ impl<P: Clone, S: Clone> EvaluationQuerySchema<P, S> {
 
     pub fn estimate(&self, scalar: Option<()>) -> usize {
         match self {
-            EvaluationQuerySchema::Commitment(_) => {
-                1
-            }
-            EvaluationQuerySchema::Eval(_) => {
-                match scalar {
-                    Some(_) => 1,
-                    None => 0
-                }
-            }
-            EvaluationQuerySchema::Scalar(_) => {
-                match scalar {
-                    Some(_) => 1,
-                    None => 0
-                }
-            }
+            EvaluationQuerySchema::Commitment(_) => 1,
+            EvaluationQuerySchema::Eval(_) => match scalar {
+                Some(_) => 1,
+                None => 0,
+            },
+            EvaluationQuerySchema::Scalar(_) => match scalar {
+                Some(_) => 1,
+                None => 0,
+            },
             EvaluationQuerySchema::Add(l, r) => {
                 if !l.1 && !r.1 {
                     let l = l.0.estimate(None);
                     let r = r.0.estimate(None);
                     match scalar {
-                        Some(_) => l+r+1,
-                        None => l+r,
+                        Some(_) => l + r + 1,
+                        None => l + r,
                     }
                 } else {
                     let mut est = 0;
@@ -289,5 +283,4 @@ impl<P: Clone, S: Clone> EvaluationQuerySchema<P, S> {
             }
         }
     }
-
 }

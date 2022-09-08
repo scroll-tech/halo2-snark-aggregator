@@ -28,21 +28,9 @@ impl<A: ArithEccChip> Evaluable<A> for Expression<A::AssignedScalar> {
             Expression::Selector(_selector) => {
                 panic!("virtual selectors are removed during optimization")
             }
-            Expression::Fixed {
-                query_index,
-                column_index: _,
-                rotation: _,
-            } => fixed(*query_index),
-            Expression::Advice {
-                query_index,
-                column_index: _,
-                rotation: _,
-            } => advice(*query_index),
-            Expression::Instance {
-                query_index,
-                column_index: _,
-                rotation: _,
-            } => instance(*query_index),
+            Expression::Fixed(fixed_query) => fixed(fixed_query.column_index()),
+            Expression::Advice(advice_query) => advice(advice_query.column_index()),
+            Expression::Instance(instance_query) => instance(instance_query.column_index()),
             Expression::Negated(a) => {
                 let a = &Evaluable::<A>::chip_evaluate(
                     a.as_ref(),

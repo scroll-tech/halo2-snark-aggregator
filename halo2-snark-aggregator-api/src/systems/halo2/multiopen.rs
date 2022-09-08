@@ -21,7 +21,6 @@ impl<A: ArithEccChip> std::fmt::Display for MultiOpenProof<A> {
     }
 }
 
-
 impl<A: ArithEccChip> VerifierParams<A> {
     fn get_point_schemas<'a>(
         &'a self,

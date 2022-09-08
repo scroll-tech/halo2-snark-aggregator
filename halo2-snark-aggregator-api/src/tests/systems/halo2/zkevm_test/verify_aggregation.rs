@@ -11,12 +11,13 @@ use crate::{
 };
 use ark_std::{end_timer, start_timer};
 use halo2_proofs::arithmetic::CurveAffine;
+use halo2_proofs::poly::kzg::commitment::ParamsVerifierKZG;
 use halo2_proofs::{
     plonk::{create_proof, keygen_pk, keygen_vk},
-    poly::commitment::{Params, ParamsVerifier},
+    poly::commitment::Params,
     transcript::{Challenge255, PoseidonWrite},
 };
-use pairing_bn256::bn256::{Bn256, Fr, G1Affine};
+use halo2curves::bn256::{Bn256, Fr, G1Affine};
 use rand::rngs::OsRng;
 
 const K: u32 = 16;
@@ -112,7 +113,7 @@ pub fn test_verify_aggregation_proof_in_chip<
         })
     }
 
-    let params_verifier: &ParamsVerifier<Bn256> =
+    let params_verifier: &ParamsVerifierKZG<Bn256> =
         &general_params.verifier((K * 2) as usize).unwrap();
 
     let empty_vec = vec![];
@@ -147,11 +148,14 @@ pub fn test_verify_aggregation_proof_in_chip<
 mod tests {
     use super::*;
     use crate::mock::{
-        arith::{ecc::MockEccChip, field::{MockFieldChip, MockChipCtx}},
+        arith::{
+            ecc::MockEccChip,
+            field::{MockChipCtx, MockFieldChip},
+        },
         transcript_encode::PoseidonEncode,
     };
-    use halo2_proofs::pairing::bn256::Fr as Fp;
     use halo2_proofs::plonk::Error;
+    use halo2curves::bn256::Fr as Fp;
 
     #[test]
     fn test_zkevm_verify_aggreation_proof_in_chip_code() {

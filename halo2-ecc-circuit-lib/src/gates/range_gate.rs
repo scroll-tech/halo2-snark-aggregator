@@ -4,7 +4,7 @@ use crate::{
     utils::{field_to_bn, get_d_range_bits_in_mul},
 };
 use halo2_proofs::{
-    arithmetic::{ FieldExt},
+    arithmetic::FieldExt,
     circuit::{Layouter, Value},
     plonk::{Column, Error, Fixed, TableColumn},
 };

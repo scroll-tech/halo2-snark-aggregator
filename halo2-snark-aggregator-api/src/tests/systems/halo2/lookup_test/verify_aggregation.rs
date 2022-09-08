@@ -1,5 +1,3 @@
-use std::marker::PhantomData;
-
 use crate::tests::systems::halo2::lookup_test::test_circuit::test_circuit_builder;
 use crate::transcript::encode::Encode;
 use crate::{
@@ -10,14 +8,16 @@ use crate::{
     },
 };
 use halo2_proofs::arithmetic::CurveAffine;
+use halo2_proofs::poly::kzg::commitment::ParamsVerifierKZG;
 use halo2_proofs::{
-    pairing::bn256::Fr as Fp,
     plonk::{create_proof, keygen_pk, keygen_vk},
-    poly::commitment::{Params, ParamsVerifier},
+    poly::commitment::Params,
     transcript::{Challenge255, PoseidonWrite},
 };
-use pairing_bn256::bn256::{Bn256, G1Affine};
+use halo2curves::bn256::Fr as Fp;
+use halo2curves::bn256::{Bn256, G1Affine};
 use rand::rngs::OsRng;
+use std::marker::PhantomData;
 
 const K: u32 = 6;
 const NPROOFS: usize = 2usize;
@@ -49,7 +49,7 @@ pub fn test_verify_aggregation_proof_in_chip<
     let vk = keygen_vk(&params, &circuit_template).expect("keygen_vk should not fail");
 
     let public_inputs_size: usize = (K * 2) as usize;
-    let params_verifier: &ParamsVerifier<Bn256> = &params.verifier(public_inputs_size).unwrap();
+    let params_verifier: &ParamsVerifierKZG<Bn256> = &params.verifier(public_inputs_size).unwrap();
 
     let mut n_instances: Vec<_> = vec![];
     let mut n_proof: Vec<_> = vec![];
@@ -139,7 +139,10 @@ pub fn test_verify_aggregation_proof_in_chip<
 mod tests {
     use super::*;
     use crate::mock::{
-        arith::{ecc::MockEccChip, field::{MockFieldChip, MockChipCtx}},
+        arith::{
+            ecc::MockEccChip,
+            field::{MockChipCtx, MockFieldChip},
+        },
         transcript_encode::PoseidonEncode,
     };
     use halo2_proofs::plonk::Error;

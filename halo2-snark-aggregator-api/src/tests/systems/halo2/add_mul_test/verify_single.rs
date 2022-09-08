@@ -9,15 +9,21 @@ use crate::{
     tests::systems::halo2::add_mul_test::test_circuit::test_circuit_builder,
     transcript::encode::Encode,
 };
-use halo2_proofs::arithmetic::{CurveAffine, Field};
 use halo2_proofs::{
-    pairing::bn256::Fr as Fp,
+    arithmetic::{CurveAffine, Field},
+    poly::{
+        commitment::ParamsProver,
+        kzg::commitment::{KZGCommitmentScheme, ParamsKZG, ParamsVerifierKZG},
+    },
+};
+use halo2_proofs::{
     plonk::{create_proof, keygen_pk, keygen_vk},
-    poly::commitment::{Params, ParamsVerifier},
+    poly::commitment::Params,
     transcript::{Challenge255, PoseidonWrite},
 };
-use pairing_bn256::bn256::{Bn256, G1Affine};
-use rand::SeedableRng;
+use halo2curves::bn256::Fr as Fp;
+use halo2curves::bn256::{Bn256, G1Affine};
+use rand::{thread_rng, SeedableRng};
 use rand_pcg::Pcg32;
 use rand_xorshift::XorShiftRng;
 
@@ -53,9 +59,9 @@ pub fn test_verify_single_proof_in_chip<
         let rng = XorShiftRng::seed_from_u64(seed);
         Fp::random(rng)
     }
-
+    let mut test_rng = thread_rng();
     let circuit = test_circuit_builder(random(), random());
-    let params = Params::<G1Affine>::unsafe_setup::<Bn256>(K);
+    let params = ParamsKZG::<Bn256>::setup(K, &mut test_rng);
     let vk = keygen_vk(&params, &circuit).expect("keygen_vk should not fail");
 
     let public_inputs_size = 1;
@@ -68,8 +74,8 @@ pub fn test_verify_single_proof_in_chip<
     let circuit = test_circuit_builder(a, b);
     let pk = keygen_pk(&params, vk, &circuit).expect("keygen_pk should not fail");
 
-    let mut transcript = PoseidonWrite::<_, _, Challenge255<_>>::init(vec![]);
-    create_proof(
+    let mut transcript = PoseidonWrite::<Vec<u8>, G1Affine, Challenge255<G1Affine>>::init(vec![]);
+    create_proof::<KZGCommitmentScheme<Bn256>, ParamsKZG<Bn256>, _, _, _, _>(
         &params,
         &pk,
         &[circuit],
@@ -80,7 +86,7 @@ pub fn test_verify_single_proof_in_chip<
     .expect("proof generation should not fail");
     let proof = transcript.finalize();
 
-    let params_verifier: &ParamsVerifier<Bn256> = &params.verifier(public_inputs_size).unwrap();
+    let params_verifier: &ParamsVerifierKZG<Bn256> = &params.verifier_params();
 
     let transcript = PoseidonTranscriptRead::<_, G1Affine, _, EncodeChip, 9usize, 8usize>::new(
         &proof[..],
@@ -134,7 +140,10 @@ pub fn test_verify_single_proof_in_chip<
 mod tests {
     use super::*;
     use crate::mock::{
-        arith::{ecc::MockEccChip, field::{MockFieldChip, MockChipCtx}},
+        arith::{
+            ecc::MockEccChip,
+            field::{MockChipCtx, MockFieldChip},
+        },
         transcript_encode::PoseidonEncode,
     };
     use halo2_proofs::plonk::Error;

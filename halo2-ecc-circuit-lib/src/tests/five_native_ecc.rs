@@ -173,7 +173,7 @@ impl<C: CurveAffine> TestFiveColumnNativeEccChipCircuit<C> {
         )?;
         let mut p_ = ecc_gate.assign_constant_point_from_scalar(ctx, s1 * s3 + s2 * s4)?;
         ecc_gate.assert_equal(ctx, &mut p, &mut p_)?;
-        
+
         let mut p = ecc_gate.shamir(ctx, &mut vec![p1], &vec![assigned_s3])?;
         let mut p_ = ecc_gate.assign_constant_point_from_scalar(ctx, s1 * s3)?;
         ecc_gate.assert_equal(ctx, &mut p, &mut p_)?;

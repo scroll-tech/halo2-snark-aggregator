@@ -5,7 +5,7 @@ use crate::five::range_gate::FiveColumnRangeGate;
 use crate::gates::base_gate::Context;
 use crate::gates::range_gate::RangeGateConfig;
 use crate::utils::field_to_bn;
-use halo2_proofs::arithmetic::{ FieldExt};
+use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner},
     dev::MockProver,

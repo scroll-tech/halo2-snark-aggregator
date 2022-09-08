@@ -1,12 +1,11 @@
-use std::marker::PhantomData;
-
 use halo2_proofs::{
     arithmetic::FieldExt,
     circuit::{Layouter, SimpleFloorPlanner},
-    pairing::bn256::Fr as Fp,
     plonk::{Advice, Circuit, Column, ConstraintSystem, Error, Instance, Selector},
     poly::Rotation,
 };
+use halo2curves::bn256::Fr as Fp;
+use std::marker::PhantomData;
 
 #[derive(Clone, Debug)]
 pub struct MyConfig<F: FieldExt> {

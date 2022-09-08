@@ -1,7 +1,5 @@
 use digest::Digest;
 use group::ff::PrimeField;
-use halo2_proofs::arithmetic::BaseExt;
-use halo2_proofs::arithmetic::Coordinates;
 use halo2_proofs::arithmetic::CurveAffine;
 use halo2_proofs::arithmetic::Field;
 use halo2_proofs::transcript::Challenge255;
@@ -9,6 +7,7 @@ use halo2_proofs::transcript::EncodedChallenge;
 use halo2_proofs::transcript::Transcript;
 use halo2_proofs::transcript::TranscriptRead;
 use halo2_proofs::transcript::TranscriptWrite;
+use halo2curves::Coordinates;
 use std::io::{self, Read, Write};
 use std::marker::PhantomData;
 
@@ -42,11 +41,9 @@ impl<R: Read, C: CurveAffine, D: Digest + Clone> TranscriptRead<C, Challenge255<
     for ShaRead<R, C, Challenge255<C>, D>
 {
     fn read_point(&mut self) -> io::Result<C> {
-        // let mut compressed = C::Repr::default();
-        let x = <C::Base as BaseExt>::read(&mut self.reader)?;
-        let y = <C::Base as BaseExt>::read(&mut self.reader)?;
-
-        let point: C = Option::from(C::from_xy(x, y)).ok_or_else(|| {
+        let mut compressed = C::Repr::default();
+        self.reader.read_exact(compressed.as_mut())?;
+        let point: C = Option::from(C::from_bytes(&compressed)).ok_or_else(|| {
             io::Error::new(io::ErrorKind::Other, "invalid point encoding in proof")
         })?;
         self.common_point(point)?;
@@ -96,8 +93,7 @@ impl<R: Read, C: CurveAffine, D: Digest + Clone> Transcript<C, Challenge255<C>>
         })?;
 
         for base in vec![coords.x(), coords.y()] {
-            let mut buf = vec![];
-            base.write(&mut buf)?;
+            let mut buf = base.to_repr().as_ref().to_vec();
             buf.resize(32, 0u8);
             buf.reverse();
             self.state.update(buf);
@@ -111,8 +107,7 @@ impl<R: Read, C: CurveAffine, D: Digest + Clone> Transcript<C, Challenge255<C>>
         self.state.update(&[SHA_PREFIX_SCALAR]);
 
         {
-            let mut buf = vec![];
-            scalar.write(&mut buf)?;
+            let mut buf = scalar.to_repr().as_ref().to_vec();
             buf.resize(32, 0u8);
             buf.reverse();
             self.state.update(buf);
@@ -162,7 +157,7 @@ impl<W: Write, C: CurveAffine, D: Digest + Clone> TranscriptWrite<C, Challenge25
             .unwrap_or(<C as CurveAffine>::Base::zero());
 
         for base in vec![&x, &y] {
-            base.write(&mut self.writer)?;
+            self.writer.write_all(base.to_repr().as_ref())?;
         }
 
         Ok(())
@@ -203,8 +198,7 @@ impl<W: Write, C: CurveAffine, D: Digest + Clone> Transcript<C, Challenge255<C>>
         })?;
 
         for base in vec![coords.x(), coords.y()] {
-            let mut buf = vec![];
-            base.write(&mut buf)?;
+            let mut buf = base.to_repr().as_ref().to_vec();
             buf.resize(32, 0u8);
             buf.reverse();
             self.state.update(buf);
@@ -218,8 +212,7 @@ impl<W: Write, C: CurveAffine, D: Digest + Clone> Transcript<C, Challenge255<C>>
         self.state.update(&[SHA_PREFIX_SCALAR]);
 
         {
-            let mut buf = vec![];
-            scalar.write(&mut buf)?;
+            let mut buf = scalar.to_repr().as_ref().to_vec();
             buf.resize(32, 0u8);
             buf.reverse();
             self.state.update(buf);
