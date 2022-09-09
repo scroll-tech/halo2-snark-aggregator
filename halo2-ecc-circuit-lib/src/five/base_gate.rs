@@ -12,6 +12,18 @@ pub type FiveColumnBaseGateConfig = BaseGateConfig<VAR_COLUMNS, MUL_COLUMNS>;
 pub type FiveColumnBaseGate<N> = BaseGate<N, VAR_COLUMNS, MUL_COLUMNS>;
 
 impl<N: FieldExt> FiveColumnBaseGate<N> {
+    // This is a hack as we assume in shape layout oneline will return None for values
+    pub fn in_shape_mode(&self, ctx: &mut Context<'_, N>) -> Result<bool, Error> {
+        let one = N::one();
+        let (_, values) = self.one_line(ctx, vec![pair!(one, -one)], one, (vec![], N::zero()))?;
+        let pos = values.iter().position(|&x| x != None);
+        // If in shape mode then all cells including fix and advice should become None
+        match pos {
+            None => Ok(true),
+            _ => Ok(false)
+        }
+    }
+
     fn mul_add2(
         &self,
         ctx: &mut Context<'_, N>,
@@ -30,7 +42,7 @@ impl<N: FieldExt> FiveColumnBaseGate<N> {
 
         let e = a.value * b.value + c.value * c_coeff + d.value * d_coeff;
 
-        let cells = self.one_line(
+        let (cells, _) = self.one_line(
             ctx,
             vec![
                 pair!(a, zero),
@@ -63,7 +75,8 @@ impl<N: FieldExt> BaseGateOps<N> for FiveColumnBaseGate<N> {
         constant: N,
         mul_next_coeffs: (Vec<N>, N),
     ) -> Result<Vec<AssignedValue<N>>, Error> {
-        self.one_line(ctx, base_coeff_pairs, constant, mul_next_coeffs)
+        let (r, _) = self.one_line(ctx, base_coeff_pairs, constant, mul_next_coeffs)?;
+        Ok(r)
     }
 
     fn bisec(
@@ -78,7 +91,7 @@ impl<N: FieldExt> BaseGateOps<N> for FiveColumnBaseGate<N> {
 
         let cond_v: AssignedValue<N> = cond.into();
         let c = cond.value * a.value + (one - cond.value) * b.value;
-        let cells = self.one_line(
+        let (cells, _) = self.one_line(
             ctx,
             vec![
                 pair!(&cond_v, zero),

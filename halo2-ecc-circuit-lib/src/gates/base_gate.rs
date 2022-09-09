@@ -9,7 +9,7 @@ use std::marker::PhantomData;
 
 #[derive(Clone, Copy, Debug)]
 pub struct AssignedCondition<N: FieldExt> {
-    cell: Cell,
+    pub cell: Cell,
     pub value: N,
 }
 
@@ -113,6 +113,7 @@ macro_rules! pair_empty {
 pub struct Context<'a, N: FieldExt> {
     pub region: Box<Region<'a, N>>,
     pub offset: Box<usize>,
+    pub in_shape_mode: bool,
 }
 
 impl<'a, N: FieldExt> Context<'a, N> {
@@ -120,9 +121,19 @@ impl<'a, N: FieldExt> Context<'a, N> {
         Context {
             region: Box::new(region),
             offset: Box::new(offset),
+            in_shape_mode: false,
         }
     }
+    pub fn in_shape_mode(&self) -> bool {
+        return self.in_shape_mode;
+    }
+    pub fn expand(&mut self, size:usize, v: Cell, value: N) -> Result<(), Error> {
+        self.region.as_mut().assign_advice(|| "expand", v.column.try_into().unwrap(), *self.offset + size - 1, || Ok(value))?;
+        *self.offset += size;
+        Ok(())
+    }
 }
+
 
 impl<'a, N: FieldExt> std::fmt::Display for Context<'a, N> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -727,26 +738,26 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize>
         mut base_coeff_pairs: Vec<(ValueSchema<N>, N)>,
         constant: N,
         mul_next_coeffs: (Vec<N>, N),
-    ) -> Result<Vec<AssignedValue<N>>, Error> {
+    ) -> Result<(Vec<AssignedValue<N>>, Vec<Option<N>>), Error> {
         assert!(base_coeff_pairs.len() <= VAR_COLUMNS);
         assert!(mul_next_coeffs.0.len() <= MUL_COLUMNS);
 
         let zero = N::zero();
         let mut cells = vec![];
+        let mut values = vec![];
 
         base_coeff_pairs.resize_with(VAR_COLUMNS, || pair_empty!(N));
         for (i, (base, coeff)) in base_coeff_pairs.into_iter().enumerate() {
-            ctx.region
+            let fixed_cell = ctx.region
                 .as_mut()
                 .assign_fixed(
                     || format!("coeff_{}", i),
                     self.config.coeff[i],
                     *ctx.offset,
                     || Ok(coeff),
-                )?
-                .cell();
+                )?;
 
-            let cell = ctx
+            let assign_cell = ctx
                 .region
                 .as_mut()
                 .assign_advice(
@@ -754,14 +765,17 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize>
                     self.config.base[i],
                     *ctx.offset,
                     || Ok(base.value()),
-                )?
-                .cell();
+                )?;
+
+            let cell = assign_cell.cell();
 
             base.constrain_equal_conditionally(ctx.region.as_mut(), cell)?;
             cells.push(AssignedValue {
                 cell,
                 value: base.value(),
             });
+            values.push(fixed_cell.value().map(|x| x.clone()));
+            values.push(assign_cell.value().map(|x| x.clone()));
         }
 
         let (mut mul_coeffs, next) = mul_next_coeffs;
@@ -790,6 +804,6 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize>
 
         *ctx.offset += 1;
 
-        Ok(cells.try_into().unwrap())
+        Ok((cells.try_into().unwrap(), values))
     }
 }

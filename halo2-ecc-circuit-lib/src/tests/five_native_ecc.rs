@@ -285,6 +285,7 @@ impl<C: CurveAffine> Circuit<C::ScalarExt> for TestFiveColumnNativeEccChipCircui
                 let base_offset = 0usize;
                 let mut aux = Context::new(region, base_offset);
                 let r = &mut aux;
+                r.in_shape_mode = base_gate.in_shape_mode(r)?;
                 let round = 1;
                 for _ in 0..round {
                     match self.test_case {
