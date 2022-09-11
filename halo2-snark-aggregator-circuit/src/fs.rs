@@ -1,11 +1,15 @@
-use halo2_proofs::{
-    arithmetic::{BaseExt, CurveAffine, MultiMillerLoop},
-    plonk::{keygen_vk, VerifyingKey},
-    poly::commitment::Params,
-};
-use pairing_bn256::bn256::{Bn256, Fr, G1Affine};
-
 use crate::{sample_circuit::TargetCircuit, verify_circuit::Halo2VerifierCircuit};
+use halo2_proofs::{
+    arithmetic::CurveAffine,
+    plonk::{keygen_vk, VerifyingKey},
+    poly::{commitment::Params, kzg::commitment::ParamsKZG},
+};
+use halo2curves::group::ff::PrimeField;
+use halo2curves::{
+    bn256::{Bn256, Fr, G1Affine},
+    pairing::MultiMillerLoop,
+    FieldExt,
+};
 use std::{
     io::{Cursor, Read, Write},
     path::PathBuf,
@@ -49,8 +53,8 @@ pub fn load_target_circuit_params<
     Circuit: TargetCircuit<C, E>,
 >(
     folder: &mut PathBuf,
-) -> Params<C> {
-    Params::<C>::read(Cursor::new(&read_target_circuit_params::<C, E, Circuit>(
+) -> ParamsKZG<E> {
+    ParamsKZG::<C>::read(Cursor::new(&read_target_circuit_params::<C, E, Circuit>(
         &mut folder.clone(),
     )))
     .unwrap()
@@ -75,7 +79,7 @@ pub fn load_target_circuit_vk<
     Circuit: TargetCircuit<C, E>,
 >(
     folder: &mut PathBuf,
-    params: &Params<C>,
+    params: &ParamsKZG<E>,
 ) -> VerifyingKey<C> {
     if Circuit::READABLE_VKEY {
         VerifyingKey::<C>::read::<_, Circuit::Circuit>(
@@ -117,8 +121,8 @@ pub fn read_verify_circuit_params(folder: &mut PathBuf) -> Vec<u8> {
     read_file(folder, "verify_circuit.params")
 }
 
-pub fn load_verify_circuit_params(folder: &mut PathBuf) -> Params<G1Affine> {
-    Params::<G1Affine>::read(Cursor::new(&read_verify_circuit_params(
+pub fn load_verify_circuit_params(folder: &mut PathBuf) -> ParamsKZG<Bn256> {
+    ParamsKZG::<Bn256>::read(Cursor::new(&read_verify_circuit_params(
         &mut folder.clone(),
     )))
     .unwrap()
@@ -144,7 +148,7 @@ fn load_instances<E: MultiMillerLoop>(buf: &[u8]) -> Vec<Vec<Vec<E::Scalar>>> {
     let mut ret = vec![];
     let cursor = &mut std::io::Cursor::new(buf);
 
-    while let Ok(a) = <E::Scalar as BaseExt>::read(cursor) {
+    while let Ok(a) = <E::Scalar as FieldExt>::read(cursor) {
         ret.push(a);
     }
 
@@ -160,7 +164,7 @@ pub fn load_verify_circuit_proof(folder: &mut PathBuf) -> Vec<u8> {
     read_file(folder, "verify_circuit_proof.data")
 }
 
-pub fn write_verify_circuit_params(folder: &mut PathBuf, verify_circuit_params: &Params<G1Affine>) {
+pub fn write_verify_circuit_params(folder: &mut PathBuf, verify_circuit_params: &ParamsKZG<Bn256>) {
     folder.push("verify_circuit.params");
     let mut fd = std::fs::File::create(folder.as_path()).unwrap();
     folder.pop();
@@ -184,7 +188,9 @@ pub fn write_verify_circuit_instance(
     let mut fd = std::fs::File::create(folder.as_path()).unwrap();
     folder.pop();
 
-    buf.iter().for_each(|x| x.write(&mut fd).unwrap());
+    buf.iter().for_each(|x| {
+        fd.write(x.to_repr().as_ref()).unwrap();
+    });
 }
 
 pub fn write_verify_circuit_final_pair(folder: &mut PathBuf, pair: &(G1Affine, G1Affine, Vec<Fr>)) {
@@ -192,13 +198,13 @@ pub fn write_verify_circuit_final_pair(folder: &mut PathBuf, pair: &(G1Affine, G
     let mut fd = std::fs::File::create(folder.as_path()).unwrap();
     folder.pop();
 
-    pair.0.x.write(&mut fd).unwrap();
-    pair.0.y.write(&mut fd).unwrap();
-    pair.1.x.write(&mut fd).unwrap();
-    pair.1.y.write(&mut fd).unwrap();
+    fd.write(pair.0.x.to_repr().as_ref()).unwrap();
+    fd.write(pair.0.y.to_repr().as_ref()).unwrap();
+    fd.write(pair.1.x.to_repr().as_ref()).unwrap();
+    fd.write(pair.1.y.to_repr().as_ref()).unwrap();
 
     pair.2.iter().for_each(|scalar| {
-        scalar.write(&mut fd).unwrap();
+        fd.write(scalar.to_repr().as_ref());
     })
 }
 

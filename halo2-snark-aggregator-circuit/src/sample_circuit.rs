@@ -1,14 +1,13 @@
-use halo2_proofs::arithmetic::BaseExt;
 use halo2_proofs::plonk::keygen_vk;
 use halo2_proofs::plonk::{create_proof, keygen_pk};
+use halo2_proofs::poly::kzg::commitment::ParamsKZG;
 use halo2_proofs::transcript::PoseidonRead;
 use halo2_proofs::transcript::{Challenge255, PoseidonWrite};
-use halo2_proofs::{
-    arithmetic::{CurveAffine, MultiMillerLoop},
-    plonk::Circuit,
-    poly::commitment::Params,
-};
+use halo2_proofs::{arithmetic::CurveAffine, plonk::Circuit, poly::commitment::Params};
+use halo2curves::group::ff::PrimeField;
+use halo2curves::pairing::MultiMillerLoop;
 use rand_core::OsRng;
+use std::fmt::Debug;
 use std::io::Write;
 
 use crate::fs::load_target_circuit_params;
@@ -30,13 +29,13 @@ pub trait TargetCircuit<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> {
 
 pub fn sample_circuit_setup<
     C: CurveAffine,
-    E: MultiMillerLoop<G1Affine = C>,
+    E: MultiMillerLoop<G1Affine = C> + Debug,
     CIRCUIT: TargetCircuit<C, E>,
 >(
     mut folder: std::path::PathBuf,
 ) {
     // TODO: Do not use setup in production
-    let params = Params::<C>::unsafe_setup::<E>(CIRCUIT::TARGET_CIRCUIT_K);
+    let params = ParamsKZG::<E>::unsafe_setup(CIRCUIT::TARGET_CIRCUIT_K);
 
     let circuit = CIRCUIT::Circuit::default();
     let vk = keygen_vk(&params, &circuit).expect("keygen_vk should not fail");
@@ -100,14 +99,14 @@ pub fn sample_circuit_random_run<
         instances.iter().for_each(|l1| {
             l1.iter().for_each(|l2| {
                 l2.iter().for_each(|c: &C::ScalarExt| {
-                    c.write(&mut fd).unwrap();
+                    fd.write(c.to_repr().as_ref());
                 })
             })
         });
     }
 
     let params = params.verifier::<E>(CIRCUIT::PUBLIC_INPUT_SIZE).unwrap();
-    let strategy = halo2_proofs::plonk::SingleVerifier::new(&params);
+    let strategy = halo2_proofs::plonk::VerifyingKey::new(&params);
     let mut transcript = PoseidonRead::<_, _, Challenge255<_>>::init(&proof[..]);
     halo2_proofs::plonk::verify_proof::<E, _, _, _>(
         &params,
