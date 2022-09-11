@@ -12,7 +12,7 @@ use halo2curves::{
 };
 use std::{
     io::{Cursor, Read, Write},
-    path::PathBuf,
+    path::PathBuf, fmt::Debug,
 };
 
 pub fn read_file(folder: &mut PathBuf, filename: &str) -> Vec<u8> {
@@ -49,12 +49,12 @@ pub fn read_target_circuit_params<
 
 pub fn load_target_circuit_params<
     C: CurveAffine,
-    E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>,
+    E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt> + Debug,
     Circuit: TargetCircuit<C, E>,
 >(
     folder: &mut PathBuf,
 ) -> ParamsKZG<E> {
-    ParamsKZG::<C>::read(Cursor::new(&read_target_circuit_params::<C, E, Circuit>(
+    ParamsKZG::<E>::read(Cursor::new(&read_target_circuit_params::<C, E, Circuit>(
         &mut folder.clone(),
     )))
     .unwrap()
@@ -133,7 +133,7 @@ pub fn read_verify_circuit_vk(folder: &mut PathBuf) -> Vec<u8> {
 }
 
 pub fn load_verify_circuit_vk(folder: &mut PathBuf) -> VerifyingKey<G1Affine> {
-    VerifyingKey::<G1Affine>::read::<_, Halo2VerifierCircuit<'_, Bn256>>(
+    VerifyingKey::<G1Affine>::read::<_, Halo2VerifierCircuit<'_, Bn256>,>(
         &mut Cursor::new(&read_verify_circuit_vk(&mut folder.clone())),
         &load_verify_circuit_params(&mut folder.clone()),
     )

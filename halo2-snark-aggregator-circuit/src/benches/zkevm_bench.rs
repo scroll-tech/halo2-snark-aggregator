@@ -6,12 +6,12 @@ use halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner},
     plonk::{
         create_proof, keygen_pk, keygen_vk, verify_proof, Circuit, ConstraintSystem, Error,
-        Expression, ProvingKey, SingleVerifier,
+        Expression, ProvingKey,
     },
-    poly::commitment::{Params, ParamsVerifier},
+    poly::{commitment::{Params, ParamsVerifier}, kzg::{commitment::{ParamsKZG, ParamsVerifierKZG}, multiopen::VerifierGWC}},
     transcript::{Challenge255, PoseidonRead, PoseidonWrite},
 };
-use pairing_bn256::bn256::{Bn256, Fr, G1Affine};
+use halo2curves::bn256::{Bn256, Fr, G1Affine};
 use rand_core::OsRng;
 use zkevm_circuits::evm_circuit::{witness::Block, EvmCircuit};
 
@@ -62,8 +62,8 @@ impl<F: Field> Circuit<F> for TestCircuit<F> {
 }
 
 fn setup_sample_circuit() -> (
-    Params<G1Affine>,
-    ParamsVerifier<Bn256>,
+    ParamsKZG<Bn256>,
+    ParamsVerifierKZG<Bn256>,
     ProvingKey<G1Affine>,
     Vec<Vec<Vec<Fr>>>,
     Vec<Vec<Vec<Fr>>>,
@@ -75,8 +75,8 @@ fn setup_sample_circuit() -> (
     // Bench setup generation
     let setup_message = format!("Setup generation with degree = {}", DEGREE_OF_EVM_CIRCUIT);
     let start1 = start_timer!(|| setup_message);
-    let general_params: Params<G1Affine> =
-        Params::<G1Affine>::unsafe_setup::<Bn256>(DEGREE_OF_EVM_CIRCUIT);
+    let general_params: ParamsKZG<Bn256> =
+        ParamsKZG::<Bn256>::unsafe_setup(DEGREE_OF_EVM_CIRCUIT);
     end_timer!(start1);
 
     let vk = keygen_vk(&general_params, &circuit).unwrap();
@@ -117,7 +117,7 @@ fn setup_sample_circuit() -> (
     // Verify
     let verifier_params: ParamsVerifier<Bn256> = general_params.verifier(DEGREE * 2).unwrap();
     let mut verifier_transcript = PoseidonRead::<_, _, Challenge255<_>>::init(&proof1[..]);
-    let strategy = SingleVerifier::new(&verifier_params);
+    let strategy = VerifierGWC::new(&verifier_params);
 
     // Bench verification time
     let start3 = start_timer!(|| "EVM Proof verification");
