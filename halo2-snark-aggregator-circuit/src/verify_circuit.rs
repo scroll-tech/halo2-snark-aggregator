@@ -560,7 +560,7 @@ pub struct Setup<C: CurveAffine, E: MultiMillerLoop<G1Affine = C, Scalar = C::Sc
 }
 
 impl Setup<G1Affine, Bn256> {
-    pub fn new<SingleCircuit: TargetCircuit<G1Affine, Bn256>, L>(
+    pub fn new<SingleCircuit: TargetCircuit<Bn256>, L>(
         folder: &PathBuf,
         load_instances: L,
     ) -> Setup<G1Affine, Bn256>
@@ -586,8 +586,8 @@ impl Setup<G1Affine, Bn256> {
             .collect::<Vec<_>>();
 
         let target_circuit_params =
-            load_target_circuit_params::<G1Affine, Bn256, SingleCircuit>(&mut folder.clone());
-        let target_circuit_vk = load_target_circuit_vk::<G1Affine, Bn256, SingleCircuit>(
+            load_target_circuit_params::<Bn256, SingleCircuit>(&mut folder.clone());
+        let target_circuit_vk = load_target_circuit_vk::<Bn256, SingleCircuit>(
             &mut folder.clone(),
             &target_circuit_params,
         );
@@ -805,7 +805,7 @@ pub struct CreateProof<C: CurveAffine, E: MultiMillerLoop<G1Affine = C, Scalar =
 }
 
 impl CreateProof<G1Affine, Bn256> {
-    pub fn new<SingleCircuit: TargetCircuit<G1Affine, Bn256>, L>(
+    pub fn new<SingleCircuit: TargetCircuit<Bn256>, L>(
         folder: &PathBuf,
         load_instances: L,
     ) -> CreateProof<G1Affine, Bn256>
@@ -831,8 +831,8 @@ impl CreateProof<G1Affine, Bn256> {
             .collect::<Vec<_>>();
 
         let target_circuit_params =
-            load_target_circuit_params::<G1Affine, Bn256, SingleCircuit>(&mut folder.clone());
-        let target_circuit_vk = load_target_circuit_vk::<G1Affine, Bn256, SingleCircuit>(
+            load_target_circuit_params::<Bn256, SingleCircuit>(&mut folder.clone());
+        let target_circuit_vk = load_target_circuit_vk::<Bn256, SingleCircuit>(
             &mut folder.clone(),
             &target_circuit_params,
         );

@@ -12,7 +12,7 @@ use halo2_snark_aggregator_api::{
     hash::poseidon::PoseidonChip,
     transcript::{encode::Encode, read::TranscriptRead as APITranscriptRead},
 };
-use pairing_bn256::group::Curve;
+use halo2curves::group::Curve;
 use std::{io, marker::PhantomData};
 
 pub struct CodegenTranscriptRead<

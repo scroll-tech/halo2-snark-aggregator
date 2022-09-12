@@ -5,9 +5,9 @@ use halo2_proofs::poly::kzg::multiopen::{ProverGWC, VerifierGWC};
 use halo2_proofs::poly::kzg::strategy::SingleStrategy;
 use halo2_proofs::transcript::PoseidonRead;
 use halo2_proofs::transcript::{Challenge255, PoseidonWrite};
-use halo2_proofs::{arithmetic::CurveAffine, plonk::Circuit, poly::commitment::Params};
+use halo2_proofs::{plonk::Circuit, poly::commitment::Params};
 use halo2curves::group::ff::PrimeField;
-use halo2curves::pairing::MultiMillerLoop;
+use halo2curves::pairing::{Engine, MultiMillerLoop};
 use rand_core::OsRng;
 use std::fmt::Debug;
 use std::io::Write;
@@ -15,7 +15,7 @@ use std::io::Write;
 use crate::fs::load_target_circuit_params;
 use crate::fs::load_target_circuit_vk;
 
-pub trait TargetCircuit<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> {
+pub trait TargetCircuit<E: MultiMillerLoop> {
     const TARGET_CIRCUIT_K: u32;
     const PUBLIC_INPUT_SIZE: usize;
     const N_PROOFS: usize;
@@ -23,17 +23,13 @@ pub trait TargetCircuit<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> {
     const PARAMS_NAME: &'static str;
     const READABLE_VKEY: bool;
 
-    type Circuit: Circuit<C::ScalarExt> + Default;
+    type Circuit: Circuit<<E as Engine>::Scalar> + Default;
 
-    fn instance_builder() -> (Self::Circuit, Vec<Vec<C::ScalarExt>>);
-    fn load_instances(buf: &[u8]) -> Vec<Vec<Vec<C::ScalarExt>>>;
+    fn instance_builder() -> (Self::Circuit, Vec<Vec<<E as Engine>::Scalar>>);
+    fn load_instances(buf: &[u8]) -> Vec<Vec<Vec<<E as Engine>::Scalar>>>;
 }
 
-pub fn sample_circuit_setup<
-    C: CurveAffine,
-    E: MultiMillerLoop<G1Affine = C> + Debug,
-    CIRCUIT: TargetCircuit<C, E>,
->(
+pub fn sample_circuit_setup<E: MultiMillerLoop + Debug, CIRCUIT: TargetCircuit<E>>(
     mut folder: std::path::PathBuf,
 ) {
     // TODO: Do not use setup in production
@@ -57,24 +53,20 @@ pub fn sample_circuit_setup<
     }
 }
 
-pub fn sample_circuit_random_run<
-    C: CurveAffine,
-    E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt> + Debug,
-    CIRCUIT: TargetCircuit<C, E>,
->(
+pub fn sample_circuit_random_run<E: MultiMillerLoop + Debug, CIRCUIT: TargetCircuit<E>>(
     mut folder: std::path::PathBuf,
     circuit: CIRCUIT::Circuit,
-    instances: &[&[C::Scalar]],
+    instances: &[&[E::Scalar]],
     index: usize,
 ) {
-    let params = load_target_circuit_params::<C, E, CIRCUIT>(&mut folder);
+    let params = load_target_circuit_params::<E, CIRCUIT>(&mut folder);
 
-    let vk = load_target_circuit_vk::<C, E, CIRCUIT>(&mut folder, &params);
+    let vk = load_target_circuit_vk::<E, CIRCUIT>(&mut folder, &params);
     let pk = keygen_pk(&params, vk, &circuit).expect("keygen_pk should not fail");
 
     // let instances: &[&[&[C::Scalar]]] = &[&[&[constant * a.square() * b.square()]]];
     let instances: &[&[&[_]]] = &[instances];
-    let mut transcript = PoseidonWrite::<_, C, Challenge255<_>>::init(vec![]);
+    let mut transcript = PoseidonWrite::<_, E::G1Affine, Challenge255<_>>::init(vec![]);
     create_proof::<KZGCommitmentScheme<_>, ProverGWC<_>, _, _, _, _>(
         &params,
         &pk,
@@ -107,7 +99,7 @@ pub fn sample_circuit_random_run<
         folder.pop();
         instances.iter().for_each(|l1| {
             l1.iter().for_each(|l2| {
-                l2.iter().for_each(|c: &C::ScalarExt| {
+                l2.iter().for_each(|c: &E::Scalar| {
                     fd.write_all(c.to_repr().as_ref()).unwrap();
                 })
             })

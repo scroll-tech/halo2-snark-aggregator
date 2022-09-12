@@ -13,12 +13,14 @@ use halo2_proofs::{
     arithmetic::{CurveAffine, Field},
     poly::{
         commitment::ParamsProver,
-        kzg::commitment::{KZGCommitmentScheme, ParamsKZG, ParamsVerifierKZG},
+        kzg::{
+            commitment::{KZGCommitmentScheme, ParamsKZG, ParamsVerifierKZG},
+            multiopen::ProverGWC,
+        },
     },
 };
 use halo2_proofs::{
     plonk::{create_proof, keygen_pk, keygen_vk},
-    poly::commitment::Params,
     transcript::{Challenge255, PoseidonWrite},
 };
 use halo2curves::bn256::Fr as Fp;
@@ -64,8 +66,6 @@ pub fn test_verify_single_proof_in_chip<
     let params = ParamsKZG::<Bn256>::setup(K, &mut test_rng);
     let vk = keygen_vk(&params, &circuit).expect("keygen_vk should not fail");
 
-    let public_inputs_size = 1;
-
     let constant = Fp::from(7);
     let a = random();
     let b = random();
@@ -75,7 +75,7 @@ pub fn test_verify_single_proof_in_chip<
     let pk = keygen_pk(&params, vk, &circuit).expect("keygen_pk should not fail");
 
     let mut transcript = PoseidonWrite::<Vec<u8>, G1Affine, Challenge255<G1Affine>>::init(vec![]);
-    create_proof::<KZGCommitmentScheme<Bn256>, ParamsKZG<Bn256>, _, _, _, _>(
+    create_proof::<KZGCommitmentScheme<Bn256>, ProverGWC<Bn256>, _, _, _, _>(
         &params,
         &pk,
         &[circuit],

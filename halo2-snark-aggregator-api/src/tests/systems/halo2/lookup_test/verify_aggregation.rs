@@ -8,15 +8,17 @@ use crate::{
     },
 };
 use halo2_proofs::arithmetic::CurveAffine;
-use halo2_proofs::poly::kzg::commitment::ParamsVerifierKZG;
+use halo2_proofs::poly::commitment::ParamsProver;
+use halo2_proofs::poly::kzg::commitment::{KZGCommitmentScheme, ParamsKZG, ParamsVerifierKZG};
+use halo2_proofs::poly::kzg::multiopen::ProverGWC;
 use halo2_proofs::{
     plonk::{create_proof, keygen_pk, keygen_vk},
-    poly::commitment::Params,
     transcript::{Challenge255, PoseidonWrite},
 };
 use halo2curves::bn256::Fr as Fp;
 use halo2curves::bn256::{Bn256, G1Affine};
 use rand::rngs::OsRng;
+use rand::thread_rng;
 use std::marker::PhantomData;
 
 const K: u32 = 6;
@@ -44,12 +46,12 @@ pub fn test_verify_aggregation_proof_in_chip<
         Error = halo2_proofs::plonk::Error,
     >,
 {
+    let mut test_rng = thread_rng();
     let circuit_template = test_circuit_builder();
-    let params = Params::<G1Affine>::unsafe_setup::<Bn256>(K);
+    let params = ParamsKZG::<Bn256>::setup(K, &mut test_rng);
     let vk = keygen_vk(&params, &circuit_template).expect("keygen_vk should not fail");
 
-    let public_inputs_size: usize = (K * 2) as usize;
-    let params_verifier: &ParamsVerifierKZG<Bn256> = &params.verifier(public_inputs_size).unwrap();
+    let params_verifier: &ParamsVerifierKZG<Bn256> = &params.verifier_params();
 
     let mut n_instances: Vec<_> = vec![];
     let mut n_proof: Vec<_> = vec![];
@@ -66,7 +68,8 @@ pub fn test_verify_aggregation_proof_in_chip<
         ];
         let instances = vec![vec![odd_lookup]];
         let pk = keygen_pk(&params, vk, &circuit).expect("keygen_pk should not fail");
-        let mut transcript = PoseidonWrite::<_, _, Challenge255<_>>::init(vec![]);
+        let mut transcript =
+            PoseidonWrite::<Vec<u8>, G1Affine, Challenge255<G1Affine>>::init(vec![]);
 
         let instances1: Vec<Vec<&[Fp]>> = instances
             .iter()
@@ -74,7 +77,7 @@ pub fn test_verify_aggregation_proof_in_chip<
             .collect();
         let instances2: Vec<&[&[Fp]]> = instances1.iter().map(|x| &x[..]).collect();
 
-        create_proof(
+        create_proof::<KZGCommitmentScheme<Bn256>, ProverGWC<Bn256>, _, _, _, _>(
             &params,
             &pk,
             &[circuit],

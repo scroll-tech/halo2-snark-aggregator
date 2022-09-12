@@ -336,22 +336,6 @@ checksum = "8f1e260c3a9040a7c19a12468758f4c16f31a81a1fe087482be9570ec864bb6c"
 [[package]]
 name = "bus-mapping"
 version = "0.1.0"
-source = "git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main#e37623fe7e92fe0e5dada2b0cebc361c14669007"
-dependencies = [
- "eth-types 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main)",
- "ethers-core",
- "ethers-providers",
- "itertools",
- "keccak256 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main)",
- "lazy_static",
- "log",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "bus-mapping"
-version = "0.1.0"
 source = "git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs#e37623fe7e92fe0e5dada2b0cebc361c14669007"
 dependencies = [
  "eth-types 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs)",
@@ -363,6 +347,26 @@ dependencies = [
  "log",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "bus-mapping"
+version = "0.1.0"
+source = "git+https://github.com/scroll-tech/zkevm-circuits.git?branch=zz/sync-halo2-0902#08f3ff794468305601a4196b934562cba5f21e77"
+dependencies = [
+ "eth-types 0.1.0 (git+https://github.com/scroll-tech/zkevm-circuits.git?branch=zz/sync-halo2-0902)",
+ "ethers-core",
+ "ethers-providers",
+ "gadgets 0.1.0 (git+https://github.com/scroll-tech/zkevm-circuits.git?branch=zz/sync-halo2-0902)",
+ "halo2_proofs 0.2.0",
+ "itertools",
+ "keccak256 0.1.0 (git+https://github.com/scroll-tech/zkevm-circuits.git?branch=zz/sync-halo2-0902)",
+ "lazy_static",
+ "log",
+ "serde",
+ "serde_json",
+ "strum",
+ "strum_macros",
 ]
 
 [[package]]
@@ -433,9 +437,9 @@ dependencies = [
 
 [[package]]
 name = "chrono-tz"
-version = "0.6.1"
+version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "58549f1842da3080ce63002102d5bc954c7bc843d4f47818e642abdc36253552"
+checksum = "29c39203181991a7dd4343b8005bd804e7a9a37afb8ac070e43771e8c820bbde"
 dependencies = [
  "chrono",
  "chrono-tz-build",
@@ -444,9 +448,9 @@ dependencies = [
 
 [[package]]
 name = "chrono-tz-build"
-version = "0.0.2"
+version = "0.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "db058d493fb2f65f41861bfed7e3fe6335264a9f0f92710cab5bdf01fef09069"
+checksum = "6f509c3a87b33437b05e2458750a0700e5bdd6956176773e6c7d6dd15a283a0c"
 dependencies = [
  "parse-zoneinfo",
  "phf",
@@ -799,6 +803,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "ecc"
+version = "0.1.0"
+source = "git+https://github.com/zhenfeizhang/halo2wrong?branch=sync-halo2-0902#06adce1af62ff5866664fc1c7d24e262cb709728"
+dependencies = [
+ "group 0.12.0",
+ "integer",
+ "num-bigint",
+ "num-integer",
+ "num-traits",
+ "rand",
+ "subtle",
+]
+
+[[package]]
+name = "ecdsa"
+version = "0.1.0"
+source = "git+https://github.com/zhenfeizhang/halo2wrong?branch=sync-halo2-0902#06adce1af62ff5866664fc1c7d24e262cb709728"
+dependencies = [
+ "ecc",
+ "group 0.12.0",
+ "num-bigint",
+ "num-integer",
+ "num-traits",
+ "rand",
+ "subtle",
+]
+
+[[package]]
 name = "ecdsa"
 version = "0.12.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -894,23 +926,6 @@ dependencies = [
 [[package]]
 name = "eth-types"
 version = "0.1.0"
-source = "git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main#e37623fe7e92fe0e5dada2b0cebc361c14669007"
-dependencies = [
- "ethers-core",
- "ethers-providers",
- "halo2_proofs 0.1.0-beta.1 (git+https://github.com/junyu0312/halo2?rev=35fae8cfb75052516aeaceddbd16e3f1c54edad2)",
- "hex",
- "itertools",
- "lazy_static",
- "regex",
- "serde",
- "serde_json",
- "uint",
-]
-
-[[package]]
-name = "eth-types"
-version = "0.1.0"
 source = "git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs#e37623fe7e92fe0e5dada2b0cebc361c14669007"
 dependencies = [
  "ethers-core",
@@ -928,7 +943,7 @@ dependencies = [
 [[package]]
 name = "eth-types"
 version = "0.1.0"
-source = "git+https://github.com/scroll-tech/zkevm-circuits.git?branch=zz/sync-halo2-0902#a586b56e24bb0d19b545a08b25af584c3dec415a"
+source = "git+https://github.com/scroll-tech/zkevm-circuits.git?branch=zz/sync-halo2-0902#08f3ff794468305601a4196b934562cba5f21e77"
 dependencies = [
  "ethers-core",
  "ethers-signers",
@@ -999,7 +1014,7 @@ dependencies = [
  "arrayvec",
  "bytes",
  "convert_case",
- "ecdsa",
+ "ecdsa 0.12.4",
  "elliptic-curve 0.11.12",
  "ethabi",
  "generic-array 0.14.6",
@@ -1131,11 +1146,10 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 
 [[package]]
 name = "form_urlencoded"
-version = "1.0.1"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5fc25a87fa4fd2094bffb06925852034d90a17f0d1e05197d4956d3555752191"
+checksum = "a9c384f161156f5260c24a097c56119f9be8c798586aecc13afbcbe7b7e26bf8"
 dependencies = [
- "matches",
  "percent-encoding",
 ]
 
@@ -1249,10 +1263,10 @@ dependencies = [
 [[package]]
 name = "gadgets"
 version = "0.1.0"
-source = "git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main#e37623fe7e92fe0e5dada2b0cebc361c14669007"
+source = "git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs#e37623fe7e92fe0e5dada2b0cebc361c14669007"
 dependencies = [
  "digest 0.7.6",
- "eth-types 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main)",
+ "eth-types 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs)",
  "halo2_proofs 0.1.0-beta.1 (git+https://github.com/junyu0312/halo2?rev=35fae8cfb75052516aeaceddbd16e3f1c54edad2)",
  "sha3 0.7.3",
 ]
@@ -1260,12 +1274,13 @@ dependencies = [
 [[package]]
 name = "gadgets"
 version = "0.1.0"
-source = "git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs#e37623fe7e92fe0e5dada2b0cebc361c14669007"
+source = "git+https://github.com/scroll-tech/zkevm-circuits.git?branch=zz/sync-halo2-0902#08f3ff794468305601a4196b934562cba5f21e77"
 dependencies = [
  "digest 0.7.6",
- "eth-types 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs)",
- "halo2_proofs 0.1.0-beta.1 (git+https://github.com/junyu0312/halo2?rev=35fae8cfb75052516aeaceddbd16e3f1c54edad2)",
+ "eth-types 0.1.0 (git+https://github.com/scroll-tech/zkevm-circuits.git?branch=zz/sync-halo2-0902)",
+ "halo2_proofs 0.2.0",
  "sha3 0.7.3",
+ "strum",
 ]
 
 [[package]]
@@ -1383,7 +1398,7 @@ dependencies = [
  "indexmap",
  "slab",
  "tokio",
- "tokio-util 0.7.3",
+ "tokio-util 0.7.4",
  "tracing",
 ]
 
@@ -1414,11 +1429,11 @@ dependencies = [
  "halo2_proofs 0.2.0",
  "halo2curves 0.2.1",
  "num-bigint",
- "poseidon 0.2.0",
+ "poseidon 0.2.0 (git+https://github.com/privacy-scaling-explorations/poseidon.git)",
  "rand",
  "rand_pcg",
  "rand_xorshift",
- "zkevm-circuits 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main)",
+ "zkevm-circuits 0.1.0 (git+https://github.com/scroll-tech/zkevm-circuits.git?branch=zz/sync-halo2-0902)",
 ]
 
 [[package]]
@@ -1427,7 +1442,7 @@ version = "0.1.0"
 dependencies = [
  "ark-std",
  "clap",
- "eth-types 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs)",
+ "eth-types 0.1.0 (git+https://github.com/scroll-tech/zkevm-circuits.git?branch=zz/sync-halo2-0902)",
  "halo2-ecc-circuit-lib",
  "halo2-snark-aggregator-api",
  "halo2_proofs 0.2.0",
@@ -1439,7 +1454,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.5",
  "sha3 0.10.4",
- "zkevm-circuits 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs)",
+ "zkevm-circuits 0.1.0 (git+https://github.com/scroll-tech/zkevm-circuits.git?branch=zz/sync-halo2-0902)",
 ]
 
 [[package]]
@@ -1470,10 +1485,10 @@ dependencies = [
  "halo2-ecc-circuit-lib",
  "halo2-snark-aggregator-api",
  "halo2-snark-aggregator-circuit",
- "halo2_proofs 0.1.0-beta.1 (git+https://github.com/junyu0312/halo2?rev=4112958c7fa980b331897fd030a329095f418ff9)",
+ "halo2_proofs 0.2.0",
+ "halo2curves 0.2.1",
  "log",
  "num-bigint",
- "pairing_bn256",
  "sha3 0.10.4",
  "tera",
 ]
@@ -1520,8 +1535,22 @@ dependencies = [
 
 [[package]]
 name = "halo2_proofs"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e925780549adee8364c7f2b685c753f6f3df23bde520c67416e93bf615933760"
+dependencies = [
+ "blake2b_simd",
+ "ff 0.12.0",
+ "group 0.12.0",
+ "pasta_curves",
+ "rand_core",
+ "rayon",
+]
+
+[[package]]
+name = "halo2_proofs"
 version = "0.2.0"
-source = "git+https://github.com/scroll-tech/halo2?branch=zz/merge_upstream_0902#295d9062a478d3fd77f0a2ed84e2bc882fa5ae91"
+source = "git+https://github.com/scroll-tech/halo2?branch=zz/merge_upstream_0902#be443ceeca47e9ad3916816f90f141098934d6de"
 dependencies = [
  "blake2b_simd",
  "cfg-if 0.1.10",
@@ -1530,7 +1559,7 @@ dependencies = [
  "halo2curves 0.2.1",
  "num-bigint",
  "num-integer",
- "poseidon 0.2.0",
+ "poseidon 0.2.0 (git+https://github.com/appliedzkp/poseidon.git)",
  "rand_core",
  "rayon",
  "subtle",
@@ -1569,6 +1598,18 @@ dependencies = [
  "rand_core",
  "static_assertions",
  "subtle",
+]
+
+[[package]]
+name = "halo2wrong"
+version = "0.1.0"
+source = "git+https://github.com/zhenfeizhang/halo2wrong?branch=sync-halo2-0902#06adce1af62ff5866664fc1c7d24e262cb709728"
+dependencies = [
+ "group 0.12.0",
+ "halo2_proofs 0.2.0",
+ "num-bigint",
+ "num-integer",
+ "num-traits",
 ]
 
 [[package]]
@@ -1728,11 +1769,10 @@ dependencies = [
 
 [[package]]
 name = "idna"
-version = "0.2.3"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "418a0a6fab821475f634efe3ccc45c013f742efe03d853e8d3355d5cb850ecf8"
+checksum = "e14ddfc70884202db2244c223200c204c2bda1bc6e0998d11b5e024d657209e6"
 dependencies = [
- "matches",
  "unicode-bidi",
  "unicode-normalization",
 ]
@@ -1816,6 +1856,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "integer"
+version = "0.1.0"
+source = "git+https://github.com/zhenfeizhang/halo2wrong?branch=sync-halo2-0902#06adce1af62ff5866664fc1c7d24e262cb709728"
+dependencies = [
+ "group 0.12.0",
+ "maingate",
+ "num-bigint",
+ "num-integer",
+ "num-traits",
+ "rand",
+ "subtle",
+]
+
+[[package]]
 name = "ipnet"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1838,9 +1892,9 @@ checksum = "6c8af84674fe1f223a982c933a0ee1086ac4d4052aa0fb8060c12c6ad838e754"
 
 [[package]]
 name = "js-sys"
-version = "0.3.59"
+version = "0.3.60"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "258451ab10b34f8af53416d1fdab72c22e805f0c92a1136d59470ec0b11138b2"
+checksum = "49409df3e3bf0856b916e2ceaca09ee28e6871cf7d9ce97a692cacfdb2a25a47"
 dependencies = [
  "wasm-bindgen",
 ]
@@ -1852,7 +1906,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "903ae2481bcdfdb7b68e0a9baa4b7c9aff600b9ae2e8e5bb5833b8c91ab851ea"
 dependencies = [
  "cfg-if 1.0.0",
- "ecdsa",
+ "ecdsa 0.12.4",
  "elliptic-curve 0.10.6",
  "sha2 0.9.9",
  "sha3 0.9.1",
@@ -1867,10 +1921,10 @@ checksum = "f9b7d56ba4a8344d6be9729995e6b06f928af29998cdf79fe390cbf6b1fee838"
 [[package]]
 name = "keccak256"
 version = "0.1.0"
-source = "git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main#e37623fe7e92fe0e5dada2b0cebc361c14669007"
+source = "git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs#e37623fe7e92fe0e5dada2b0cebc361c14669007"
 dependencies = [
- "eth-types 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main)",
- "gadgets 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main)",
+ "eth-types 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs)",
+ "gadgets 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs)",
  "halo2_proofs 0.1.0-beta.1 (git+https://github.com/junyu0312/halo2?rev=35fae8cfb75052516aeaceddbd16e3f1c54edad2)",
  "itertools",
  "lazy_static",
@@ -1881,11 +1935,10 @@ dependencies = [
 [[package]]
 name = "keccak256"
 version = "0.1.0"
-source = "git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs#e37623fe7e92fe0e5dada2b0cebc361c14669007"
+source = "git+https://github.com/scroll-tech/zkevm-circuits.git?branch=zz/sync-halo2-0902#08f3ff794468305601a4196b934562cba5f21e77"
 dependencies = [
- "eth-types 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs)",
- "gadgets 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs)",
- "halo2_proofs 0.1.0-beta.1 (git+https://github.com/junyu0312/halo2?rev=35fae8cfb75052516aeaceddbd16e3f1c54edad2)",
+ "eth-types 0.1.0 (git+https://github.com/scroll-tech/zkevm-circuits.git?branch=zz/sync-halo2-0902)",
+ "halo2_proofs 0.1.0",
  "itertools",
  "lazy_static",
  "num-bigint",
@@ -1972,10 +2025,18 @@ dependencies = [
 ]
 
 [[package]]
-name = "matches"
-version = "0.1.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a3e378b66a060d48947b590737b30a1be76706c8dd7b8ba0f2fe3989c68a853f"
+name = "maingate"
+version = "0.1.0"
+source = "git+https://github.com/zhenfeizhang/halo2wrong?branch=sync-halo2-0902#06adce1af62ff5866664fc1c7d24e262cb709728"
+dependencies = [
+ "group 0.12.0",
+ "halo2wrong",
+ "num-bigint",
+ "num-integer",
+ "num-traits",
+ "rand",
+ "subtle",
+]
 
 [[package]]
 name = "memchr"
@@ -2247,15 +2308,15 @@ dependencies = [
 
 [[package]]
 name = "percent-encoding"
-version = "2.1.0"
+version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d4fd5641d01c8f18a23da7b6fe29298ff4b55afcccdf78973b24cf3175fee32e"
+checksum = "478c572c3d73181ff3c2539045f6eb99e5491218eae919370993b890cdbdd98e"
 
 [[package]]
 name = "pest"
-version = "2.3.0"
+version = "2.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4b0560d531d1febc25a3c9398a62a71256c0178f2e3443baedd9ad4bb8c9deb4"
+checksum = "cb779fcf4bb850fbbb0edc96ff6cf34fd90c4b1a112ce042653280d9a7364048"
 dependencies = [
  "thiserror",
  "ucd-trie",
@@ -2263,9 +2324,9 @@ dependencies = [
 
 [[package]]
 name = "pest_derive"
-version = "2.3.0"
+version = "2.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "905708f7f674518498c1f8d644481440f476d39ca6ecae83319bba7c6c12da91"
+checksum = "502b62a6d0245378b04ffe0a7fb4f4419a4815fce813bd8a0ec89a56e07d67b1"
 dependencies = [
  "pest",
  "pest_generator",
@@ -2273,9 +2334,9 @@ dependencies = [
 
 [[package]]
 name = "pest_generator"
-version = "2.3.0"
+version = "2.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5803d8284a629cc999094ecd630f55e91b561a1d1ba75e233b00ae13b91a69ad"
+checksum = "451e629bf49b750254da26132f1a5a9d11fd8a95a3df51d15c4abd1ba154cb6c"
 dependencies = [
  "pest",
  "pest_meta",
@@ -2286,13 +2347,13 @@ dependencies = [
 
 [[package]]
 name = "pest_meta"
-version = "2.3.0"
+version = "2.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1538eb784f07615c6d9a8ab061089c6c54a344c5b4301db51990ca1c241e8c04"
+checksum = "bcec162c71c45e269dfc3fc2916eaeb97feab22993a21bcce4721d08cd7801a6"
 dependencies = [
  "once_cell",
  "pest",
- "sha-1 0.10.0",
+ "sha1",
 ]
 
 [[package]]
@@ -2307,18 +2368,18 @@ dependencies = [
 
 [[package]]
 name = "phf"
-version = "0.10.1"
+version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fabbf1ead8a5bcbc20f5f8b939ee3f5b0f6f281b6ad3468b84656b658b455259"
+checksum = "928c6535de93548188ef63bb7c4036bd415cd8f36ad25af44b9789b2ee72a48c"
 dependencies = [
  "phf_shared",
 ]
 
 [[package]]
 name = "phf_codegen"
-version = "0.10.0"
+version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4fb1c3a8bc4dd4e5cfce29b44ffc14bedd2ee294559a294e2a4d4c9e9a6a13cd"
+checksum = "a56ac890c5e3ca598bbdeaa99964edb5b0258a583a9eb6ef4e89fc85d9224770"
 dependencies = [
  "phf_generator",
  "phf_shared",
@@ -2326,9 +2387,9 @@ dependencies = [
 
 [[package]]
 name = "phf_generator"
-version = "0.10.0"
+version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d5285893bb5eb82e6aaf5d59ee909a06a16737a8970984dd7746ba9283498d6"
+checksum = "b1181c94580fa345f50f19d738aaa39c0ed30a600d95cb2d3e23f94266f14fbf"
 dependencies = [
  "phf_shared",
  "rand",
@@ -2336,9 +2397,9 @@ dependencies = [
 
 [[package]]
 name = "phf_shared"
-version = "0.10.0"
+version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6796ad771acdc0123d2a88dc428b5e38ef24456743ddb1744ed628f9815c096"
+checksum = "e1fb5f6f826b772a8d4c0394209441e7d37cbbb967ae9c7e0e8134365c9ee676"
 dependencies = [
  "siphasher",
  "uncased",
@@ -2401,6 +2462,16 @@ dependencies = [
 name = "poseidon"
 version = "0.2.0"
 source = "git+https://github.com/appliedzkp/poseidon.git#336466a8d7aba6cf65be6980552cf7be93e957d8"
+dependencies = [
+ "group 0.12.0",
+ "halo2curves 0.2.0",
+ "subtle",
+]
+
+[[package]]
+name = "poseidon"
+version = "0.2.0"
+source = "git+https://github.com/privacy-scaling-explorations/poseidon.git#336466a8d7aba6cf65be6980552cf7be93e957d8"
 dependencies = [
  "group 0.12.0",
  "halo2curves 0.2.0",
@@ -2914,10 +2985,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "sha-1"
-version = "0.10.0"
+name = "sha1"
+version = "0.10.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "028f48d513f9678cda28f6e4064755b3fbb2af6acd672f2c209b62323f7aea0f"
+checksum = "006769ba83e921b3085caa8334186b00cf92b4cb1a6cf4632fbccc8eff5c7549"
 dependencies = [
  "cfg-if 1.0.0",
  "cpufeatures",
@@ -3286,9 +3357,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-util"
-version = "0.7.3"
+version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc463cd8deddc3770d20f9852143d50bf6094e640b485cb2e189a2099085ff45"
+checksum = "0bb2e075f03b3d66d8d8785356224ba688d2906a371015e225beeb65ca92c740"
 dependencies = [
  "bytes",
  "futures-core",
@@ -3376,7 +3447,7 @@ dependencies = [
  "rand",
  "rustls 0.19.1",
  "rustls-native-certs",
- "sha-1 0.9.8",
+ "sha-1",
  "thiserror",
  "url",
  "utf-8",
@@ -3495,13 +3566,12 @@ checksum = "a156c684c91ea7d62626509bce3cb4e1d9ed5c4d978f7b4352658f96a4c26b4a"
 
 [[package]]
 name = "url"
-version = "2.2.2"
+version = "2.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a507c383b2d33b5fc35d1861e77e6b383d158b2da5e14fe51b83dfedf6fd578c"
+checksum = "0d68c799ae75762b8c3fe375feb6600ef5602c883c5d21eb51c09f22b83c4643"
 dependencies = [
  "form_urlencoded",
  "idna",
- "matches",
  "percent-encoding",
 ]
 
@@ -3562,9 +3632,9 @@ checksum = "9c8d87e72b64a3b4db28d11ce29237c246188f4f51057d65a7eab63b7987e423"
 
 [[package]]
 name = "wasm-bindgen"
-version = "0.2.82"
+version = "0.2.83"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fc7652e3f6c4706c8d9cd54832c4a4ccb9b5336e2c3bd154d5cccfbf1c1f5f7d"
+checksum = "eaf9f5aceeec8be17c128b2e93e031fb8a4d469bb9c4ae2d7dc1888b26887268"
 dependencies = [
  "cfg-if 1.0.0",
  "wasm-bindgen-macro",
@@ -3572,9 +3642,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-bindgen-backend"
-version = "0.2.82"
+version = "0.2.83"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "662cd44805586bd52971b9586b1df85cdbbd9112e4ef4d8f41559c334dc6ac3f"
+checksum = "4c8ffb332579b0557b52d268b91feab8df3615f265d5270fec2a8c95b17c1142"
 dependencies = [
  "bumpalo",
  "log",
@@ -3587,9 +3657,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-bindgen-futures"
-version = "0.4.32"
+version = "0.4.33"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fa76fb221a1f8acddf5b54ace85912606980ad661ac7a503b4570ffd3a624dad"
+checksum = "23639446165ca5a5de86ae1d8896b737ae80319560fbaa4c2887b7da6e7ebd7d"
 dependencies = [
  "cfg-if 1.0.0",
  "js-sys",
@@ -3599,9 +3669,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-bindgen-macro"
-version = "0.2.82"
+version = "0.2.83"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b260f13d3012071dfb1512849c033b1925038373aea48ced3012c09df952c602"
+checksum = "052be0f94026e6cbc75cdefc9bae13fd6052cdcaf532fa6c45e7ae33a1e6c810"
 dependencies = [
  "quote",
  "wasm-bindgen-macro-support",
@@ -3609,9 +3679,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-bindgen-macro-support"
-version = "0.2.82"
+version = "0.2.83"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5be8e654bdd9b79216c2929ab90721aa82faf65c48cdf08bdc4e7f51357b80da"
+checksum = "07bc0c051dc5f23e307b13285f9d75df86bfdf816c5721e573dec1f9b8aa193c"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3622,9 +3692,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-bindgen-shared"
-version = "0.2.82"
+version = "0.2.83"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6598dd0bd3c7d51095ff6531a5b23e02acdc81804e30d8f07afb77b7215a140a"
+checksum = "1c38c045535d93ec4f0b4defec448e4291638ee608530863b1e2ba115d4fff7f"
 
 [[package]]
 name = "wasm-timer"
@@ -3643,9 +3713,9 @@ dependencies = [
 
 [[package]]
 name = "web-sys"
-version = "0.3.59"
+version = "0.3.60"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed055ab27f941423197eb86b2035720b1a3ce40504df082cac2ecc6ed73335a1"
+checksum = "bcda906d8be16e728fd5adc5b729afad4e444e106ab28cd1c7256e54fa61510f"
 dependencies = [
  "js-sys",
  "wasm-bindgen",
@@ -3823,35 +3893,6 @@ checksum = "d68d9dcec5f9b43a30d38c49f91dfedfaac384cb8f085faca366c26207dd1619"
 [[package]]
 name = "zkevm-circuits"
 version = "0.1.0"
-source = "git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main#e37623fe7e92fe0e5dada2b0cebc361c14669007"
-dependencies = [
- "array-init",
- "bigint",
- "bus-mapping 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main)",
- "digest 0.7.6",
- "env_logger",
- "eth-types 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main)",
- "ethers-core",
- "ff 0.11.1",
- "gadgets 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main)",
- "halo2_proofs 0.1.0-beta.1 (git+https://github.com/junyu0312/halo2?rev=35fae8cfb75052516aeaceddbd16e3f1c54edad2)",
- "itertools",
- "keccak256 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main)",
- "lazy_static",
- "log",
- "num",
- "paste",
- "rand",
- "rand_xorshift",
- "serde_json",
- "sha3 0.7.3",
- "strum",
- "strum_macros",
-]
-
-[[package]]
-name = "zkevm-circuits"
-version = "0.1.0"
 source = "git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs#e37623fe7e92fe0e5dada2b0cebc361c14669007"
 dependencies = [
  "array-init",
@@ -3876,4 +3917,35 @@ dependencies = [
  "sha3 0.7.3",
  "strum",
  "strum_macros",
+]
+
+[[package]]
+name = "zkevm-circuits"
+version = "0.1.0"
+source = "git+https://github.com/scroll-tech/zkevm-circuits.git?branch=zz/sync-halo2-0902#08f3ff794468305601a4196b934562cba5f21e77"
+dependencies = [
+ "array-init",
+ "bus-mapping 0.1.0 (git+https://github.com/scroll-tech/zkevm-circuits.git?branch=zz/sync-halo2-0902)",
+ "ecc",
+ "ecdsa 0.1.0",
+ "env_logger",
+ "eth-types 0.1.0 (git+https://github.com/scroll-tech/zkevm-circuits.git?branch=zz/sync-halo2-0902)",
+ "ethers-core",
+ "gadgets 0.1.0 (git+https://github.com/scroll-tech/zkevm-circuits.git?branch=zz/sync-halo2-0902)",
+ "halo2_proofs 0.2.0",
+ "integer",
+ "itertools",
+ "keccak256 0.1.0 (git+https://github.com/scroll-tech/zkevm-circuits.git?branch=zz/sync-halo2-0902)",
+ "lazy_static",
+ "libsecp256k1",
+ "log",
+ "maingate",
+ "num",
+ "num-bigint",
+ "rand",
+ "rand_xorshift",
+ "sha3 0.10.4",
+ "strum",
+ "strum_macros",
+ "subtle",
 ]

@@ -11,7 +11,9 @@ use crate::{
 };
 use ark_std::{end_timer, start_timer};
 use halo2_proofs::arithmetic::CurveAffine;
-use halo2_proofs::poly::kzg::commitment::ParamsVerifierKZG;
+use halo2_proofs::poly::commitment::ParamsProver;
+use halo2_proofs::poly::kzg::commitment::{KZGCommitmentScheme, ParamsKZG, ParamsVerifierKZG};
+use halo2_proofs::poly::kzg::multiopen::ProverGWC;
 use halo2_proofs::{
     plonk::{create_proof, keygen_pk, keygen_vk},
     poly::commitment::Params,
@@ -19,6 +21,7 @@ use halo2_proofs::{
 };
 use halo2curves::bn256::{Bn256, Fr, G1Affine};
 use rand::rngs::OsRng;
+use rand::thread_rng;
 
 const K: u32 = 16;
 const NPROOFS: usize = 2usize;
@@ -45,16 +48,17 @@ pub fn test_verify_aggregation_proof_in_chip<
         Error = halo2_proofs::plonk::Error,
     >,
 {
+    let mut test_rng = thread_rng();
     let circuit = TestCircuit::<Fr>::default();
     let msg = format!("Setup zkevm circuit with degree = {}", K);
     let start = start_timer!(|| msg);
-    let general_params = Params::<G1Affine>::unsafe_setup::<Bn256>(K);
+    let params = ParamsKZG::<Bn256>::setup(K, &mut test_rng);
     end_timer!(start);
 
     let msg = format!("Generate key for zkevm circuit");
     let start = start_timer!(|| msg);
-    let vk = keygen_vk(&general_params, &circuit).expect("keygen_vk should not fail");
-    let pk = keygen_pk(&general_params, vk, &circuit).unwrap();
+    let vk = keygen_vk(&params, &circuit).expect("keygen_vk should not fail");
+    let pk = keygen_pk(&params, vk, &circuit).unwrap();
     let circuit = &[circuit];
     end_timer!(start);
 
@@ -64,12 +68,13 @@ pub fn test_verify_aggregation_proof_in_chip<
     let instances: &[&[&[_]]] = &[&[]];
 
     for i in 0..NPROOFS {
-        let mut transcript = PoseidonWrite::<_, _, Challenge255<_>>::init(vec![]);
+        let mut transcript =
+            PoseidonWrite::<Vec<u8>, G1Affine, Challenge255<G1Affine>>::init(vec![]);
 
         let msg = format!("Create {} proof", i + 1);
         let start = start_timer!(|| msg);
-        create_proof(
-            &general_params,
+        create_proof::<KZGCommitmentScheme<Bn256>, ProverGWC<Bn256>, _, _, _, _>(
+            &params,
             &pk,
             circuit,
             instances,
@@ -113,8 +118,7 @@ pub fn test_verify_aggregation_proof_in_chip<
         })
     }
 
-    let params_verifier: &ParamsVerifierKZG<Bn256> =
-        &general_params.verifier((K * 2) as usize).unwrap();
+    let params_verifier: &ParamsVerifierKZG<Bn256> = &params.verifier_params();
 
     let empty_vec = vec![];
     let mut transcript = PoseidonTranscriptRead::<_, G1Affine, _, EncodeChip, 9usize, 8usize>::new(

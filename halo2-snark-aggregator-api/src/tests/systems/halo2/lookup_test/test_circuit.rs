@@ -1,6 +1,6 @@
 use halo2_proofs::{
     arithmetic::FieldExt,
-    circuit::{Layouter, SimpleFloorPlanner},
+    circuit::{Layouter, SimpleFloorPlanner, Value},
     plonk::{Advice, Circuit, Column, ConstraintSystem, Error, Instance, Selector},
     poly::Rotation,
 };
@@ -55,37 +55,27 @@ impl<F: FieldExt> MyConfig<F> {
         config
     }
 
-    fn witness_even(&self, mut layouter: impl Layouter<F>, value: Option<F>) -> Result<(), Error> {
+    fn witness_even(&self, mut layouter: impl Layouter<F>, value: Value<F>) -> Result<(), Error> {
         layouter.assign_region(
             || "witness even number",
             |mut region| {
                 // Enable the even lookup.
                 self.q_even.enable(&mut region, 0)?;
 
-                region.assign_advice(
-                    || "even input",
-                    self.input,
-                    0,
-                    || value.ok_or(Error::Synthesis),
-                )?;
+                region.assign_advice(|| "even input", self.input, 0, || value)?;
                 Ok(())
             },
         )
     }
 
-    fn witness_odd(&self, mut layouter: impl Layouter<F>, value: Option<F>) -> Result<(), Error> {
+    fn witness_odd(&self, mut layouter: impl Layouter<F>, value: Value<F>) -> Result<(), Error> {
         layouter.assign_region(
             || "witness odd number",
             |mut region| {
                 // Enable the odd lookup.
                 self.q_odd.enable(&mut region, 0)?;
 
-                region.assign_advice(
-                    || "odd input",
-                    self.input,
-                    0,
-                    || value.ok_or(Error::Synthesis),
-                )?;
+                region.assign_advice(|| "odd input", self.input, 0, || value)?;
                 Ok(())
             },
         )
@@ -100,7 +90,7 @@ impl<F: FieldExt> MyConfig<F> {
                         || "even table value",
                         self.table_even,
                         offset,
-                        || Ok(*value),
+                        || Value::known(*value),
                     )?;
                 }
 
@@ -113,8 +103,8 @@ impl<F: FieldExt> MyConfig<F> {
 #[derive(Default)]
 pub struct MyCircuit<F: FieldExt> {
     even_lookup: Vec<F>,
-    even_witnesses: Vec<Option<F>>,
-    odd_witnesses: Vec<Option<F>>,
+    even_witnesses: Vec<Value<F>>,
+    odd_witnesses: Vec<Value<F>>,
 }
 
 impl<F: FieldExt> Circuit<F> for MyCircuit<F> {
@@ -165,8 +155,16 @@ pub fn test_circuit_builder() -> MyCircuit<Fp> {
         Fp::from(8),
     ];
 
-    let even_witnesses = vec![Some(Fp::from(0)), Some(Fp::from(2)), Some(Fp::from(4))];
-    let odd_witnesses = vec![Some(Fp::from(1)), Some(Fp::from(3)), Some(Fp::from(5))];
+    let even_witnesses = vec![
+        Value::known(Fp::from(0)),
+        Value::known(Fp::from(2)),
+        Value::known(Fp::from(4)),
+    ];
+    let odd_witnesses = vec![
+        Value::known(Fp::from(1)),
+        Value::known(Fp::from(3)),
+        Value::known(Fp::from(5)),
+    ];
 
     // Instantiate the circuit with the private inputs.
     MyCircuit {

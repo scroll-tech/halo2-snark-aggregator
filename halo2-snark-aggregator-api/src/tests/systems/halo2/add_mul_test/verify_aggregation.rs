@@ -13,9 +13,9 @@ use crate::{
 use halo2_proofs::arithmetic::{CurveAffine, Field};
 use halo2_proofs::poly::commitment::ParamsProver;
 use halo2_proofs::poly::kzg::commitment::ParamsVerifierKZG;
+use halo2_proofs::poly::kzg::multiopen::ProverGWC;
 use halo2_proofs::{
     plonk::{create_proof, keygen_pk, keygen_vk},
-    poly::commitment::Params,
     poly::kzg::commitment::KZGCommitmentScheme,
     poly::kzg::commitment::ParamsKZG,
     transcript::{Challenge255, PoseidonWrite},
@@ -65,7 +65,6 @@ pub fn test_verify_aggregation_proof_in_chip<
     let params = ParamsKZG::<Bn256>::setup(K, &mut test_rng);
     let vk = keygen_vk(&params, &circuit_template).expect("keygen_vk should not fail");
 
-    let public_inputs_size = 1;
     let params_verifier: &ParamsVerifierKZG<Bn256> = &params.verifier_params();
 
     let mut n_instances: Vec<_> = vec![];
@@ -89,7 +88,7 @@ pub fn test_verify_aggregation_proof_in_chip<
             .collect();
         let instances2: Vec<&[&[Fp]]> = instances1.iter().map(|x| &x[..]).collect();
 
-        create_proof::<KZGCommitmentScheme<Bn256>, ParamsKZG<Bn256>, _, _, _, _>(
+        create_proof::<KZGCommitmentScheme<Bn256>, ProverGWC<Bn256>, _, _, _, _>(
             &params,
             &pk,
             &[circuit],

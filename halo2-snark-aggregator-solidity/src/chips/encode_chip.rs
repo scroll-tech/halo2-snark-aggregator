@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use super::ecc_chip::SolidityEccChip;
 use halo2_ecc_circuit_lib::utils::{bn_to_field, field_to_bn};
-use halo2_proofs::arithmetic::{BaseExt, CurveAffine, Field, FieldExt};
+use halo2_proofs::arithmetic::{CurveAffine, Field, FieldExt};
 use halo2_snark_aggregator_api::{
     arith::{common::ArithCommonChip, ecc::ArithEccChip},
     transcript::encode::Encode,
@@ -12,7 +12,7 @@ pub struct PoseidonEncode<A: ArithEccChip> {
     _phantom: PhantomData<A>,
 }
 
-fn base_to_scalar<B: BaseExt, S: FieldExt>(base: &B) -> S {
+fn base_to_scalar<B: FieldExt, S: FieldExt>(base: &B) -> S {
     let bn = field_to_bn(base);
     let modulus = field_to_bn(&-B::one()) + 1u64;
     let bn = bn % modulus;
