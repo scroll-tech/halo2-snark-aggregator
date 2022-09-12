@@ -8,7 +8,13 @@ use halo2_proofs::{
         create_proof, keygen_pk, keygen_vk, verify_proof, Circuit, ConstraintSystem, Error,
         Expression, ProvingKey,
     },
-    poly::{commitment::{Params, ParamsVerifier}, kzg::{commitment::{ParamsKZG, ParamsVerifierKZG}, multiopen::VerifierGWC}},
+    poly::{
+        commitment::{Params, ParamsVerifier},
+        kzg::{
+            commitment::{ParamsKZG, ParamsVerifierKZG},
+            multiopen::VerifierGWC,
+        },
+    },
     transcript::{Challenge255, PoseidonRead, PoseidonWrite},
 };
 use halo2curves::bn256::{Bn256, Fr, G1Affine};
@@ -75,8 +81,7 @@ fn setup_sample_circuit() -> (
     // Bench setup generation
     let setup_message = format!("Setup generation with degree = {}", DEGREE_OF_EVM_CIRCUIT);
     let start1 = start_timer!(|| setup_message);
-    let general_params: ParamsKZG<Bn256> =
-        ParamsKZG::<Bn256>::unsafe_setup(DEGREE_OF_EVM_CIRCUIT);
+    let general_params: ParamsKZG<Bn256> = ParamsKZG::<Bn256>::unsafe_setup(DEGREE_OF_EVM_CIRCUIT);
     end_timer!(start1);
 
     let vk = keygen_vk(&general_params, &circuit).unwrap();
