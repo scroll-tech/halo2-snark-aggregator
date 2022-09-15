@@ -1,13 +1,15 @@
 use halo2_proofs::{
-    arithmetic::{BaseExt, CurveAffine, Field, FieldExt, MultiMillerLoop},
-    circuit::{AssignedCell, Chip, Layouter, Region, SimpleFloorPlanner},
+    arithmetic::{Field, FieldExt},
+    circuit::{AssignedCell, Chip, Layouter, Region, SimpleFloorPlanner, Value},
     plonk::{Advice, Circuit, Column, ConstraintSystem, Error, Fixed, Instance},
     poly::Rotation,
 };
 use halo2_snark_aggregator_circuit::sample_circuit::TargetCircuit;
 use halo2_snark_aggregator_sdk::zkaggregate;
+use halo2curves::pairing::MultiMillerLoop;
 use rand_core::OsRng;
-use std::marker::PhantomData;
+use std::{io::Read, marker::PhantomData};
+use zkevm_circuits::tx_circuit::PrimeField;
 
 // ANCHOR: instructions
 trait NumericInstructions<F: FieldExt>: Chip<F> {
@@ -15,7 +17,7 @@ trait NumericInstructions<F: FieldExt>: Chip<F> {
     type Num;
 
     /// Loads a number into the circuit as a private input.
-    fn load_private(&self, layouter: impl Layouter<F>, a: Option<F>) -> Result<Self::Num, Error>;
+    fn load_private(&self, layouter: impl Layouter<F>, a: Value<F>) -> Result<Self::Num, Error>;
 
     /// Loads a number into the circuit as a fixed constant.
     fn load_constant(&self, layouter: impl Layouter<F>, constant: F) -> Result<Self::Num, Error>;
@@ -153,7 +155,7 @@ impl<F: FieldExt> NumericInstructions<F> for FieldChip<F> {
     fn load_private(
         &self,
         mut layouter: impl Layouter<F>,
-        value: Option<F>,
+        value: Value<F>,
     ) -> Result<Self::Num, Error> {
         let config = self.config();
 
@@ -161,12 +163,7 @@ impl<F: FieldExt> NumericInstructions<F> for FieldChip<F> {
             || "load private",
             |mut region| {
                 region
-                    .assign_advice(
-                        || "private input",
-                        config.advice[0],
-                        0,
-                        || value.ok_or(Error::Synthesis),
-                    )
+                    .assign_advice(|| "private input", config.advice[0], 0, || value)
                     .map(Number)
             },
         )
@@ -203,7 +200,7 @@ impl<F: FieldExt> NumericInstructions<F> for FieldChip<F> {
                 // We only want to use a single multiplication gate in this region,
                 // so we enable it at region offset 0; this means it will constrain
                 // cells at offsets 0 and 1.
-                region.assign_fixed(|| "s_mul", config.s_mul, 0, || Ok(F::one()))?;
+                region.assign_fixed(|| "s_mul", config.s_mul, 0, || Value::known(F::one()))?;
 
                 // The inputs we've been given could be located anywhere in the circuit,
                 // but we can only rely on relative offsets inside this region. So we
@@ -219,12 +216,7 @@ impl<F: FieldExt> NumericInstructions<F> for FieldChip<F> {
                 // Finally, we do the assignment to the output, returning a
                 // variable to be used in another part of the circuit.
                 region
-                    .assign_advice(
-                        || "lhs * rhs",
-                        config.advice[0],
-                        1,
-                        || value.ok_or(Error::Synthesis),
-                    )
+                    .assign_advice(|| "lhs * rhs", config.advice[0], 1, || value)
                     .map(Number)
             },
         )
@@ -251,16 +243,16 @@ impl<F: FieldExt> NumericInstructions<F> for FieldChip<F> {
 /// were `None` we would get an error.
 pub struct MyCircuit<F: FieldExt> {
     pub(crate) constant: F,
-    pub(crate) a: Option<F>,
-    pub(crate) b: Option<F>,
+    pub(crate) a: Value<F>,
+    pub(crate) b: Value<F>,
 }
 
 impl<F: FieldExt> Default for MyCircuit<F> {
     fn default() -> Self {
         MyCircuit {
             constant: F::from(7u64),
-            a: None,
-            b: None,
+            a: Value::unknown(),
+            b: Value::unknown(),
         }
     }
 }
@@ -327,9 +319,7 @@ impl<F: FieldExt> Circuit<F> for MyCircuit<F> {
 
 pub struct TestCircuit;
 
-impl<C: CurveAffine, E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>> TargetCircuit<C, E>
-    for TestCircuit
-{
+impl<E: MultiMillerLoop> TargetCircuit<E> for TestCircuit {
     const TARGET_CIRCUIT_K: u32 = 7;
     const PUBLIC_INPUT_SIZE: usize = 1;
     const N_PROOFS: usize = 2;
@@ -337,27 +327,28 @@ impl<C: CurveAffine, E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>> Ta
     const PARAMS_NAME: &'static str = "simple_example";
     const READABLE_VKEY: bool = true;
 
-    type Circuit = MyCircuit<C::ScalarExt>;
+    type Circuit = MyCircuit<E::Scalar>;
 
-    fn instance_builder() -> (Self::Circuit, Vec<Vec<C::ScalarExt>>) {
-        let constant = C::Scalar::from(7);
-        let a = C::Scalar::random(OsRng);
-        let b = C::Scalar::random(OsRng);
+    fn instance_builder() -> (Self::Circuit, Vec<Vec<E::Scalar>>) {
+        let constant = E::Scalar::from(7);
+        let a = E::Scalar::random(OsRng);
+        let b = E::Scalar::random(OsRng);
         let circuit = MyCircuit {
             constant,
-            a: Some(a),
-            b: Some(b),
+            a: Value::known(a),
+            b: Value::known(b),
         };
         let instances = vec![vec![constant * a.square() * b.square()]];
         (circuit, instances)
     }
 
-    fn load_instances(buf: &Vec<u8>) -> Vec<Vec<Vec<<C as CurveAffine>::ScalarExt>>> {
+    fn load_instances(buf: &[u8]) -> Vec<Vec<Vec<E::Scalar>>> {
         let mut ret = vec![];
         let cursor = &mut std::io::Cursor::new(buf);
+        let mut compressed = <E::Scalar as PrimeField>::Repr::default();
 
-        while let Ok(a) = <E::Scalar as BaseExt>::read(cursor) {
-            ret.push(a);
+        while cursor.read_exact(compressed.as_mut()).is_ok() {
+            ret.push(<E::Scalar as PrimeField>::from_repr(compressed).unwrap());
         }
 
         vec![vec![ret]]

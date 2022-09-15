@@ -5,9 +5,9 @@ use halo2_ecc_circuit_lib::utils::field_to_bn;
 use halo2_proofs::arithmetic::CurveAffine;
 use halo2_proofs::arithmetic::Field;
 use halo2_snark_aggregator_api::arith::{common::ArithCommonChip, ecc::ArithEccChip};
-use num_bigint::BigUint;
 use halo2curves::group::ff::PrimeField;
 use halo2curves::group::Curve;
+use num_bigint::BigUint;
 use std::{marker::PhantomData, rc::Rc};
 
 pub fn get_xy_from_point<C: CurveAffine>(point: C::CurveExt) -> (BigUint, BigUint) {

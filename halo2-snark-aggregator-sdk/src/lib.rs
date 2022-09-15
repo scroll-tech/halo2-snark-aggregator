@@ -10,7 +10,7 @@ macro_rules! zkaggregate {
                 use crate::$x;
             )*
             use clap::Parser;
-            use halo2_proofs::arithmetic::{BaseExt, CurveAffine, MultiMillerLoop};
+            use halo2_proofs::arithmetic::{CurveAffine};
             use halo2_proofs::plonk::{Circuit, VerifyingKey};
             use halo2_proofs::poly::commitment::Params;
             use halo2_snark_aggregator_circuit::fs::*;
@@ -23,7 +23,7 @@ macro_rules! zkaggregate {
             };
             use halo2_snark_aggregator_solidity::{SolidityGenerate, MultiCircuitSolidityGenerate};
             use log::info;
-            use pairing_bn256::bn256::{Bn256, Fr, G1Affine};
+            use halo2curves::bn256::{Bn256, Fr, G1Affine};
             use std::io::{Cursor, Read, Write};
             use std::marker::PhantomData;
             use std::path::PathBuf;
@@ -80,21 +80,21 @@ macro_rules! zkaggregate {
                 fn compute_verify_public_input_size(&self) -> usize {
                     4
                     $(
-                        + <$x as TargetCircuit<G1Affine, Bn256>>::N_PROOFS * <$x as TargetCircuit<G1Affine, Bn256>>::PUBLIC_INPUT_SIZE
+                        + <$x as TargetCircuit< Bn256>>::N_PROOFS * <$x as TargetCircuit< Bn256>>::PUBLIC_INPUT_SIZE
                     )*
                 }
 
                 fn dispatch_sample_setup(&self) {
                     $(
-                        sample_circuit_setup::<G1Affine, Bn256, $x>(self.folder.clone());
+                        sample_circuit_setup::< Bn256, $x>(self.folder.clone());
                     )*
                 }
 
-                fn sample_run_one_circuit<SingleCircuit: TargetCircuit<G1Affine, Bn256>>(&self) {
+                fn sample_run_one_circuit<SingleCircuit: TargetCircuit<Bn256>>(&self) {
                     for i in 0..SingleCircuit::N_PROOFS {
                         let (circuit, instances) = SingleCircuit::instance_builder();
 
-                        sample_circuit_random_run::<G1Affine, Bn256, SingleCircuit>(
+                        sample_circuit_random_run::< Bn256, SingleCircuit>(
                             self.folder.clone(),
                             circuit,
                             &instances
@@ -115,7 +115,7 @@ macro_rules! zkaggregate {
                 fn dispatch_verify_setup(&self) {
                     let setup: [Setup<_, _>; $n] = [
                         $(
-                            Setup::new::<$x, _>(&self.folder, &<$x as TargetCircuit<G1Affine, Bn256>>::load_instances),
+                            Setup::new::<$x, _>(&self.folder, &<$x as TargetCircuit< Bn256>>::load_instances),
                         )*
                     ];
 
@@ -133,7 +133,7 @@ macro_rules! zkaggregate {
                 fn dispatch_verify_run(&self) {
                     let target_circuit_proofs: [CreateProof<_, _>; $n] = [
                         $(
-                            CreateProof::new::<$x, _>(&self.folder, &<$x as TargetCircuit<G1Affine, Bn256>>::load_instances),
+                            CreateProof::new::<$x, _>(&self.folder, &<$x as TargetCircuit< Bn256>>::load_instances),
                         )*
                     ];
 
@@ -152,8 +152,8 @@ macro_rules! zkaggregate {
                 }
 
                 fn dispatch_verify_check(&self) {
-                    let request = VerifyCheck::<G1Affine>::new(&self.folder, self.compute_verify_public_input_size());
-                    request.call::<Bn256>().unwrap();
+                    let request = VerifyCheck::<Bn256>::new(&self.folder, self.compute_verify_public_input_size());
+                    request.call().unwrap();
 
                     info!("verify check succeed")
                 }
@@ -165,7 +165,7 @@ macro_rules! zkaggregate {
                         )*
                     ];
 
-                    let request = MultiCircuitSolidityGenerate::<G1Affine, $n> {
+                    let request = MultiCircuitSolidityGenerate::<Bn256, $n> {
                         target_circuits_params,
                         verify_params: &load_verify_circuit_params(&mut self.folder.clone()),
                         verify_vk: &load_verify_circuit_vk(&mut self.folder.clone()),
@@ -176,7 +176,7 @@ macro_rules! zkaggregate {
                         verify_public_inputs_size: self.compute_verify_public_input_size(),
                     };
 
-                    let sol = request.call::<Bn256>(self.template_folder.clone().unwrap());
+                    let sol = request.call(self.template_folder.clone().unwrap());
 
                     write_verify_circuit_solidity(
                         &mut self.folder.clone(),

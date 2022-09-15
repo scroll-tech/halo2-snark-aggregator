@@ -16,7 +16,6 @@ use halo2_proofs::poly::kzg::commitment::{KZGCommitmentScheme, ParamsKZG, Params
 use halo2_proofs::poly::kzg::multiopen::ProverGWC;
 use halo2_proofs::{
     plonk::{create_proof, keygen_pk, keygen_vk},
-    poly::commitment::Params,
     transcript::{Challenge255, PoseidonWrite},
 };
 use halo2curves::bn256::{Bn256, Fr, G1Affine};

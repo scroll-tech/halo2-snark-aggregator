@@ -565,7 +565,7 @@ impl Setup<G1Affine, Bn256> {
         load_instances: L,
     ) -> Setup<G1Affine, Bn256>
     where
-        L: Fn(&Vec<u8>) -> Vec<Vec<Vec<Fr>>>,
+        L: Fn(&[u8]) -> Vec<Vec<Vec<Fr>>>,
     {
         let target_circuit_instances = (0..SingleCircuit::N_PROOFS).map(|index| {
             load_instances(&load_target_circuit_instance::<SingleCircuit>(
@@ -810,7 +810,7 @@ impl CreateProof<G1Affine, Bn256> {
         load_instances: L,
     ) -> CreateProof<G1Affine, Bn256>
     where
-        L: Fn(&Vec<u8>) -> Vec<Vec<Vec<Fr>>>,
+        L: Fn(&[u8]) -> Vec<Vec<Vec<Fr>>>,
     {
         let instances = (0..SingleCircuit::N_PROOFS).map(|index| {
             load_instances(&load_target_circuit_instance::<SingleCircuit>(

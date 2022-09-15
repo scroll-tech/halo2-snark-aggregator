@@ -2,7 +2,6 @@ pub(crate) mod chips;
 pub(crate) mod code_generator;
 pub(crate) mod transcript;
 
-use std::path::PathBuf;
 use crate::chips::{
     ecc_chip::SolidityEccChip, encode_chip::PoseidonEncode, scalar_chip::SolidityFieldChip,
 };
@@ -11,22 +10,23 @@ use crate::code_generator::ctx::SolidityCodeGeneratorContext;
 use crate::code_generator::linear_scan::memory_optimize;
 use crate::transcript::codegen::CodegenTranscriptRead;
 use code_generator::ctx::{CodeGeneratorCtx, G2Point, Statement};
-use halo2_proofs::arithmetic::{ Field};
-use halo2_proofs::arithmetic::{CurveAffine};
+use halo2_proofs::arithmetic::CurveAffine;
+use halo2_proofs::arithmetic::Field;
 use halo2_proofs::plonk::VerifyingKey;
-use halo2_proofs::poly::commitment::Params;
 use halo2_proofs::poly::kzg::commitment::ParamsKZG;
 use halo2_snark_aggregator_api::arith::{common::ArithCommonChip, ecc::ArithEccChip};
 use halo2_snark_aggregator_api::systems::halo2::verify::{
     assign_instance_commitment, verify_single_proof_no_eval,
 };
-use halo2curves::FieldExt;
-use halo2curves::pairing::{Engine,MultiMillerLoop};
 use halo2_snark_aggregator_circuit::fs::{load_target_circuit_params, load_target_circuit_vk};
 use halo2_snark_aggregator_circuit::sample_circuit::TargetCircuit;
+use halo2curves::bn256::Bn256;
+use halo2curves::pairing::{Engine, MultiMillerLoop};
+use halo2curves::FieldExt;
 use log::info;
 use num_bigint::BigUint;
-use halo2curves::bn256::{Bn256, G1Affine};
+use std::fmt::Debug;
+use std::path::PathBuf;
 use tera::{Context, Tera};
 
 fn render_verifier_sol_template<C: CurveAffine>(
@@ -136,11 +136,9 @@ fn render_verifier_sol_template<C: CurveAffine>(
 }
 
 pub fn g2field_to_bn<F: FieldExt>(f: &F) -> (BigUint, BigUint) {
-    let mut bytes: Vec<u8> = Vec::new();
-    f.write(&mut bytes).unwrap();
     (
-        BigUint::from_bytes_le(&bytes[32..64]),
-        BigUint::from_bytes_le(&bytes[..32]),
+        BigUint::from_bytes_le(&f.to_repr().as_ref()[32..64]),
+        BigUint::from_bytes_le(&f.to_repr().as_ref()[..32]),
     )
 }
 
@@ -165,12 +163,10 @@ pub struct SolidityGenerate<E: Engine> {
 }
 
 impl SolidityGenerate<Bn256> {
-    pub fn new<SingleCircuit: TargetCircuit<Bn256>>(
-        folder: &PathBuf,
-    ) -> SolidityGenerate<Bn256> {
+    pub fn new<SingleCircuit: TargetCircuit<Bn256>>(folder: &PathBuf) -> SolidityGenerate<Bn256> {
         let target_circuit_params =
             load_target_circuit_params::<Bn256, SingleCircuit>(&mut folder.clone());
-        let target_circuit_vk = load_target_circuit_vk::<G1Affine, Bn256, SingleCircuit>(
+        let target_circuit_vk = load_target_circuit_vk::<Bn256, SingleCircuit>(
             &mut folder.clone(),
             &target_circuit_params,
         );
@@ -194,11 +190,8 @@ pub struct MultiCircuitSolidityGenerate<'a, E: MultiMillerLoop, const N: usize> 
     pub verify_public_inputs_size: usize,
 }
 
-impl<'a, E: MultiMillerLoop, const N: usize> MultiCircuitSolidityGenerate<'a, E, N> {
-    pub fn call(
-        &self,
-        template_folder: std::path::PathBuf,
-    ) -> String {
+impl<'a, E: MultiMillerLoop + Debug, const N: usize> MultiCircuitSolidityGenerate<'a, E, N> {
+    pub fn call(&self, template_folder: std::path::PathBuf) -> String {
         /*
         for i in self.target_circuits_params.iter() {
             let v = i.target_circuit_params.verifier::<E>(i.target_circuit_vk.cs.num_instance_columns).unwrap();
@@ -206,37 +199,25 @@ impl<'a, E: MultiMillerLoop, const N: usize> MultiCircuitSolidityGenerate<'a, E,
         }
         */
 
-        let target_params = self.target_circuits_params[0]
-            .target_circuit_params
-            .verifier::<E>(
-                self.target_circuits_params[0]
-                    .target_circuit_vk
-                    .cs()
-                    .num_instance_columns,
-            )
-            .unwrap();
-        let target_circuit_s_g2 = get_xy_from_g2point::<E>(target_params.s_g2);
-        let target_circuit_n_g2 = get_xy_from_g2point::<E>(-target_params.g2);
+        let target_circuit_s_g2 = get_xy_from_g2point::<E>(self.verify_params.s_g2());
+        let target_circuit_n_g2 = get_xy_from_g2point::<E>(-self.verify_params.g2());
 
-        let verify_params = self
-            .verify_params
-            .verifier(self.verify_public_inputs_size)
-            .unwrap();
+        let verify_params = self.verify_params;
 
         let nchip = &SolidityFieldChip::new();
         let schip = nchip;
         let pchip = &SolidityEccChip::new();
         let ctx = &mut SolidityCodeGeneratorContext::new();
 
-        let mut transcript =
-            CodegenTranscriptRead::<_, C, _, PoseidonEncode<_>, 9usize, 8usize>::new(
-                &self.proof[..],
-                ctx,
-                schip,
-                8usize,
-                33usize,
-            )
-            .unwrap();
+        let mut transcript = CodegenTranscriptRead::<
+            _,
+            E::G1Affine,
+            _,
+            PoseidonEncode<_>,
+            9usize,
+            8usize,
+        >::new(&self.proof[..], ctx, schip, 8usize, 33usize)
+        .unwrap();
 
         let verify_circuit_instance1: Vec<Vec<&[E::Scalar]>> = self
             .verify_circuit_instance
@@ -292,8 +273,8 @@ impl<'a, E: MultiMillerLoop, const N: usize> MultiCircuitSolidityGenerate<'a, E,
             }
         };
 
-        let verify_circuit_s_g2 = get_xy_from_g2point::<E>(verify_params.s_g2);
-        let verify_circuit_n_g2 = get_xy_from_g2point::<E>(-verify_params.g2);
+        let verify_circuit_s_g2 = get_xy_from_g2point::<E>(verify_params.s_g2());
+        let verify_circuit_n_g2 = get_xy_from_g2point::<E>(-verify_params.g2());
 
         let sol_ctx = CodeGeneratorCtx {
             wx: (*left.expr).clone(),
@@ -315,7 +296,8 @@ impl<'a, E: MultiMillerLoop, const N: usize> MultiCircuitSolidityGenerate<'a, E,
         let sol_ctx: CodeGeneratorCtx = memory_optimize(sol_ctx);
         let sol_ctx: CodeGeneratorCtx = aggregate(sol_ctx);
 
-        let template = render_verifier_sol_template::<C>(sol_ctx, template_folder.clone());
+        let template =
+            render_verifier_sol_template::<E::G1Affine>(sol_ctx, template_folder.clone());
         info!("generate solidity succeeds");
 
         template
