@@ -10,8 +10,8 @@ use halo2_proofs::{arithmetic::CurveAffine, circuit::AssignedCell, plonk::Error}
 use halo2_snark_aggregator_api::arith::{common::ArithCommonChip, ecc::ArithEccChip};
 use std::marker::PhantomData;
 
-pub type FpChip<C: CurveAffine> = fp::FpConfig<C::ScalarExt, C::Base>;
-pub type FpPoint<C: CurveAffine> = CRTInteger<C::ScalarExt>;
+pub type FpChip<C> = fp::FpConfig<<C as CurveAffine>::ScalarExt, <C as CurveAffine>::Base>;
+pub type FpPoint<C> = CRTInteger<<C as CurveAffine>::ScalarExt>;
 
 // We're assuming that the scalar field of C actually happens to be the native field F of the proving system
 // There used to be a 'b lifetime, I don't know why it's needed so I removed

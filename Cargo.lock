@@ -1093,6 +1093,7 @@ dependencies = [
  "halo2_ecc",
  "halo2_proofs 0.1.0-beta.1 (git+https://github.com/junyu0312/halo2?rev=4112958c7fa980b331897fd030a329095f418ff9)",
  "log",
+ "num-bigint",
  "pairing_bn256",
  "rand",
  "rand_core",

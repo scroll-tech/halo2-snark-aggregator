@@ -11,7 +11,7 @@ use halo2_ecc::{
 use halo2_proofs::{arithmetic::FieldExt, circuit::AssignedCell, plonk::Error};
 use halo2_snark_aggregator_api::arith::{common::ArithCommonChip, field::ArithFieldChip};
 
-pub struct ScalarChip<'a, 'b, N: FieldExt>(&'a FlexGateConfig<N>, PhantomData<&'b N>);
+pub struct ScalarChip<'a, 'b, N: FieldExt>(pub &'a FlexGateConfig<N>, PhantomData<&'b N>);
 
 impl<'a, 'b, N: FieldExt> ScalarChip<'a, 'b, N> {
     pub fn new(gate: &'a FlexGateConfig<N>) -> Self {
@@ -128,11 +128,11 @@ impl<'a, 'b, N: FieldExt> ArithFieldChip for ScalarChip<'a, 'b, N> {
         cells.push(Constant(N::from(0)));
 
         let mut sum = Some(N::zero());
-        for (a, c) in a_with_coeff {
+        for (a, c) in &a_with_coeff {
             sum = sum.zip(a.value()).map(|(sum, &a)| sum + a * c);
 
             cells.push(Existing(a));
-            cells.push(Constant(c));
+            cells.push(Constant(*c));
             cells.push(Witness(sum));
         }
         let mut gate_offsets = Vec::with_capacity(a_with_coeff.len() + 1);

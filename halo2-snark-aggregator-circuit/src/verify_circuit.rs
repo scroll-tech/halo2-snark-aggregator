@@ -6,13 +6,14 @@ use crate::fs::{
 use crate::sample_circuit::TargetCircuit;
 
 use super::chips::{
-    ecc_chip::{EccChip, FpChip, FpPoint},
+    ecc_chip::{EccChip, FpChip},
     encode_chip::PoseidonEncodeChip,
     scalar_chip::ScalarChip,
 };
 use ff::PrimeField;
+use halo2_ecc::gates::QuantumCell;
 use halo2_ecc::{
-    fields::{fp::FpStrategy, fp_overflow::FpOverflowChip, FieldChip},
+    fields::fp::FpStrategy,
     gates::{Context, ContextParams, GateInstructions},
 };
 use halo2_proofs::circuit::floor_planner::V1;
@@ -44,7 +45,8 @@ use halo2_snark_aggregator_api::systems::halo2::{
 };
 use halo2_snark_aggregator_api::transcript::sha::{ShaRead, ShaWrite};
 use log::info;
-use pairing_bn256::bn256::{Bn256, Fq, Fr, G1Affine};
+use num_bigint::BigUint;
+use pairing_bn256::bn256::{Bn256, Fr, G1Affine};
 use pairing_bn256::group::Curve;
 use rand_core::OsRng;
 use serde::{Deserialize, Serialize};
@@ -53,7 +55,7 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::{io::Read, marker::PhantomData};
 
-const COMMON_RANGE_BITS: usize = 17usize;
+const LIMB_BITS: usize = 88;
 
 // for tuning the circuit
 #[derive(Serialize, Deserialize)]
@@ -216,6 +218,11 @@ where
         let params: Halo2VerifierCircuitConfigParams =
             serde_json::from_str(params_str.as_str()).unwrap();
 
+        assert!(
+            params.limb_bits == LIMB_BITS,
+            "For now we fix limb_bits = {}, otherwise change code",
+            LIMB_BITS
+        );
         let base_field_config = FpChip::<C>::configure(
             meta,
             params.strategy,
@@ -245,15 +252,9 @@ where
         let mut layouter = layouter.namespace(|| "mult-circuit");
         let mut res = self.synthesize_proof(&config.base_field_config, &mut layouter)?;
 
-        let mut x0_low = None;
-        let mut x0_high = None;
-        let mut x1_low = None;
-        let mut x1_high = None;
-        let mut instances = None;
-
         let base_gate = ScalarChip::new(&config.base_field_config.range.gate);
 
-        layouter.assign_region(
+        let instances = layouter.assign_region(
             || "base",
             |region| {
                 // TODO: for now we just let this run twice, we should later do something to trick the layouter to skip get shape mode
@@ -277,6 +278,9 @@ where
                 // It uses last bit to identify y and -y, so the w_modulus must be odd.
                 // assert!(integer_chip.helper.w_modulus.bit(0));
 
+                // We now compute compressed commitments of `res` in order to constrain them to equal the public inputs of this aggregation circuit
+                // See `final_pair_to_instances` for the format
+
                 let y0_bit = config.base_field_config.range.get_last_bit(
                     ctx,
                     &res.0.y.truncation.limbs[0],
@@ -288,91 +292,64 @@ where
                     config.base_field_config.limb_bits,
                 )?;
 
-                let zero = C::ScalarExt::from(0);
+                // Our big integers are represented with `limb_bits` sized limbs
+                // We want to pack as many limbs as possible to fit into native field C::ScalarExt, allowing room for 1 extra bit
+                let chunk_size = (<C::Scalar as PrimeField>::NUM_BITS as usize - 2)
+                    / config.base_field_config.limb_bits;
+                assert!(chunk_size > 0);
+                let num_chunks =
+                    (<C::Base as PrimeField>::NUM_BITS as usize + chunk_size - 1) / chunk_size;
 
-                let x0_low_ = base_gate.sum_with_coeff_and_constant(
-                    ctx,
-                    vec![
-                        (
-                            &res.0.x.limbs_le[0],
-                            integer_chip.helper.limb_modulus_exps[0],
-                        ),
-                        (
-                            &res.0.x.limbs_le[1],
-                            integer_chip.helper.limb_modulus_exps[1],
-                        ),
-                    ],
-                    zero,
-                )?;
+                let mut get_instance = |limbs: &Vec<AssignedCell<C::ScalarExt, C::ScalarExt>>,
+                                        bit|
+                 -> Result<
+                    Vec<AssignedCell<C::ScalarExt, C::ScalarExt>>,
+                    Error,
+                > {
+                    let mut instances = Vec::with_capacity(num_chunks);
+                    for i in 0..num_chunks {
+                        let mut a = Vec::with_capacity(chunk_size + 1);
+                        let mut b = Vec::with_capacity(chunk_size + 1);
+                        for j in 0..std::cmp::min(
+                            chunk_size,
+                            config.base_field_config.num_limbs - i * chunk_size,
+                        ) {
+                            a.push(QuantumCell::Existing(&limbs[i * num_chunks + j]));
+                            b.push(QuantumCell::Constant(halo2_ecc::utils::biguint_to_fe(
+                                &(BigUint::from(1u64) << (j * config.base_field_config.limb_bits)),
+                            )));
+                        }
+                        if i == num_chunks - 1 {
+                            a.push(QuantumCell::Existing(&bit));
+                            b.push(QuantumCell::Constant(halo2_ecc::utils::biguint_to_fe(
+                                &(BigUint::from(1u64)
+                                    << (chunk_size * config.base_field_config.limb_bits)),
+                            )));
+                        }
+                        let (_, _, chunk) = base_gate.0.inner_product(ctx, &a, &b)?;
+                        instances.push(chunk);
+                    }
+                    Ok(instances)
+                };
 
-                let x0_high_ = base_gate.sum_with_constant(
-                    ctx,
-                    vec![
-                        (
-                            &res.0.x.limbs_le[2],
-                            integer_chip.helper.limb_modulus_exps[0],
-                        ),
-                        (
-                            &res.0.x.limbs_le[3],
-                            integer_chip.helper.limb_modulus_exps[1],
-                        ),
-                        (&y0_bit, integer_chip.helper.limb_modulus_exps[2]),
-                    ],
-                    zero,
-                )?;
+                let mut pair_instance_0 = get_instance(&res.0.x.truncation.limbs, y0_bit)?;
+                let mut pair_instance_1 = get_instance(&res.1.x.truncation.limbs, y1_bit)?;
 
-                let x1_low_ = base_gate.sum_with_constant(
-                    ctx,
-                    vec![
-                        (
-                            &res.1.x.limbs_le[0],
-                            integer_chip.helper.limb_modulus_exps[0],
-                        ),
-                        (
-                            &res.1.x.limbs_le[1],
-                            integer_chip.helper.limb_modulus_exps[1],
-                        ),
-                    ],
-                    zero,
-                )?;
-
-                let x1_high_ = base_gate.sum_with_constant(
-                    ctx,
-                    vec![
-                        (
-                            &res.1.x.limbs_le[2],
-                            integer_chip.helper.limb_modulus_exps[0],
-                        ),
-                        (
-                            &res.1.x.limbs_le[3],
-                            integer_chip.helper.limb_modulus_exps[1],
-                        ),
-                        (&y1_bit, integer_chip.helper.limb_modulus_exps[2]),
-                    ],
-                    zero,
-                )?;
-
-                x0_low = Some(x0_low_);
-                x0_high = Some(x0_high_);
-                x1_low = Some(x1_low_);
-                x1_high = Some(x1_high_);
-                instances = Some(res.2.clone());
-                Ok(())
+                pair_instance_0.append(&mut pair_instance_1);
+                let mut instances = pair_instance_0;
+                instances.append(&mut res.2);
+                Ok(instances)
             },
         )?;
 
         Ok({
             let mut layouter = layouter.namespace(|| "expose");
-            layouter.constrain_instance(x0_low.unwrap().cell, config.instance, 0)?;
-            layouter.constrain_instance(x0_high.unwrap().cell, config.instance, 1)?;
-            layouter.constrain_instance(x1_low.unwrap().cell, config.instance, 2)?;
-            layouter.constrain_instance(x1_high.unwrap().cell, config.instance, 3)?;
-            let mut row = 4;
-            for instance in instances.unwrap() {
-                layouter
-                    .constrain_instance(instance.cell, config.instance, row)
-                    .unwrap();
-                row = row + 1;
+            for (i, assigned_instance) in instances.iter().enumerate() {
+                layouter.constrain_instance(
+                    assigned_instance.cell().clone(),
+                    config.instance,
+                    i,
+                )?;
             }
         })
     }
@@ -503,14 +480,15 @@ where
                 for coherent in &self.coherent {
                     pchip.chip.assert_equal(
                         ctx,
-                        &mut commits[coherent[0].0][coherent[0].1].clone(),
-                        &mut commits[coherent[1].0][coherent[1].1],
+                        &commits[coherent[0].0][coherent[0].1],
+                        &commits[coherent[1].0][coherent[1].1],
                     )?;
                 }
 
                 r = Some((p1, p2, v));
 
                 let (const_rows, total_fixed, lookup_rows) = field_chip.finalize(ctx)?;
+                println!("Aggregate proof synthesized.");
 
                 Ok(())
             },
@@ -547,6 +525,11 @@ where
         let params: Halo2VerifierCircuitConfigParams =
             serde_json::from_str(params_str.as_str()).unwrap();
 
+        assert!(
+            params.limb_bits == LIMB_BITS,
+            "For now we fix limb_bits = {}, otherwise change code",
+            LIMB_BITS
+        );
         let base_field_config = FpChip::<C>::configure(
             meta,
             params.strategy,
@@ -692,6 +675,8 @@ fn from_0_to_n<const N: usize>() -> [usize; N] {
 
 impl<C: CurveAffine, E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>, const N: usize>
     MultiCircuitsSetup<C, E, N>
+where
+    C::Base: PrimeField,
 {
     fn new_verify_circuit_info(&self, setup: bool) -> [SetupOutcome<C, E>; N] {
         from_0_to_n::<N>().map(|circuit_index| {
@@ -799,31 +784,46 @@ pub fn final_pair_to_instances<
     E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>,
 >(
     pair: &(C, C, Vec<E::Scalar>),
-) -> Vec<C::ScalarExt> {
-    let helper = FiveColumnIntegerChipHelper::<C::Base, C::ScalarExt>::new();
-    let w_x_x = helper.w_to_limb_n_le(&pair.0.coordinates().unwrap().x());
-    let w_x_y = helper.w_to_limb_n_le(&pair.0.coordinates().unwrap().y());
-    let w_g_x = helper.w_to_limb_n_le(&pair.1.coordinates().unwrap().x());
-    let w_g_y = helper.w_to_limb_n_le(&pair.1.coordinates().unwrap().y());
+    limb_bits: usize,
+) -> Vec<C::ScalarExt>
+where
+    C::Base: PrimeField,
+{
+    // Our big integers are represented with `limb_bits` sized limbs
+    // We want to pack as many limbs as possible to fit into native field C::ScalarExt, allowing room for 1 extra bit
+    let chunk_size = (<C::Scalar as PrimeField>::NUM_BITS as usize - 2) / limb_bits;
+    assert!(chunk_size > 0);
+    let num_chunks = (<C::Base as PrimeField>::NUM_BITS as usize + chunk_size - 1) / chunk_size;
 
-    let get_last_bit = |n| {
-        if field_to_bn(n).bit(0) {
-            helper.limb_modulus_exps[2]
-        } else {
+    let w_to_limbs_le = |w: &C::Base| {
+        let w_big = halo2_ecc::utils::fe_to_biguint(w);
+        halo2_ecc::utils::decompose_biguint::<C::ScalarExt>(
+            &w_big,
+            num_chunks,
+            chunk_size * limb_bits,
+        )
+    };
+    let mut w_x_x = w_to_limbs_le(pair.0.coordinates().unwrap().x());
+    let mut w_g_x = w_to_limbs_le(pair.1.coordinates().unwrap().x());
+
+    let get_last_bit = |w: &C::Base| -> C::ScalarExt {
+        let w_big = halo2_ecc::utils::fe_to_biguint(w);
+        if w_big % 2u64 == BigUint::from(0u64) {
             C::ScalarExt::from(0)
+        } else {
+            halo2_ecc::utils::biguint_to_fe(&(BigUint::from(1u64) << (chunk_size * limb_bits)))
         }
     };
 
-    let mut verify_circuit_instances = vec![
-        (w_x_x[0] * helper.limb_modulus_exps[0] + w_x_x[1] * helper.limb_modulus_exps[1]),
-        (w_x_x[2] * helper.limb_modulus_exps[0]
-            + w_x_x[3] * helper.limb_modulus_exps[1]
-            + get_last_bit(&w_x_y[0])),
-        (w_g_x[0] * helper.limb_modulus_exps[0] + w_g_x[1] * helper.limb_modulus_exps[1]),
-        (w_g_x[2] * helper.limb_modulus_exps[0]
-            + w_g_x[3] * helper.limb_modulus_exps[1]
-            + get_last_bit(&w_g_y[0])),
-    ];
+    if let Some(w_hi) = w_x_x.last_mut() {
+        *w_hi = *w_hi + get_last_bit(pair.0.coordinates().unwrap().y());
+    }
+    if let Some(w_hi) = w_g_x.last_mut() {
+        *w_hi = *w_hi + get_last_bit(pair.1.coordinates().unwrap().y());
+    }
+
+    w_x_x.append(&mut w_g_x);
+    let mut verify_circuit_instances = w_x_x;
 
     pair.2.iter().for_each(|instance| {
         verify_circuit_instances.push(*instance);
@@ -832,6 +832,8 @@ pub fn final_pair_to_instances<
     verify_circuit_instances
 }
 
+// This isn't used anywhere?
+/*
 pub fn calc_verify_circuit_instances<
     C: CurveAffine,
     E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>,
@@ -852,6 +854,7 @@ pub fn calc_verify_circuit_instances<
     .calc_verify_circuit_final_pair();
     final_pair_to_instances::<C, E>(&pair)
 }
+*/
 
 pub struct CreateProof<C: CurveAffine, E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>> {
     pub name: String,
@@ -924,6 +927,8 @@ pub struct MultiCircuitsCreateProof<
 
 impl<C: CurveAffine, E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>, const N: usize>
     MultiCircuitsCreateProof<'_, C, E, N>
+where
+    C::Base: PrimeField,
 {
     pub fn call(
         self,
@@ -999,7 +1004,8 @@ impl<C: CurveAffine, E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>, co
             .calc_verify_circuit_final_pair()
         };
 
-        let verify_circuit_instances = final_pair_to_instances::<C, E>(&verify_circuit_final_pair);
+        let verify_circuit_instances =
+            final_pair_to_instances::<C, E>(&verify_circuit_final_pair, LIMB_BITS);
 
         let verify_circuit_pk = keygen_pk(
             &self.verify_circuit_params,
