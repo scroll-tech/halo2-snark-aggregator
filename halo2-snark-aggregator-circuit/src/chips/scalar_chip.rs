@@ -1,9 +1,12 @@
 use std::marker::PhantomData;
 
-use halo2_ecc::gates::{
-    flex_gate::FlexGateConfig,
-    Context, GateInstructions,
-    QuantumCell::{self, Constant, Existing, Witness},
+use halo2_ecc::{
+    bigint::add_no_carry::assign,
+    gates::{
+        flex_gate::FlexGateConfig,
+        Context, GateInstructions,
+        QuantumCell::{self, Constant, Existing, Witness},
+    },
 };
 use halo2_proofs::{arithmetic::FieldExt, circuit::AssignedCell, plonk::Error};
 use halo2_snark_aggregator_api::arith::{common::ArithCommonChip, field::ArithFieldChip};
@@ -28,7 +31,7 @@ impl<'a, 'b, N: FieldExt> ArithCommonChip for ScalarChip<'a, 'b, N> {
         a: &Self::AssignedValue,
         b: &Self::AssignedValue,
     ) -> Result<Self::AssignedValue, Self::Error> {
-        self.0.add(ctx, a, b)
+        self.0.add(ctx, &Existing(a), &Existing(b))
     }
 
     fn sub(
@@ -37,7 +40,7 @@ impl<'a, 'b, N: FieldExt> ArithCommonChip for ScalarChip<'a, 'b, N> {
         a: &Self::AssignedValue,
         b: &Self::AssignedValue,
     ) -> Result<Self::AssignedValue, Self::Error> {
-        self.0.sub(ctx, a, b)
+        self.0.sub(ctx, &Existing(a), &Existing(b))
     }
 
     fn assign_zero(&self, ctx: &mut Self::Context) -> Result<Self::AssignedValue, Self::Error> {
@@ -53,8 +56,10 @@ impl<'a, 'b, N: FieldExt> ArithCommonChip for ScalarChip<'a, 'b, N> {
         ctx: &mut Self::Context,
         c: Self::Value,
     ) -> Result<Self::AssignedValue, Self::Error> {
-        self.0
-            .assign_region_smart(ctx, vec![Constant(c)], vec![], vec![], vec![])
+        let assignments =
+            self.0
+                .assign_region_smart(ctx, vec![Constant(c)], vec![], vec![], vec![])?;
+        Ok(assignments.last().unwrap().clone())
     }
 
     fn assign_var(
@@ -62,12 +67,14 @@ impl<'a, 'b, N: FieldExt> ArithCommonChip for ScalarChip<'a, 'b, N> {
         ctx: &mut Self::Context,
         v: Self::Value,
     ) -> Result<Self::AssignedValue, Self::Error> {
-        self.0
-            .assign_region_smart(ctx, vec![Witness(Some(v))], vec![], vec![], vec![])
+        let assignments =
+            self.0
+                .assign_region_smart(ctx, vec![Witness(Some(v))], vec![], vec![], vec![])?;
+        Ok(assignments.last().unwrap().clone())
     }
 
     fn to_value(&self, v: &Self::AssignedValue) -> Result<Self::Value, Self::Error> {
-        v.value().ok_or(Self::Error)
+        v.value().map(|v| v.clone()).ok_or(Error::Synthesis)
     }
 
     fn normalize(
@@ -89,7 +96,7 @@ impl<'a, 'b, N: FieldExt> ArithFieldChip for ScalarChip<'a, 'b, N> {
         a: &Self::AssignedField,
         b: &Self::AssignedField,
     ) -> Result<Self::AssignedField, Self::Error> {
-        self.0.mul(ctx, a, b)
+        self.0.mul(ctx, &Existing(a), &Existing(b))
     }
 
     fn div(
@@ -98,7 +105,7 @@ impl<'a, 'b, N: FieldExt> ArithFieldChip for ScalarChip<'a, 'b, N> {
         a: &Self::AssignedField,
         b: &Self::AssignedField,
     ) -> Result<Self::AssignedField, Self::Error> {
-        self.0.div_unsafe(ctx, a, b)
+        self.0.div_unsafe(ctx, &Existing(a), &Existing(b))
     }
 
     fn square(
@@ -106,7 +113,7 @@ impl<'a, 'b, N: FieldExt> ArithFieldChip for ScalarChip<'a, 'b, N> {
         ctx: &mut Self::Context,
         a: &Self::AssignedField,
     ) -> Result<Self::AssignedField, Self::Error> {
-        self.0.mul(ctx, a, a)
+        self.mul(ctx, a, a)
     }
 
     // this is an inner product on `a_with_coeff` and then `+ b`
@@ -122,7 +129,7 @@ impl<'a, 'b, N: FieldExt> ArithFieldChip for ScalarChip<'a, 'b, N> {
 
         let mut sum = Some(N::zero());
         for (a, c) in a_with_coeff {
-            sum = sum.zip(a.value()).map(|(sum, a)| sum + a * c);
+            sum = sum.zip(a.value()).map(|(sum, &a)| sum + a * c);
 
             cells.push(Existing(a));
             cells.push(Constant(c));
@@ -245,7 +252,7 @@ impl<'a, 'b, N: FieldExt> ArithFieldChip for ScalarChip<'a, 'b, N> {
                         self.mul(ctx, &acc, base)
                     } else {
                         self.div(ctx, &acc, base)
-                    };
+                    }?;
                 } else {
                     is_started = true;
                 }

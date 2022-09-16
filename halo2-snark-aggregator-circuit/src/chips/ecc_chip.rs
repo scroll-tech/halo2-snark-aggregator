@@ -6,19 +6,12 @@ use halo2_ecc::{
     fields::{fp, FieldChip},
     gates::Context,
 };
-use halo2_proofs::{
-    arithmetic::{CurveAffine, Field, FieldExt},
-    circuit::AssignedCell,
-    plonk::Error,
-};
-use halo2_snark_aggregator_api::{
-    arith::{common::ArithCommonChip, ecc::ArithEccChip},
-    systems::halo2,
-};
+use halo2_proofs::{arithmetic::CurveAffine, circuit::AssignedCell, plonk::Error};
+use halo2_snark_aggregator_api::arith::{common::ArithCommonChip, ecc::ArithEccChip};
 use std::marker::PhantomData;
 
-type FpChip<C: CurveAffine> = fp::FpConfig<C::ScalarExt, C::Base>;
-type FpPoint<C: CurveAffine> = CRTInteger<C::ScalarExt>;
+pub type FpChip<C: CurveAffine> = fp::FpConfig<C::ScalarExt, C::Base>;
+pub type FpPoint<C: CurveAffine> = CRTInteger<C::ScalarExt>;
 
 // We're assuming that the scalar field of C actually happens to be the native field F of the proving system
 // There used to be a 'b lifetime, I don't know why it's needed so I removed
@@ -106,16 +99,16 @@ where
         self.chip.load_private(
             ctx,
             (
-                Some(v.coordinates().unwrap().x()),
-                Some(v.coordinates().unwrap().y()),
+                Some(v.coordinates().unwrap().x().clone()),
+                Some(v.coordinates().unwrap().y().clone()),
             ),
         )
     }
 
     fn to_value(&self, v: &Self::AssignedValue) -> Result<Self::Value, Self::Error> {
-        let x = FpChip::get_assigned_value(&v.x).ok_or(Self::Error);
-        let y = FpChip::get_assigned_value(&v.y).ok_or(Self::Error);
-        Ok(C::from_xy(x, y))
+        let x = FpChip::<C>::get_assigned_value(&v.x).expect("x should not be None");
+        let y = FpChip::<C>::get_assigned_value(&v.y).expect("y should not be None");
+        Ok(C::from_xy(x, y).unwrap())
     }
 
     fn normalize(
@@ -156,7 +149,7 @@ where
             rhs,
             &vec![lhs.clone()],
             b,
-            <C::Scalar as PrimeField>::NUM_BITS,
+            <C::Scalar as PrimeField>::NUM_BITS as usize,
             4,
         )
     }
@@ -179,9 +172,9 @@ where
         self.chip.fixed_base_scalar_mult(
             ctx,
             &fixed_point,
-            lhs,
+            &vec![lhs.clone()],
             b,
-            <C::Scalar as PrimeField>::NUM_BITS,
+            <C::Scalar as PrimeField>::NUM_BITS as usize,
             4,
         )
     }
@@ -196,12 +189,12 @@ where
         let b_base = halo2_ecc::utils::fe_to_biguint(&C::b());
         let b = halo2_ecc::utils::biguint_to_fe::<C::ScalarExt>(&b_base);
 
-        self.chip.multi_scalar_mult(
+        self.chip.multi_scalar_mult::<C>(
             ctx,
             &points,
-            &scalars,
+            &scalars.iter().map(|scalar| vec![scalar.clone()]).collect(),
             b,
-            <C::Scalar as PrimeField>::NUM_BITS,
+            <C::Scalar as PrimeField>::NUM_BITS as usize,
             4,
         )
     }

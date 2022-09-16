@@ -1097,6 +1097,7 @@ dependencies = [
  "rand",
  "rand_core",
  "rayon",
+ "serde",
  "serde_json",
  "sha2",
  "sha3 0.10.5",

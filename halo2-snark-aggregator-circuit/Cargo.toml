@@ -15,6 +15,7 @@ log = "0.4.17"
 pairing_bn256 = { git = "https://github.com/appliedzkp/pairing", tag = "v0.1.1" }
 rand = "0.8.5"
 rand_core = "0.6.3"
+serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 sha2 ="0.10.2"
 sha3 = "0.10.1"

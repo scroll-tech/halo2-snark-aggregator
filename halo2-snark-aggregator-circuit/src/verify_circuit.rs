@@ -5,24 +5,18 @@ use crate::fs::{
 };
 use crate::sample_circuit::TargetCircuit;
 
-use super::chips::{ecc_chip::EccChip, encode_chip::PoseidonEncodeChip, scalar_chip::ScalarChip};
-use halo2_ecc_circuit_lib::chips::integer_chip::IntegerChipOps;
-use halo2_ecc_circuit_lib::chips::{
-    ecc_chip::{AssignedPoint, EccChipOps},
-    native_ecc_chip::NativeEccChip,
+use super::chips::{
+    ecc_chip::{EccChip, FpChip, FpPoint},
+    encode_chip::PoseidonEncodeChip,
+    scalar_chip::ScalarChip,
 };
-use halo2_ecc_circuit_lib::five::integer_chip::FiveColumnIntegerChipHelper;
-use halo2_ecc_circuit_lib::gates::base_gate::{AssignedValue, BaseGateOps};
-use halo2_ecc_circuit_lib::utils::field_to_bn;
-use halo2_ecc_circuit_lib::{
-    five::{
-        base_gate::{FiveColumnBaseGate, FiveColumnBaseGateConfig},
-        integer_chip::FiveColumnIntegerChip,
-        range_gate::FiveColumnRangeGate,
-    },
-    gates::{base_gate::Context, range_gate::RangeGateConfig},
+use ff::PrimeField;
+use halo2_ecc::{
+    fields::{fp::FpStrategy, fp_overflow::FpOverflowChip, FieldChip},
+    gates::{Context, ContextParams, GateInstructions},
 };
 use halo2_proofs::circuit::floor_planner::V1;
+use halo2_proofs::circuit::{AssignedCell, SimpleFloorPlanner};
 use halo2_proofs::plonk::{create_proof, keygen_vk, ProvingKey};
 use halo2_proofs::plonk::{Column, Instance};
 use halo2_proofs::{
@@ -35,6 +29,8 @@ use halo2_proofs::{
     plonk::{keygen_pk, verify_proof, SingleVerifier},
     transcript::Challenge255,
 };
+use halo2_snark_aggregator_api::arith::ecc::ArithEccChip;
+use halo2_snark_aggregator_api::arith::field::ArithFieldChip;
 use halo2_snark_aggregator_api::mock::arith::{
     ecc::MockEccChip,
     field::{MockChipCtx, MockFieldChip},
@@ -48,9 +44,10 @@ use halo2_snark_aggregator_api::systems::halo2::{
 };
 use halo2_snark_aggregator_api::transcript::sha::{ShaRead, ShaWrite};
 use log::info;
-use pairing_bn256::bn256::{Bn256, Fr, G1Affine};
+use pairing_bn256::bn256::{Bn256, Fq, Fr, G1Affine};
 use pairing_bn256::group::Curve;
 use rand_core::OsRng;
+use serde::{Deserialize, Serialize};
 use std::env::var;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -58,11 +55,26 @@ use std::{io::Read, marker::PhantomData};
 
 const COMMON_RANGE_BITS: usize = 17usize;
 
+// for tuning the circuit
+#[derive(Serialize, Deserialize)]
+struct Halo2VerifierCircuitConfigParams {
+    strategy: FpStrategy,
+    degree: u32,
+    num_advice: usize,
+    num_lookup_advice: usize,
+    num_fixed: usize,
+    lookup_bits: usize,
+    limb_bits: usize,
+    num_limbs: usize,
+}
+
 #[derive(Clone)]
-pub struct Halo2VerifierCircuitConfig {
-    base_gate_config: FiveColumnBaseGateConfig,
-    range_gate_config: RangeGateConfig,
-    instance: Column<Instance>,
+pub struct Halo2VerifierCircuitConfig<C: CurveAffine>
+where
+    C::Base: PrimeField,
+{
+    pub base_field_config: FpChip<C>,
+    pub instance: Column<Instance>,
 }
 
 #[derive(Clone, Debug)]
@@ -182,9 +194,11 @@ impl<
         E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>,
         const N: usize,
     > Circuit<C::ScalarExt> for Halo2VerifierCircuits<'a, E, N>
+where
+    C::Base: PrimeField,
 {
-    type Config = Halo2VerifierCircuitConfig;
-    type FloorPlanner = V1;
+    type Config = Halo2VerifierCircuitConfig<C>;
+    type FloorPlanner = SimpleFloorPlanner;
 
     fn without_witnesses(&self) -> Self {
         Halo2VerifierCircuits {
@@ -192,38 +206,44 @@ impl<
             coherent: self.coherent.clone(),
         }
     }
+
     fn configure(meta: &mut ConstraintSystem<C::ScalarExt>) -> Self::Config {
-        let base_gate_config = FiveColumnBaseGate::configure(meta);
-        let range_gate_config =
-            FiveColumnRangeGate::<'_, C::Base, C::ScalarExt, COMMON_RANGE_BITS>::configure(
-                meta,
-                &base_gate_config,
-            );
+        let mut folder = std::path::PathBuf::new();
+        folder.push("./src/configs");
+        folder.push("verify_circuit.config");
+        let params_str = std::fs::read_to_string(folder.as_path())
+            .expect("src/configs/verify_circuit.config file should exist");
+        let params: Halo2VerifierCircuitConfigParams =
+            serde_json::from_str(params_str.as_str()).unwrap();
+
+        let base_field_config = FpChip::<C>::configure(
+            meta,
+            params.strategy,
+            params.num_advice,
+            params.num_lookup_advice,
+            params.num_fixed,
+            params.lookup_bits,
+            params.limb_bits,
+            params.num_limbs,
+            halo2_ecc::utils::modulus::<C::Base>(),
+        );
 
         let instance = meta.instance_column();
         meta.enable_equality(instance);
 
         Self::Config {
-            base_gate_config,
-            range_gate_config,
+            base_field_config,
             instance,
         }
     }
+
     fn synthesize(
         &self,
-        config: Self::Config,
+        config: Halo2VerifierCircuitConfig<C>,
         mut layouter: impl Layouter<C::ScalarExt>,
     ) -> Result<(), Error> {
-        let base_gate = FiveColumnBaseGate::new(config.base_gate_config.clone());
-        let range_gate = FiveColumnRangeGate::<'_, C::Base, C::ScalarExt, COMMON_RANGE_BITS>::new(
-            config.range_gate_config.clone(),
-            &base_gate,
-        );
-
         let mut layouter = layouter.namespace(|| "mult-circuit");
-        let mut res = self.synthesize_proof(&base_gate, &range_gate, &mut layouter)?;
-
-        let integer_chip = FiveColumnIntegerChip::new(&range_gate);
+        let mut res = self.synthesize_proof(&config.base_field_config, &mut layouter)?;
 
         let mut x0_low = None;
         let mut x0_high = None;
@@ -231,27 +251,46 @@ impl<
         let mut x1_high = None;
         let mut instances = None;
 
+        let base_gate = ScalarChip::new(&config.base_field_config.range.gate);
+
         layouter.assign_region(
             || "base",
             |region| {
-                let base_offset = 0usize;
-                let mut aux = Context::new(region, base_offset);
+                // TODO: for now we just let this run twice, we should later do something to trick the layouter to skip get shape mode
+                // In that case need to generate a single region with one cell in each column, i.e., `one_line`
+                let mut aux = Context::new(
+                    region,
+                    ContextParams {
+                        num_advice: config.base_field_config.range.gate.num_advice,
+                        using_simple_floor_planner: true,
+                        first_pass: false,
+                    },
+                );
                 let ctx = &mut aux;
 
-                integer_chip.reduce(ctx, &mut res.0.x)?;
-                integer_chip.reduce(ctx, &mut res.0.y)?;
-                integer_chip.reduce(ctx, &mut res.1.x)?;
-                integer_chip.reduce(ctx, &mut res.1.y)?;
+                // TODO: probably need to constrain these Fp elements to be < p
+                // integer_chip.reduce(ctx, &mut res.0.x)?;
+                // integer_chip.reduce(ctx, &mut res.0.y)?;
+                // integer_chip.reduce(ctx, &mut res.1.x)?;
+                // integer_chip.reduce(ctx, &mut res.1.y)?;
 
                 // It uses last bit to identify y and -y, so the w_modulus must be odd.
-                assert!(integer_chip.helper.w_modulus.bit(0));
+                // assert!(integer_chip.helper.w_modulus.bit(0));
 
-                let y0_bit = integer_chip.get_last_bit(ctx, &res.0.y)?;
-                let y1_bit = integer_chip.get_last_bit(ctx, &res.1.y)?;
+                let y0_bit = config.base_field_config.range.get_last_bit(
+                    ctx,
+                    &res.0.y.truncation.limbs[0],
+                    config.base_field_config.limb_bits,
+                )?;
+                let y1_bit = config.base_field_config.range.get_last_bit(
+                    ctx,
+                    &res.1.y.truncation.limbs[0],
+                    config.base_field_config.limb_bits,
+                )?;
 
                 let zero = C::ScalarExt::from(0);
 
-                let x0_low_ = base_gate.sum_with_constant(
+                let x0_low_ = base_gate.sum_with_coeff_and_constant(
                     ctx,
                     vec![
                         (
@@ -345,41 +384,49 @@ impl<
         E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>,
         const N: usize,
     > Halo2VerifierCircuits<'a, E, N>
+where
+    C::Base: PrimeField,
 {
     fn synthesize_proof(
         &self,
-        base_gate: &FiveColumnBaseGate<C::ScalarExt>,
-        range_gate: &FiveColumnRangeGate<'_, C::Base, C::ScalarExt, COMMON_RANGE_BITS>,
+        field_chip: &FpChip<C>,
         layouter: &mut impl Layouter<C::ScalarExt>,
     ) -> Result<
         (
-            AssignedPoint<C, <C as CurveAffine>::ScalarExt>,
-            AssignedPoint<C, <C as CurveAffine>::ScalarExt>,
-            Vec<AssignedValue<<C as CurveAffine>::ScalarExt>>,
+            <EccChip<C> as ArithEccChip>::AssignedPoint,
+            <EccChip<C> as ArithEccChip>::AssignedPoint,
+            Vec<AssignedCell<C::ScalarExt, C::ScalarExt>>,
         ),
         Error,
     > {
-        let integer_chip = FiveColumnIntegerChip::new(range_gate);
-        let ecc_chip = NativeEccChip::new(&integer_chip);
-        range_gate
-            .init_table(layouter, &integer_chip.helper.integer_modulus)
-            .unwrap();
+        field_chip.load_lookup_table(layouter)?;
 
-        let nchip = &ScalarChip::new(base_gate);
+        let using_simple_floor_planner = true;
+        let mut first_pass = true;
+
+        let nchip = &ScalarChip::new(&field_chip.range.gate);
         let schip = nchip;
-        let pchip = &EccChip::new(&ecc_chip);
+        let pchip = &EccChip::new(field_chip);
 
         let mut r = None;
 
         layouter.assign_region(
             || "base",
             |region| {
-                let base_offset = 0usize;
-                let mut aux = Context::new(region, base_offset);
-                let ctx = &mut aux;
+                if first_pass && using_simple_floor_planner {
+                    first_pass = false;
+                    return Ok(());
+                }
 
-                // Check context is used in shape layout or not
-                ctx.in_shape_mode = base_gate.in_shape_mode(ctx)?;
+                let mut aux = Context::new(
+                    region,
+                    ContextParams {
+                        num_advice: field_chip.range.gate.num_advice,
+                        using_simple_floor_planner,
+                        first_pass,
+                    },
+                );
+                let ctx = &mut aux;
 
                 let circuit_proofs = self
                     .circuits
@@ -454,16 +501,17 @@ impl<
                 )?;
 
                 for coherent in &self.coherent {
-                    ecc_chip.assert_equal(
+                    pchip.chip.assert_equal(
                         ctx,
                         &mut commits[coherent[0].0][coherent[0].1].clone(),
                         &mut commits[coherent[1].0][coherent[1].1],
                     )?;
                 }
 
-                base_gate.assert_false(ctx, &p1.z)?;
-                base_gate.assert_false(ctx, &p2.z)?;
                 r = Some((p1, p2, v));
+
+                let (const_rows, total_fixed, lookup_rows) = field_chip.finalize(ctx)?;
+
                 Ok(())
             },
         )?;
@@ -474,8 +522,10 @@ impl<
 
 impl<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>>
     Circuit<C::ScalarExt> for Halo2VerifierCircuit<'a, E>
+where
+    C::Base: PrimeField,
 {
-    type Config = Halo2VerifierCircuitConfig;
+    type Config = Halo2VerifierCircuitConfig<C>;
     type FloorPlanner = V1;
 
     fn without_witnesses(&self) -> Self {
@@ -489,19 +539,31 @@ impl<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>
     }
 
     fn configure(meta: &mut ConstraintSystem<C::ScalarExt>) -> Self::Config {
-        let base_gate_config = FiveColumnBaseGate::configure(meta);
-        let range_gate_config =
-            FiveColumnRangeGate::<'_, C::Base, C::ScalarExt, COMMON_RANGE_BITS>::configure(
-                meta,
-                &base_gate_config,
-            );
+        let mut folder = std::path::PathBuf::new();
+        folder.push("./src/configs");
+        folder.push("verify_circuit.config");
+        let params_str = std::fs::read_to_string(folder.as_path())
+            .expect("src/configs/verify_circuit.config file should exist");
+        let params: Halo2VerifierCircuitConfigParams =
+            serde_json::from_str(params_str.as_str()).unwrap();
+
+        let base_field_config = FpChip::<C>::configure(
+            meta,
+            params.strategy,
+            params.num_advice,
+            params.num_lookup_advice,
+            params.num_fixed,
+            params.lookup_bits,
+            params.limb_bits,
+            params.num_limbs,
+            halo2_ecc::utils::modulus::<C::Base>(),
+        );
 
         let instance = meta.instance_column();
         meta.enable_equality(instance);
 
         Self::Config {
-            base_gate_config,
-            range_gate_config,
+            base_field_config,
             instance,
         }
     }
