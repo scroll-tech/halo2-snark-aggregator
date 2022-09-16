@@ -99,7 +99,7 @@ impl Circuit<Fr> for TestCircuit<G1Affine> {
         let params: crate::verify_circuit::Halo2VerifierCircuitConfigParams =
             serde_json::from_str(params_str.as_str()).unwrap();
 
-        println!("{:#?}", params_str.as_str());
+        println!("{}", serde_json::to_string_pretty(&params).unwrap());
 
         let base_field_config = FpConfig::configure(
             meta,
