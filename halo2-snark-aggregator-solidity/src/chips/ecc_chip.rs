@@ -1,7 +1,6 @@
 use super::scalar_chip::{SolidityFieldChip, SolidityFieldExpr};
 use crate::code_generator::ctx::{Expression, SolidityCodeGeneratorContext, Type};
-use halo2_ecc_circuit_lib::utils::bn_to_field;
-use halo2_ecc_circuit_lib::utils::field_to_bn;
+use halo2_ecc::utils::{biguint_to_fe as bn_to_field, fe_to_biguint as field_to_bn};
 use halo2_proofs::arithmetic::CurveAffine;
 use halo2_proofs::arithmetic::Field;
 use halo2_snark_aggregator_api::arith::{common::ArithCommonChip, ecc::ArithEccChip};
@@ -10,7 +9,10 @@ use pairing_bn256::group::ff::PrimeField;
 use pairing_bn256::group::Curve;
 use std::{marker::PhantomData, rc::Rc};
 
-pub fn get_xy_from_point<C: CurveAffine>(point: C::CurveExt) -> (BigUint, BigUint) {
+pub fn get_xy_from_point<C: CurveAffine>(point: C::CurveExt) -> (BigUint, BigUint)
+where
+    C::Base: PrimeField,
+{
     let coordinates = point.to_affine().coordinates();
     let x = coordinates
         .map(|v| v.x().clone())
@@ -43,7 +45,10 @@ impl<C: CurveAffine, E> SolidityEccChip<C, E> {
     }
 }
 
-impl<C: CurveAffine, E> ArithCommonChip for SolidityEccChip<C, E> {
+impl<C: CurveAffine, E> ArithCommonChip for SolidityEccChip<C, E>
+where
+    C::Base: PrimeField,
+{
     type Context = SolidityCodeGeneratorContext;
     type Value = C;
     type AssignedValue = SolidityEccExpr<C::CurveExt>;
@@ -169,7 +174,10 @@ impl<C: CurveAffine, E> ArithCommonChip for SolidityEccChip<C, E> {
     }
 }
 
-impl<C: CurveAffine, E> ArithEccChip for SolidityEccChip<C, E> {
+impl<C: CurveAffine, E> ArithEccChip for SolidityEccChip<C, E>
+where
+    C::Base: PrimeField,
+{
     type Point = C;
     type AssignedPoint = SolidityEccExpr<C::CurveExt>;
     type Scalar = C::ScalarExt;

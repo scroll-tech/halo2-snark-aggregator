@@ -646,7 +646,7 @@ source = "git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main#e37623
 dependencies = [
  "ethers-core",
  "ethers-providers",
- "halo2_proofs 0.1.0-beta.1 (git+https://github.com/junyu0312/halo2?rev=35fae8cfb75052516aeaceddbd16e3f1c54edad2)",
+ "halo2_proofs",
  "hex",
  "itertools",
  "lazy_static",
@@ -663,7 +663,7 @@ source = "git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/
 dependencies = [
  "ethers-core",
  "ethers-providers",
- "halo2_proofs 0.1.0-beta.1 (git+https://github.com/junyu0312/halo2?rev=35fae8cfb75052516aeaceddbd16e3f1c54edad2)",
+ "halo2_proofs",
  "hex",
  "itertools",
  "lazy_static",
@@ -936,7 +936,7 @@ source = "git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main#e37623
 dependencies = [
  "digest 0.7.6",
  "eth-types 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main)",
- "halo2_proofs 0.1.0-beta.1 (git+https://github.com/junyu0312/halo2?rev=35fae8cfb75052516aeaceddbd16e3f1c54edad2)",
+ "halo2_proofs",
  "sha3 0.7.3",
 ]
 
@@ -947,7 +947,7 @@ source = "git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/
 dependencies = [
  "digest 0.7.6",
  "eth-types 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs)",
- "halo2_proofs 0.1.0-beta.1 (git+https://github.com/junyu0312/halo2?rev=35fae8cfb75052516aeaceddbd16e3f1c54edad2)",
+ "halo2_proofs",
  "sha3 0.7.3",
 ]
 
@@ -1048,20 +1048,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "halo2-ecc-circuit-lib"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "group 0.11.0",
- "halo2_proofs 0.1.0-beta.1 (git+https://github.com/junyu0312/halo2?rev=4112958c7fa980b331897fd030a329095f418ff9)",
- "num-bigint",
- "num-integer",
- "pairing_bn256",
- "rand",
- "rand_xorshift",
-]
-
-[[package]]
 name = "halo2-snark-aggregator-api"
 version = "0.1.0"
 dependencies = [
@@ -1071,7 +1057,7 @@ dependencies = [
  "digest 0.10.5",
  "eth-types 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main)",
  "group 0.11.0",
- "halo2_proofs 0.1.0-beta.1 (git+https://github.com/junyu0312/halo2?rev=35fae8cfb75052516aeaceddbd16e3f1c54edad2)",
+ "halo2_proofs",
  "num-bigint",
  "pairing_bn256",
  "poseidon",
@@ -1091,7 +1077,7 @@ dependencies = [
  "ff 0.11.1",
  "halo2-snark-aggregator-api",
  "halo2_ecc",
- "halo2_proofs 0.1.0-beta.1 (git+https://github.com/junyu0312/halo2?rev=35fae8cfb75052516aeaceddbd16e3f1c54edad2)",
+ "halo2_proofs",
  "log",
  "num-bigint",
  "pairing_bn256",
@@ -1115,7 +1101,7 @@ dependencies = [
  "eth-types 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs)",
  "halo2-snark-aggregator-circuit",
  "halo2-snark-aggregator-solidity",
- "halo2_proofs 0.1.0-beta.1 (git+https://github.com/junyu0312/halo2?rev=35fae8cfb75052516aeaceddbd16e3f1c54edad2)",
+ "halo2_proofs",
  "log",
  "num-bigint",
  "pairing_bn256",
@@ -1130,10 +1116,10 @@ dependencies = [
 name = "halo2-snark-aggregator-solidity"
 version = "0.1.0"
 dependencies = [
- "halo2-ecc-circuit-lib",
  "halo2-snark-aggregator-api",
  "halo2-snark-aggregator-circuit",
- "halo2_proofs 0.1.0-beta.1 (git+https://github.com/junyu0312/halo2?rev=35fae8cfb75052516aeaceddbd16e3f1c54edad2)",
+ "halo2_ecc",
+ "halo2_proofs",
  "log",
  "num-bigint",
  "pairing_bn256",
@@ -1148,7 +1134,7 @@ source = "git+https://github.com/jonathanpwang/halo2-ecc?branch=scroll-aggregato
 dependencies = [
  "ff 0.11.1",
  "group 0.11.0",
- "halo2_proofs 0.1.0-beta.1 (git+https://github.com/junyu0312/halo2?rev=35fae8cfb75052516aeaceddbd16e3f1c54edad2)",
+ "halo2_proofs",
  "jemallocator",
  "num-bigint",
  "num-integer",
@@ -1164,26 +1150,6 @@ dependencies = [
 name = "halo2_proofs"
 version = "0.1.0-beta.1"
 source = "git+https://github.com/junyu0312/halo2?rev=35fae8cfb75052516aeaceddbd16e3f1c54edad2#35fae8cfb75052516aeaceddbd16e3f1c54edad2"
-dependencies = [
- "blake2b_simd",
- "bumpalo",
- "cfg-if 0.1.10",
- "ff 0.11.1",
- "group 0.11.0",
- "num-bigint",
- "num-integer",
- "pairing_bn256",
- "poseidon",
- "rand",
- "rand_core",
- "rayon",
- "subtle",
-]
-
-[[package]]
-name = "halo2_proofs"
-version = "0.1.0-beta.1"
-source = "git+https://github.com/junyu0312/halo2?rev=4112958c7fa980b331897fd030a329095f418ff9#4112958c7fa980b331897fd030a329095f418ff9"
 dependencies = [
  "blake2b_simd",
  "bumpalo",
@@ -1498,7 +1464,7 @@ source = "git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main#e37623
 dependencies = [
  "eth-types 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main)",
  "gadgets 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main)",
- "halo2_proofs 0.1.0-beta.1 (git+https://github.com/junyu0312/halo2?rev=35fae8cfb75052516aeaceddbd16e3f1c54edad2)",
+ "halo2_proofs",
  "itertools",
  "lazy_static",
  "num-bigint",
@@ -1512,7 +1478,7 @@ source = "git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/
 dependencies = [
  "eth-types 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs)",
  "gadgets 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs)",
- "halo2_proofs 0.1.0-beta.1 (git+https://github.com/junyu0312/halo2?rev=35fae8cfb75052516aeaceddbd16e3f1c54edad2)",
+ "halo2_proofs",
  "itertools",
  "lazy_static",
  "num-bigint",
@@ -3230,7 +3196,7 @@ dependencies = [
  "ethers-core",
  "ff 0.11.1",
  "gadgets 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main)",
- "halo2_proofs 0.1.0-beta.1 (git+https://github.com/junyu0312/halo2?rev=35fae8cfb75052516aeaceddbd16e3f1c54edad2)",
+ "halo2_proofs",
  "itertools",
  "keccak256 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main)",
  "lazy_static",
@@ -3259,7 +3225,7 @@ dependencies = [
  "ethers-core",
  "ff 0.11.1",
  "gadgets 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs)",
- "halo2_proofs 0.1.0-beta.1 (git+https://github.com/junyu0312/halo2?rev=35fae8cfb75052516aeaceddbd16e3f1c54edad2)",
+ "halo2_proofs",
  "itertools",
  "keccak256 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs)",
  "lazy_static",

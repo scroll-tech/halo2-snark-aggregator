@@ -1,7 +1,7 @@
 use crate::chips::ecc_chip::SolidityEccExpr;
 use crate::chips::scalar_chip::SolidityFieldExpr;
 use crate::code_generator::ctx::SolidityCodeGeneratorContext;
-use halo2_ecc_circuit_lib::utils::field_to_bn;
+use halo2_ecc::utils::fe_to_biguint as field_to_bn;
 use halo2_proofs::transcript::EncodedChallenge;
 use halo2_proofs::transcript::{Challenge255, Transcript, TranscriptRead};
 use halo2_proofs::{arithmetic::CurveAffine, plonk::Error};

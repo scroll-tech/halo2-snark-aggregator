@@ -1,18 +1,9 @@
 use super::super::chips::{
     ecc_chip::EccChip, encode_chip::PoseidonEncodeChip, scalar_chip::ScalarChip,
 };
-use halo2_ecc_circuit_lib::{
-    chips::native_ecc_chip::NativeEccChip,
-    five::{
-        base_gate::{FiveColumnBaseGate, FiveColumnBaseGateConfig},
-        config::{MUL_COLUMNS, VAR_COLUMNS},
-        integer_chip::FiveColumnIntegerChip,
-        range_gate::FiveColumnRangeGate,
-    },
-    gates::{
-        base_gate::{BaseGateConfig, Context},
-        range_gate::RangeGateConfig,
-    },
+use halo2_ecc::{
+    fields::fp::FpConfig,
+    gates::{Context, ContextParams},
 };
 use halo2_proofs::{
     arithmetic::CurveAffine,
@@ -37,40 +28,33 @@ impl Default for TestCase {
     }
 }
 
-const COMMON_RANGE_BITS: usize = 17usize;
-
 #[derive(Clone)]
-struct TestFiveColumnNativeEccChipConfig {
-    base_gate_config: FiveColumnBaseGateConfig,
-    range_gate_config: RangeGateConfig,
+struct TestConfig {
+    base_field_config: FpConfig<Fr, Fq>,
 }
 
 #[derive(Default)]
-struct TestFiveColumnNativeEccChipCircuit<C: CurveAffine> {
+struct TestCircuit<C: CurveAffine> {
     test_case: TestCase,
     _phantom_w: PhantomData<C>,
     _phantom_n: PhantomData<C::ScalarExt>,
 }
 
-impl TestFiveColumnNativeEccChipCircuit<G1Affine> {
+impl TestCircuit<G1Affine> {
     fn setup_single_proof_verify_test<'a>(
         &self,
-        base_gate_config: BaseGateConfig<VAR_COLUMNS, MUL_COLUMNS>,
-        ecc_chip: &NativeEccChip<G1Affine>,
+        base_field_config: &FpConfig<Fr, Fq>,
         ctx: &mut Context<'a, Fr>,
     ) -> Result<(), Error> {
-        let native_base_gate = FiveColumnBaseGate::new(base_gate_config.clone());
-        let scalar_base_gate = FiveColumnBaseGate::new(base_gate_config);
-
         test_verify_single_proof_in_chip::<
             ScalarChip<_>,
             ScalarChip<_>,
             EccChip<G1Affine>,
             PoseidonEncodeChip<_>,
         >(
-            &ScalarChip::new(&native_base_gate),
-            &ScalarChip::new(&scalar_base_gate),
-            &EccChip::new(ecc_chip),
+            &ScalarChip::new(&base_field_config.range.gate),
+            &ScalarChip::new(&base_field_config.range.gate),
+            &EccChip::new(&base_field_config),
             ctx,
         );
 
@@ -79,22 +63,18 @@ impl TestFiveColumnNativeEccChipCircuit<G1Affine> {
 
     fn setup_aggregation_proof_verify_test<'a>(
         &self,
-        base_gate_config: BaseGateConfig<VAR_COLUMNS, MUL_COLUMNS>,
-        ecc_chip: &NativeEccChip<G1Affine>,
+        base_field_config: &FpConfig<Fr, Fq>,
         ctx: &mut Context<'a, Fr>,
     ) -> Result<(), Error> {
-        let native_base_gate = FiveColumnBaseGate::new(base_gate_config.clone());
-        let scalar_base_gate = FiveColumnBaseGate::new(base_gate_config);
-
         test_verify_aggregation_proof_in_chip::<
             ScalarChip<_>,
             ScalarChip<_>,
             EccChip<G1Affine>,
             PoseidonEncodeChip<_>,
         >(
-            &ScalarChip::new(&native_base_gate),
-            &ScalarChip::new(&scalar_base_gate),
-            &EccChip::new(ecc_chip),
+            &ScalarChip::new(&base_field_config.range.gate),
+            &ScalarChip::new(&base_field_config.range.gate),
+            &EccChip::new(&base_field_config),
             ctx,
         );
 
@@ -102,8 +82,8 @@ impl TestFiveColumnNativeEccChipCircuit<G1Affine> {
     }
 }
 
-impl Circuit<Fr> for TestFiveColumnNativeEccChipCircuit<G1Affine> {
-    type Config = TestFiveColumnNativeEccChipConfig;
+impl Circuit<Fr> for TestCircuit<G1Affine> {
+    type Config = TestConfig;
     type FloorPlanner = SimpleFloorPlanner;
 
     fn without_witnesses(&self) -> Self {
@@ -111,15 +91,28 @@ impl Circuit<Fr> for TestFiveColumnNativeEccChipCircuit<G1Affine> {
     }
 
     fn configure(meta: &mut ConstraintSystem<Fr>) -> Self::Config {
-        let base_gate_config = FiveColumnBaseGate::<Fr>::configure(meta);
-        let range_gate_config = FiveColumnRangeGate::<'_, Fq, Fr, COMMON_RANGE_BITS>::configure(
+        let mut folder = std::path::PathBuf::new();
+        folder.push("./src/configs");
+        folder.push("verify_circuit.config");
+        let params_str = std::fs::read_to_string(folder.as_path())
+            .expect("src/configs/verify_circuit.config file should exist");
+        let params: crate::verify_circuit::Halo2VerifierCircuitConfigParams =
+            serde_json::from_str(params_str.as_str()).unwrap();
+
+        println!("{:#?}", params_str.as_str());
+
+        let base_field_config = FpConfig::configure(
             meta,
-            &base_gate_config,
+            params.strategy,
+            params.num_advice,
+            params.num_lookup_advice,
+            params.num_fixed,
+            params.lookup_bits,
+            params.limb_bits,
+            params.num_limbs,
+            halo2_ecc::utils::modulus::<Fq>(),
         );
-        TestFiveColumnNativeEccChipConfig {
-            base_gate_config,
-            range_gate_config,
-        }
+        TestConfig { base_field_config }
     }
 
     fn synthesize(
@@ -127,40 +120,74 @@ impl Circuit<Fr> for TestFiveColumnNativeEccChipCircuit<G1Affine> {
         config: Self::Config,
         mut layouter: impl Layouter<Fr>,
     ) -> Result<(), Error> {
-        let base_gate = FiveColumnBaseGate::new(config.base_gate_config.clone());
-        let range_gate = FiveColumnRangeGate::<'_, Fq, Fr, COMMON_RANGE_BITS>::new(
-            config.range_gate_config,
-            &base_gate,
-        );
-        let integer_gate = FiveColumnIntegerChip::new(&range_gate);
-        let ecc_gate = NativeEccChip::new(&integer_gate);
+        config.base_field_config.load_lookup_table(&mut layouter)?;
 
-        range_gate
-            .init_table(&mut layouter, &integer_gate.helper.integer_modulus)
-            .unwrap();
+        let using_simple_floor_planner = true;
+        let mut first_pass = true;
 
         layouter.assign_region(
             || "base",
             |region| {
-                let base_offset = 0usize;
-                let mut aux = Context::new(region, base_offset);
-                let r = &mut aux;
+                if first_pass && using_simple_floor_planner {
+                    first_pass = false;
+                    return Ok(());
+                }
+
+                let mut aux = Context::new(
+                    region,
+                    ContextParams {
+                        num_advice: config.base_field_config.range.gate.num_advice,
+                        using_simple_floor_planner,
+                        first_pass,
+                    },
+                );
+                let ctx = &mut aux;
+
                 let round = 1;
                 for _ in 0..round {
                     match self.test_case {
-                        TestCase::Single => self.setup_single_proof_verify_test(
-                            config.base_gate_config.clone(),
-                            &ecc_gate,
-                            r,
-                        ),
-                        TestCase::Aggregation => self.setup_aggregation_proof_verify_test(
-                            config.base_gate_config.clone(),
-                            &ecc_gate,
-                            r,
-                        ),
+                        TestCase::Single => {
+                            self.setup_single_proof_verify_test(&config.base_field_config, ctx)
+                        }
+                        TestCase::Aggregation => {
+                            self.setup_aggregation_proof_verify_test(&config.base_field_config, ctx)
+                        }
                     }?;
                 }
+                let (const_rows, total_fixed, lookup_rows) =
+                    config.base_field_config.finalize(ctx)?;
 
+                let advice_rows = ctx.advice_rows.iter();
+                println!(
+                    "maximum rows used by an advice column: {}",
+                    advice_rows.clone().max().or(Some(&0)).unwrap(),
+                );
+                println!(
+                    "minimum rows used by an advice column: {}",
+                    advice_rows.clone().min().or(Some(&usize::MAX)).unwrap(),
+                );
+                let total_cells = advice_rows.sum::<usize>();
+                println!("total cells used: {}", total_cells);
+                println!(
+                    "cells used in special lookup column: {}",
+                    ctx.cells_to_lookup.len()
+                );
+                println!("maximum rows used by a fixed column: {}", const_rows);
+
+                println!("Suggestions:");
+                let degree = config.base_field_config.range.lookup_bits + 1;
+                println!(
+                    "Have you tried using {} advice columns?",
+                    (total_cells + (1 << degree) - 1) / (1 << degree)
+                );
+                println!(
+                    "Have you tried using {} lookup columns?",
+                    (ctx.cells_to_lookup.len() + (1 << degree) - 1) / (1 << degree)
+                );
+                println!(
+                    "Have you tried using {} fixed columns?",
+                    (total_fixed + (1 << degree) - 1) / (1 << degree)
+                );
                 Ok(())
             },
         )?;
@@ -176,15 +203,21 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_five_column_single_proof_verify() {
-        //const K: u32 = (COMMON_RANGE_BITS + 2) as u32;
-        const K: u32 = 22;
-        let chip = TestFiveColumnNativeEccChipCircuit::<G1Affine> {
+    fn test_lookup_single_proof_verify() {
+        let mut folder = std::path::PathBuf::new();
+        folder.push("./src/configs");
+        folder.push("verify_circuit.config");
+        let params_str = std::fs::read_to_string(folder.as_path())
+            .expect("src/configs/verify_circuit.config file should exist");
+        let params: crate::verify_circuit::Halo2VerifierCircuitConfigParams =
+            serde_json::from_str(params_str.as_str()).unwrap();
+
+        let chip = TestCircuit::<G1Affine> {
             test_case: TestCase::Single,
             _phantom_w: PhantomData,
             _phantom_n: PhantomData,
         };
-        let prover = match MockProver::run(K, &chip, vec![]) {
+        let prover = match MockProver::run(params.degree, &chip, vec![]) {
             Ok(prover) => prover,
             Err(e) => panic!("{:#?}", e),
         };
@@ -192,15 +225,21 @@ mod tests {
     }
 
     #[test]
-    fn test_five_column_aggregation_proof_verify() {
-        //const K: u32 = (COMMON_RANGE_BITS + 2) as u32;
-        const K: u32 = 22;
-        let chip = TestFiveColumnNativeEccChipCircuit::<G1Affine> {
+    fn test_lookup_aggregation_proof_verify() {
+        let mut folder = std::path::PathBuf::new();
+        folder.push("./src/configs");
+        folder.push("verify_circuit.config");
+        let params_str = std::fs::read_to_string(folder.as_path())
+            .expect("src/configs/verify_circuit.config file should exist");
+        let params: crate::verify_circuit::Halo2VerifierCircuitConfigParams =
+            serde_json::from_str(params_str.as_str()).unwrap();
+
+        let chip = TestCircuit::<G1Affine> {
             test_case: TestCase::Aggregation,
             _phantom_w: PhantomData,
             _phantom_n: PhantomData,
         };
-        let prover = match MockProver::run(K, &chip, vec![]) {
+        let prover = match MockProver::run(params.degree, &chip, vec![]) {
             Ok(prover) => prover,
             Err(e) => panic!("{:#?}", e),
         };

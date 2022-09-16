@@ -25,6 +25,7 @@ use halo2_snark_aggregator_circuit::sample_circuit::TargetCircuit;
 use log::info;
 use num_bigint::BigUint;
 use pairing_bn256::bn256::{Bn256, G1Affine};
+use pairing_bn256::group::ff::PrimeField;
 use tera::{Context, Tera};
 
 fn render_verifier_sol_template<C: CurveAffine>(
@@ -192,7 +193,10 @@ pub struct MultiCircuitSolidityGenerate<'a, C: CurveAffine, const N: usize> {
     pub verify_public_inputs_size: usize,
 }
 
-impl<'a, C: CurveAffine, const N: usize> MultiCircuitSolidityGenerate<'a, C, N> {
+impl<'a, C: CurveAffine, const N: usize> MultiCircuitSolidityGenerate<'a, C, N>
+where
+    C::Base: PrimeField,
+{
     pub fn call<E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>>(
         &self,
         template_folder: std::path::PathBuf,

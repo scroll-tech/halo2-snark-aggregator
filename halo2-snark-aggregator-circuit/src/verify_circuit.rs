@@ -59,15 +59,15 @@ const LIMB_BITS: usize = 88;
 
 // for tuning the circuit
 #[derive(Serialize, Deserialize)]
-struct Halo2VerifierCircuitConfigParams {
-    strategy: FpStrategy,
-    degree: u32,
-    num_advice: usize,
-    num_lookup_advice: usize,
-    num_fixed: usize,
-    lookup_bits: usize,
-    limb_bits: usize,
-    num_limbs: usize,
+pub(crate) struct Halo2VerifierCircuitConfigParams {
+    pub strategy: FpStrategy,
+    pub degree: u32,
+    pub num_advice: usize,
+    pub num_lookup_advice: usize,
+    pub num_fixed: usize,
+    pub lookup_bits: usize,
+    pub limb_bits: usize,
+    pub num_limbs: usize,
 }
 
 #[derive(Clone)]

@@ -655,7 +655,6 @@ pub fn verify_single_proof_no_eval<
         chip_params.batch_multi_open_proofs(ctx, schip)?,
         advice_commitments[0].clone(),
     ))
-
 }
 
 fn evaluate_multiopen_proof<
@@ -675,7 +674,8 @@ fn evaluate_multiopen_proof<
 ) -> Result<(A::AssignedPoint, A::AssignedPoint), A::Error> {
     let one = schip.assign_one(ctx)?;
 
-    println!("debug context before evaluate multiopen proof: {}", ctx);
+    // do not print ctx anymore! our ctx contains constants_to_assign and lookup_cells, very long
+    // println!("debug context before evaluate multiopen proof: {}", ctx);
     let (left_s, left_e) = proof.w_x.eval::<_, A>(ctx, schip, pchip, &one)?;
     let (right_s, right_e) = proof.w_g.eval::<_, A>(ctx, schip, pchip, &one)?;
 
@@ -710,7 +710,7 @@ fn evaluate_multiopen_proof<
     assert!(success);
 
     */
-    println!("debug context after evaluate multiopen proof: {}", ctx);
+    // println!("debug context after evaluate multiopen proof: {}", ctx);
 
     Ok((left, right))
 }
@@ -764,14 +764,13 @@ pub fn verify_single_proof_in_chip<
     transcript: &mut T,
 ) -> Result<
     (
-        A::AssignedPoint, // w_x
-        A::AssignedPoint, // w_g
+        A::AssignedPoint,       // w_x
+        A::AssignedPoint,       // w_g
         Vec<A::AssignedScalar>, // plain assigned instance
-        Vec<A::AssignedPoint>, // advice commitments
+        Vec<A::AssignedPoint>,  // advice commitments
     ),
-    A::Error>
-  {
-
+    A::Error,
+> {
     let instances1: Vec<Vec<&[E::Scalar]>> = circuit.proofs[0]
         .instances
         .iter()
@@ -822,17 +821,17 @@ pub fn verify_aggregation_proofs_in_chip<
     transcript: &mut T,
 ) -> Result<
     (
-        A::AssignedPoint, // w_x
-        A::AssignedPoint, // w_g
-        Vec<A::AssignedScalar>, // plain assigned instance
+        A::AssignedPoint,           // w_x
+        A::AssignedPoint,           // w_g
+        Vec<A::AssignedScalar>,     // plain assigned instance
         Vec<Vec<A::AssignedPoint>>, // advice commitments
     ),
-    A::Error>
-  {
+    A::Error,
+> {
     let mut plain_assigned_instances = vec![];
 
     let multiopen_proofs: Vec<Vec<(MultiOpenProof<A>, Vec<A::AssignedPoint>)>> = circuits
-    //let multiopen_proofs: Vec<Vec<MultiOpenProof<A>>> = circuits
+        //let multiopen_proofs: Vec<Vec<MultiOpenProof<A>>> = circuits
         .iter_mut()
         .map(|circuit_proof| {
             let r = circuit_proof
@@ -875,7 +874,7 @@ pub fn verify_aggregation_proofs_in_chip<
 
                     println!("get proof {} {}", circuit_proof.name, p);
 
-                    Ok((p,c))
+                    Ok((p, c))
                 })
                 .collect::<Result<Vec<(MultiOpenProof<A>, Vec<A::AssignedPoint>)>, A::Error>>();
 
@@ -901,12 +900,10 @@ pub fn verify_aggregation_proofs_in_chip<
     for (proof, c) in proofs.into_iter() {
         acc = match acc {
             None => Some(proof),
-            Some(acc) => {
-                Some(MultiOpenProof {
-                    w_x: acc.w_x * scalar!(aggregation_challenge) + proof.w_x,
-                    w_g: acc.w_g * scalar!(aggregation_challenge) + proof.w_g,
-                })
-            }
+            Some(acc) => Some(MultiOpenProof {
+                w_x: acc.w_x * scalar!(aggregation_challenge) + proof.w_x,
+                w_g: acc.w_g * scalar!(aggregation_challenge) + proof.w_g,
+            }),
         };
         commits.push(c)
     }
