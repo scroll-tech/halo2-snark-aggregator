@@ -334,9 +334,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "3.2.21"
+version = "3.2.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ed5341b2301a26ab80be5cbdced622e80ed808483c52e45e3310a877d3b37d7"
+checksum = "86447ad904c7fb335a790c9d7fe3d0d971dc523b8ccd1561a520de9a85302750"
 dependencies = [
  "atty",
  "bitflags",
@@ -1071,7 +1071,7 @@ dependencies = [
  "digest 0.10.5",
  "eth-types 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=main)",
  "group 0.11.0",
- "halo2_proofs 0.1.0-beta.1 (git+https://github.com/junyu0312/halo2?rev=4112958c7fa980b331897fd030a329095f418ff9)",
+ "halo2_proofs 0.1.0-beta.1 (git+https://github.com/junyu0312/halo2?rev=35fae8cfb75052516aeaceddbd16e3f1c54edad2)",
  "num-bigint",
  "pairing_bn256",
  "poseidon",
@@ -1091,7 +1091,7 @@ dependencies = [
  "ff 0.11.1",
  "halo2-snark-aggregator-api",
  "halo2_ecc",
- "halo2_proofs 0.1.0-beta.1 (git+https://github.com/junyu0312/halo2?rev=4112958c7fa980b331897fd030a329095f418ff9)",
+ "halo2_proofs 0.1.0-beta.1 (git+https://github.com/junyu0312/halo2?rev=35fae8cfb75052516aeaceddbd16e3f1c54edad2)",
  "log",
  "num-bigint",
  "pairing_bn256",
@@ -1115,7 +1115,7 @@ dependencies = [
  "eth-types 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs)",
  "halo2-snark-aggregator-circuit",
  "halo2-snark-aggregator-solidity",
- "halo2_proofs 0.1.0-beta.1 (git+https://github.com/junyu0312/halo2?rev=4112958c7fa980b331897fd030a329095f418ff9)",
+ "halo2_proofs 0.1.0-beta.1 (git+https://github.com/junyu0312/halo2?rev=35fae8cfb75052516aeaceddbd16e3f1c54edad2)",
  "log",
  "num-bigint",
  "pairing_bn256",
@@ -1133,7 +1133,7 @@ dependencies = [
  "halo2-ecc-circuit-lib",
  "halo2-snark-aggregator-api",
  "halo2-snark-aggregator-circuit",
- "halo2_proofs 0.1.0-beta.1 (git+https://github.com/junyu0312/halo2?rev=4112958c7fa980b331897fd030a329095f418ff9)",
+ "halo2_proofs 0.1.0-beta.1 (git+https://github.com/junyu0312/halo2?rev=35fae8cfb75052516aeaceddbd16e3f1c54edad2)",
  "log",
  "num-bigint",
  "pairing_bn256",
@@ -1144,10 +1144,11 @@ dependencies = [
 [[package]]
 name = "halo2_ecc"
 version = "0.0.1"
+source = "git+https://github.com/jonathanpwang/halo2-ecc?branch=scroll-aggregator#30c2ee705d370eb2585990c898bd55e1f97d9112"
 dependencies = [
  "ff 0.11.1",
  "group 0.11.0",
- "halo2_proofs 0.1.0-beta.1 (git+https://github.com/junyu0312/halo2?rev=4112958c7fa980b331897fd030a329095f418ff9)",
+ "halo2_proofs 0.1.0-beta.1 (git+https://github.com/junyu0312/halo2?rev=35fae8cfb75052516aeaceddbd16e3f1c54edad2)",
  "jemallocator",
  "num-bigint",
  "num-integer",
@@ -2895,9 +2896,9 @@ checksum = "dcc811dc4066ac62f84f11307873c4850cb653bfa9b1719cee2bd2204a4bc5dd"
 
 [[package]]
 name = "unicode-normalization"
-version = "0.1.21"
+version = "0.1.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "854cbdc4f7bc6ae19c820d44abdc3277ac3e1b2b93db20a636825d9322fb60e6"
+checksum = "5c5713f0fc4b5db668a2ac63cdb7bb4469d8c9fed047b1d0292cc7b0ce2ba921"
 dependencies = [
  "tinyvec",
 ]

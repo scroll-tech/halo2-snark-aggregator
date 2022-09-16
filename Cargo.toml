@@ -13,6 +13,10 @@ members = [
 # and leads to a compilation error.  This can be removed once the upstream PR
 # is resolved: https://github.com/bitvecto-rs/bitvec/pull/141
 bitvec = { git = "https://github.com/ed255/bitvec.git", rev = "5cfc5fa8496c66872d21905e677120fc3e79693c" }
+halo2_proofs = { git = "https://github.com/junyu0312/halo2", rev = "35fae8cfb75052516aeaceddbd16e3f1c54edad2", default-features = true }
+
+[patch."https://github.com/privacy-scaling-explorations/halo2.git"]
+halo2_proofs = { git = "https://github.com/junyu0312/halo2", rev = "35fae8cfb75052516aeaceddbd16e3f1c54edad2", default-features = true }
 
 # Definition of benchmarks profile to use.
 [profile.bench]
