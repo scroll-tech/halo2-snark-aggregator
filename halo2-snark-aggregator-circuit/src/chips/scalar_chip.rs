@@ -59,6 +59,7 @@ impl<'a, 'b, N: FieldExt> ArithCommonChip for ScalarChip<'a, 'b, N> {
         let assignments =
             self.0
                 .assign_region_smart(ctx, vec![Constant(c)], vec![], vec![], vec![])?;
+        println!("{:?}, {:?}", c, assignments.last().unwrap());
         Ok(assignments.last().unwrap().clone())
     }
 

@@ -20,7 +20,7 @@ num-bigint = "0.4.3"
 
 [dev-dependencies]
 ark-std = { version = "0.3", features = ["print-trace"] }
-zkevm-circuits = { git = "https://github.com/ZhenXunGe/zkevm-circuits.git", branch = "main" }
+# zkevm-circuits = { git = "https://github.com/ZhenXunGe/zkevm-circuits.git", branch = "main" }
 
 [features]
 default = ["halo2"]

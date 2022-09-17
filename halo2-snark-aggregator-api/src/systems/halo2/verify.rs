@@ -410,6 +410,7 @@ impl<
         let l = self.vk.cs.blinding_factors() as u32 + 1;
         let n = self.params.n as u32;
         let omega = self.vk.domain.get_omega();
+        println!("{:?}", omega);
 
         let x = self.squeeze_challenge_scalar()?;
 
@@ -650,7 +651,9 @@ pub fn verify_single_proof_no_eval<
     };
 
     let chip_params = params_builder.build_params()?;
+    println!("{:?}", chip_params.w);
     let advice_commitments = chip_params.advice_commitments.clone();
+    println!("fin advice commit");
     Ok((
         chip_params.batch_multi_open_proofs(ctx, schip)?,
         advice_commitments[0].clone(),
@@ -798,9 +801,10 @@ pub fn verify_single_proof_in_chip<
         "".to_owned(),
     )?;
 
-    print!("get single proof {}", circuit.name);
+    println!("get single proof {}", circuit.name);
     let (w_x, w_g) =
         evaluate_multiopen_proof::<E, A, T>(ctx, schip, pchip, proof /*, circuit.params*/)?;
+    println!("fin eval multiopen pf");
     Ok((w_x, w_g, plain_assigned_instances, advice_commitments))
 }
 

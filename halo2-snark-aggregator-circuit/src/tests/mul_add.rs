@@ -7,7 +7,7 @@ use halo2_ecc::{
 };
 use halo2_proofs::{
     arithmetic::CurveAffine,
-    circuit::{Layouter, SimpleFloorPlanner},
+    circuit::{floor_planner::V1, Layouter, SimpleFloorPlanner},
     plonk::{Circuit, ConstraintSystem, Error},
 };
 use halo2_snark_aggregator_api::tests::systems::halo2::add_mul_test::{
@@ -127,12 +127,13 @@ impl Circuit<Fr> for TestCircuit<G1Affine> {
 
         layouter.assign_region(
             || "base",
-            |region| {
+            |mut region| {
                 if first_pass && using_simple_floor_planner {
                     first_pass = false;
                     return Ok(());
                 }
 
+                println!("starting real stuff");
                 let mut aux = Context::new(
                     region,
                     ContextParams {
@@ -198,30 +199,34 @@ impl Circuit<Fr> for TestCircuit<G1Affine> {
 
 #[cfg(test)]
 mod tests {
-    use halo2_proofs::dev::MockProver;
+    use halo2_proofs::{dev::MockProver, plonk::keygen_vk, poly::commitment::Params};
+    use pairing_bn256::bn256::Bn256;
 
     use super::*;
 
     #[test]
     fn test_mul_add_single_proof_verify() {
-        let mut folder = std::path::PathBuf::new();
-        folder.push("./src/configs");
-        folder.push("verify_circuit.config");
-        let params_str = std::fs::read_to_string(folder.as_path())
-            .expect("src/configs/verify_circuit.config file should exist");
-        let params: crate::verify_circuit::Halo2VerifierCircuitConfigParams =
-            serde_json::from_str(params_str.as_str()).unwrap();
+        let k = crate::fs::load_verify_circuit_degree();
 
         let chip = TestCircuit::<G1Affine> {
             test_case: TestCase::Single,
             _phantom_w: PhantomData,
             _phantom_n: PhantomData,
         };
-        let prover = match MockProver::run(params.degree, &chip, vec![]) {
+
+        let prover = match MockProver::run(k, &chip, vec![]) {
             Ok(prover) => prover,
             Err(e) => panic!("{:#?}", e),
         };
         assert_eq!(prover.verify(), Ok(()));
+        println!("mock prover OK");
+
+        /*
+        let general_params: Params<G1Affine> =
+            crate::verify_circuit::MultiCircuitsSetup::<G1Affine, Bn256, 1>::get_params_cached(k);
+        println!("starting keygen vk");
+        keygen_vk(&general_params, &chip).expect("keygen_vk should not fail");
+        */
     }
 
     #[test]
@@ -233,6 +238,12 @@ mod tests {
             _phantom_w: PhantomData,
             _phantom_n: PhantomData,
         };
+
+        /*
+        let general_params: Params<G1Affine> =
+            crate::verify_circuit::MultiCircuitsSetup::<G1Affine, Bn256, 1>::get_params_cached(k);
+        keygen_vk(&general_params, &chip).expect("keygen_vk should not fail");
+        */
         let prover = match MockProver::run(k, &chip, vec![]) {
             Ok(prover) => prover,
             Err(e) => panic!("{:#?}", e),

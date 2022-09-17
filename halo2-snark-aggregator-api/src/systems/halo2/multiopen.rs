@@ -21,7 +21,6 @@ impl<A: ArithEccChip> std::fmt::Display for MultiOpenProof<A> {
     }
 }
 
-
 impl<A: ArithEccChip> VerifierParams<A> {
     fn get_point_schemas<'a>(
         &'a self,
@@ -29,6 +28,7 @@ impl<A: ArithEccChip> VerifierParams<A> {
         schip: &A::ScalarChip,
     ) -> Result<Vec<EvaluationProof<A>>, A::Error> {
         let queries = self.queries(ctx, schip)?;
+        println!("fin queries");
 
         let mut points: BTreeMap<i32, (_, Vec<_>)> = BTreeMap::new();
         for query in queries {
@@ -51,6 +51,8 @@ impl<A: ArithEccChip> VerifierParams<A> {
                     p.1 .1
                         .into_iter()
                         .reduce(|acc, q| scalar!(self.v) * acc + q);
+                assert!(acc.is_none() == false);
+                println!("checkpoint acc");
 
                 Ok(EvaluationProof {
                     s: acc.unwrap(),
@@ -67,6 +69,7 @@ impl<A: ArithEccChip> VerifierParams<A> {
         schip: &A::ScalarChip,
     ) -> Result<MultiOpenProof<A>, A::Error> {
         let proofs = self.get_point_schemas(ctx, schip)?;
+        println!("fin get point schemas");
 
         let mut w_x = None;
         let mut w_g = None;

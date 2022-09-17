@@ -16,6 +16,7 @@ use halo2_ecc::{
     fields::fp::FpStrategy,
     gates::{Context, ContextParams, GateInstructions},
 };
+use halo2_proofs::circuit::floor_planner::V1;
 use halo2_proofs::circuit::{AssignedCell, SimpleFloorPlanner};
 use halo2_proofs::plonk::{create_proof, keygen_vk, ProvingKey};
 use halo2_proofs::plonk::{Column, Instance};
@@ -250,23 +251,41 @@ where
     ) -> Result<(), Error> {
         let mut layouter = layouter.namespace(|| "mult-circuit");
         let mut res = self.synthesize_proof(&config.base_field_config, &mut layouter)?;
-
+        return Ok(());
         let base_gate = ScalarChip::new(&config.base_field_config.range.gate);
 
-        let instances = layouter.assign_region(
-            || "base",
+        //let mut instances = None;
+
+        // Need to trick layouter to skip first pass in get shape mode
+        let using_simple_floor_planner = true;
+        let mut first_pass = true;
+        layouter.assign_region(
+            || "get instances",
             |region| {
-                // TODO: for now we just let this run twice, we should later do something to trick the layouter to skip get shape mode
-                // In that case need to generate a single region with one cell in each column, i.e., `one_line`
                 let mut aux = Context::new(
                     region,
                     ContextParams {
                         num_advice: config.base_field_config.range.gate.num_advice,
-                        using_simple_floor_planner: true,
-                        first_pass: false,
+                        using_simple_floor_planner,
+                        first_pass,
                     },
                 );
                 let ctx = &mut aux;
+
+                // since we already ray one layouter in synthesize_proof, we can't just return with an empty region: that would tell the layouter to set the region at row 0
+                // so we will set a horizontal line of cells
+                if using_simple_floor_planner && first_pass {
+                    for i in 0..config.base_field_config.range.gate.basic_gates.len() {
+                        config.base_field_config.range.gate.assign_cell(
+                            ctx,
+                            QuantumCell::Witness(None),
+                            config.base_field_config.range.gate.basic_gates[i].value,
+                            0,
+                        )?;
+                    }
+                    first_pass = false;
+                    return Ok(());
+                }
 
                 // TODO: probably need to constrain these Fp elements to be < p
                 // integer_chip.reduce(ctx, &mut res.0.x)?;
@@ -280,6 +299,7 @@ where
                 // We now compute compressed commitments of `res` in order to constrain them to equal the public inputs of this aggregation circuit
                 // See `final_pair_to_instances` for the format
 
+                /*
                 let y0_bit = config.base_field_config.range.get_last_bit(
                     ctx,
                     &res.0.y.truncation.limbs[0],
@@ -290,6 +310,7 @@ where
                     &res.1.y.truncation.limbs[0],
                     config.base_field_config.limb_bits,
                 )?;
+                */
 
                 // Our big integers are represented with `limb_bits` sized limbs
                 // We want to pack as many limbs as possible to fit into native field C::ScalarExt, allowing room for 1 extra bit
@@ -302,7 +323,7 @@ where
                     / (config.base_field_config.limb_bits * chunk_size);
 
                 let mut get_instance = |limbs: &Vec<AssignedCell<C::ScalarExt, C::ScalarExt>>,
-                                        bit|
+                                        bit: Option<i32>|
                  -> Result<
                     Vec<AssignedCell<C::ScalarExt, C::ScalarExt>>,
                     Error,
@@ -320,29 +341,28 @@ where
                                 &(BigUint::from(1u64) << (j * config.base_field_config.limb_bits)),
                             )));
                         }
-                        if i == num_chunks - 1 {
+                        /*if i == num_chunks - 1 {
                             a.push(QuantumCell::Existing(&bit));
                             b.push(QuantumCell::Constant(halo2_ecc::utils::biguint_to_fe(
                                 &(BigUint::from(1u64)
                                     << (chunk_size * config.base_field_config.limb_bits)),
                             )));
-                        }
+                        }*/
                         let (_, _, chunk) = base_gate.0.inner_product(ctx, &a, &b)?;
                         instances.push(chunk);
                     }
                     Ok(instances)
                 };
 
-                /*
-                let mut pair_instance_0 = get_instance(&res.0.x.truncation.limbs, y0_bit)?;
-                let mut pair_instance_1 = get_instance(&res.1.x.truncation.limbs, y1_bit)?;
+                let mut pair_instance_0 = get_instance(&res.0.x.truncation.limbs, None)?; // y0_bit)?;
+                let mut pair_instance_1 = get_instance(&res.1.x.truncation.limbs, None)?; //y1_bit)?;
 
                 pair_instance_0.append(&mut pair_instance_1);
-                let mut instances = pair_instance_0;
-                instances.append(&mut res.2);
-                */
+                pair_instance_0.append(&mut res.2);
+
+                /*
                 let (const_rows, total_fixed, lookup_rows) =
-                    config.base_field_config.finalize(ctx)?;
+                   config.base_field_config.finalize(ctx)?;
 
                 println!("Finished exposing instances");
                 let advice_rows = ctx.advice_rows.iter();
@@ -366,19 +386,21 @@ where
                 );
                 println!("total cells used in fixed columns: {}", total_fixed);
                 println!("maximum rows used by a fixed column: {}", const_rows);
-                Ok(()) //Ok(instances)
+                instances = Some(pair_instance_0); */
+                Ok(())
             },
         )?;
 
-        Ok({
-            /*let mut layouter = layouter.namespace(|| "expose");
-            for (i, assigned_instance) in instances.iter().enumerate() {
-                layouter.constrain_instance(
-                    assigned_instance.cell().clone(),
-                    config.instance,
-                    i,
-                )?;
-            }*/
+        Ok({ /*
+             let mut layouter = layouter.namespace(|| "expose");
+             for (i, assigned_instance) in instances.unwrap().iter().enumerate() {
+                 layouter.constrain_instance(
+                     assigned_instance.cell().clone(),
+                     config.instance,
+                     i,
+                 )?;
+             }
+             */
         })
     }
 }
@@ -416,7 +438,7 @@ where
         let mut r = None;
 
         layouter.assign_region(
-            || "base",
+            || "proof",
             |region| {
                 if first_pass && using_simple_floor_planner {
                     first_pass = false;
@@ -496,7 +518,7 @@ where
                         8usize,
                         33usize,
                     )?;
-                let (p1, p2, v, mut commits) = verify_aggregation_proofs_in_chip(
+                let (p1, p2, v, commits) = verify_aggregation_proofs_in_chip(
                     ctx,
                     nchip,
                     schip,
@@ -516,6 +538,7 @@ where
                 r = Some((p1, p2, v));
 
                 let (const_rows, total_fixed, lookup_rows) = field_chip.finalize(ctx)?;
+
                 println!("Aggregate proof synthesized.");
                 let advice_rows = ctx.advice_rows.iter();
                 let total_cells = advice_rows.clone().sum::<usize>();
@@ -761,7 +784,7 @@ where
         })
     }
 
-    fn get_params_cached(k: u32) -> Params<C> {
+    pub fn get_params_cached(k: u32) -> Params<C> {
         let mut params_folder = std::path::PathBuf::new();
         params_folder.push("../params");
         if !params_folder.is_dir() {
@@ -808,6 +831,17 @@ where
             self.coherent.clone(),
         );
         info!("circuit build done");
+
+        // for testing purposes
+        let prover = match halo2_proofs::dev::MockProver::run(
+            verify_circuit_k,
+            &verify_circuit,
+            vec![vec![]],
+        ) {
+            Ok(prover) => prover,
+            Err(e) => panic!("{:#?}", e),
+        };
+        assert_eq!(prover.verify(), Ok(()));
 
         // TODO: Do not use this setup in production
         let verify_circuit_params = Self::get_params_cached(verify_circuit_k);
