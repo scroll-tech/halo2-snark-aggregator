@@ -17,8 +17,8 @@ halo2_proofs = { git = "https://github.com/junyu0312/halo2", rev = "35fae8cfb750
 [patch."https://github.com/privacy-scaling-explorations/halo2.git"]
 halo2_proofs = { git = "https://github.com/junyu0312/halo2", rev = "35fae8cfb75052516aeaceddbd16e3f1c54edad2", default-features = true }
 
-# [patch."https://github.com/jonathanpwang/halo2-ecc"]
-# halo2_ecc = { path = "../halo2-ecc" }
+#[patch."https://github.com/jonathanpwang/halo2-ecc"]
+#halo2_ecc = { path = "../halo2-ecc" }
 
 # Definition of benchmarks profile to use.
 [profile.bench]

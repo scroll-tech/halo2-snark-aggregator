@@ -12,6 +12,7 @@ use std::marker::PhantomData;
 
 pub type FpChip<C> = fp::FpConfig<<C as CurveAffine>::ScalarExt, <C as CurveAffine>::Base>;
 pub type FpPoint<C> = CRTInteger<<C as CurveAffine>::ScalarExt>;
+pub type AssignedValue<C> = super::scalar_chip::AssignedValue<<C as CurveAffine>::ScalarExt>;
 
 // We're assuming that the scalar field of C actually happens to be the native field F of the proving system
 // There used to be a 'b lifetime, I don't know why it's needed so I removed
@@ -128,9 +129,9 @@ where
     type Point = C;
     type AssignedPoint = ecc::EccPoint<C::ScalarExt, FpPoint<C>>;
     type Scalar = C::ScalarExt;
-    type AssignedScalar = AssignedCell<C::ScalarExt, C::ScalarExt>;
+    type AssignedScalar = AssignedValue<C>;
     type Native = C::ScalarExt;
-    type AssignedNative = AssignedCell<C::ScalarExt, C::ScalarExt>;
+    type AssignedNative = AssignedValue<C>;
 
     type ScalarChip = ScalarChip<'a, 'b, C::ScalarExt>;
     type NativeChip = ScalarChip<'a, 'b, C::ScalarExt>;
@@ -147,7 +148,7 @@ where
         self.chip.scalar_mult(
             ctx,
             rhs,
-            &vec![lhs.clone()],
+            &vec![lhs.0.clone()],
             b,
             <C::Scalar as PrimeField>::NUM_BITS as usize,
             4,
@@ -172,7 +173,7 @@ where
         self.chip.fixed_base_scalar_mult(
             ctx,
             &fixed_point,
-            &vec![lhs.clone()],
+            &vec![lhs.0.clone()],
             b,
             <C::Scalar as PrimeField>::NUM_BITS as usize,
             4,
@@ -192,7 +193,10 @@ where
         self.chip.multi_scalar_mult::<C>(
             ctx,
             &points,
-            &scalars.iter().map(|scalar| vec![scalar.clone()]).collect(),
+            &scalars
+                .iter()
+                .map(|scalar| vec![scalar.0.clone()])
+                .collect(),
             b,
             <C::Scalar as PrimeField>::NUM_BITS as usize,
             4,

@@ -214,19 +214,19 @@ mod tests {
             _phantom_n: PhantomData,
         };
 
+        /*
         let prover = match MockProver::run(k, &chip, vec![]) {
             Ok(prover) => prover,
             Err(e) => panic!("{:#?}", e),
         };
         assert_eq!(prover.verify(), Ok(()));
         println!("mock prover OK");
+        */
 
-        /*
         let general_params: Params<G1Affine> =
             crate::verify_circuit::MultiCircuitsSetup::<G1Affine, Bn256, 1>::get_params_cached(k);
         println!("starting keygen vk");
         keygen_vk(&general_params, &chip).expect("keygen_vk should not fail");
-        */
     }
 
     #[test]
@@ -239,15 +239,15 @@ mod tests {
             _phantom_n: PhantomData,
         };
 
-        /*
         let general_params: Params<G1Affine> =
             crate::verify_circuit::MultiCircuitsSetup::<G1Affine, Bn256, 1>::get_params_cached(k);
         keygen_vk(&general_params, &chip).expect("keygen_vk should not fail");
-        */
+        /*
         let prover = match MockProver::run(k, &chip, vec![]) {
             Ok(prover) => prover,
             Err(e) => panic!("{:#?}", e),
         };
         assert_eq!(prover.verify(), Ok(()));
+        */
     }
 }

@@ -1,4 +1,5 @@
 use super::ecc_chip::EccChip;
+use super::scalar_chip::AssignedValue;
 use ff::PrimeField;
 use halo2_proofs::{arithmetic::CurveAffine, plonk::Error};
 use halo2_snark_aggregator_api::{
@@ -24,7 +25,10 @@ where
     ) -> Result<Vec<<EccChip<'a, 'b, C> as ArithEccChip>::AssignedNative>, Error> {
         let x_native = v.x.native.clone();
         let y_native = v.y.native.clone();
-        Ok(vec![x_native, y_native])
+        Ok(vec![
+            AssignedValue(x_native, None),
+            AssignedValue(y_native, None),
+        ])
     }
 
     fn encode_scalar(

@@ -251,10 +251,9 @@ where
     ) -> Result<(), Error> {
         let mut layouter = layouter.namespace(|| "mult-circuit");
         let mut res = self.synthesize_proof(&config.base_field_config, &mut layouter)?;
-        return Ok(());
-        let base_gate = ScalarChip::new(&config.base_field_config.range.gate);
 
-        //let mut instances = None;
+        let base_gate = ScalarChip::new(&config.base_field_config.range.gate);
+        let mut instances = None;
 
         // Need to trick layouter to skip first pass in get shape mode
         let using_simple_floor_planner = true;
@@ -272,7 +271,7 @@ where
                 );
                 let ctx = &mut aux;
 
-                // since we already ray one layouter in synthesize_proof, we can't just return with an empty region: that would tell the layouter to set the region at row 0
+                // since we already ran one layouter in synthesize_proof, we can't just return with an empty region: that would tell the layouter to set the region at row 0
                 // so we will set a horizontal line of cells
                 if using_simple_floor_planner && first_pass {
                     for i in 0..config.base_field_config.range.gate.basic_gates.len() {
@@ -299,7 +298,6 @@ where
                 // We now compute compressed commitments of `res` in order to constrain them to equal the public inputs of this aggregation circuit
                 // See `final_pair_to_instances` for the format
 
-                /*
                 let y0_bit = config.base_field_config.range.get_last_bit(
                     ctx,
                     &res.0.y.truncation.limbs[0],
@@ -310,7 +308,6 @@ where
                     &res.1.y.truncation.limbs[0],
                     config.base_field_config.limb_bits,
                 )?;
-                */
 
                 // Our big integers are represented with `limb_bits` sized limbs
                 // We want to pack as many limbs as possible to fit into native field C::ScalarExt, allowing room for 1 extra bit
@@ -323,7 +320,7 @@ where
                     / (config.base_field_config.limb_bits * chunk_size);
 
                 let mut get_instance = |limbs: &Vec<AssignedCell<C::ScalarExt, C::ScalarExt>>,
-                                        bit: Option<i32>|
+                                        bit|
                  -> Result<
                     Vec<AssignedCell<C::ScalarExt, C::ScalarExt>>,
                     Error,
@@ -341,28 +338,27 @@ where
                                 &(BigUint::from(1u64) << (j * config.base_field_config.limb_bits)),
                             )));
                         }
-                        /*if i == num_chunks - 1 {
+                        if i == num_chunks - 1 {
                             a.push(QuantumCell::Existing(&bit));
                             b.push(QuantumCell::Constant(halo2_ecc::utils::biguint_to_fe(
                                 &(BigUint::from(1u64)
                                     << (chunk_size * config.base_field_config.limb_bits)),
                             )));
-                        }*/
+                        }
                         let (_, _, chunk) = base_gate.0.inner_product(ctx, &a, &b)?;
                         instances.push(chunk);
                     }
                     Ok(instances)
                 };
 
-                let mut pair_instance_0 = get_instance(&res.0.x.truncation.limbs, None)?; // y0_bit)?;
-                let mut pair_instance_1 = get_instance(&res.1.x.truncation.limbs, None)?; //y1_bit)?;
+                let mut pair_instance_0 = get_instance(&res.0.x.truncation.limbs, y0_bit)?;
+                let mut pair_instance_1 = get_instance(&res.1.x.truncation.limbs, y1_bit)?;
 
                 pair_instance_0.append(&mut pair_instance_1);
                 pair_instance_0.append(&mut res.2);
 
-                /*
                 let (const_rows, total_fixed, lookup_rows) =
-                   config.base_field_config.finalize(ctx)?;
+                    config.base_field_config.finalize(ctx)?;
 
                 println!("Finished exposing instances");
                 let advice_rows = ctx.advice_rows.iter();
@@ -386,21 +382,20 @@ where
                 );
                 println!("total cells used in fixed columns: {}", total_fixed);
                 println!("maximum rows used by a fixed column: {}", const_rows);
-                instances = Some(pair_instance_0); */
+                instances = Some(pair_instance_0);
                 Ok(())
             },
         )?;
 
-        Ok({ /*
-             let mut layouter = layouter.namespace(|| "expose");
-             for (i, assigned_instance) in instances.unwrap().iter().enumerate() {
-                 layouter.constrain_instance(
-                     assigned_instance.cell().clone(),
-                     config.instance,
-                     i,
-                 )?;
-             }
-             */
+        Ok({
+            let mut layouter = layouter.namespace(|| "expose");
+            for (i, assigned_instance) in instances.unwrap().iter().enumerate() {
+                layouter.constrain_instance(
+                    assigned_instance.cell().clone(),
+                    config.instance,
+                    i,
+                )?;
+            }
         })
     }
 }
@@ -526,6 +521,7 @@ where
                     circuit_proofs,
                     &mut transcript,
                 )?;
+                let v = v.iter().map(|a| a.0.clone()).collect();
 
                 for coherent in &self.coherent {
                     pchip.chip.assert_equal(

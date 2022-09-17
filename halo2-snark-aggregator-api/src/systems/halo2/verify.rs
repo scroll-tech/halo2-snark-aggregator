@@ -651,7 +651,6 @@ pub fn verify_single_proof_no_eval<
     };
 
     let chip_params = params_builder.build_params()?;
-    println!("{:?}", chip_params.w);
     let advice_commitments = chip_params.advice_commitments.clone();
     println!("fin advice commit");
     Ok((
