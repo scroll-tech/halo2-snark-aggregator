@@ -6,6 +6,7 @@ use halo2_proofs::{
 use halo2_snark_aggregator_circuit::sample_circuit::TargetCircuit;
 use halo2_snark_aggregator_sdk::zkaggregate;
 use pairing_bn256::bn256::{Bn256, Fr, G1Affine};
+use serde_json;
 use zkevm_circuits::evm_circuit::{witness::Block, EvmCircuit};
 
 #[derive(Debug, Default)]
@@ -73,6 +74,9 @@ type ZkEvm = TestCircuit<Fr>;
 zkaggregate! {1, vec![], ZkEvm}
 
 pub fn main() {
-    let builder = zkcli::builder(25);
+    // read in degree of test circuit from file
+    let k = halo2_snark_aggregator_circuit::fs::load_verify_circuit_degree();
+
+    let builder = zkcli::builder(k);
     builder.run()
 }

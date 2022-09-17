@@ -16,7 +16,6 @@ use halo2_ecc::{
     fields::fp::FpStrategy,
     gates::{Context, ContextParams, GateInstructions},
 };
-use halo2_proofs::circuit::floor_planner::V1;
 use halo2_proofs::circuit::{AssignedCell, SimpleFloorPlanner};
 use halo2_proofs::plonk::{create_proof, keygen_vk, ProvingKey};
 use halo2_proofs::plonk::{Column, Instance};
@@ -59,7 +58,7 @@ const LIMB_BITS: usize = 88;
 
 // for tuning the circuit
 #[derive(Serialize, Deserialize)]
-pub(crate) struct Halo2VerifierCircuitConfigParams {
+pub struct Halo2VerifierCircuitConfigParams {
     pub strategy: FpStrategy,
     pub degree: u32,
     pub num_advice: usize,
@@ -211,10 +210,10 @@ where
 
     fn configure(meta: &mut ConstraintSystem<C::ScalarExt>) -> Self::Config {
         let mut folder = std::path::PathBuf::new();
-        folder.push("./src/configs");
+        folder.push("../halo2-snark-aggregator-circuit/src/configs");
         folder.push("verify_circuit.config");
         let params_str = std::fs::read_to_string(folder.as_path())
-            .expect("src/configs/verify_circuit.config file should exist");
+            .expect(format!("{} should exist", folder.to_str().unwrap()).as_str());
         let params: Halo2VerifierCircuitConfigParams =
             serde_json::from_str(params_str.as_str()).unwrap();
 
@@ -297,8 +296,10 @@ where
                 let chunk_size = (<C::Scalar as PrimeField>::NUM_BITS as usize - 2)
                     / config.base_field_config.limb_bits;
                 assert!(chunk_size > 0);
-                let num_chunks =
-                    (<C::Base as PrimeField>::NUM_BITS as usize + chunk_size - 1) / chunk_size;
+                let num_chunks = (<C::Base as PrimeField>::NUM_BITS as usize
+                    + config.base_field_config.limb_bits * chunk_size
+                    - 1)
+                    / (config.base_field_config.limb_bits * chunk_size);
 
                 let mut get_instance = |limbs: &Vec<AssignedCell<C::ScalarExt, C::ScalarExt>>,
                                         bit|
@@ -332,25 +333,52 @@ where
                     Ok(instances)
                 };
 
+                /*
                 let mut pair_instance_0 = get_instance(&res.0.x.truncation.limbs, y0_bit)?;
                 let mut pair_instance_1 = get_instance(&res.1.x.truncation.limbs, y1_bit)?;
 
                 pair_instance_0.append(&mut pair_instance_1);
                 let mut instances = pair_instance_0;
                 instances.append(&mut res.2);
-                Ok(instances)
+                */
+                let (const_rows, total_fixed, lookup_rows) =
+                    config.base_field_config.finalize(ctx)?;
+
+                println!("Finished exposing instances");
+                let advice_rows = ctx.advice_rows.iter();
+                let total_cells = advice_rows.clone().sum::<usize>();
+                println!("total non-lookup advice cells used: {}", total_cells);
+                println!(
+                    "maximum rows used by an advice column: {}",
+                    advice_rows.clone().max().or(Some(&0)).unwrap(),
+                );
+                println!(
+                    "minimum rows used by an advice column: {}",
+                    advice_rows.clone().min().or(Some(&usize::MAX)).unwrap(),
+                );
+                println!(
+                    "total cells used in special lookup advice columns: {}",
+                    ctx.cells_to_lookup.len()
+                );
+                println!(
+                    "maximum rows used by a special lookup advice column: {}",
+                    lookup_rows
+                );
+                println!("total cells used in fixed columns: {}", total_fixed);
+                println!("maximum rows used by a fixed column: {}", const_rows);
+                Ok(()) //Ok(instances)
             },
         )?;
 
         Ok({
-            let mut layouter = layouter.namespace(|| "expose");
+            /*let mut layouter = layouter.namespace(|| "expose");
             for (i, assigned_instance) in instances.iter().enumerate() {
                 layouter.constrain_instance(
                     assigned_instance.cell().clone(),
                     config.instance,
                     i,
                 )?;
-            }
+            }*/
         })
     }
 }
@@ -489,6 +517,27 @@ where
 
                 let (const_rows, total_fixed, lookup_rows) = field_chip.finalize(ctx)?;
                 println!("Aggregate proof synthesized.");
+                let advice_rows = ctx.advice_rows.iter();
+                let total_cells = advice_rows.clone().sum::<usize>();
+                println!("total non-lookup advice cells used: {}", total_cells);
+                println!(
+                    "maximum rows used by an advice column: {}",
+                    advice_rows.clone().max().or(Some(&0)).unwrap(),
+                );
+                println!(
+                    "minimum rows used by an advice column: {}",
+                    advice_rows.clone().min().or(Some(&usize::MAX)).unwrap(),
+                );
+                println!(
+                    "total cells used in special lookup advice columns: {}",
+                    ctx.cells_to_lookup.len()
+                );
+                println!(
+                    "maximum rows used by a special lookup advice column: {}",
+                    lookup_rows
+                );
+                println!("total cells used in fixed columns: {}", total_fixed);
+                println!("maximum rows used by a fixed column: {}", const_rows);
 
                 Ok(())
             },
@@ -504,7 +553,7 @@ where
     C::Base: PrimeField,
 {
     type Config = Halo2VerifierCircuitConfig<C>;
-    type FloorPlanner = V1;
+    type FloorPlanner = SimpleFloorPlanner;
 
     fn without_witnesses(&self) -> Self {
         Self {
@@ -518,10 +567,10 @@ where
 
     fn configure(meta: &mut ConstraintSystem<C::ScalarExt>) -> Self::Config {
         let mut folder = std::path::PathBuf::new();
-        folder.push("./src/configs");
+        folder.push("../halo2-snark-aggregator-circuit/src/configs");
         folder.push("verify_circuit.config");
         let params_str = std::fs::read_to_string(folder.as_path())
-            .expect("src/configs/verify_circuit.config file should exist");
+            .expect(format!("{} should exist", folder.to_str().unwrap()).as_str());
         let params: Halo2VerifierCircuitConfigParams =
             serde_json::from_str(params_str.as_str()).unwrap();
 
@@ -713,33 +762,26 @@ where
     }
 
     fn get_params_cached(k: u32) -> Params<C> {
-        let params_path = format!("HALO2_PARAMS_{}", k);
+        let mut params_folder = std::path::PathBuf::new();
+        params_folder.push("../params");
+        if !params_folder.is_dir() {
+            std::fs::create_dir(params_folder.as_path())
+                .expect("params folder creation should not fail");
+        }
+        params_folder.push(format!("bn254_{}.params", k));
 
-        let path = var(params_path);
-        let path = match &path {
-            Ok(path) => {
-                let path = Path::new(path);
-                Some(path)
-            }
-            _ => None,
-        };
+        let path = params_folder.as_path();
 
         println!("params path: {:?}", path);
-        if path.is_some() && Path::exists(&path.unwrap()) {
-            println!("read params from {:?}", path.unwrap());
-            let mut fd = std::fs::File::open(&path.unwrap()).unwrap();
+        if Path::exists(path) {
+            println!("read params from {:?}", path);
+            let mut fd = std::fs::File::open(path).unwrap();
             Params::<C>::read(&mut fd).unwrap()
         } else {
             let params = Params::<C>::unsafe_setup::<E>(k);
-
-            if let Some(path) = path {
-                println!("write params to {:?}", path);
-
-                let mut fd = std::fs::File::create(path).unwrap();
-
-                params.write(&mut fd).unwrap();
-            };
-
+            println!("write params to {:?}", path);
+            let mut fd = std::fs::File::create(path).unwrap();
+            params.write(&mut fd).unwrap();
             params
         }
     }
@@ -793,7 +835,8 @@ where
     // We want to pack as many limbs as possible to fit into native field C::ScalarExt, allowing room for 1 extra bit
     let chunk_size = (<C::Scalar as PrimeField>::NUM_BITS as usize - 2) / limb_bits;
     assert!(chunk_size > 0);
-    let num_chunks = (<C::Base as PrimeField>::NUM_BITS as usize + chunk_size - 1) / chunk_size;
+    let num_chunks = (<C::Base as PrimeField>::NUM_BITS as usize + limb_bits * chunk_size - 1)
+        / (limb_bits * chunk_size);
 
     let w_to_limbs_le = |w: &C::Base| {
         let w_big = halo2_ecc::utils::fe_to_biguint(w);
@@ -832,8 +875,7 @@ where
     verify_circuit_instances
 }
 
-// This isn't used anywhere?
-/*
+// This is used for zkevm bench
 pub fn calc_verify_circuit_instances<
     C: CurveAffine,
     E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>,
@@ -843,7 +885,10 @@ pub fn calc_verify_circuit_instances<
     vk: &VerifyingKey<C>,
     n_instances: &Vec<Vec<Vec<Vec<E::Scalar>>>>,
     n_transcript: &Vec<Vec<u8>>,
-) -> Vec<C::ScalarExt> {
+) -> Vec<C::ScalarExt>
+where
+    C::Base: PrimeField,
+{
     let pair = Halo2CircuitInstances([Halo2CircuitInstance {
         name,
         params,
@@ -852,9 +897,8 @@ pub fn calc_verify_circuit_instances<
         n_transcript,
     }])
     .calc_verify_circuit_final_pair();
-    final_pair_to_instances::<C, E>(&pair)
+    final_pair_to_instances::<C, E>(&pair, LIMB_BITS)
 }
-*/
 
 pub struct CreateProof<C: CurveAffine, E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>> {
     pub name: String,

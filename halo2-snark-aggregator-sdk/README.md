@@ -1,52 +1,62 @@
+Below, sample circuit will be zkevm circuit.
+
 1. generate params and vkey for sample circuit.
+
 ```
 mkdir output
-cargo run --example simple-example --release -- --command sample_setup --nproofs 2 --folder-path ./output
+cargo run --example zkevm --release -- --command sample_setup --folder-path ./output
 // Input:
 // Output: sample circuit's params and vkey
 ```
 
 2. run sample circuit with some random input, and create proof.
+
 ```
-cargo run --example simple-example --release -- --command sample_run --nproofs 2 --folder-path ./output
+cargo run --example zkevm --release -- --command sample_run --folder-path ./output
 // Input: sample circuit's params and vkey
 // Output: sample circuit's instances and transcripts (with random run)
 ```
 
 3. generate params and vkey for verify circuit, it takes long time to generate large params in the first run.
+
 ```
-cargo run --example simple-example --release -- --command verify_setup --nproofs 2 --folder-path ./output
+cargo run --example zkevm --release -- --command verify_setup --folder-path ./output
 // Input: sample circuit's params and vkey, one sample circuit's instances and transcript
 // Output: verify circuit's params and vkey
 ```
 
 4. run verify circuit to verify the proof of sample circuits generated in step 2.
+
 ```
-cargo run --example simple-example --release -- --command verify_run --nproofs 2 --folder-path ./output
+cargo run --example zkevm --release -- --command verify_run --folder-path ./output
 // Input: sample circuit's params and vkey, nproofs * sample circuit's instances and transcript, verify circuit's params and vkey
 // Output: verify circuit's instances and transcript
 ```
 
 5.
-* verify the proof of verify circuits generated in step 4.
+
+- verify the proof of verify circuits generated in step 4.
+
 ```
-cargo run --example simple-example --release -- --command verify_check --nproofs 2 --folder-path ./output
+cargo run --example zkevm --release -- --command verify_check --folder-path ./output
 // Input: verify circuit's params and vkey, instances and transcript
 // Output: result (console output only)
 ```
 
-* generate solidity code of verify circuits generated in step 4.
+- generate solidity code of verify circuits generated in step 4.
+
 ```
-cargo run --example simple-example --release -- --command verify_solidity --nproofs 2 --folder-path ./output --template-path ../halo2-snark-aggregator-solidity/templates
+cargo run --example zkevm --release -- --command verify_solidity --folder-path ./output --template-path ../halo2-snark-aggregator-solidity/templates
 // Input: verify circuit's params and vkey, instances and transcript
 // Output: verify circuit's solidity code
 ```
 
 TODO:
+
 1. expose the final pair as instances.
 2. see if we can load vkey from file instead of generating it again due to issue see https://github.com/zcash/halo2/issues/449, then verify circuit doesn't depend on concret circuit anymore.
 
 Args:
 args for services:
 setup: 1. target_circuit params, 2. target_circuit vkey, 3. sample target_circuit intances and transcript (so user should run it once).
-run: N * (intances and transcript)
+run: N \* (intances and transcript)

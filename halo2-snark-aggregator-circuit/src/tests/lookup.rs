@@ -226,20 +226,14 @@ mod tests {
 
     #[test]
     fn test_lookup_aggregation_proof_verify() {
-        let mut folder = std::path::PathBuf::new();
-        folder.push("./src/configs");
-        folder.push("verify_circuit.config");
-        let params_str = std::fs::read_to_string(folder.as_path())
-            .expect("src/configs/verify_circuit.config file should exist");
-        let params: crate::verify_circuit::Halo2VerifierCircuitConfigParams =
-            serde_json::from_str(params_str.as_str()).unwrap();
+        let k = crate::fs::load_verify_circuit_degree();
 
         let chip = TestCircuit::<G1Affine> {
             test_case: TestCase::Aggregation,
             _phantom_w: PhantomData,
             _phantom_n: PhantomData,
         };
-        let prover = match MockProver::run(params.degree, &chip, vec![]) {
+        let prover = match MockProver::run(k, &chip, vec![]) {
             Ok(prover) => prover,
             Err(e) => panic!("{:#?}", e),
         };

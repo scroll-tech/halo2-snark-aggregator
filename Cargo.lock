@@ -1109,6 +1109,7 @@ dependencies = [
  "rand",
  "rand_core",
  "rayon",
+ "serde_json",
  "zkevm-circuits 0.1.0 (git+https://github.com/ZhenXunGe/zkevm-circuits.git?branch=zhangjunyu/halo2_proofs)",
 ]
 

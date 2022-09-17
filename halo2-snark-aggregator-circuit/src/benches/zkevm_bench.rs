@@ -21,8 +21,6 @@ pub struct TestCircuit<F> {
 }
 
 const DEGREE_OF_EVM_CIRCUIT: u32 = 18;
-const DEGREE: usize = 18;
-const K: u32 = 25u32;
 
 impl<F: Field> Circuit<F> for TestCircuit<F> {
     type Config = EvmCircuit<F>;
@@ -68,7 +66,7 @@ fn setup_sample_circuit() -> (
     Vec<Vec<Vec<Fr>>>,
     Vec<Vec<Vec<Fr>>>,
     Vec<u8>,
-    Vec<u8>,
+    // Vec<u8>,
 ) {
     let circuit = TestCircuit::<Fr>::default();
 
@@ -112,10 +110,12 @@ fn setup_sample_circuit() -> (
     }
 
     evm_proof!(proof1);
-    evm_proof!(proof2);
+    // evm_proof!(proof2);
 
     // Verify
-    let verifier_params: ParamsVerifier<Bn256> = general_params.verifier(DEGREE * 2).unwrap();
+    let verifier_params: ParamsVerifier<Bn256> = general_params
+        .verifier(DEGREE_OF_EVM_CIRCUIT as usize * 2)
+        .unwrap();
     let mut verifier_transcript = PoseidonRead::<_, _, Challenge255<_>>::init(&proof1[..]);
     let strategy = SingleVerifier::new(&verifier_params);
 
@@ -147,7 +147,7 @@ fn setup_sample_circuit() -> (
         instances.clone(),
         instances,
         proof1,
-        proof2,
+        //proof2,
     )
 }
 
@@ -172,7 +172,7 @@ mod evm_circ_benches {
             instances1,
             _,
             proof1,
-            _,
+            //_,
         ) = setup_sample_circuit();
 
         let target_circuit_instance = instances1.clone();
@@ -196,7 +196,8 @@ mod evm_circ_benches {
             &vec![proof1],
         );
 
-        let prover = match MockProver::run(K, &verify_circuit, vec![instances]) {
+        let k = crate::fs::load_verify_circuit_degree();
+        let prover = match MockProver::run(k, &verify_circuit, vec![instances]) {
             Ok(prover) => prover,
             Err(e) => panic!("{:#?}", e),
         };

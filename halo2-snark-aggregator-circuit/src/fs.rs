@@ -209,3 +209,14 @@ pub fn write_verify_circuit_proof(folder: &mut PathBuf, buf: &Vec<u8>) {
 pub fn write_verify_circuit_solidity(folder: &mut PathBuf, buf: &Vec<u8>) {
     write_file(folder, "verifier.sol", buf)
 }
+
+pub fn load_verify_circuit_degree() -> u32 {
+    let mut folder = std::path::PathBuf::new();
+    folder.push("../halo2-snark-aggregator-circuit/src/configs");
+    folder.push("verify_circuit.config");
+    let params_str = std::fs::read_to_string(folder.as_path())
+        .expect(format!("{} file should exist", folder.to_str().unwrap()).as_str());
+    let params: crate::verify_circuit::Halo2VerifierCircuitConfigParams =
+        serde_json::from_str(params_str.as_str()).unwrap();
+    params.degree
+}

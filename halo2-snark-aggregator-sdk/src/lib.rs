@@ -126,7 +126,7 @@ macro_rules! zkaggregate {
 
                     let (params, vk) = request.call(self.verify_circuit_k);
 
-                    write_verify_circuit_params(&mut self.folder.clone(), &params);
+                    // write_verify_circuit_params(&mut self.folder.clone(), &params);
                     write_verify_circuit_vk(&mut self.folder.clone(), &vk);
                 }
 
