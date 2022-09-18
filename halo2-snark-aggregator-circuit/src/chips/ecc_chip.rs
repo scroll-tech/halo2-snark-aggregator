@@ -6,7 +6,7 @@ use halo2_ecc::{
     fields::{fp, FieldChip},
     gates::Context,
 };
-use halo2_proofs::{arithmetic::CurveAffine, circuit::AssignedCell, plonk::Error};
+use halo2_proofs::{arithmetic::CurveAffine, plonk::Error};
 use halo2_snark_aggregator_api::arith::{common::ArithCommonChip, ecc::ArithEccChip};
 use std::marker::PhantomData;
 
@@ -70,7 +70,7 @@ where
         self.chip.sub_unequal(ctx, a, b)
     }
 
-    fn assign_zero(&self, ctx: &mut Self::Context) -> Result<Self::AssignedValue, Self::Error> {
+    fn assign_zero(&self, _ctx: &mut Self::Context) -> Result<Self::AssignedValue, Self::Error> {
         unimplemented!()
     }
 
@@ -114,7 +114,7 @@ where
 
     fn normalize(
         &self,
-        ctx: &mut Self::Context,
+        _ctx: &mut Self::Context,
         v: &Self::AssignedValue,
     ) -> Result<Self::AssignedValue, Self::Error> {
         // identity (?)
@@ -183,7 +183,7 @@ where
     fn multi_exp(
         &self,
         ctx: &mut Self::Context,
-        mut points: Vec<Self::AssignedPoint>,
+        points: Vec<Self::AssignedPoint>,
         scalars: Vec<Self::AssignedScalar>,
     ) -> Result<Self::AssignedPoint, Self::Error> {
         // only works if C::b(), which is an element of C::Base, actually fits into C::ScalarExt

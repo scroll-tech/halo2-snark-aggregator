@@ -17,10 +17,10 @@ where
     C::Base: PrimeField,
 {
     fn encode_point(
-        ctx: &mut <EccChip<'a, 'b, C> as ArithCommonChip>::Context,
+        _ctx: &mut <EccChip<'a, 'b, C> as ArithCommonChip>::Context,
         _: &<EccChip<'a, 'b, C> as ArithEccChip>::NativeChip,
         _: &<EccChip<'a, 'b, C> as ArithEccChip>::ScalarChip,
-        pchip: &EccChip<'a, 'b, C>,
+        _pchip: &EccChip<'a, 'b, C>,
         v: &<EccChip<'a, 'b, C> as ArithEccChip>::AssignedPoint,
     ) -> Result<Vec<<EccChip<'a, 'b, C> as ArithEccChip>::AssignedNative>, Error> {
         let x_native = v.x.native.clone();

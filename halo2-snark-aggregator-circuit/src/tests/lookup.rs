@@ -154,7 +154,7 @@ impl Circuit<Fr> for TestCircuit<G1Affine> {
                         }
                     }?;
                 }
-                let (const_rows, total_fixed, lookup_rows) =
+                let (const_rows, total_fixed, _) =
                     config.base_field_config.finalize(ctx)?;
 
                 let advice_rows = ctx.advice_rows.iter();

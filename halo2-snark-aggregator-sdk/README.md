@@ -11,44 +11,22 @@ cargo run --example zkevm --release -- --command sample_setup --folder-path ./ou
 
 2. run sample circuit with some random input, and create proof.
 
+NOTE: If this fails, it probably means vkey didn't write correctly.
+
 ```
 cargo run --example zkevm --release -- --command sample_run --folder-path ./output
 // Input: sample circuit's params and vkey
 // Output: sample circuit's instances and transcripts (with random run)
 ```
 
-3. generate params and vkey for verify circuit, it takes long time to generate large params in the first run.
+3. Remember to change `halo2-snark-aggregator-circuit/configs/verify_circuit.config`
+
+4. Since vkey read/write doesn't currently work (see https://github.com/zcash/halo2/pull/661), we do vkey, pkey, create_proof, verify_proof, and solidity code generation all in one step.
 
 ```
-cargo run --example zkevm --release -- --command verify_setup --folder-path ./output
-// Input: sample circuit's params and vkey, one sample circuit's instances and transcript
-// Output: verify circuit's params and vkey
-```
-
-4. run verify circuit to verify the proof of sample circuits generated in step 2.
-
-```
-cargo run --example zkevm --release -- --command verify_run --folder-path ./output
-// Input: sample circuit's params and vkey, nproofs * sample circuit's instances and transcript, verify circuit's params and vkey
-// Output: verify circuit's instances and transcript
-```
-
-5.
-
-- verify the proof of verify circuits generated in step 4.
-
-```
-cargo run --example zkevm --release -- --command verify_check --folder-path ./output
-// Input: verify circuit's params and vkey, instances and transcript
-// Output: result (console output only)
-```
-
-- generate solidity code of verify circuits generated in step 4.
-
-```
-cargo run --example zkevm --release -- --command verify_solidity --folder-path ./output --template-path ../halo2-snark-aggregator-solidity/templates
-// Input: verify circuit's params and vkey, instances and transcript
-// Output: verify circuit's solidity code
+cargo run --example zkevm --release -- --command verify_run --folder-path ./output --template-path ../halo2-snark-aggregator-solidity/templates
+// Input: sample circuit's params and vkey, nproofs * sample circuit's instances and transcript, verify circuit's params
+// Output: verify circuit's vkey, instances and proof transcript, verify result (console only), verify circuit's solidity code
 ```
 
 TODO:

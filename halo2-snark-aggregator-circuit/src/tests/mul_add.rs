@@ -7,7 +7,7 @@ use halo2_ecc::{
 };
 use halo2_proofs::{
     arithmetic::CurveAffine,
-    circuit::{floor_planner::V1, Layouter, SimpleFloorPlanner},
+    circuit::{Layouter, SimpleFloorPlanner},
     plonk::{Circuit, ConstraintSystem, Error},
 };
 use halo2_snark_aggregator_api::tests::systems::halo2::add_mul_test::{
@@ -127,7 +127,7 @@ impl Circuit<Fr> for TestCircuit<G1Affine> {
 
         layouter.assign_region(
             || "base",
-            |mut region| {
+            |region| {
                 if first_pass && using_simple_floor_planner {
                     first_pass = false;
                     return Ok(());
@@ -155,7 +155,7 @@ impl Circuit<Fr> for TestCircuit<G1Affine> {
                         }
                     }?;
                 }
-                let (const_rows, total_fixed, lookup_rows) =
+                let (const_rows, total_fixed, _lookup_rows) =
                     config.base_field_config.finalize(ctx)?;
 
                 let advice_rows = ctx.advice_rows.iter();
@@ -199,8 +199,11 @@ impl Circuit<Fr> for TestCircuit<G1Affine> {
 
 #[cfg(test)]
 mod tests {
-    use halo2_proofs::{dev::MockProver, plonk::keygen_vk, poly::commitment::Params};
+    // use halo2_proofs::dev::MockProver;
+    use halo2_proofs::{plonk::keygen_vk, poly::commitment::Params};
     use pairing_bn256::bn256::Bn256;
+
+    use crate::fs::get_params_cached;
 
     use super::*;
 
@@ -223,8 +226,7 @@ mod tests {
         println!("mock prover OK");
         */
 
-        let general_params: Params<G1Affine> =
-            crate::verify_circuit::MultiCircuitsSetup::<G1Affine, Bn256, 1>::get_params_cached(k);
+        let general_params: Params<G1Affine> = get_params_cached::<G1Affine, Bn256>(k);
         println!("starting keygen vk");
         keygen_vk(&general_params, &chip).expect("keygen_vk should not fail");
     }
@@ -239,8 +241,7 @@ mod tests {
             _phantom_n: PhantomData,
         };
 
-        let general_params: Params<G1Affine> =
-            crate::verify_circuit::MultiCircuitsSetup::<G1Affine, Bn256, 1>::get_params_cached(k);
+        let general_params: Params<G1Affine> = get_params_cached::<G1Affine, Bn256>(k);
         keygen_vk(&general_params, &chip).expect("keygen_vk should not fail");
         /*
         let prover = match MockProver::run(k, &chip, vec![]) {

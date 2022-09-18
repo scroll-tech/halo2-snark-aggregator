@@ -6,7 +6,6 @@ use halo2_proofs::{
 use halo2_snark_aggregator_circuit::sample_circuit::TargetCircuit;
 use halo2_snark_aggregator_sdk::zkaggregate;
 use pairing_bn256::bn256::{Bn256, Fr, G1Affine};
-use serde_json;
 use zkevm_circuits::evm_circuit::{witness::Block, EvmCircuit};
 
 #[derive(Debug, Default)]
@@ -65,7 +64,7 @@ impl TargetCircuit<G1Affine, Bn256> for TestCircuit<Fr> {
         (Self::Circuit::default(), vec![])
     }
 
-    fn load_instances(buf: &Vec<u8>) -> Vec<Vec<Vec<Fr>>> {
+    fn load_instances(_buf: &Vec<u8>) -> Vec<Vec<Vec<Fr>>> {
         vec![vec![]]
     }
 }

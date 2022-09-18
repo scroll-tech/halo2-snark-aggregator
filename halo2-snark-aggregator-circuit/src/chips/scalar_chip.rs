@@ -1,7 +1,6 @@
 use std::marker::PhantomData;
 
 use halo2_ecc::{
-    bigint::add_no_carry::assign,
     gates::{
         flex_gate::FlexGateConfig,
         Context, GateInstructions,
@@ -238,7 +237,7 @@ impl<'a, 'b, N: FieldExt> ArithFieldChip for ScalarChip<'a, 'b, N> {
             let mut naf: Vec<i8> = Vec::with_capacity(32);
 
             // generate the NAF for exp
-            for i in 0..32 {
+            for _ in 0..32 {
                 if e & 1 == 1 {
                     let z = 2i8 - (e % 4) as i8;
                     e = e / 2;

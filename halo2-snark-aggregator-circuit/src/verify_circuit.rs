@@ -1,7 +1,7 @@
 use crate::fs::{
-    load_target_circuit_instance, load_target_circuit_params, load_target_circuit_proof,
-    load_target_circuit_vk, load_verify_circuit_instance, load_verify_circuit_params,
-    load_verify_circuit_proof, load_verify_circuit_vk,
+    get_params_cached, load_target_circuit_instance, load_target_circuit_params,
+    load_target_circuit_proof, load_target_circuit_vk, load_verify_circuit_instance,
+    load_verify_circuit_params, load_verify_circuit_proof, load_verify_circuit_vk,
 };
 use crate::sample_circuit::TargetCircuit;
 
@@ -10,13 +10,13 @@ use super::chips::{
     encode_chip::PoseidonEncodeChip,
     scalar_chip::ScalarChip,
 };
+use ark_std::{end_timer, start_timer};
 use ff::PrimeField;
 use halo2_ecc::gates::QuantumCell;
 use halo2_ecc::{
     fields::fp::FpStrategy,
     gates::{Context, ContextParams, GateInstructions},
 };
-use halo2_proofs::circuit::floor_planner::V1;
 use halo2_proofs::circuit::{AssignedCell, SimpleFloorPlanner};
 use halo2_proofs::plonk::{create_proof, keygen_vk, ProvingKey};
 use halo2_proofs::plonk::{Column, Instance};
@@ -31,7 +31,6 @@ use halo2_proofs::{
     transcript::Challenge255,
 };
 use halo2_snark_aggregator_api::arith::ecc::ArithEccChip;
-use halo2_snark_aggregator_api::arith::field::ArithFieldChip;
 use halo2_snark_aggregator_api::mock::arith::{
     ecc::MockEccChip,
     field::{MockChipCtx, MockFieldChip},
@@ -50,8 +49,7 @@ use pairing_bn256::bn256::{Bn256, Fr, G1Affine};
 use pairing_bn256::group::Curve;
 use rand_core::OsRng;
 use serde::{Deserialize, Serialize};
-use std::env::var;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::rc::Rc;
 use std::{io::Read, marker::PhantomData};
 
@@ -250,7 +248,7 @@ where
         mut layouter: impl Layouter<C::ScalarExt>,
     ) -> Result<(), Error> {
         let mut layouter = layouter.namespace(|| "mult-circuit");
-        let mut res = self.synthesize_proof(&config.base_field_config, &mut layouter)?;
+        config.base_field_config.load_lookup_table(&mut layouter)?;
 
         let base_gate = ScalarChip::new(&config.base_field_config.range.gate);
         let mut instances = None;
@@ -261,6 +259,10 @@ where
         layouter.assign_region(
             || "get instances",
             |region| {
+                if using_simple_floor_planner && first_pass {
+                    first_pass = false;
+                    return Ok(());
+                }
                 let mut aux = Context::new(
                     region,
                     ContextParams {
@@ -271,6 +273,9 @@ where
                 );
                 let ctx = &mut aux;
 
+                /*
+                // Edit: no longer needed because we just pass ctx into synthesize_proof
+                //
                 // since we already ran one layouter in synthesize_proof, we can't just return with an empty region: that would tell the layouter to set the region at row 0
                 // so we will set a horizontal line of cells
                 if using_simple_floor_planner && first_pass {
@@ -285,7 +290,9 @@ where
                     first_pass = false;
                     return Ok(());
                 }
+                */
 
+                let mut res = self.synthesize_proof(&config.base_field_config, ctx)?;
                 // TODO: probably need to constrain these Fp elements to be < p
                 // integer_chip.reduce(ctx, &mut res.0.x)?;
                 // integer_chip.reduce(ctx, &mut res.0.y)?;
@@ -360,7 +367,7 @@ where
                 let (const_rows, total_fixed, lookup_rows) =
                     config.base_field_config.finalize(ctx)?;
 
-                println!("Finished exposing instances");
+                println!("Finished exposing instances\n");
                 let advice_rows = ctx.advice_rows.iter();
                 let total_cells = advice_rows.clone().sum::<usize>();
                 println!("total non-lookup advice cells used: {}", total_cells);
@@ -387,6 +394,7 @@ where
             },
         )?;
 
+        // println!("{:#?}", instances.unwrap());
         Ok({
             let mut layouter = layouter.namespace(|| "expose");
             for (i, assigned_instance) in instances.unwrap().iter().enumerate() {
@@ -412,7 +420,7 @@ where
     fn synthesize_proof(
         &self,
         field_chip: &FpChip<C>,
-        layouter: &mut impl Layouter<C::ScalarExt>,
+        ctx: &mut Context<'_, C::ScalarExt>,
     ) -> Result<
         (
             <EccChip<C> as ArithEccChip>::AssignedPoint,
@@ -421,148 +429,87 @@ where
         ),
         Error,
     > {
-        field_chip.load_lookup_table(layouter)?;
-
-        let using_simple_floor_planner = true;
-        let mut first_pass = true;
-
         let nchip = &ScalarChip::new(&field_chip.range.gate);
         let schip = nchip;
         let pchip = &EccChip::new(field_chip);
 
-        let mut r = None;
+        let circuit_proofs = self
+            .circuits
+            .iter()
+            .enumerate()
+            .map(|(ci, instance)| {
+                let mut proof_data_list: Vec<
+                    ProofData<
+                        E,
+                        _,
+                        PoseidonTranscriptRead<_, C, _, PoseidonEncodeChip<_>, 9usize, 8usize>,
+                    >,
+                > = vec![];
 
-        layouter.assign_region(
-            || "proof",
-            |region| {
-                if first_pass && using_simple_floor_planner {
-                    first_pass = false;
-                    return Ok(());
-                }
-
-                let mut aux = Context::new(
-                    region,
-                    ContextParams {
-                        num_advice: field_chip.range.gate.num_advice,
-                        using_simple_floor_planner,
-                        first_pass,
-                    },
-                );
-                let ctx = &mut aux;
-
-                let circuit_proofs = self
-                    .circuits
-                    .iter()
-                    .enumerate()
-                    .map(|(ci, instance)| {
-                        let mut proof_data_list: Vec<
-                            ProofData<
-                                E,
-                                _,
-                                PoseidonTranscriptRead<
-                                    _,
-                                    C,
-                                    _,
-                                    PoseidonEncodeChip<_>,
-                                    9usize,
-                                    8usize,
-                                >,
-                            >,
-                        > = vec![];
-
-                        for i in 0..instance.nproofs {
-                            let transcript = PoseidonTranscriptRead::<
-                                _,
-                                C,
-                                _,
-                                PoseidonEncodeChip<_>,
-                                9usize,
-                                8usize,
-                            >::new(
-                                &instance.proofs[i].transcript[..],
-                                ctx,
-                                schip,
-                                8usize,
-                                33usize,
-                            )?;
-
-                            proof_data_list.push(ProofData {
-                                instances: &instance.proofs[i].instances,
-                                transcript,
-                                key: format!("c{}p{}", ci, i),
-                                _phantom: PhantomData,
-                            })
-                        }
-
-                        Ok(CircuitProof {
-                            name: instance.name.clone(),
-                            vk: instance.vk,
-                            params: instance.params,
-                            proofs: proof_data_list,
-                        })
-                    })
-                    .into_iter()
-                    .collect::<Result<Vec<CircuitProof<_, _, _>>, Error>>()?;
-
-                let empty_vec = vec![];
-                let mut transcript =
-                    PoseidonTranscriptRead::<_, C, _, PoseidonEncodeChip<_>, 9usize, 8usize>::new(
-                        &empty_vec[..],
+                for i in 0..instance.nproofs {
+                    let transcript = PoseidonTranscriptRead::<
+                        _,
+                        C,
+                        _,
+                        PoseidonEncodeChip<_>,
+                        9usize,
+                        8usize,
+                    >::new(
+                        &instance.proofs[i].transcript[..],
                         ctx,
                         schip,
                         8usize,
                         33usize,
                     )?;
-                let (p1, p2, v, commits) = verify_aggregation_proofs_in_chip(
-                    ctx,
-                    nchip,
-                    schip,
-                    pchip,
-                    circuit_proofs,
-                    &mut transcript,
-                )?;
-                let v = v.iter().map(|a| a.0.clone()).collect();
 
-                for coherent in &self.coherent {
-                    pchip.chip.assert_equal(
-                        ctx,
-                        &commits[coherent[0].0][coherent[0].1],
-                        &commits[coherent[1].0][coherent[1].1],
-                    )?;
+                    proof_data_list.push(ProofData {
+                        instances: &instance.proofs[i].instances,
+                        transcript,
+                        key: format!("c{}p{}", ci, i),
+                        _phantom: PhantomData,
+                    })
                 }
 
-                r = Some((p1, p2, v));
+                Ok(CircuitProof {
+                    name: instance.name.clone(),
+                    vk: instance.vk,
+                    params: instance.params,
+                    proofs: proof_data_list,
+                })
+            })
+            .into_iter()
+            .collect::<Result<Vec<CircuitProof<_, _, _>>, Error>>()?;
 
-                let (const_rows, total_fixed, lookup_rows) = field_chip.finalize(ctx)?;
-
-                println!("Aggregate proof synthesized.");
-                let advice_rows = ctx.advice_rows.iter();
-                let total_cells = advice_rows.clone().sum::<usize>();
-                println!("total non-lookup advice cells used: {}", total_cells);
-                println!(
-                    "maximum rows used by an advice column: {}",
-                    advice_rows.clone().max().or(Some(&0)).unwrap(),
-                );
-                println!(
-                    "minimum rows used by an advice column: {}",
-                    advice_rows.clone().min().or(Some(&usize::MAX)).unwrap(),
-                );
-                println!(
-                    "total cells used in special lookup advice columns: {}",
-                    ctx.cells_to_lookup.len()
-                );
-                println!(
-                    "maximum rows used by a special lookup advice column: {}",
-                    lookup_rows
-                );
-                println!("total cells used in fixed columns: {}", total_fixed);
-                println!("maximum rows used by a fixed column: {}", const_rows);
-
-                Ok(())
-            },
+        let empty_vec = vec![];
+        let mut transcript = PoseidonTranscriptRead::<
+            _,
+            C,
+            _,
+            PoseidonEncodeChip<_>,
+            9usize,
+            8usize,
+        >::new(&empty_vec[..], ctx, schip, 8usize, 33usize)?;
+        let (p1, p2, v, commits) = verify_aggregation_proofs_in_chip(
+            ctx,
+            nchip,
+            schip,
+            pchip,
+            circuit_proofs,
+            &mut transcript,
         )?;
+        let v = v.iter().map(|a| a.0.clone()).collect();
 
-        Ok(r.unwrap())
+        for coherent in &self.coherent {
+            pchip.chip.assert_equal(
+                ctx,
+                &commits[coherent[0].0][coherent[0].1],
+                &commits[coherent[1].0][coherent[1].1],
+            )?;
+        }
+
+        println!("Aggregate proof synthesized.");
+
+        Ok((p1, p2, v))
     }
 }
 
@@ -780,31 +727,6 @@ where
         })
     }
 
-    pub fn get_params_cached(k: u32) -> Params<C> {
-        let mut params_folder = std::path::PathBuf::new();
-        params_folder.push("../params");
-        if !params_folder.is_dir() {
-            std::fs::create_dir(params_folder.as_path())
-                .expect("params folder creation should not fail");
-        }
-        params_folder.push(format!("bn254_{}.params", k));
-
-        let path = params_folder.as_path();
-
-        println!("params path: {:?}", path);
-        if Path::exists(path) {
-            println!("read params from {:?}", path);
-            let mut fd = std::fs::File::open(path).unwrap();
-            Params::<C>::read(&mut fd).unwrap()
-        } else {
-            let params = Params::<C>::unsafe_setup::<E>(k);
-            println!("write params to {:?}", path);
-            let mut fd = std::fs::File::create(path).unwrap();
-            params.write(&mut fd).unwrap();
-            params
-        }
-    }
-
     pub fn call(&self, verify_circuit_k: u32) -> (Params<C>, VerifyingKey<C>) {
         let setup_outcome = self.new_verify_circuit_info(true);
 
@@ -828,19 +750,8 @@ where
         );
         info!("circuit build done");
 
-        // for testing purposes
-        let prover = match halo2_proofs::dev::MockProver::run(
-            verify_circuit_k,
-            &verify_circuit,
-            vec![vec![]],
-        ) {
-            Ok(prover) => prover,
-            Err(e) => panic!("{:#?}", e),
-        };
-        assert_eq!(prover.verify(), Ok(()));
-
         // TODO: Do not use this setup in production
-        let verify_circuit_params = Self::get_params_cached(verify_circuit_k);
+        let verify_circuit_params = get_params_cached::<C, E>(verify_circuit_k);
         info!("setup params done");
 
         let verify_circuit_vk =
@@ -855,7 +766,7 @@ pub fn final_pair_to_instances<
     C: CurveAffine,
     E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>,
 >(
-    pair: &(C, C, Vec<E::Scalar>),
+    pair: &(C, C, Vec<C::ScalarExt>),
     limb_bits: usize,
 ) -> Vec<C::ScalarExt>
 where
@@ -995,8 +906,9 @@ pub struct MultiCircuitsCreateProof<
 > {
     pub target_circuit_proofs: [CreateProof<C, E>; N],
     pub verify_circuit_params: &'a Params<C>,
-    pub verify_circuit_vk: VerifyingKey<C>,
+    // pub verify_circuit_vk: VerifyingKey<C>,
     pub coherent: Vec<[(usize, usize); 2]>,
+    pub verify_public_inputs_size: usize,
 }
 
 impl<C: CurveAffine, E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>, const N: usize>
@@ -1023,8 +935,6 @@ where
             coherent: self.coherent.clone(),
         };
 
-        let now = std::time::Instant::now();
-
         let setup_outcome = setup.new_verify_circuit_info(false);
         let verify_circuit = {
             verify_circuit_builder(
@@ -1047,24 +957,6 @@ where
             )
         };
 
-        /*
-        let (instances, transcripts) = {
-            let mut verify_circuit_transcripts = vec![];
-            let mut verify_circuit_instances = vec![];
-
-            for i in 0..N {
-                for j in 0..self.target_circuit_proofs[i].nproofs {
-                    verify_circuit_transcripts
-                        .push(self.target_circuit_proofs[i].proofs[j].transcript.clone());
-                    verify_circuit_instances
-                        .push(self.target_circuit_proofs[i].proofs[j].instances.clone());
-                }
-            }
-
-            (verify_circuit_instances, verify_circuit_transcripts)
-        };
-        */
-
         let setup_outcome = setup.new_verify_circuit_info(false);
 
         let verify_circuit_final_pair = {
@@ -1081,17 +973,38 @@ where
         let verify_circuit_instances =
             final_pair_to_instances::<C, E>(&verify_circuit_final_pair, LIMB_BITS);
 
+        let instances: &[&[&[C::ScalarExt]]] = &[&[&verify_circuit_instances[..]]];
+
+        /*
+        // for testing purposes
+        let prover = match halo2_proofs::dev::MockProver::run(
+            22,
+            &verify_circuit,
+            vec![verify_circuit_instances.clone()],
+        ) {
+            Ok(prover) => prover,
+            Err(e) => panic!("{:#?}", e),
+        };
+        assert_eq!(prover.verify(), Ok(()));
+        println!("mock prover OK!");
+        */
+
+        let vk_time = start_timer!(|| "Generating vkey");
+        let vk = keygen_vk(&self.verify_circuit_params, &verify_circuit)
+            .expect("keygen_vk should not fail");
+        println!("vk done");
+        end_timer!(vk_time);
+
+        let pk_time = start_timer!(|| "Generating pkey");
         let verify_circuit_pk = keygen_pk(
             &self.verify_circuit_params,
-            self.verify_circuit_vk,
+            vk, //self.verify_circuit_vk,
             &verify_circuit,
         )
         .expect("keygen_pk should not fail");
+        end_timer!(pk_time);
 
-        let elapsed_time = now.elapsed();
-        info!("Running keygen_pk took {} seconds.", elapsed_time.as_secs());
-
-        let instances: &[&[&[C::ScalarExt]]] = &[&[&verify_circuit_instances[..]]];
+        let proof_time = start_timer!(|| "Proving time");
         let mut transcript = ShaWrite::<_, _, Challenge255<_>, sha2::Sha256>::init(vec![]);
         create_proof(
             &self.verify_circuit_params,
@@ -1103,12 +1016,26 @@ where
         )
         .expect("proof generation should not fail");
         let proof = transcript.finalize();
+        end_timer!(proof_time);
 
-        let elapsed_time = now.elapsed();
-        println!(
-            "Running create proof took {} seconds.",
-            elapsed_time.as_secs()
-        );
+        let verify_time = start_timer!(|| "Verify time");
+        let params_verifier: ParamsVerifier<E> = self
+            .verify_circuit_params
+            .verifier(self.verify_public_inputs_size)
+            .unwrap();
+        let strategy = SingleVerifier::new(&params_verifier);
+
+        let mut transcript = ShaRead::<_, _, Challenge255<_>, sha2::Sha256>::init(&proof[..]);
+
+        assert!(verify_proof(
+            &params_verifier,
+            &verify_circuit_pk.get_vk(),
+            strategy,
+            instances,
+            &mut transcript,
+        )
+        .is_ok());
+        end_timer!(verify_time);
 
         (
             verify_circuit_pk,
@@ -1121,7 +1048,7 @@ where
 
 pub struct VerifyCheck<C: CurveAffine> {
     pub verify_params: Rc<Params<C>>,
-    pub verify_vk: Rc<VerifyingKey<C>>,
+    pub verify_vk: VerifyingKey<C>,
     pub verify_instance: Vec<Vec<Vec<C::ScalarExt>>>,
     pub verify_public_inputs_size: usize,
     pub verify_proof: Vec<u8>,
@@ -1131,7 +1058,7 @@ impl VerifyCheck<G1Affine> {
     pub fn new(folder: &PathBuf, verify_public_inputs_size: usize) -> VerifyCheck<G1Affine> {
         VerifyCheck::<G1Affine> {
             verify_params: Rc::new(load_verify_circuit_params(&mut folder.clone())),
-            verify_vk: Rc::new(load_verify_circuit_vk(&mut folder.clone())),
+            verify_vk: load_verify_circuit_vk(&mut folder.clone()),
             verify_instance: load_verify_circuit_instance(&mut folder.clone()),
             verify_proof: load_verify_circuit_proof(&mut folder.clone()),
             verify_public_inputs_size,

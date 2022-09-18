@@ -332,7 +332,7 @@ impl<C: CurveAffine, E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>> Ta
 {
     const TARGET_CIRCUIT_K: u32 = 7;
     const PUBLIC_INPUT_SIZE: usize = 1;
-    const N_PROOFS: usize = 2;
+    const N_PROOFS: usize = 1;
     const NAME: &'static str = "simple_example";
     const PARAMS_NAME: &'static str = "simple_example";
     const READABLE_VKEY: bool = true;
