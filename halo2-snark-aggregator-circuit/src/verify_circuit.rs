@@ -168,7 +168,6 @@ impl<
                 33usize,
             )
             .unwrap();
-
         let (w_x, w_g, instances, _) = verify_aggregation_proofs_in_chip(
             ctx,
             &nchip,
@@ -236,10 +235,7 @@ where
         let instance = meta.instance_column();
         meta.enable_equality(instance);
 
-        Self::Config {
-            base_field_config,
-            instance,
-        }
+        Self::Config { base_field_config, instance }
     }
 
     fn synthesize(
@@ -293,6 +289,11 @@ where
                 */
 
                 let mut res = self.synthesize_proof(&config.base_field_config, ctx)?;
+                /* println!(
+                    "{:#?}\n{:#?}",
+                    (res.0.x.value, res.0.y.value),
+                    (res.1.x.value, res.1.y.value)
+                );*/
                 // TODO: probably need to constrain these Fp elements to be < p
                 // integer_chip.reduce(ctx, &mut res.0.x)?;
                 // integer_chip.reduce(ctx, &mut res.0.y)?;
@@ -383,10 +384,7 @@ where
                     "total cells used in special lookup advice columns: {}",
                     ctx.cells_to_lookup.len()
                 );
-                println!(
-                    "maximum rows used by a special lookup advice column: {}",
-                    lookup_rows
-                );
+                println!("maximum rows used by a special lookup advice column: {}", lookup_rows);
                 println!("total cells used in fixed columns: {}", total_fixed);
                 println!("maximum rows used by a fixed column: {}", const_rows);
                 instances = Some(pair_instance_0);
@@ -394,7 +392,7 @@ where
             },
         )?;
 
-        // println!("{:#?}", instances.unwrap());
+        // println!("Proposed instances: {:#?}", instances);
         Ok({
             let mut layouter = layouter.namespace(|| "expose");
             for (i, assigned_instance) in instances.unwrap().iter().enumerate() {
@@ -489,6 +487,7 @@ where
             9usize,
             8usize,
         >::new(&empty_vec[..], ctx, schip, 8usize, 33usize)?;
+
         let (p1, p2, v, commits) = verify_aggregation_proofs_in_chip(
             ctx,
             nchip,
@@ -560,10 +559,7 @@ where
         let instance = meta.instance_column();
         meta.enable_equality(instance);
 
-        Self::Config {
-            base_field_config,
-            instance,
-        }
+        Self::Config { base_field_config, instance }
     }
 
     fn synthesize(
@@ -571,11 +567,8 @@ where
         config: Self::Config,
         layouter: impl Layouter<C::ScalarExt>,
     ) -> Result<(), Error> {
-        Halo2VerifierCircuits {
-            circuits: [self.clone()],
-            coherent: vec![],
-        }
-        .synthesize(config, layouter)
+        Halo2VerifierCircuits { circuits: [self.clone()], coherent: vec![] }
+            .synthesize(config, layouter)
     }
 }
 
@@ -638,10 +631,7 @@ impl Setup<G1Affine, Bn256> {
         let single_proof_witness = target_circuit_instances
             .into_iter()
             .zip(proofs.into_iter())
-            .map(|(instances, transcript)| SingleProofPair::<Bn256> {
-                instances,
-                transcript,
-            })
+            .map(|(instances, transcript)| SingleProofPair::<Bn256> { instances, transcript })
             .collect::<Vec<_>>();
 
         let target_circuit_params =
@@ -697,12 +687,7 @@ where
         from_0_to_n::<N>().map(|circuit_index| {
             let target_circuit_verifier_params = self.setups[circuit_index]
                 .target_circuit_params
-                .verifier::<E>(
-                    self.setups[circuit_index]
-                        .target_circuit_vk
-                        .cs
-                        .num_instance_columns,
-                )
+                .verifier::<E>(self.setups[circuit_index].target_circuit_vk.cs.num_instance_columns)
                 .unwrap();
 
             let mut target_circuit_transcripts = vec![];
@@ -739,10 +724,7 @@ where
                     .instances
                     .iter()
                     .zip(setup_outcome[i].proofs.iter())
-                    .map(|(instances, transcript)| SingleProofWitness {
-                        instances,
-                        transcript,
-                    })
+                    .map(|(instances, transcript)| SingleProofWitness { instances, transcript })
                     .collect(),
                 nproofs: setup_outcome[i].nproofs,
             }),
@@ -787,6 +769,7 @@ where
             chunk_size * limb_bits,
         )
     };
+    // println!("{:#?}\n{:#?}", pair.0.coordinates(), pair.1.coordinates());
     let mut w_x_x = w_to_limbs_le(pair.0.coordinates().unwrap().x());
     let mut w_g_x = w_to_limbs_le(pair.1.coordinates().unwrap().x());
 
@@ -874,10 +857,7 @@ impl CreateProof<G1Affine, Bn256> {
         let single_proof_witness = instances
             .into_iter()
             .zip(proofs.into_iter())
-            .map(|(instances, transcript)| SingleProofPair::<Bn256> {
-                instances,
-                transcript,
-            })
+            .map(|(instances, transcript)| SingleProofPair::<Bn256> { instances, transcript })
             .collect::<Vec<_>>();
 
         let target_circuit_params =
@@ -916,14 +896,7 @@ impl<C: CurveAffine, E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>, co
 where
     C::Base: PrimeField,
 {
-    pub fn call(
-        self,
-    ) -> (
-        ProvingKey<C>,
-        (C, C, Vec<C::ScalarExt>),
-        Vec<C::ScalarExt>,
-        Vec<u8>,
-    ) {
+    pub fn call(self) -> (ProvingKey<C>, (C, C, Vec<C::ScalarExt>), Vec<C::ScalarExt>, Vec<u8>) {
         let setup = MultiCircuitsSetup {
             setups: self.target_circuit_proofs.map(|target_circuit| Setup {
                 name: target_circuit.name,
@@ -946,10 +919,7 @@ where
                         .instances
                         .iter()
                         .zip(setup_outcome[i].proofs.iter())
-                        .map(|(instances, transcript)| SingleProofWitness {
-                            instances,
-                            transcript,
-                        })
+                        .map(|(instances, transcript)| SingleProofWitness { instances, transcript })
                         .collect(),
                     nproofs: setup_outcome[i].nproofs,
                 }),
@@ -977,8 +947,9 @@ where
 
         /*
         // for testing purposes
+        let mock_prover_time = start_timer!(|| "Mock prover");
         let prover = match halo2_proofs::dev::MockProver::run(
-            22,
+            23,
             &verify_circuit,
             vec![verify_circuit_instances.clone()],
         ) {
@@ -986,7 +957,7 @@ where
             Err(e) => panic!("{:#?}", e),
         };
         assert_eq!(prover.verify(), Ok(()));
-        println!("mock prover OK!");
+        end_timer!(mock_prover_time);
         */
 
         let vk_time = start_timer!(|| "Generating vkey");
@@ -1019,10 +990,8 @@ where
         end_timer!(proof_time);
 
         let verify_time = start_timer!(|| "Verify time");
-        let params_verifier: ParamsVerifier<E> = self
-            .verify_circuit_params
-            .verifier(self.verify_public_inputs_size)
-            .unwrap();
+        let params_verifier: ParamsVerifier<E> =
+            self.verify_circuit_params.verifier(self.verify_public_inputs_size).unwrap();
         let strategy = SingleVerifier::new(&params_verifier);
 
         let mut transcript = ShaRead::<_, _, Challenge255<_>, sha2::Sha256>::init(&proof[..]);
@@ -1037,12 +1006,7 @@ where
         .is_ok());
         end_timer!(verify_time);
 
-        (
-            verify_circuit_pk,
-            verify_circuit_final_pair,
-            verify_circuit_instances,
-            proof,
-        )
+        (verify_circuit_pk, verify_circuit_final_pair, verify_circuit_instances, proof)
     }
 }
 
@@ -1070,17 +1034,11 @@ impl<C: CurveAffine> VerifyCheck<C> {
     pub fn call<E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>>(
         &self,
     ) -> Result<(), Error> {
-        let params = self
-            .verify_params
-            .verifier::<E>(self.verify_public_inputs_size)
-            .unwrap();
+        let params = self.verify_params.verifier::<E>(self.verify_public_inputs_size).unwrap();
         let strategy = SingleVerifier::new(&params);
 
-        let verify_circuit_instance1: Vec<Vec<&[E::Scalar]>> = self
-            .verify_instance
-            .iter()
-            .map(|x| x.iter().map(|y| &y[..]).collect())
-            .collect();
+        let verify_circuit_instance1: Vec<Vec<&[E::Scalar]>> =
+            self.verify_instance.iter().map(|x| x.iter().map(|y| &y[..]).collect()).collect();
         let verify_circuit_instance2: Vec<&[&[E::Scalar]]> =
             verify_circuit_instance1.iter().map(|x| &x[..]).collect();
 

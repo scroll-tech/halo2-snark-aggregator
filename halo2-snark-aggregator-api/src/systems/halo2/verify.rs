@@ -49,10 +49,8 @@ impl<
     > VerifierParamsBuilder<'a, E, A, T>
 {
     fn init_transcript(&mut self) -> Result<(), A::Error> {
-        let mut hasher = blake2b_simd::Params::new()
-            .hash_length(64)
-            .personal(b"Halo2-Verify-Key")
-            .to_state();
+        let mut hasher =
+            blake2b_simd::Params::new().hash_length(64).personal(b"Halo2-Verify-Key").to_state();
 
         let s = format!("{:?}", self.vk.pinned());
 
@@ -61,8 +59,7 @@ impl<
 
         let scalar = E::Scalar::from_bytes_wide(hasher.finalize().as_array());
         let assigned_scalar = self.schip.assign_const(self.ctx, scalar)?;
-        self.transcript
-            .common_scalar(self.ctx, self.nchip, self.schip, &assigned_scalar)?;
+        self.transcript.common_scalar(self.ctx, self.nchip, self.schip, &assigned_scalar)?;
         Ok(())
     }
 
@@ -87,8 +84,7 @@ impl<
     }
 
     fn load_point(&mut self) -> Result<A::AssignedPoint, A::Error> {
-        self.transcript
-            .read_point(self.ctx, self.nchip, self.schip, self.pchip)
+        self.transcript.read_point(self.ctx, self.nchip, self.schip, self.pchip)
     }
 
     fn load_n_points(&mut self, n: usize) -> Result<Vec<A::AssignedPoint>, A::Error> {
@@ -114,8 +110,7 @@ impl<
     }
 
     fn load_scalar(&mut self) -> Result<A::AssignedScalar, A::Error> {
-        self.transcript
-            .read_scalar(self.ctx, self.nchip, self.schip)
+        self.transcript.read_scalar(self.ctx, self.nchip, self.schip)
     }
 
     fn load_n_scalars(&mut self, n: usize) -> Result<Vec<A::AssignedScalar>, A::Error> {
@@ -141,8 +136,7 @@ impl<
     }
 
     fn squeeze_challenge_scalar(&mut self) -> Result<A::AssignedScalar, A::Error> {
-        self.transcript
-            .squeeze_challenge_scalar(self.ctx, self.nchip, self.schip)
+        self.transcript.squeeze_challenge_scalar(self.ctx, self.nchip, self.schip)
     }
 
     fn rotate_omega(
@@ -157,8 +151,7 @@ impl<
             (omega, [at as u64, 0, 0, 0])
         };
         let omega_at = base.pow_vartime(exp);
-        self.schip
-            .sum_with_coeff_and_constant(self.ctx, vec![(x, omega_at)], A::Scalar::zero())
+        self.schip.sum_with_coeff_and_constant(self.ctx, vec![(x, omega_at)], A::Scalar::zero())
     }
 
     fn convert_expression(
@@ -168,33 +161,15 @@ impl<
         Ok(match expr {
             Expression::Constant(c) => Expression::Constant(self.schip.assign_const(self.ctx, c)?),
             Expression::Selector(s) => Expression::Selector(s),
-            Expression::Fixed {
-                query_index,
-                column_index,
-                rotation,
-            } => Expression::Fixed {
-                query_index,
-                column_index,
-                rotation,
-            },
-            Expression::Advice {
-                query_index,
-                column_index,
-                rotation,
-            } => Expression::Advice {
-                query_index,
-                column_index,
-                rotation,
-            },
-            Expression::Instance {
-                query_index,
-                column_index,
-                rotation,
-            } => Expression::Instance {
-                query_index,
-                column_index,
-                rotation,
-            },
+            Expression::Fixed { query_index, column_index, rotation } => {
+                Expression::Fixed { query_index, column_index, rotation }
+            }
+            Expression::Advice { query_index, column_index, rotation } => {
+                Expression::Advice { query_index, column_index, rotation }
+            }
+            Expression::Instance { query_index, column_index, rotation } => {
+                Expression::Instance { query_index, column_index, rotation }
+            }
             Expression::Negated(b) => Expression::Negated(
                 Box::<Expression<A::AssignedScalar>>::new(self.convert_expression(*b)?),
             ),
@@ -230,11 +205,8 @@ impl<
                 while let Some(permutation_product_commitment) = iter.next() {
                     let permutation_product_eval = self.load_scalar()?;
                     let permutation_product_next_eval = self.load_scalar()?;
-                    let permutation_product_last_eval = if iter.len() > 0 {
-                        Some(self.load_scalar()?)
-                    } else {
-                        None
-                    };
+                    let permutation_product_last_eval =
+                        if iter.len() > 0 { Some(self.load_scalar()?) } else { None };
 
                     sets.push(permutation::EvaluatedSet {
                         permutation_product_commitment,
@@ -283,18 +255,16 @@ impl<
             .into_iter()
             .zip(permutation_evaluated_evals.into_iter())
             .enumerate()
-            .map(
-                |(i, (permutation_evaluated_set, permutation_evaluated_eval))| {
-                    permutation::Evaluated {
-                        x: x.clone(),
-                        blinding_factors: self.vk.cs.blinding_factors(),
-                        sets: permutation_evaluated_set,
-                        evals: permutation_evaluated_eval,
-                        chunk_len: self.vk.cs.degree() - 2,
-                        key: format!("{}_{}", self.key.clone(), i),
-                    }
-                },
-            )
+            .map(|(i, (permutation_evaluated_set, permutation_evaluated_eval))| {
+                permutation::Evaluated {
+                    x: x.clone(),
+                    blinding_factors: self.vk.cs.blinding_factors(),
+                    sets: permutation_evaluated_set,
+                    evals: permutation_evaluated_eval,
+                    chunk_len: self.vk.cs.degree() - 2,
+                    key: format!("{}_{}", self.key.clone(), i),
+                }
+            })
             .collect();
 
         Ok(permutation_evaluated)
@@ -332,10 +302,7 @@ impl<
                                 .iter()
                                 .map(|expr| self.convert_expression(expr.clone()))
                                 .collect::<Result<Vec<_>, _>>()?,
-                            committed: lookup::Committed {
-                                permuted,
-                                product_commitment,
-                            },
+                            committed: lookup::Committed { permuted, product_commitment },
                             product_eval,
                             product_next_eval,
                             permuted_input_eval,
@@ -384,22 +351,14 @@ impl<
 
         let permutations_committed = self.load_n_m_points(
             num_proofs,
-            self.vk
-                .cs
-                .permutation
-                .columns
-                .chunks(self.vk.cs.degree() - 2)
-                .len(),
+            self.vk.cs.permutation.columns.chunks(self.vk.cs.degree() - 2).len(),
         )?;
 
         let lookups_committed = lookups_permuted
             .iter()
             .map(|lookups| {
                 // Hash each lookup product commitment
-                lookups
-                    .into_iter()
-                    .map(|_| self.load_point())
-                    .collect::<Result<Vec<_>, _>>()
+                lookups.into_iter().map(|_| self.load_point()).collect::<Result<Vec<_>, _>>()
             })
             .collect::<Result<Vec<_>, _>>()?;
 
@@ -522,9 +481,7 @@ impl<
             y,
             u,
             v,
-            omega: self
-                .schip
-                .assign_const(self.ctx, self.vk.domain.get_omega())?,
+            omega: self.schip.assign_const(self.ctx, self.vk.domain.get_omega())?,
             w,
             zero: self
                 .schip
@@ -532,10 +489,9 @@ impl<
             one: self
                 .schip
                 .assign_const(self.ctx, <E::G1Affine as CurveAffine>::ScalarExt::one())?,
-            n: self.schip.assign_const(
-                self.ctx,
-                <E::G1Affine as CurveAffine>::ScalarExt::from(n as u64),
-            )?,
+            n: self
+                .schip
+                .assign_const(self.ctx, <E::G1Affine as CurveAffine>::ScalarExt::from(n as u64))?,
         })
     }
 }
@@ -653,10 +609,7 @@ pub fn verify_single_proof_no_eval<
     let chip_params = params_builder.build_params()?;
     let advice_commitments = chip_params.advice_commitments.clone();
     println!("fin advice commit");
-    Ok((
-        chip_params.batch_multi_open_proofs(ctx, schip)?,
-        advice_commitments[0].clone(),
-    ))
+    Ok((chip_params.batch_multi_open_proofs(ctx, schip)?, advice_commitments[0].clone()))
 }
 
 fn evaluate_multiopen_proof<
@@ -678,21 +631,25 @@ fn evaluate_multiopen_proof<
 
     // do not print ctx anymore! our ctx contains constants_to_assign and lookup_cells, very long
     // println!("debug context before evaluate multiopen proof: {}", ctx);
-    let (left_s, left_e) = proof.w_x.eval::<_, A>(ctx, schip, pchip, &one)?;
-    let (right_s, right_e) = proof.w_g.eval::<_, A>(ctx, schip, pchip, &one)?;
 
-    let generator = pchip.assign_one(ctx)?;
+    // println!("w_x.eval");
+    let (left_s, left_e) = proof.w_x.eval::<_, A>(ctx, schip, pchip, &one)?;
+    // println!("w_g.eval");
+    let (right_s, right_e) = proof.w_g.eval::<_, A>(ctx, schip, pchip, &one)?;
+    // println!("right_s: {:#?}", right_s);
+    // println!("right_e: {:#?}", right_e);
+
     let left = match left_e {
         None => left_s,
         Some(eval) => {
-            let s = pchip.scalar_mul(ctx, &eval, &generator)?;
+            let s = pchip.scalar_mul_constant(ctx, &eval, E::G1Affine::generator())?;
             pchip.add(ctx, &left_s, &s)?
         }
     };
     let right = match right_e {
         None => right_s,
         Some(eval) => {
-            let s = pchip.scalar_mul(ctx, &eval, &generator)?;
+            let s = pchip.scalar_mul_constant(ctx, &eval, E::G1Affine::generator())?;
             pchip.sub(ctx, &right_s, &s)?
         }
     };
@@ -773,20 +730,11 @@ pub fn verify_single_proof_in_chip<
     ),
     A::Error,
 > {
-    let instances1: Vec<Vec<&[E::Scalar]>> = circuit.proofs[0]
-        .instances
-        .iter()
-        .map(|x| x.iter().map(|y| &y[..]).collect())
-        .collect();
+    let instances1: Vec<Vec<&[E::Scalar]>> =
+        circuit.proofs[0].instances.iter().map(|x| x.iter().map(|y| &y[..]).collect()).collect();
     let instances2: Vec<&[&[E::Scalar]]> = instances1.iter().map(|x| &x[..]).collect();
-    let (plain_assigned_instances, assigned_instances_commitment) = assign_instance_commitment(
-        ctx,
-        schip,
-        pchip,
-        &instances2[..],
-        circuit.vk,
-        circuit.params,
-    )?;
+    let (plain_assigned_instances, assigned_instances_commitment) =
+        assign_instance_commitment(ctx, schip, pchip, &instances2[..], circuit.vk, circuit.params)?;
 
     let (proof, advice_commitments) = verify_single_proof_no_eval(
         ctx,

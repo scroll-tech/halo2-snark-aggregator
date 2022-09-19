@@ -34,10 +34,7 @@ where
     C::Base: PrimeField,
 {
     pub fn new(field_chip: &'a FpChip<C>) -> Self {
-        EccChip {
-            chip: ecc::EccChip::construct(field_chip),
-            _marker: PhantomData,
-        }
+        EccChip { chip: ecc::EccChip::construct(field_chip), _marker: PhantomData }
     }
 }
 
@@ -109,6 +106,7 @@ where
     fn to_value(&self, v: &Self::AssignedValue) -> Result<Self::Value, Self::Error> {
         let x = FpChip::<C>::get_assigned_value(&v.x).expect("x should not be None");
         let y = FpChip::<C>::get_assigned_value(&v.y).expect("y should not be None");
+        // CurveAffine allows x = 0 and y = 0 to means the point at infinity
         Ok(C::from_xy(x, y).unwrap())
     }
 
@@ -193,10 +191,7 @@ where
         self.chip.multi_scalar_mult::<C>(
             ctx,
             &points,
-            &scalars
-                .iter()
-                .map(|scalar| vec![scalar.0.clone()])
-                .collect(),
+            &scalars.iter().map(|scalar| vec![scalar.0.clone()]).collect(),
             b,
             <C::Scalar as PrimeField>::NUM_BITS as usize,
             4,

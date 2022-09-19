@@ -109,11 +109,7 @@ impl<C: CurveAffine, E> ArithEccChip for MockEccChip<C, E> {
         points: Vec<Self::AssignedPoint>,
         scalars: Vec<Self::AssignedScalar>,
     ) -> Result<Self::AssignedPoint, Self::Error> {
-        ctx.point_list = points
-            .clone()
-            .into_iter()
-            .map(|x| format!("{:?}", x))
-            .collect();
+        ctx.point_list = points.clone().into_iter().map(|x| format!("{:?}", x)).collect();
         let mut acc = None;
         for (p, s) in points.iter().zip(scalars.iter()) {
             let curr = self.scalar_mul(ctx, s, p)?;

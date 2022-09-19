@@ -52,7 +52,7 @@ impl<F: Field> Circuit<F> for TestCircuit<F> {
 
 impl TargetCircuit<G1Affine, Bn256> for TestCircuit<Fr> {
     const TARGET_CIRCUIT_K: u32 = 18;
-    const PUBLIC_INPUT_SIZE: usize = (Self::TARGET_CIRCUIT_K * 2) as usize;
+    const PUBLIC_INPUT_SIZE: usize = 0; // (Self::TARGET_CIRCUIT_K * 2) as usize;
     const N_PROOFS: usize = 1;
     const NAME: &'static str = "zkevm";
     const PARAMS_NAME: &'static str = "zkevm";

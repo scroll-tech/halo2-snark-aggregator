@@ -114,21 +114,24 @@ fn setup_sample_circuit() -> (
 
     // Verify
     let verifier_params: ParamsVerifier<Bn256> = general_params
-        .verifier(DEGREE_OF_EVM_CIRCUIT as usize * 2)
+        .verifier(0 /*DEGREE_OF_EVM_CIRCUIT as usize * 2*/)
         .unwrap();
     let mut verifier_transcript = PoseidonRead::<_, _, Challenge255<_>>::init(&proof1[..]);
     let strategy = SingleVerifier::new(&verifier_params);
 
     // Bench verification time
     let start3 = start_timer!(|| "EVM Proof verification");
-    verify_proof(
-        &verifier_params,
-        pk.get_vk(),
-        strategy,
-        instances,
-        &mut verifier_transcript,
-    )
-    .unwrap();
+    println!(
+        "Proof verification result: {:#?}",
+        verify_proof(
+            &verifier_params,
+            pk.get_vk(),
+            strategy,
+            instances,
+            &mut verifier_transcript,
+        )
+        .unwrap()
+    );
     end_timer!(start3);
 
     let instances = instances

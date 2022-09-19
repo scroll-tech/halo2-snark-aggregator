@@ -1,3 +1,4 @@
+use group::prime::PrimeCurveAffine;
 use halo2_proofs::arithmetic::FieldExt;
 
 use crate::arith::{common::ArithCommonChip, ecc::ArithEccChip, field::ArithFieldChip};
@@ -14,14 +15,8 @@ pub enum EvaluationQuerySchema<P, S> {
     Commitment(CommitQuery<P, S>),
     Eval(CommitQuery<P, S>),
     Scalar(S),
-    Add(
-        Box<(EvaluationQuerySchema<P, S>, bool)>,
-        Box<(EvaluationQuerySchema<P, S>, bool)>,
-    ),
-    Mul(
-        Box<(EvaluationQuerySchema<P, S>, bool)>,
-        Box<(EvaluationQuerySchema<P, S>, bool)>,
-    ),
+    Add(Box<(EvaluationQuerySchema<P, S>, bool)>, Box<(EvaluationQuerySchema<P, S>, bool)>),
+    Mul(Box<(EvaluationQuerySchema<P, S>, bool)>, Box<(EvaluationQuerySchema<P, S>, bool)>),
 }
 
 impl<P, S> EvaluationQuerySchema<P, S> {
@@ -102,11 +97,7 @@ impl<A: ArithEccChip> EvaluationQuery<A> {
         commitment: A::AssignedPoint,
         eval: A::AssignedScalar,
     ) -> Self {
-        let s = CommitQuery {
-            key: commitment_key,
-            commitment: Some(commitment),
-            eval: Some(eval),
-        };
+        let s = CommitQuery { key: commitment_key, commitment: Some(commitment), eval: Some(eval) };
 
         EvaluationQuery {
             point,
@@ -124,7 +115,11 @@ impl<A: ArithEccChip> EvaluationQuery<A> {
     }
 }
 
-impl<P: Clone, S: Clone> EvaluationQuerySchema<P, S> {
+impl<P, S> EvaluationQuerySchema<P, S>
+where
+    P: Clone + std::fmt::Debug,
+    S: Clone + std::fmt::Debug,
+{
     pub fn eval<
         Scalar: FieldExt,
         A: ArithEccChip<AssignedPoint = P, AssignedScalar = S, Scalar = Scalar>,
@@ -136,21 +131,48 @@ impl<P: Clone, S: Clone> EvaluationQuerySchema<P, S> {
         one: &A::AssignedScalar,
     ) -> Result<(A::AssignedPoint, Option<A::AssignedScalar>), A::Error> {
         let points = self.eval_prepare::<Scalar, A>(ctx, schip, one, None)?;
-        let s = points
-            .iter()
-            .find(|b| b.0 == "")
-            .map(|b| b.2.as_ref().unwrap().clone());
+
+        let re = regex::Regex::new("fixed_commitments").unwrap();
+        let s = points.iter().find(|b| b.0 == "").map(|b| b.2.as_ref().unwrap().clone());
         let p_wo_scalar = points
             .iter()
             .filter_map(|b| if b.2.is_none() { b.1.clone() } else { None })
             .collect::<Vec<_>>();
         let (p_l, s_l) = points
-            .into_iter()
-            .filter_map(|(_, p, s)| p.and_then(|p| s.and_then(|s| Some((p, s)))))
+            .iter()
+            .filter_map(|(id, p, s)| {
+                p.as_ref().and_then(|p| {
+                    s.as_ref().and_then(|s| {
+                        if !re.is_match(id.as_str()) {
+                            Some((p.clone(), s.clone()))
+                        } else {
+                            None
+                        }
+                    })
+                })
+            })
             .unzip();
         let mut acc = pchip.multi_exp(ctx, p_l, s_l)?;
         for p in p_wo_scalar {
             acc = pchip.add(ctx, &acc, &p)?;
+        }
+        // we will handle the fixed commitments separately to make use of fixed scalar multiply / optimize
+        // TODO: use fixed msm
+        for (id, p, s) in points.into_iter() {
+            if re.is_match(id.as_str()) {
+                if let (Some(p), Some(s)) = (p, s) {
+                    if let Ok(fixed_point) = pchip.to_value(&p) {
+                        let is_identity: bool = fixed_point.is_identity().into();
+                        if !is_identity {
+                            let fixed_mul = pchip.scalar_mul_constant(ctx, &s, fixed_point)?;
+                            acc = pchip.add(ctx, &acc, &fixed_mul)?;
+                        }
+                    } else {
+                        // p = O is identity in Ecc group, so [s] * O = O
+                        // we can do nothing
+                    }
+                }
+            }
         }
 
         Ok((acc, s))
@@ -249,28 +271,22 @@ impl<P: Clone, S: Clone> EvaluationQuerySchema<P, S> {
 
     pub fn estimate(&self, scalar: Option<()>) -> usize {
         match self {
-            EvaluationQuerySchema::Commitment(_) => {
-                1
-            }
-            EvaluationQuerySchema::Eval(_) => {
-                match scalar {
-                    Some(_) => 1,
-                    None => 0
-                }
-            }
-            EvaluationQuerySchema::Scalar(_) => {
-                match scalar {
-                    Some(_) => 1,
-                    None => 0
-                }
-            }
+            EvaluationQuerySchema::Commitment(_) => 1,
+            EvaluationQuerySchema::Eval(_) => match scalar {
+                Some(_) => 1,
+                None => 0,
+            },
+            EvaluationQuerySchema::Scalar(_) => match scalar {
+                Some(_) => 1,
+                None => 0,
+            },
             EvaluationQuerySchema::Add(l, r) => {
                 if !l.1 && !r.1 {
                     let l = l.0.estimate(None);
                     let r = r.0.estimate(None);
                     match scalar {
-                        Some(_) => l+r+1,
-                        None => l+r,
+                        Some(_) => l + r + 1,
+                        None => l + r,
                     }
                 } else {
                     let mut est = 0;
@@ -289,5 +305,4 @@ impl<P: Clone, S: Clone> EvaluationQuerySchema<P, S> {
             }
         }
     }
-
 }
