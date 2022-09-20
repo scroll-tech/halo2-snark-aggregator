@@ -8,7 +8,7 @@ authors = ["zhangjunyu <junyu92@gmail.com>"]
 clap = { version = "3.1.11", features = ["derive"] }
 halo2-ecc-circuit-lib = { path = "../halo2-ecc-circuit-lib" }
 halo2-snark-aggregator-api = { path = "../halo2-snark-aggregator-api" }
-halo2_proofs = { git = "https://github.com/junyu0312/halo2", rev = "4112958c7fa980b331897fd030a329095f418ff9", default-features = true }
+halo2_proofs = { git = "https://github.com/junyu0312/halo2", rev = "35fae8cfb75052516aeaceddbd16e3f1c54edad2", default-features = true }
 log = "0.4.17"
 pairing_bn256 = { git = "https://github.com/appliedzkp/pairing", tag = "v0.1.1" }
 rand = "0.8.5"

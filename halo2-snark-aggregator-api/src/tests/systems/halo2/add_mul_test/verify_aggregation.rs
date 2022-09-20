@@ -106,7 +106,7 @@ pub fn test_verify_aggregation_proof_in_chip<
             ctx,
             nchip,
             8usize,
-            33usize,
+            63usize,
         )
         .unwrap();
 
@@ -124,7 +124,7 @@ pub fn test_verify_aggregation_proof_in_chip<
         ctx,
         nchip,
         8usize,
-        33usize,
+        63usize,
     )
     .unwrap();
     verify_aggregation_proofs_in_chip(

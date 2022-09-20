@@ -234,7 +234,6 @@ impl<F: FieldExt, E> ArithFieldChip for SolidityFieldChip<F, E> {
     ) -> Result<Self::AssignedField, Self::Error> {
         let mut acc = self.assign_const(ctx, b)?;
         for (x, coeff) in a_with_coeff {
-            // TODO: const or var
             let coeff = self.assign_const(ctx, coeff)?;
             let m = self.mul(ctx, x, &coeff)?;
             acc = self.add(ctx, &acc, &m)?;

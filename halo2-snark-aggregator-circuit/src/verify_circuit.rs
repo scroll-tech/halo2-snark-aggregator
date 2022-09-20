@@ -1,10 +1,10 @@
+use super::chips::{ecc_chip::EccChip, encode_chip::PoseidonEncodeChip, scalar_chip::ScalarChip};
 use crate::fs::{
     load_target_circuit_instance, load_target_circuit_params, load_target_circuit_proof,
     load_target_circuit_vk, load_verify_circuit_instance, load_verify_circuit_params,
     load_verify_circuit_proof, load_verify_circuit_vk,
 };
 use crate::sample_circuit::TargetCircuit;
-
 use super::chips::{ecc_chip::EccChip, encode_chip::PoseidonEncodeChip, scalar_chip::ScalarChip};
 use halo2_ecc_circuit_lib::chips::integer_chip::IntegerChipOps;
 use halo2_ecc_circuit_lib::chips::{
@@ -125,7 +125,7 @@ impl<
                             ctx,
                             &schip,
                             8usize,
-                            33usize,
+                            63usize,
                         )
                         .unwrap();
 
@@ -153,7 +153,7 @@ impl<
                 ctx,
                 &nchip,
                 8usize,
-                33usize,
+                63usize,
             )
             .unwrap();
 
@@ -414,7 +414,7 @@ impl<
                                 ctx,
                                 schip,
                                 8usize,
-                                33usize,
+                                63usize,
                             )?;
 
                             proof_data_list.push(ProofData {
@@ -442,7 +442,7 @@ impl<
                         ctx,
                         schip,
                         8usize,
-                        33usize,
+                        63usize,
                     )?;
                 let (p1, p2, v, mut commits) = verify_aggregation_proofs_in_chip(
                     ctx,

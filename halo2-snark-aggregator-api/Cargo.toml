@@ -10,7 +10,7 @@ chrono = "0.4.19"
 digest = "0.10.3"
 eth-types = { git = "https://github.com/ZhenXunGe/zkevm-circuits.git", branch = "main" }
 group = "0.11"
-halo2_proofs = { git = "https://github.com/junyu0312/halo2", rev = "4112958c7fa980b331897fd030a329095f418ff9", default-features = true }
+halo2_proofs = { git = "https://github.com/junyu0312/halo2", rev = "35fae8cfb75052516aeaceddbd16e3f1c54edad2", default-features = true }
 pairing_bn256 = { git = "https://github.com/appliedzkp/pairing", tag = "v0.1.1" }
 rand = "0.8"
 rand_pcg = "0.3.1"
