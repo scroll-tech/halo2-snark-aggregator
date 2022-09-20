@@ -130,7 +130,7 @@ impl<
                             ctx,
                             &schip,
                             8usize,
-                            33usize,
+                            63usize,
                         )
                         .unwrap();
 
@@ -158,7 +158,7 @@ impl<
                 ctx,
                 &nchip,
                 8usize,
-                33usize,
+                63usize,
             )
             .unwrap();
 
@@ -383,6 +383,9 @@ impl<
                 let mut aux = Context::new(region, base_offset);
                 let ctx = &mut aux;
 
+                // Check context is used in shape layout or not
+                ctx.in_shape_mode = base_gate.in_shape_mode(ctx)?;
+
                 let circuit_proofs = self
                     .circuits
                     .iter()
@@ -416,7 +419,7 @@ impl<
                                 ctx,
                                 schip,
                                 8usize,
-                                33usize,
+                                63usize,
                             )?;
 
                             proof_data_list.push(ProofData {
@@ -444,7 +447,7 @@ impl<
                         ctx,
                         schip,
                         8usize,
-                        33usize,
+                        63usize,
                     )?;
                 let (p1, p2, v, mut commits) = verify_aggregation_proofs_in_chip(
                     ctx,
