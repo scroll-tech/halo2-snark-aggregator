@@ -369,7 +369,6 @@ impl<
         let l = self.vk.cs.blinding_factors() as u32 + 1;
         let n = self.params.n as u32;
         let omega = self.vk.domain.get_omega();
-        println!("{:?}", omega);
 
         let x = self.squeeze_challenge_scalar()?;
 
@@ -608,7 +607,6 @@ pub fn verify_single_proof_no_eval<
 
     let chip_params = params_builder.build_params()?;
     let advice_commitments = chip_params.advice_commitments.clone();
-    println!("fin advice commit");
     Ok((chip_params.batch_multi_open_proofs(ctx, schip)?, advice_commitments[0].clone()))
 }
 

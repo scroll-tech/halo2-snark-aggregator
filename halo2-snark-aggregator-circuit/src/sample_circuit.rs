@@ -1,3 +1,4 @@
+use ark_std::{end_timer, start_timer};
 use halo2_proofs::arithmetic::BaseExt;
 use halo2_proofs::plonk::keygen_vk;
 use halo2_proofs::plonk::{create_proof, keygen_pk};
@@ -11,8 +12,8 @@ use halo2_proofs::{
 use rand_core::OsRng;
 use std::io::Write;
 
-use crate::fs::load_target_circuit_params;
 use crate::fs::load_target_circuit_vk;
+use crate::fs::{get_params_cached, load_target_circuit_params};
 
 pub trait TargetCircuit<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> {
     const TARGET_CIRCUIT_K: u32;
@@ -66,35 +67,40 @@ pub fn sample_circuit_random_run<
     instances: &[&[C::Scalar]],
     index: usize,
 ) {
+    /*
+    // reading vk does not work for all circuits
     let params = load_target_circuit_params::<C, E, CIRCUIT>(&mut folder);
-
     let vk = load_target_circuit_vk::<C, E, CIRCUIT>(&mut folder, &params);
-    let pk = keygen_pk(&params, vk, &circuit).expect("keygen_pk should not fail");
+    */
+    let params = get_params_cached::<C, E>(CIRCUIT::TARGET_CIRCUIT_K);
+    let empty_circuit = CIRCUIT::Circuit::default();
+
+    let vk_time = start_timer!(|| format!("{} vk time", CIRCUIT::NAME));
+    let vk = keygen_vk(&params, &empty_circuit).expect("keygen_vk should not fail");
+    end_timer!(vk_time);
+
+    let pk_time = start_timer!(|| format!("{} target pk time", CIRCUIT::NAME));
+    let pk = keygen_pk(&params, vk, &empty_circuit).expect("keygen_pk should not fail");
+    end_timer!(pk_time);
 
     // let instances: &[&[&[C::Scalar]]] = &[&[&[constant * a.square() * b.square()]]];
     let instances: &[&[&[_]]] = &[instances];
     let mut transcript = PoseidonWrite::<_, _, Challenge255<_>>::init(vec![]);
+    let pf_time =  start_timer!(|| format!("{} proving time", CIRCUIT::NAME));
     create_proof(&params, &pk, &[circuit], instances, OsRng, &mut transcript)
         .expect("proof generation should not fail");
     let proof = transcript.finalize();
+    end_timer!(pf_time);
 
     {
-        folder.push(format!(
-            "sample_circuit_proof_{}{}.data",
-            CIRCUIT::NAME,
-            index
-        ));
+        folder.push(format!("sample_circuit_proof_{}{}.data", CIRCUIT::NAME, index));
         let mut fd = std::fs::File::create(folder.as_path()).unwrap();
         folder.pop();
         fd.write_all(&proof).unwrap();
     }
 
     {
-        folder.push(format!(
-            "sample_circuit_instance_{}{}.data",
-            CIRCUIT::NAME,
-            index
-        ));
+        folder.push(format!("sample_circuit_instance_{}{}.data", CIRCUIT::NAME, index));
         let mut fd = std::fs::File::create(folder.as_path()).unwrap();
         folder.pop();
         instances.iter().for_each(|l1| {

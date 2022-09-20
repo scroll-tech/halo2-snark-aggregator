@@ -29,7 +29,6 @@ impl<A: ArithEccChip> VerifierParams<A> {
         schip: &A::ScalarChip,
     ) -> Result<Vec<EvaluationProof<A>>, A::Error> {
         let queries = self.queries(ctx, schip)?;
-        println!("fin queries");
 
         let mut points: BTreeMap<i32, (_, Vec<_>)> = BTreeMap::new();
         for query in queries {
@@ -48,17 +47,10 @@ impl<A: ArithEccChip> VerifierParams<A> {
             .map(|(i, p)| {
                 let point = p.1 .0;
 
-                let acc =
-                    p.1 .1
-                        .into_iter()
-                        .reduce(|acc, q| scalar!(self.v) * acc + q);
+                let acc = p.1 .1.into_iter().reduce(|acc, q| scalar!(self.v) * acc + q);
                 assert!(acc.is_none() == false);
 
-                Ok(EvaluationProof {
-                    s: acc.unwrap(),
-                    point,
-                    w: &self.w[i],
-                })
+                Ok(EvaluationProof { s: acc.unwrap(), point, w: &self.w[i] })
             })
             .collect()
     }
@@ -69,7 +61,6 @@ impl<A: ArithEccChip> VerifierParams<A> {
         schip: &A::ScalarChip,
     ) -> Result<MultiOpenProof<A>, A::Error> {
         let proofs = self.get_point_schemas(ctx, schip)?;
-        println!("fin get point schemas");
 
         let mut w_x = None;
         let mut w_g = None;
@@ -81,18 +72,13 @@ impl<A: ArithEccChip> VerifierParams<A> {
                 commitment: Some(p.w.clone()),
                 eval: None,
             };
-            w_x = w_x.map_or(Some(commit!(w)), |w_x| {
-                Some(scalar!(self.u) * w_x + commit!(w))
-            });
+            w_x = w_x.map_or(Some(commit!(w)), |w_x| Some(scalar!(self.u) * w_x + commit!(w)));
 
             w_g = w_g.map_or(Some(scalar!(p.point) * commit!(w) + s.clone()), |w_g| {
                 Some(scalar!(self.u) * w_g + scalar!(p.point) * commit!(w) + s.clone())
             });
         }
 
-        Ok(MultiOpenProof {
-            w_x: w_x.unwrap(),
-            w_g: w_g.unwrap(),
-        })
+        Ok(MultiOpenProof { w_x: w_x.unwrap(), w_g: w_g.unwrap() })
     }
 }

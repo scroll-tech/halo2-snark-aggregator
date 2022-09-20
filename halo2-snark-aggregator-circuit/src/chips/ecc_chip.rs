@@ -53,8 +53,9 @@ where
         a: &Self::AssignedValue,
         b: &Self::AssignedValue,
     ) -> Result<Self::AssignedValue, Self::Error> {
-        // TODO: change this to either constrain a.x != b.x or change to a general addition
-        self.chip.add_unequal(ctx, a, b)
+        // use strict constrained add_unequal for now
+        // TODO: find where add is used and perhaps optimize to use unconstrained version
+        self.chip.add_unequal(ctx, a, b, true)
     }
 
     fn sub(
@@ -63,8 +64,8 @@ where
         a: &Self::AssignedValue,
         b: &Self::AssignedValue,
     ) -> Result<Self::AssignedValue, Self::Error> {
-        // TODO: change this to either constrain a.x != b.x or change to a general addition
-        self.chip.sub_unequal(ctx, a, b)
+        // see comments for add
+        self.chip.sub_unequal(ctx, a, b, true)
     }
 
     fn assign_zero(&self, _ctx: &mut Self::Context) -> Result<Self::AssignedValue, Self::Error> {

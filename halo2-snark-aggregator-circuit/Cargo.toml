@@ -23,10 +23,10 @@ num-bigint = { version = "0.4", features = ["rand"] }
 ark-std = { version = "0.3", features = ["print-trace"] }
 
 [dev-dependencies]
-eth-types = { git = "https://github.com/ZhenXunGe/zkevm-circuits.git", branch = "zhangjunyu/halo2_proofs" }
-zkevm-circuits = { git = "https://github.com/ZhenXunGe/zkevm-circuits.git", branch = "zhangjunyu/halo2_proofs" }
-# eth-types = { git = "https://github.com/scroll-tech/zkevm-circuits", branch = "scroll-dev-0714" }
-# zkevm-circuits = { git = "https://github.com/scroll-tech/zkevm-circuits", branch = "scroll-dev-0714", features = ["test"] }
+# eth-types = { git = "https://github.com/ZhenXunGe/zkevm-circuits.git", branch = "zhangjunyu/halo2_proofs" }
+# zkevm-circuits = { git = "https://github.com/ZhenXunGe/zkevm-circuits.git", branch = "zhangjunyu/halo2_proofs" }
+eth-types = { git = "https://github.com/scroll-tech/zkevm-circuits", branch = "scroll-dev-0818" }
+zkevm-circuits = { git = "https://github.com/scroll-tech/zkevm-circuits", branch = "scroll-dev-0818", features = ["test"] }
 
 [features]
 default = ["halo2"]

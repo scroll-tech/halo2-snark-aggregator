@@ -635,11 +635,17 @@ impl Setup<G1Affine, Bn256> {
             .collect::<Vec<_>>();
 
         let target_circuit_params =
-            load_target_circuit_params::<G1Affine, Bn256, SingleCircuit>(&mut folder.clone());
-        let target_circuit_vk = load_target_circuit_vk::<G1Affine, Bn256, SingleCircuit>(
+            get_params_cached::<G1Affine, Bn256>(SingleCircuit::TARGET_CIRCUIT_K);
+        let target_circuit_vk =
+            keygen_vk(&target_circuit_params, &SingleCircuit::Circuit::default())
+                .expect("keygen_vk should not fail");
+        /*
+        // vk read does not work..
+        load_target_circuit_vk::<G1Affine, Bn256, SingleCircuit>(
             &mut folder.clone(),
             &target_circuit_params,
         );
+        */
 
         Setup {
             name: format!("{:?}", folder),
