@@ -14,7 +14,7 @@ use crate::transcript::codegen::CodegenTranscriptRead;
 use code_generator::ctx::{CodeGeneratorCtx, G2Point, Statement};
 use halo2_proofs::arithmetic::{BaseExt, Field};
 use halo2_proofs::arithmetic::{CurveAffine, MultiMillerLoop};
-use halo2_proofs::plonk::VerifyingKey;
+use halo2_proofs::plonk::{keygen_vk, VerifyingKey};
 use halo2_proofs::poly::commitment::Params;
 use halo2_snark_aggregator_api::arith::{common::ArithCommonChip, ecc::ArithEccChip};
 use halo2_snark_aggregator_api::systems::halo2::verify::{
@@ -32,15 +32,7 @@ fn render_verifier_sol_template<C: CurveAffine>(
     args: CodeGeneratorCtx,
     template_folder: std::path::PathBuf,
 ) -> String {
-    let path = format!(
-        "{}/*",
-        template_folder
-            .as_path()
-            .canonicalize()
-            .unwrap()
-            .to_str()
-            .unwrap()
-    );
+    let path = format!("{}/*", template_folder.as_path().canonicalize().unwrap().to_str().unwrap());
     let tera = Tera::new(&path).unwrap();
     let mut ctx = Context::new();
     let mut opcodes = vec![];
@@ -53,104 +45,47 @@ fn render_verifier_sol_template<C: CurveAffine>(
 
     let mut instance_assign = vec![];
     for i in 4..args.instance_size {
-        instance_assign.push(format!(
-            "instances[{}] = target_circuit_final_pair[{}];",
-            i, i
-        ))
+        instance_assign.push(format!("instances[{}] = target_circuit_final_pair[{}];", i, i))
     }
 
     ctx.insert("wx", &(args.wx).to_typed_string());
     ctx.insert("wg", &(args.wg).to_typed_string());
     ctx.insert("statements", &equations);
     ctx.insert("instance_assign", &instance_assign);
-    ctx.insert(
-        "target_circuit_s_g2_x0",
-        &args.target_circuit_s_g2.x.0.to_str_radix(10),
-    );
-    ctx.insert(
-        "target_circuit_s_g2_x1",
-        &args.target_circuit_s_g2.x.1.to_str_radix(10),
-    );
-    ctx.insert(
-        "target_circuit_s_g2_y0",
-        &args.target_circuit_s_g2.y.0.to_str_radix(10),
-    );
-    ctx.insert(
-        "target_circuit_s_g2_y1",
-        &args.target_circuit_s_g2.y.1.to_str_radix(10),
-    );
-    ctx.insert(
-        "target_circuit_n_g2_x0",
-        &args.target_circuit_n_g2.x.0.to_str_radix(10),
-    );
-    ctx.insert(
-        "target_circuit_n_g2_x1",
-        &args.target_circuit_n_g2.x.1.to_str_radix(10),
-    );
-    ctx.insert(
-        "target_circuit_n_g2_y0",
-        &args.target_circuit_n_g2.y.0.to_str_radix(10),
-    );
-    ctx.insert(
-        "target_circuit_n_g2_y1",
-        &args.target_circuit_n_g2.y.1.to_str_radix(10),
-    );
-    ctx.insert(
-        "verify_circuit_s_g2_x0",
-        &args.verify_circuit_s_g2.x.0.to_str_radix(10),
-    );
-    ctx.insert(
-        "verify_circuit_s_g2_x1",
-        &args.verify_circuit_s_g2.x.1.to_str_radix(10),
-    );
-    ctx.insert(
-        "verify_circuit_s_g2_y0",
-        &args.verify_circuit_s_g2.y.0.to_str_radix(10),
-    );
-    ctx.insert(
-        "verify_circuit_s_g2_y1",
-        &args.verify_circuit_s_g2.y.1.to_str_radix(10),
-    );
-    ctx.insert(
-        "verify_circuit_n_g2_x0",
-        &args.verify_circuit_n_g2.x.0.to_str_radix(10),
-    );
-    ctx.insert(
-        "verify_circuit_n_g2_x1",
-        &args.verify_circuit_n_g2.x.1.to_str_radix(10),
-    );
-    ctx.insert(
-        "verify_circuit_n_g2_y0",
-        &args.verify_circuit_n_g2.y.0.to_str_radix(10),
-    );
-    ctx.insert(
-        "verify_circuit_n_g2_y1",
-        &args.verify_circuit_n_g2.y.1.to_str_radix(10),
-    );
+    ctx.insert("target_circuit_s_g2_x0", &args.target_circuit_s_g2.x.0.to_str_radix(10));
+    ctx.insert("target_circuit_s_g2_x1", &args.target_circuit_s_g2.x.1.to_str_radix(10));
+    ctx.insert("target_circuit_s_g2_y0", &args.target_circuit_s_g2.y.0.to_str_radix(10));
+    ctx.insert("target_circuit_s_g2_y1", &args.target_circuit_s_g2.y.1.to_str_radix(10));
+    ctx.insert("target_circuit_n_g2_x0", &args.target_circuit_n_g2.x.0.to_str_radix(10));
+    ctx.insert("target_circuit_n_g2_x1", &args.target_circuit_n_g2.x.1.to_str_radix(10));
+    ctx.insert("target_circuit_n_g2_y0", &args.target_circuit_n_g2.y.0.to_str_radix(10));
+    ctx.insert("target_circuit_n_g2_y1", &args.target_circuit_n_g2.y.1.to_str_radix(10));
+    ctx.insert("verify_circuit_s_g2_x0", &args.verify_circuit_s_g2.x.0.to_str_radix(10));
+    ctx.insert("verify_circuit_s_g2_x1", &args.verify_circuit_s_g2.x.1.to_str_radix(10));
+    ctx.insert("verify_circuit_s_g2_y0", &args.verify_circuit_s_g2.y.0.to_str_radix(10));
+    ctx.insert("verify_circuit_s_g2_y1", &args.verify_circuit_s_g2.y.1.to_str_radix(10));
+    ctx.insert("verify_circuit_n_g2_x0", &args.verify_circuit_n_g2.x.0.to_str_radix(10));
+    ctx.insert("verify_circuit_n_g2_x1", &args.verify_circuit_n_g2.x.1.to_str_radix(10));
+    ctx.insert("verify_circuit_n_g2_y0", &args.verify_circuit_n_g2.y.0.to_str_radix(10));
+    ctx.insert("verify_circuit_n_g2_y1", &args.verify_circuit_n_g2.y.1.to_str_radix(10));
     ctx.insert("memory_size", &args.memory_size);
     ctx.insert("instance_size", &args.instance_size);
     ctx.insert("absorbing_length", &args.absorbing_length);
-    tera.render("verifier.sol", &ctx)
-        .expect("failed to render template")
+    tera.render("verifier.sol", &ctx).expect("failed to render template")
 }
 
 pub fn g2field_to_bn<F: BaseExt>(f: &F) -> (BigUint, BigUint) {
     let mut bytes: Vec<u8> = Vec::new();
     f.write(&mut bytes).unwrap();
-    (
-        BigUint::from_bytes_le(&bytes[32..64]),
-        BigUint::from_bytes_le(&bytes[..32]),
-    )
+    (BigUint::from_bytes_le(&bytes[32..64]), BigUint::from_bytes_le(&bytes[..32]))
 }
 
 pub(crate) fn get_xy_from_g2point<E: MultiMillerLoop>(point: E::G2Affine) -> G2Point {
     let coordinates = point.coordinates();
-    let x = coordinates
-        .map(|v| v.x().clone())
-        .unwrap_or(<E::G2Affine as CurveAffine>::Base::zero());
-    let y = coordinates
-        .map(|v| v.y().clone())
-        .unwrap_or(<E::G2Affine as CurveAffine>::Base::zero());
+    let x =
+        coordinates.map(|v| v.x().clone()).unwrap_or(<E::G2Affine as CurveAffine>::Base::zero());
+    let y =
+        coordinates.map(|v| v.y().clone()).unwrap_or(<E::G2Affine as CurveAffine>::Base::zero());
     // let z = N::conditional_select(&N::zero(), &N::one(), c.to_affine().is_identity());
     let x = g2field_to_bn(&x);
     let y = g2field_to_bn(&y);
@@ -167,12 +102,22 @@ impl SolidityGenerate<G1Affine> {
     pub fn new<SingleCircuit: TargetCircuit<G1Affine, Bn256>>(
         folder: &PathBuf,
     ) -> SolidityGenerate<G1Affine> {
+        let target_circuit_params = halo2_snark_aggregator_circuit::fs::get_params_cached::<
+            G1Affine,
+            Bn256,
+        >(SingleCircuit::TARGET_CIRCUIT_K);
+        let target_circuit_vk =
+            keygen_vk(&target_circuit_params, &SingleCircuit::Circuit::default())
+                .expect("keygen_vk should not fail");
+
+        /* vkey read/write does not work
         let target_circuit_params =
             load_target_circuit_params::<G1Affine, Bn256, SingleCircuit>(&mut folder.clone());
         let target_circuit_vk = load_target_circuit_vk::<G1Affine, Bn256, SingleCircuit>(
             &mut folder.clone(),
             &target_circuit_params,
         );
+        */
 
         SolidityGenerate {
             target_circuit_params,
@@ -210,20 +155,13 @@ where
 
         let target_params = self.target_circuits_params[0]
             .target_circuit_params
-            .verifier::<E>(
-                self.target_circuits_params[0]
-                    .target_circuit_vk
-                    .cs
-                    .num_instance_columns,
-            )
+            .verifier::<E>(self.target_circuits_params[0].target_circuit_vk.cs.num_instance_columns)
             .unwrap();
         let target_circuit_s_g2 = get_xy_from_g2point::<E>(target_params.s_g2);
         let target_circuit_n_g2 = get_xy_from_g2point::<E>(-target_params.g2);
 
-        let verify_params = self
-            .verify_params
-            .verifier::<E>(self.verify_public_inputs_size)
-            .unwrap();
+        let verify_params =
+            self.verify_params.verifier::<E>(self.verify_public_inputs_size).unwrap();
 
         let nchip = &SolidityFieldChip::new();
         let schip = nchip;
