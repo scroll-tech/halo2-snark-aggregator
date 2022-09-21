@@ -47,7 +47,7 @@ impl GroupOptimizer for AggregateFrPowOptimizer {
     fn try_start(&mut self, statement: &crate::code_generator::ctx::Statement) -> super::Action {
         if let Some((l, a, b, samples)) = extract_mul(statement) {
             if l.is_temp() && a == b {
-                self.target = Some(a.clone());
+                self.target = Some(a);
                 self.samples = samples;
                 self.exp = 2;
                 self.unresolved_statements.push(statement.clone());
@@ -85,12 +85,10 @@ impl GroupOptimizer for AggregateFrPowOptimizer {
             } else {
                 Action::Abort
             }
+        } else if self.exp > 2 {
+            Action::Complete
         } else {
-            if self.exp > 2 {
-                Action::Complete
-            } else {
-                Action::Abort
-            }
+            Action::Abort
         }
     }
 

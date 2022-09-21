@@ -38,10 +38,10 @@ impl<F: FieldExt, A: ArithEccChip<Scalar = F, Native = F>> Encode<A> for Poseido
         let p = pchip.to_value(v)?;
         let c = p.coordinates();
         let x = c
-            .map(|v| v.x().clone())
+            .map(|v| *v.x())
             .unwrap_or(<A::Point as CurveAffine>::Base::zero());
         let y = c
-            .map(|v| v.y().clone())
+            .map(|v| *v.y())
             .unwrap_or(<A::Point as CurveAffine>::Base::zero());
 
         let px = nchip.assign_var(ctx, base_to_scalar(&x))?;

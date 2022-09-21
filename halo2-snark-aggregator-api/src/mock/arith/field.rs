@@ -129,7 +129,7 @@ impl<F: FieldExt, E> ArithFieldChip for MockFieldChip<F, E> {
     ) -> Result<Self::AssignedField, Self::Error> {
         let mut acc = b;
         for (x, coeff) in a_with_coeff {
-            acc = acc + *x * coeff
+            acc += *x * coeff
         }
         Ok(acc)
     }

@@ -29,7 +29,7 @@ pub fn decompose_bn<F: FieldExt>(v: &BigUint, modulus_shift: usize, chunks: usiz
     }
 
     ret.iter()
-        .map(|(a, b)| (bn_to_field(&a), bn_to_field(&b)))
+        .map(|(a, b)| (bn_to_field(a), bn_to_field(b)))
         .collect()
 }
 

@@ -168,7 +168,7 @@ pub fn test_circuit_builder() -> MyCircuit<Fp> {
 
     // Instantiate the circuit with the private inputs.
     MyCircuit {
-        even_lookup: even_lookup.clone(),
+        even_lookup,
         even_witnesses,
         odd_witnesses,
     }

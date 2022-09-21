@@ -92,7 +92,7 @@ impl<R: Read, C: CurveAffine, D: Digest + Clone> Transcript<C, Challenge255<C>>
             )
         })?;
 
-        for base in vec![coords.x(), coords.y()] {
+        for base in &[coords.x(), coords.y()] {
             let mut buf = base.to_repr().as_ref().to_vec();
             buf.resize(32, 0u8);
             buf.reverse();
@@ -150,13 +150,13 @@ impl<W: Write, C: CurveAffine, D: Digest + Clone> TranscriptWrite<C, Challenge25
 
         let coords = point.coordinates();
         let x = coords
-            .map(|v| v.x().clone())
+            .map(|v| *v.x())
             .unwrap_or(<C as CurveAffine>::Base::zero());
         let y = coords
-            .map(|v| v.y().clone())
+            .map(|v| *v.y())
             .unwrap_or(<C as CurveAffine>::Base::zero());
 
-        for base in vec![&x, &y] {
+        for base in &[&x, &y] {
             self.writer.write_all(base.to_repr().as_ref())?;
         }
 
@@ -197,7 +197,7 @@ impl<W: Write, C: CurveAffine, D: Digest + Clone> Transcript<C, Challenge255<C>>
             )
         })?;
 
-        for base in vec![coords.x(), coords.y()] {
+        for base in &[coords.x(), coords.y()] {
             let mut buf = base.to_repr().as_ref().to_vec();
             buf.resize(32, 0u8);
             buf.reverse();

@@ -54,7 +54,7 @@ pub fn test_verify_aggregation_proof_in_chip<
     let params = ParamsKZG::<Bn256>::setup(K, &mut test_rng);
     end_timer!(start);
 
-    let msg = format!("Generate key for zkevm circuit");
+    let msg = "Generate key for zkevm circuit".to_string();
     let start = start_timer!(|| msg);
     let vk = keygen_vk(&params, &circuit).expect("keygen_vk should not fail");
     let pk = keygen_pk(&params, vk, &circuit).unwrap();
@@ -87,11 +87,7 @@ pub fn test_verify_aggregation_proof_in_chip<
         n_instances.push(
             instances
                 .iter()
-                .map(|l1| {
-                    l1.iter()
-                        .map(|l2| l2.iter().map(|c: &Fr| *c).collect::<Vec<Fr>>())
-                        .collect::<Vec<Vec<Fr>>>()
-                })
+                .map(|l1| l1.iter().map(|l2| l2.to_vec()).collect::<Vec<Vec<Fr>>>())
                 .collect::<Vec<Vec<Vec<Fr>>>>(),
         );
     }
@@ -117,7 +113,7 @@ pub fn test_verify_aggregation_proof_in_chip<
         })
     }
 
-    let params_verifier: &ParamsVerifierKZG<Bn256> = &params.verifier_params();
+    let params_verifier: &ParamsVerifierKZG<Bn256> = params.verifier_params();
 
     let empty_vec = vec![];
     let mut transcript = PoseidonTranscriptRead::<_, G1Affine, _, EncodeChip, 9usize, 8usize>::new(
@@ -128,7 +124,7 @@ pub fn test_verify_aggregation_proof_in_chip<
         63usize,
     )
     .unwrap();
-    let msg = format!("Verify aggretation proof");
+    let msg = "Verify aggretation proof".to_string();
     let start = start_timer!(|| msg);
     verify_aggregation_proofs_in_chip(
         ctx,
@@ -138,7 +134,7 @@ pub fn test_verify_aggregation_proof_in_chip<
         vec![CircuitProof {
             name: String::from("zkevm"),
             vk: pk.get_vk(),
-            params: &params_verifier,
+            params: params_verifier,
             proofs: proof_data_list,
         }],
         &mut transcript,

@@ -101,8 +101,8 @@ impl Expression {
         match self {
             Expression::Memory(idx, Type::Scalar) => format!("m[{}]", idx),
             Expression::Memory(idx, Type::Point) => format!("(m[{}], m[{}])", idx, idx + 1),
-            Expression::Temp(Type::Scalar) => format!("t0"),
-            Expression::Temp(Type::Point) => format!("(t0, t1)"),
+            Expression::Temp(Type::Scalar) => "t0".to_string(),
+            Expression::Temp(Type::Point) => "(t0, t1)".to_string(),
             _ => unreachable!(),
         }
     }
@@ -150,15 +150,15 @@ impl Expression {
         match self {
             Expression::Add(l, r, Type::Scalar) => l.to_mem_code().and_then(|idx0| {
                 r.to_mem_code()
-                    .and_then(|idx1| Some((1u64 << OP_SHIFT) + (idx0 << R0_SHIFT) + idx1))
+                    .map(|idx1| (1u64 << OP_SHIFT) + (idx0 << R0_SHIFT) + idx1)
             }),
             Expression::Sub(l, r, Type::Scalar) => l.to_mem_code().and_then(|idx0| {
                 r.to_mem_code()
-                    .and_then(|idx1| Some((2u64 << OP_SHIFT) + (idx0 << R0_SHIFT) + idx1))
+                    .map(|idx1| (2u64 << OP_SHIFT) + (idx0 << R0_SHIFT) + idx1)
             }),
             Expression::Mul(l, r, Type::Scalar) => l.to_mem_code().and_then(|idx0| {
                 r.to_mem_code()
-                    .and_then(|idx1| Some((3u64 << OP_SHIFT) + (idx1 << R0_SHIFT) + idx0))
+                    .map(|idx1| (3u64 << OP_SHIFT) + (idx1 << R0_SHIFT) + idx0)
             }),
             _ => None,
         }
@@ -166,9 +166,9 @@ impl Expression {
 
     pub fn to_typed_string(&self) -> String {
         match self {
-            Expression::Scalar(s) => format!("{}", s.to_string()),
+            Expression::Scalar(s) => format!("{}", s),
             Expression::Point(x, y) => {
-                format!("{}, {}", x.to_string(), y.to_string())
+                format!("{}, {}", x, y)
             }
             Expression::Memory(idx, Type::Scalar) => format!("m[{}]", idx),
             Expression::Memory(idx, Type::Point) => {
@@ -253,7 +253,7 @@ impl Expression {
         }
     }
 
-    pub(crate) fn iter(&self, f: &mut impl FnMut(&Expression) -> ()) {
+    pub(crate) fn iter(&self, f: &mut impl FnMut(&Expression)) {
         match self {
             Expression::Add(l, r, _)
             | Expression::Sub(l, r, _)
@@ -350,13 +350,10 @@ impl Statement {
                 let mut bn = BigUint::from(0u64);
                 for op in ops {
                     //assert!(op < &(1u64 << OP_SIZE));
-                    bn = bn << OP_SIZE;
+                    bn <<= OP_SIZE;
                     bn = bn + op
                 }
-                buf.push(format!(
-                    "update(m, proof, absorbing, uint256({}));",
-                    bn.to_string()
-                ));
+                buf.push(format!("update(m, proof, absorbing, uint256({}));", bn));
             }
             buf
         } else {
@@ -443,7 +440,7 @@ impl Statement {
                     }
                 }
 
-                output.push(format!("}}"));
+                output.push("}".to_string());
 
                 output
             }
@@ -461,7 +458,7 @@ impl Statement {
                     Type::Point => unreachable!(),
                 }
 
-                output.push(format!("}}"));
+                output.push("}".to_string());
 
                 output
             }
@@ -659,7 +656,7 @@ impl SolidityCodeGeneratorContext {
     pub(crate) fn allocate(&mut self, t: Type) -> Rc<Expression> {
         let u256_cnt = t.to_length();
         let e = Expression::Memory(self.memory_offset, t);
-        self.memory_offset = self.memory_offset + u256_cnt;
+        self.memory_offset += u256_cnt;
         Rc::new(e)
     }
 
@@ -680,19 +677,19 @@ impl SolidityCodeGeneratorContext {
 
     pub(crate) fn new_transcript_var(&mut self, t: Type, delta: usize) -> Rc<Expression> {
         let e = Expression::TransciprtOffset(self.transcript_offset, t);
-        self.transcript_offset = self.transcript_offset + delta;
+        self.transcript_offset += delta;
         Rc::new(e)
     }
 
     pub(crate) fn new_instance_var(&mut self, t: Type, delta: usize) -> Rc<Expression> {
         let e = Expression::InstanceOffset(self.instance_offset, t);
-        self.instance_offset = self.instance_offset + delta;
+        self.instance_offset += delta;
         Rc::new(e)
     }
 
     pub(crate) fn new_tmp_var(&mut self, t: Type, delta: usize) -> Rc<Expression> {
         let e = Expression::TmpBufOffset(self.tmp_offset, t);
-        self.tmp_offset = self.tmp_offset + delta;
+        self.tmp_offset += delta;
         Rc::new(e)
     }
 

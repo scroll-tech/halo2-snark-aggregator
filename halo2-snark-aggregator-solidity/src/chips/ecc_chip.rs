@@ -12,12 +12,8 @@ use std::{marker::PhantomData, rc::Rc};
 
 pub fn get_xy_from_point<C: CurveAffine>(point: C::CurveExt) -> (BigUint, BigUint) {
     let coordinates = point.to_affine().coordinates();
-    let x = coordinates
-        .map(|v| v.x().clone())
-        .unwrap_or(C::Base::zero());
-    let y = coordinates
-        .map(|v| v.y().clone())
-        .unwrap_or(C::Base::zero());
+    let x = coordinates.map(|v| *v.x()).unwrap_or(C::Base::zero());
+    let y = coordinates.map(|v| *v.y()).unwrap_or(C::Base::zero());
     // let z = N::conditional_select(&N::zero(), &N::one(), c.to_affine().is_identity());
     (field_to_bn(&x), field_to_bn(&y))
 }

@@ -5,6 +5,7 @@ use halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner},
     plonk::{Circuit, ConstraintSystem, Error, Expression},
 };
+
 use zkevm_circuits::evm_circuit::{witness::Block, EvmCircuit};
 
 #[derive(Debug, Default)]

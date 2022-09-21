@@ -18,8 +18,8 @@ fn linear_scan(
 ) -> usize {
     let active = &mut HashSet::<Interval>::new();
 
-    intervals.into_iter().for_each(|i| {
-        expire_old_intervals(active, &i, pool);
+    intervals.iter_mut().for_each(|i| {
+        expire_old_intervals(active, i, pool);
 
         let mem_block = if i.end == i.start + 1 {
             MemoryBlock {
@@ -27,7 +27,7 @@ fn linear_scan(
                 t: Type::Scalar,
             }
         } else {
-            let mem_block = match i.t {
+            match i.t {
                 Type::Scalar => {
                     if pool.free_256_block.is_empty() {
                         pool.expand();
@@ -40,13 +40,11 @@ fn linear_scan(
                     }
                     pool.alloc_point()
                 }
-            };
-
-            mem_block
+            }
         };
 
         let mut replaced_expr = HashMap::<usize, usize>::new();
-        replaced_expr.insert(i.expr.clone(), mem_block.pos);
+        replaced_expr.insert(i.expr, mem_block.pos);
 
         for statement in &mut statements[i.start..] {
             *statement = statement.substitute(&replaced_expr);

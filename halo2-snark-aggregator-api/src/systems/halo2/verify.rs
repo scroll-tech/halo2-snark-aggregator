@@ -78,7 +78,7 @@ impl<
                     .iter()
                     .map(|p| {
                         self.transcript
-                            .common_point(self.ctx, self.nchip, self.schip, self.pchip, &p)?;
+                            .common_point(self.ctx, self.nchip, self.schip, self.pchip, p)?;
 
                         Ok(())
                     })
@@ -383,7 +383,7 @@ impl<
             .map(|lookups| {
                 // Hash each lookup product commitment
                 lookups
-                    .into_iter()
+                    .iter()
                     .map(|_| self.load_point())
                     .collect::<Result<Vec<_>, _>>()
             })
@@ -558,7 +558,7 @@ pub fn assign_instance_commitment<
 
                     let mut assigned_scalars = vec![];
                     for instance in instance.iter() {
-                        let s = schip.assign_var(ctx, instance.clone())?;
+                        let s = schip.assign_var(ctx, *instance)?;
                         assigned_scalars.push(s.clone());
                         plain_assigned_instances.push(s);
                     }
@@ -577,8 +577,7 @@ pub fn assign_instance_commitment<
                     let mut acc = None;
 
                     for (i, instance) in instance.iter().enumerate() {
-                        let ls =
-                            pchip.scalar_mul_constant(ctx, &instance, params.get_g()[i].clone())?;
+                        let ls = pchip.scalar_mul_constant(ctx, instance, params.get_g()[i])?;
 
                         match acc {
                             None => acc = Some(ls),
@@ -868,7 +867,7 @@ pub fn verify_aggregation_proofs_in_chip<
                 transcript.common_scalar(ctx, nchip, schip, &scalar)?;
             }
 
-            return r;
+            r
         })
         .collect::<Result<Vec<Vec<(MultiOpenProof<A>, Vec<A::AssignedPoint>)>>, A::Error>>()?;
 

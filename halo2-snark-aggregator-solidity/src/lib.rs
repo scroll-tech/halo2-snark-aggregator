@@ -192,10 +192,8 @@ pub struct MultiCircuitSolidityGenerate<'a, E: MultiMillerLoop> {
 
 impl<'a, E: MultiMillerLoop + Debug> MultiCircuitSolidityGenerate<'a, E> {
     pub fn call(&self, template_folder: std::path::PathBuf) -> String {
-        // adhoc...
-        let target_params = self
-            .verify_params
-            .verifier::<E>(self.verify_public_inputs_size)
+        let target_circuit_s_g2 = get_xy_from_g2point::<E>(self.verify_params.s_g2());
+        let target_circuit_n_g2 = get_xy_from_g2point::<E>(-self.verify_params.g2());
 
         let verify_params = self.verify_params;
 

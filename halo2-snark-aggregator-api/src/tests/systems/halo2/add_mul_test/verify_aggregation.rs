@@ -65,7 +65,7 @@ pub fn test_verify_aggregation_proof_in_chip<
     let params = ParamsKZG::<Bn256>::setup(K, &mut test_rng);
     let vk = keygen_vk(&params, &circuit_template).expect("keygen_vk should not fail");
 
-    let params_verifier: &ParamsVerifierKZG<Bn256> = &params.verifier_params();
+    let params_verifier: &ParamsVerifierKZG<Bn256> = params.verifier_params();
 
     let mut n_instances: Vec<_> = vec![];
     let mut n_proof: Vec<_> = vec![];
@@ -140,7 +140,7 @@ pub fn test_verify_aggregation_proof_in_chip<
         vec![CircuitProof {
             name: String::from("test_circuit_add_mul"),
             vk: &vk,
-            params: &params_verifier,
+            params: params_verifier,
             proofs: proof_data_list,
         }],
         &mut transcript,

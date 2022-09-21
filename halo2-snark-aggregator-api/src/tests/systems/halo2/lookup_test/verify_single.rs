@@ -87,12 +87,12 @@ pub fn test_verify_single_proof_in_chip<
     .expect("proof generation should not fail");
     let proof = transcript.finalize();
 
-    let params_verifier: &ParamsVerifierKZG<Bn256> = &params.verifier_params();
+    let params_verifier: &ParamsVerifierKZG<Bn256> = params.verifier_params();
 
     let transcript = PoseidonTranscriptRead::<_, G1Affine, _, EncodeChip, 9usize, 8usize>::new(
         &proof[..],
         ctx,
-        &nchip,
+        nchip,
         8usize,
         63usize,
     )
@@ -100,12 +100,8 @@ pub fn test_verify_single_proof_in_chip<
 
     let pdata = ProofData {
         instances: &instances
-            .into_iter()
-            .map(|x| {
-                x.into_iter()
-                    .map(|y| y.into_iter().map(|z| z.clone()).collect::<Vec<Fp>>())
-                    .collect::<Vec<Vec<Fp>>>()
-            })
+            .iter()
+            .map(|x| x.iter().map(|y| y.to_vec()).collect::<Vec<Vec<Fp>>>())
             .collect::<Vec<Vec<Vec<Fp>>>>(),
         transcript,
         key: format!("p{}", 0),
@@ -129,7 +125,7 @@ pub fn test_verify_single_proof_in_chip<
         &mut CircuitProof {
             name: String::from("lookup_test_single"),
             vk: pk.get_vk(),
-            params: &params_verifier,
+            params: params_verifier,
             proofs: vec![pdata],
         },
         &mut transcript,
