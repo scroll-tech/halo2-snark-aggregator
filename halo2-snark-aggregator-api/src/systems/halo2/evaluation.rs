@@ -2,7 +2,7 @@ use halo2_proofs::arithmetic::FieldExt;
 
 use crate::arith::{common::ArithCommonChip, ecc::ArithEccChip, field::ArithFieldChip};
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CommitQuery<P, S> {
     pub key: String,
     pub commitment: Option<P>,
@@ -138,7 +138,7 @@ impl<P: Clone, S: Clone> EvaluationQuerySchema<P, S> {
         let points = self.eval_prepare::<Scalar, A>(ctx, schip, one, None)?;
         let s = points
             .iter()
-            .find(|b| b.0 == "")
+            .find(|b| b.0.is_empty())
             .map(|b| b.2.as_ref().unwrap().clone());
         let p_wo_scalar = points
             .iter()
@@ -146,7 +146,7 @@ impl<P: Clone, S: Clone> EvaluationQuerySchema<P, S> {
             .collect::<Vec<_>>();
         let (p_l, s_l) = points
             .into_iter()
-            .filter_map(|(_, p, s)| p.and_then(|p| s.and_then(|s| Some((p, s)))))
+            .filter_map(|(_, p, s)| p.and_then(|p| s.map(|s| (p, s))))
             .unzip();
         let mut acc = pchip.multi_exp(ctx, p_l, s_l)?;
         for p in p_wo_scalar {
@@ -191,7 +191,7 @@ impl<P: Clone, S: Clone> EvaluationQuerySchema<P, S> {
                     assert!(l.len() == 1);
                     assert!(r.len() == 1);
                     let sum =
-                        schip.add(ctx, l[0].2.as_ref().unwrap(), &r[0].2.as_ref().unwrap())?;
+                        schip.add(ctx, l[0].2.as_ref().unwrap(), r[0].2.as_ref().unwrap())?;
                     let sum = match scalar {
                         Some(scalar) => schip.mul(ctx, &scalar, &sum)?,
                         None => sum,
@@ -268,8 +268,8 @@ impl<P: Clone, S: Clone> EvaluationQuerySchema<P, S> {
                     }
                 } else {
                     let mut est = 0;
-                    for s in vec![l, r] {
-                        est += s.0.estimate(scalar.clone())
+                    for s in &[l, r] {
+                        est += s.0.estimate(scalar)
                     }
                     est
                 }

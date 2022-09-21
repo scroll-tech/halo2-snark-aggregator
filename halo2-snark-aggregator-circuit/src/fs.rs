@@ -76,9 +76,9 @@ pub fn load_target_circuit_vk<E: MultiMillerLoop + Debug, Circuit: TargetCircuit
         .unwrap()
     } else {
         let circuit = Circuit::Circuit::default();
-        let vk = keygen_vk::<E::G1Affine, _, Circuit::Circuit>(params, &circuit)
-            .expect("keygen_vk should not fail");
-        vk
+        
+        keygen_vk::<E::G1Affine, _, Circuit::Circuit>(params, &circuit)
+            .expect("keygen_vk should not fail")
     }
 }
 

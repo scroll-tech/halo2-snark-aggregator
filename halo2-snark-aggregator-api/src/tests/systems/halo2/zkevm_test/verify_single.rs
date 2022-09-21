@@ -59,7 +59,7 @@ pub fn test_verify_single_proof_in_chip<
 
     end_timer!(start);
 
-    let msg = format!("Generate key for zkevm circuit");
+    let msg = "Generate key for zkevm circuit".to_string();
     let start = start_timer!(|| msg);
     let vk = keygen_vk(&params, &circuit).expect("keygen_vk should not fail");
     let pk = keygen_pk(&params, vk, &circuit).unwrap();
@@ -80,12 +80,12 @@ pub fn test_verify_single_proof_in_chip<
     .expect("proof generation should not fail");
     let proof = transcript.finalize();
 
-    let params_verifier: &ParamsVerifierKZG<Bn256> = &params.verifier_params();
+    let params_verifier: &ParamsVerifierKZG<Bn256> = params.verifier_params();
 
     let transcript = PoseidonTranscriptRead::<_, G1Affine, _, EncodeChip, 9usize, 8usize>::new(
         &proof[..],
         ctx,
-        &nchip,
+        nchip,
         8usize,
         63usize,
     )
@@ -93,10 +93,10 @@ pub fn test_verify_single_proof_in_chip<
 
     let pdata = ProofData {
         instances: &instances
-            .into_iter()
+            .iter()
             .map(|x| {
-                x.into_iter()
-                    .map(|y| y.into_iter().map(|z| z.clone()).collect::<Vec<Fr>>())
+                x.iter()
+                    .map(|y| y.iter().map(|z| *z).collect::<Vec<Fr>>())
                     .collect::<Vec<Vec<Fr>>>()
             })
             .collect::<Vec<Vec<Vec<Fr>>>>(),
@@ -114,7 +114,7 @@ pub fn test_verify_single_proof_in_chip<
     )
     .unwrap();
 
-    let msg = format!("Verify proof");
+    let msg = "Verify proof".to_string();
     let start = start_timer!(|| msg);
     verify_single_proof_in_chip(
         ctx,
@@ -124,7 +124,7 @@ pub fn test_verify_single_proof_in_chip<
         &mut CircuitProof {
             name: String::from("zkevm"),
             vk: pk.get_vk(),
-            params: &params_verifier,
+            params: params_verifier,
             proofs: vec![pdata],
         },
         &mut transcript,

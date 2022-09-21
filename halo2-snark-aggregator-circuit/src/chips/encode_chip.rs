@@ -28,7 +28,7 @@ impl<'a, 'b, C: CurveAffine> Encode<EccChip<'a, 'b, C>> for PoseidonEncodeChip<E
             &py.limbs_le[0]
         };
 
-        Ok(vec![x_native.clone(), y_native.clone()])
+        Ok(vec![*x_native, *y_native])
     }
 
     fn encode_scalar(
@@ -37,7 +37,7 @@ impl<'a, 'b, C: CurveAffine> Encode<EccChip<'a, 'b, C>> for PoseidonEncodeChip<E
         _: &<EccChip<'a, 'b, C> as ArithEccChip>::ScalarChip,
         v: &<EccChip<'a, 'b, C> as ArithEccChip>::AssignedScalar,
     ) -> Result<Vec<<EccChip<'a, 'b, C> as ArithEccChip>::AssignedNative>, Error> {
-        Ok(vec![v.clone()])
+        Ok(vec![*v])
     }
 
     fn decode_scalar(
@@ -46,6 +46,6 @@ impl<'a, 'b, C: CurveAffine> Encode<EccChip<'a, 'b, C>> for PoseidonEncodeChip<E
         _: &<EccChip<'a, 'b, C> as ArithEccChip>::ScalarChip,
         v: &[<EccChip<'a, 'b, C> as ArithEccChip>::AssignedNative],
     ) -> Result<<EccChip<'a, 'b, C> as ArithEccChip>::AssignedScalar, Error> {
-        Ok(v[0].clone())
+        Ok(v[0])
     }
 }

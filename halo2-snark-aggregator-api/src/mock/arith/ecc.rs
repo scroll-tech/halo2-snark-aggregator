@@ -70,7 +70,7 @@ impl<C: CurveAffine, E> ArithCommonChip for MockEccChip<C, E> {
         _ctx: &mut Self::Context,
         v: &Self::AssignedValue,
     ) -> Result<Self::AssignedValue, Self::Error> {
-        Ok(v.clone())
+        Ok(*v)
     }
 }
 

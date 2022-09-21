@@ -77,7 +77,7 @@ impl<W: FieldExt, N: FieldExt, const LIMBS: usize, const LIMB_WIDTH: usize>
 
         for _ in 0..LIMBS - 1 {
             ret.push(&n % limb_modulus);
-            n = n >> LIMB_WIDTH;
+            n >>= LIMB_WIDTH;
         }
         ret.push(n);
         ret.try_into().unwrap()
@@ -106,7 +106,7 @@ impl<W: FieldExt, N: FieldExt, const LIMBS: usize, const LIMB_WIDTH: usize>
         let mut acc = N::one();
         for _ in 0..LIMBS {
             limb_modulus_exps.push(acc);
-            acc = acc * limb_modulus_on_n;
+            acc *= limb_modulus_on_n;
         }
 
         let d_bits = get_d_range_bits_in_mul::<W, N>(&integer_modulus);

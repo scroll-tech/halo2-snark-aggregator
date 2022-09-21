@@ -327,7 +327,7 @@ impl<
             },
         )?;
 
-        Ok({
+        {
             let mut layouter = layouter.namespace(|| "expose");
             layouter.constrain_instance(x0_low.unwrap().cell, config.instance, 0)?;
             layouter.constrain_instance(x0_high.unwrap().cell, config.instance, 1)?;
@@ -338,9 +338,10 @@ impl<
                 layouter
                     .constrain_instance(instance.cell, config.instance, row)
                     .unwrap();
-                row = row + 1;
+                row += 1;
             }
-        })
+        };
+        Ok(())
     }
 }
 

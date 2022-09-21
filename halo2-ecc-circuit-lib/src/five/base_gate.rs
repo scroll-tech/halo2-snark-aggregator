@@ -16,7 +16,7 @@ impl<N: FieldExt> FiveColumnBaseGate<N> {
     pub fn in_shape_mode(&self, ctx: &mut Context<'_, N>) -> Result<bool, Error> {
         let one = N::one();
         let (_, values) = self.one_line(ctx, vec![pair!(one, -one)], one, (vec![], N::zero()))?;
-        let pos = values.iter().position(|&x| x != None);
+        let pos = values.iter().position(|&x| !x.is_none());
         // If in shape mode then all cells including fix and advice should become None
         match pos {
             None => Ok(true),
