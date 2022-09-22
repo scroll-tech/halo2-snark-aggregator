@@ -1,11 +1,9 @@
 use std::marker::PhantomData;
 
-use halo2_ecc::{
-    gates::{
-        flex_gate::FlexGateConfig,
-        Context, GateInstructions,
-        QuantumCell::{self, Constant, Existing, Witness},
-    },
+use halo2_ecc::gates::{
+    flex_gate::FlexGateConfig,
+    Context, GateInstructions,
+    QuantumCell::{self, Constant, Existing, Witness},
 };
 use halo2_proofs::{arithmetic::FieldExt, circuit::AssignedCell, plonk::Error};
 use halo2_snark_aggregator_api::arith::{common::ArithCommonChip, field::ArithFieldChip};
@@ -35,10 +33,7 @@ impl<'a, 'b, N: FieldExt> ArithCommonChip for ScalarChip<'a, 'b, N> {
         a: &Self::AssignedValue,
         b: &Self::AssignedValue,
     ) -> Result<Self::AssignedValue, Self::Error> {
-        Ok(AssignedValue(
-            self.0.add(ctx, &Existing(&a.0), &Existing(&b.0))?,
-            None,
-        ))
+        Ok(AssignedValue(self.0.add(ctx, &Existing(&a.0), &Existing(&b.0))?, None))
     }
 
     fn sub(
@@ -47,10 +42,7 @@ impl<'a, 'b, N: FieldExt> ArithCommonChip for ScalarChip<'a, 'b, N> {
         a: &Self::AssignedValue,
         b: &Self::AssignedValue,
     ) -> Result<Self::AssignedValue, Self::Error> {
-        Ok(AssignedValue(
-            self.0.sub(ctx, &Existing(&a.0), &Existing(&b.0))?,
-            None,
-        ))
+        Ok(AssignedValue(self.0.sub(ctx, &Existing(&a.0), &Existing(&b.0))?, None))
     }
 
     fn assign_zero(&self, ctx: &mut Self::Context) -> Result<Self::AssignedValue, Self::Error> {
@@ -67,8 +59,7 @@ impl<'a, 'b, N: FieldExt> ArithCommonChip for ScalarChip<'a, 'b, N> {
         c: Self::Value,
     ) -> Result<Self::AssignedValue, Self::Error> {
         let assignments =
-            self.0
-                .assign_region_smart(ctx, vec![Constant(c)], vec![], vec![], vec![])?;
+            self.0.assign_region_smart(ctx, vec![Constant(c)], vec![], vec![], vec![])?;
         Ok(AssignedValue(assignments.last().unwrap().clone(), Some(c)))
     }
 
@@ -78,8 +69,7 @@ impl<'a, 'b, N: FieldExt> ArithCommonChip for ScalarChip<'a, 'b, N> {
         v: Self::Value,
     ) -> Result<Self::AssignedValue, Self::Error> {
         let assignments =
-            self.0
-                .assign_region_smart(ctx, vec![Witness(Some(v))], vec![], vec![], vec![])?;
+            self.0.assign_region_smart(ctx, vec![Witness(Some(v))], vec![], vec![], vec![])?;
         Ok(AssignedValue(assignments.last().unwrap().clone(), None))
     }
 
@@ -109,10 +99,7 @@ impl<'a, 'b, N: FieldExt> ArithFieldChip for ScalarChip<'a, 'b, N> {
         a: &Self::AssignedField,
         b: &Self::AssignedField,
     ) -> Result<Self::AssignedField, Self::Error> {
-        Ok(AssignedValue(
-            self.0.mul(ctx, &Existing(&a.0), &Existing(&b.0))?,
-            None,
-        ))
+        Ok(AssignedValue(self.0.mul(ctx, &Existing(&a.0), &Existing(&b.0))?, None))
     }
 
     fn div(
@@ -121,10 +108,7 @@ impl<'a, 'b, N: FieldExt> ArithFieldChip for ScalarChip<'a, 'b, N> {
         a: &Self::AssignedField,
         b: &Self::AssignedField,
     ) -> Result<Self::AssignedField, Self::Error> {
-        Ok(AssignedValue(
-            self.0.div_unsafe(ctx, &Existing(&a.0), &Existing(&b.0))?,
-            None,
-        ))
+        Ok(AssignedValue(self.0.div_unsafe(ctx, &Existing(&a.0), &Existing(&b.0))?, None))
     }
 
     fn square(
@@ -142,31 +126,20 @@ impl<'a, 'b, N: FieldExt> ArithFieldChip for ScalarChip<'a, 'b, N> {
         a_with_coeff: Vec<(&Self::AssignedField, Self::Value)>,
         b: Self::Value,
     ) -> Result<Self::AssignedField, Self::Error> {
-        // copying from FlexGateConfig::inner_product to save 1 cell in the final + b
-        let mut cells: Vec<QuantumCell<N>> = Vec::with_capacity(3 * a_with_coeff.len() + 4);
-        cells.push(Constant(N::from(0)));
+        let (_, _, sum, gate_index) = self.0.inner_product(
+            ctx,
+            &a_with_coeff.iter().map(|(a, _)| Existing(&a.0)).collect(),
+            &a_with_coeff.iter().map(|(_, c)| Constant(*c)).collect(),
+        )?;
 
-        let mut sum = Some(N::zero());
-        for (a, c) in &a_with_coeff {
-            let a = &a.0;
-            sum = sum.zip(a.value()).map(|(sum, &a)| sum + a * c);
-
-            cells.push(Existing(a));
-            cells.push(Constant(*c));
-            cells.push(Witness(sum));
-        }
-        let mut gate_offsets = Vec::with_capacity(a_with_coeff.len() + 1);
-        for i in 0..a_with_coeff.len() {
-            gate_offsets.push(3 * i);
-        }
-        gate_offsets.push(cells.len() - 1);
-        sum = sum.map(|sum| sum + b);
-        cells.extend([Constant(N::one()), Constant(b), Witness(sum)]);
-
-        let assigned_cells =
-            self.0
-                .assign_region_smart(ctx, cells, gate_offsets, vec![], vec![])?;
-        Ok(AssignedValue(assigned_cells.last().unwrap().clone(), None))
+        let sum = sum.value().map(|&sum| sum + b);
+        let (assignments, _) = self.0.assign_region(
+            ctx,
+            vec![Constant(N::one()), Constant(b), Witness(sum)],
+            vec![(-1, None)],
+            Some(gate_index),
+        )?;
+        Ok(AssignedValue(assignments.last().unwrap().clone(), None))
     }
 
     fn sum_with_constant(
@@ -207,11 +180,7 @@ impl<'a, 'b, N: FieldExt> ArithFieldChip for ScalarChip<'a, 'b, N> {
         b: &Self::AssignedField,
         c: &Self::AssignedField,
     ) -> Result<Self::AssignedField, Self::Error> {
-        let d =
-            a.0.value()
-                .zip(b.0.value())
-                .zip(c.0.value())
-                .map(|((&a, &b), &c)| a * b + c);
+        let d = a.0.value().zip(b.0.value()).zip(c.0.value()).map(|((&a, &b), &c)| a * b + c);
         let assignments = self.0.assign_region_smart(
             ctx,
             vec![Existing(&c.0), Existing(&a.0), Existing(&b.0), Witness(d)],
@@ -268,11 +237,8 @@ impl<'a, 'b, N: FieldExt> ArithFieldChip for ScalarChip<'a, 'b, N> {
             }
             if z != 0 {
                 if is_started {
-                    acc = if z == 1 {
-                        self.mul(ctx, &acc, base)
-                    } else {
-                        self.div(ctx, &acc, base)
-                    }?;
+                    acc =
+                        if z == 1 { self.mul(ctx, &acc, base) } else { self.div(ctx, &acc, base) }?;
                 } else {
                     is_started = true;
                 }

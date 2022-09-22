@@ -2,26 +2,17 @@ Below, sample circuit will be zkevm circuit.
 
 1. generate params and vkey for sample circuit.
 
-```
-mkdir output
-cargo run --example zkevm --release -- --command sample_setup --folder-path ./output
-// Input:
-// Output: sample circuit's params and vkey
-```
-
-2. run sample circuit with some random input, and create proof.
-
-NOTE: If this fails, it probably means vkey didn't write correctly.
+run sample circuit with some random input, and create proof.
 
 ```
 cargo run --example zkevm --release -- --command sample_run --folder-path ./output
-// Input: sample circuit's params and vkey
+// Input:
 // Output: sample circuit's instances and transcripts (with random run)
 ```
 
-3. Remember to change `halo2-snark-aggregator-circuit/configs/verify_circuit.config`
+2. Remember to change `halo2-snark-aggregator-circuit/configs/verify_circuit.config`
 
-4. Since vkey read/write doesn't currently work (see https://github.com/zcash/halo2/pull/661), we do vkey, pkey, create_proof, verify_proof, and solidity code generation all in one step.
+3. Since vkey read/write doesn't currently work (see https://github.com/zcash/halo2/pull/661), we do vkey, pkey, create_proof, verify_proof, and solidity code generation all in one step.
 
 ```
 cargo run --example zkevm --release -- --command verify_run --folder-path ./output --template-path ../halo2-snark-aggregator-solidity/templates

@@ -353,7 +353,7 @@ where
                                     << (chunk_size * config.base_field_config.limb_bits)),
                             )));
                         }
-                        let (_, _, chunk) = base_gate.0.inner_product(ctx, &a, &b)?;
+                        let (_, _, chunk, _) = base_gate.0.inner_product(ctx, &a, &b)?;
                         instances.push(chunk);
                     }
                     Ok(instances)
