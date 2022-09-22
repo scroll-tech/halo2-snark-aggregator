@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use halo2_proofs::arithmetic::FieldExt;
 
 use crate::arith::{common::ArithCommonChip, ecc::ArithEccChip, field::ArithFieldChip};
@@ -125,6 +127,47 @@ impl<A: ArithEccChip> EvaluationQuery<A> {
 }
 
 impl<P: Clone, S: Clone> EvaluationQuerySchema<P, S> {
+    fn print_points_profiling(point_list: &[String]) {
+        log::debug!("===== BEGIN: Halo2VerifierCircuit rows cost estimation ========");
+        let n = point_list.len();
+        let ecmul_rows = 34000;
+        let rows = n * ecmul_rows;
+        let mut k = 18;
+        loop {
+            if 1 << k > rows {
+                break;
+            }
+            k += 1;
+        }
+        log::debug!("total ecmul: {}", n);
+        log::debug!(
+            "rows needed by ecmul: {} = {} * 34000 = {:.2} * 2**{}",
+            rows,
+            n,
+            (rows as f64) / ((1 << k) as f64),
+            k
+        );
+        log::debug!("at least need k: {}", k);
+        let counter = point_list
+            .iter()
+            .cloned()
+            .fold(HashMap::new(), |mut map, val| {
+                let tag = val.split("_").next().unwrap_or("unknown").to_string();
+                map.entry(tag).and_modify(|frq| *frq += 1).or_insert(1);
+                map
+            });
+        for (k, v) in counter {
+            log::debug!(
+                "circuit {}: num {}, percentage {:.2}%",
+                k,
+                v,
+                (v as f64 / n as f64) * 100f64
+            );
+        }
+        log::trace!("all point list: {:?}", point_list);
+        log::debug!("===== END: Halo2VerifierCircuit rows cost estimation ========");
+    }
+
     pub fn eval<
         Scalar: FieldExt,
         A: ArithEccChip<AssignedPoint = P, AssignedScalar = S, Scalar = Scalar>,
@@ -136,6 +179,8 @@ impl<P: Clone, S: Clone> EvaluationQuerySchema<P, S> {
         one: &A::AssignedScalar,
     ) -> Result<(A::AssignedPoint, Option<A::AssignedScalar>), A::Error> {
         let points = self.eval_prepare::<Scalar, A>(ctx, schip, one, None)?;
+        let point_names: Vec<String> = points.iter().map(|(name, p, s)| name.clone()).collect();
+        Self::print_points_profiling(&point_names);
         let s = points
             .iter()
             .find(|b| b.0.is_empty())
@@ -190,8 +235,7 @@ impl<P: Clone, S: Clone> EvaluationQuerySchema<P, S> {
                     let r = r.0.eval_prepare::<Scalar, A>(ctx, schip, one, None)?;
                     assert!(l.len() == 1);
                     assert!(r.len() == 1);
-                    let sum =
-                        schip.add(ctx, l[0].2.as_ref().unwrap(), r[0].2.as_ref().unwrap())?;
+                    let sum = schip.add(ctx, l[0].2.as_ref().unwrap(), r[0].2.as_ref().unwrap())?;
                     let sum = match scalar {
                         Some(scalar) => schip.mul(ctx, &scalar, &sum)?,
                         None => sum,
