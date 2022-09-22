@@ -1328,6 +1328,7 @@ dependencies = [
  "group",
  "halo2_proofs",
  "halo2curves 0.2.1",
+ "log",
  "num-bigint",
  "poseidon 0.2.0 (git+https://github.com/privacy-scaling-explorations/poseidon.git)",
  "rand",

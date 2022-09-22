@@ -127,13 +127,17 @@ impl<'a, N: FieldExt> Context<'a, N> {
     pub fn in_shape_mode(&self) -> bool {
         self.in_shape_mode
     }
-    pub fn expand(&mut self, size:usize, v: Cell, value: N) -> Result<(), Error> {
-        self.region.as_mut().assign_advice(|| "expand", v.column.try_into().unwrap(), *self.offset + size - 1, || Value::known(value))?;
+    pub fn expand(&mut self, size: usize, v: Cell, value: N) -> Result<(), Error> {
+        self.region.as_mut().assign_advice(
+            || "expand",
+            v.column.try_into().unwrap(),
+            *self.offset + size - 1,
+            || Value::known(value),
+        )?;
         *self.offset += size;
         Ok(())
     }
 }
-
 
 impl<'a, N: FieldExt> std::fmt::Display for Context<'a, N> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -748,24 +752,19 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize>
 
         base_coeff_pairs.resize_with(VAR_COLUMNS, || pair_empty!(N));
         for (i, (base, coeff)) in base_coeff_pairs.into_iter().enumerate() {
-            let fixed_cell = ctx.region
-                .as_mut()
-                .assign_fixed(
-                    || format!("coeff_{}", i),
-                    self.config.coeff[i],
-                    *ctx.offset,
-                    || Value::known(coeff),
-                )?;
+            let fixed_cell = ctx.region.as_mut().assign_fixed(
+                || format!("coeff_{}", i),
+                self.config.coeff[i],
+                *ctx.offset,
+                || Value::known(coeff),
+            )?;
 
-            let assign_cell = ctx
-                .region
-                .as_mut()
-                .assign_advice(
-                    || format!("base_{}", i),
-                    self.config.base[i],
-                    *ctx.offset,
-                    || Value::known(base.value()),
-                )?;
+            let assign_cell = ctx.region.as_mut().assign_advice(
+                || format!("base_{}", i),
+                self.config.base[i],
+                *ctx.offset,
+                || Value::known(base.value()),
+            )?;
 
             let cell = assign_cell.cell();
 

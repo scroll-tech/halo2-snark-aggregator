@@ -191,40 +191,45 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
         let mut round_size = None;
 
         for wi in 0..windows_in_be[0].len() {
-            let mut get_inner = | round_size: Option<usize> | -> Result<(usize, AssignedPoint<C, N>), Error> {
-                match (round_size, ctx.in_shape_mode()) {
-                    (Some(rsize), true)  => {
-                        ctx.expand(rsize, acc.as_ref().unwrap().z.cell, acc.as_ref().unwrap().z.value)?;
-                        // Hack: acc is not accurate but we depends on overflow bits
-                        Ok((rsize, acc.clone().unwrap())) //Hack: In shape phase we dont care the result
-                    },
-                    _ => {
-                        let c = *ctx.offset;
-                        let mut inner_acc = None;
-                        for pi in 0..points.len() {
-                            let mut ci = pick_candidate(ctx, pi, &windows_in_be[pi][wi])?;
-                            match inner_acc {
-                                None => inner_acc = Some(ci),
-                                Some(_inner_acc) => {
-                                    let p = self.add(ctx, &mut ci, &_inner_acc)?;
-                                    inner_acc = Some(p);
+            let mut get_inner =
+                |round_size: Option<usize>| -> Result<(usize, AssignedPoint<C, N>), Error> {
+                    match (round_size, ctx.in_shape_mode()) {
+                        (Some(rsize), true) => {
+                            ctx.expand(
+                                rsize,
+                                acc.as_ref().unwrap().z.cell,
+                                acc.as_ref().unwrap().z.value,
+                            )?;
+                            // Hack: acc is not accurate but we depends on overflow bits
+                            Ok((rsize, acc.clone().unwrap())) //Hack: In shape phase we dont care the result
+                        }
+                        _ => {
+                            let c = *ctx.offset;
+                            let mut inner_acc = None;
+                            for pi in 0..points.len() {
+                                let mut ci = pick_candidate(ctx, pi, &windows_in_be[pi][wi])?;
+                                match inner_acc {
+                                    None => inner_acc = Some(ci),
+                                    Some(_inner_acc) => {
+                                        let p = self.add(ctx, &mut ci, &_inner_acc)?;
+                                        inner_acc = Some(p);
+                                    }
                                 }
                             }
-                        };
-                        let rsize = *ctx.offset - c;
-                        // Record the size of each around so that we can skip them in shape mode.
-                        Ok((rsize, inner_acc.unwrap()))
+                            let rsize = *ctx.offset - c;
+                            // Record the size of each around so that we can skip them in shape mode.
+                            Ok((rsize, inner_acc.unwrap()))
+                        }
                     }
-                }
-            };
+                };
 
             let (rsize, mut inner_acc) = get_inner(round_size)?;
             if wi != 0 {
-                round_size = Some (rsize);
+                round_size = Some(rsize);
             }
 
             match acc {
-                None => acc = Some (inner_acc),
+                None => acc = Some(inner_acc),
                 Some(mut _acc) => {
                     for _ in 0..CONFIG_WINDOW_SIZE {
                         _acc = self.double(ctx, &mut _acc)?;
@@ -363,14 +368,14 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
         let cx = {
             let l_square = integer_chip.square(ctx, l)?;
             let t = integer_chip.sub(ctx, &l_square, &a.x)?;
-            
+
             integer_chip.sub(ctx, &t, &b.x)?
         };
 
         let cy = {
             let mut t = integer_chip.sub(ctx, &a.x, &cx)?;
             let t = integer_chip.mul(ctx, &mut t, l)?;
-            
+
             integer_chip.sub(ctx, &t, &a.y)?
         };
         Ok(AssignedPoint::new(cx, cy, lambda.z))
@@ -418,12 +423,8 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
         c: C::CurveExt,
     ) -> Result<AssignedPoint<C, N>, Error> {
         let coordinates = c.to_affine().coordinates();
-        let x = coordinates
-            .map(|v| *v.x())
-            .unwrap_or(C::Base::zero());
-        let y = coordinates
-            .map(|v| *v.y())
-            .unwrap_or(C::Base::zero());
+        let x = coordinates.map(|v| *v.x()).unwrap_or(C::Base::zero());
+        let y = coordinates.map(|v| *v.y()).unwrap_or(C::Base::zero());
         let z = N::conditional_select(&N::zero(), &N::one(), c.to_affine().is_identity());
 
         let base_gate = self.base_gate();
@@ -440,12 +441,8 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
         c: C::CurveExt,
     ) -> Result<AssignedPoint<C, N>, Error> {
         let coordinates = c.to_affine().coordinates();
-        let x = coordinates
-            .map(|v| *v.x())
-            .unwrap_or(C::Base::zero());
-        let y = coordinates
-            .map(|v| *v.y())
-            .unwrap_or(C::Base::zero());
+        let x = coordinates.map(|v| *v.x()).unwrap_or(C::Base::zero());
+        let y = coordinates.map(|v| *v.y()).unwrap_or(C::Base::zero());
         let z = N::conditional_select(&N::zero(), &N::one(), c.to_affine().is_identity());
 
         let base_gate = self.base_gate();
@@ -479,12 +476,8 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
         c: C::CurveExt,
     ) -> Result<AssignedPoint<C, N>, Error> {
         let coordinates = c.to_affine().coordinates();
-        let x = coordinates
-            .map(|v| *v.x())
-            .unwrap_or(C::Base::zero());
-        let y = coordinates
-            .map(|v| *v.y())
-            .unwrap_or(C::Base::zero());
+        let x = coordinates.map(|v| *v.x()).unwrap_or(C::Base::zero());
+        let y = coordinates.map(|v| *v.y()).unwrap_or(C::Base::zero());
         let z = N::conditional_select(&N::zero(), &N::one(), c.to_affine().is_identity());
 
         let base_gate = self.base_gate();

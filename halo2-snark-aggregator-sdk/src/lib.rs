@@ -1,7 +1,3 @@
-#[cfg(feature = "benches")]
-#[cfg(test)]
-mod benches;
-
 #[macro_export]
 macro_rules! zkaggregate {
     ( $n:expr, $coherent:expr, $( $x:ident ),+ ) => {

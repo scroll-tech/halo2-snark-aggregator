@@ -100,11 +100,7 @@ pub fn test_verify_single_proof_in_chip<
     let pdata = ProofData {
         instances: &instances
             .iter()
-            .map(|x| {
-                x.iter()
-                    .map(|y| y.to_vec())
-                    .collect::<Vec<Vec<Fp>>>()
-            })
+            .map(|x| x.iter().map(|y| y.to_vec()).collect::<Vec<Vec<Fp>>>())
             .collect::<Vec<Vec<Vec<Fp>>>>(),
         transcript,
         key: format!("p{}", 0),

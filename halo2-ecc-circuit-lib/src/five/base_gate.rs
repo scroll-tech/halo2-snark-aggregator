@@ -20,7 +20,7 @@ impl<N: FieldExt> FiveColumnBaseGate<N> {
         // If in shape mode then all cells including fix and advice should become None
         match pos {
             None => Ok(true),
-            _ => Ok(false)
+            _ => Ok(false),
         }
     }
 
