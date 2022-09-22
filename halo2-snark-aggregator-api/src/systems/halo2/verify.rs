@@ -7,6 +7,7 @@ use super::{
 };
 use crate::arith::{common::ArithCommonChip, ecc::ArithEccChip, field::ArithFieldChip};
 use crate::scalar;
+use crate::systems::halo2::evaluation::print_points_profiling;
 use crate::transcript::read::TranscriptRead;
 use group::prime::PrimeCurveAffine;
 use halo2_proofs::arithmetic::{Field, FieldExt};
@@ -659,9 +660,12 @@ fn evaluate_multiopen_proof<
     let one = schip.assign_one(ctx)?;
 
     println!("debug context before evaluate multiopen proof: {}", ctx);
-    let (left_s, left_e) = proof.w_x.eval::<_, A>(ctx, schip, pchip, &one)?;
-    let (right_s, right_e) = proof.w_g.eval::<_, A>(ctx, schip, pchip, &one)?;
-
+    let mut points = Vec::new();
+    let (left_s, left_e, mut points_wx) = proof.w_x.eval::<_, A>(ctx, schip, pchip, &one)?;
+    let (right_s, right_e, mut points_wg) = proof.w_g.eval::<_, A>(ctx, schip, pchip, &one)?;
+    points.append(&mut points_wx);
+    points.append(&mut points_wg);
+    print_points_profiling(&points);
     let generator = pchip.assign_one(ctx)?;
     let left = match left_e {
         None => left_s,
@@ -678,6 +682,7 @@ fn evaluate_multiopen_proof<
         }
     };
 
+    // TODO: zzhang. should we re-enable this? at least log::error?
     /* FIXME: only for debugging purpose
 
     let left_v = pchip.to_value(&left)?;

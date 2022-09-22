@@ -137,7 +137,7 @@ impl<
                     proof_data_list.push(ProofData {
                         instances,
                         transcript,
-                        key: format!("c{}p{}", ci, i),
+                        key: format!("{}_p{}", self.0[ci].name, i),
                         _phantom: PhantomData,
                     })
                 }
@@ -426,7 +426,7 @@ impl<
                             proof_data_list.push(ProofData {
                                 instances: instance.proofs[i].instances,
                                 transcript,
-                                key: format!("c{}p{}", ci, i),
+                                key: format!("{}_p{}", self.circuits[ci].name, i),
                                 _phantom: PhantomData,
                             })
                         }
