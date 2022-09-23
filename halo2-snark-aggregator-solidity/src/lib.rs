@@ -145,10 +145,10 @@ pub fn g2field_to_bn<F: FieldExt>(f: &F) -> (BigUint, BigUint) {
 pub(crate) fn get_xy_from_g2point<E: MultiMillerLoop>(point: E::G2Affine) -> G2Point {
     let coordinates = point.coordinates();
     let x = coordinates
-        .map(|v| v.x().clone())
+        .map(|v| *v.x())
         .unwrap_or(<E::G2Affine as CurveAffine>::Base::zero());
     let y = coordinates
-        .map(|v| v.y().clone())
+        .map(|v| *v.y())
         .unwrap_or(<E::G2Affine as CurveAffine>::Base::zero());
     // let z = N::conditional_select(&N::zero(), &N::one(), c.to_affine().is_identity());
     let x = g2field_to_bn(&x);
@@ -226,8 +226,8 @@ impl<'a, E: MultiMillerLoop + Debug> MultiCircuitSolidityGenerate<'a, E> {
             schip,
             pchip,
             &verify_circuit_instance2[..],
-            &self.verify_vk,
-            &verify_params,
+            self.verify_vk,
+            verify_params,
         )
         .unwrap();
         ctx.exit_instance();
@@ -238,8 +238,8 @@ impl<'a, E: MultiMillerLoop + Debug> MultiCircuitSolidityGenerate<'a, E> {
             schip,
             pchip,
             assigned_instances,
-            &self.verify_vk,
-            &verify_params,
+            self.verify_vk,
+            verify_params,
             &mut transcript,
             "".to_owned(),
         )
@@ -247,8 +247,8 @@ impl<'a, E: MultiMillerLoop + Debug> MultiCircuitSolidityGenerate<'a, E> {
 
         let one = schip.assign_one(ctx).unwrap();
 
-        let (left_s, left_e) = proof.w_x.eval::<_, _>(ctx, schip, pchip, &one).unwrap();
-        let (right_s, right_e) = proof.w_g.eval::<_, _>(ctx, schip, pchip, &one).unwrap();
+        let (left_s, left_e, _) = proof.w_x.eval::<_, _>(ctx, schip, pchip, &one).unwrap();
+        let (right_s, right_e, _) = proof.w_g.eval::<_, _>(ctx, schip, pchip, &one).unwrap();
 
         let generator = pchip.assign_one(ctx).unwrap();
         let left = match left_e {
@@ -289,8 +289,7 @@ impl<'a, E: MultiMillerLoop + Debug> MultiCircuitSolidityGenerate<'a, E> {
         let sol_ctx: CodeGeneratorCtx = memory_optimize(sol_ctx);
         let sol_ctx: CodeGeneratorCtx = aggregate(sol_ctx);
 
-        let template =
-            render_verifier_sol_template::<E::G1Affine>(sol_ctx, template_folder.clone());
+        let template = render_verifier_sol_template::<E::G1Affine>(sol_ctx, template_folder);
         info!("generate solidity succeeds");
 
         template
