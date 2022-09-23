@@ -87,11 +87,7 @@ pub fn test_verify_aggregation_proof_in_chip<
         n_instances.push(
             instances
                 .iter()
-                .map(|l1| {
-                    l1.iter()
-                        .map(|l2| l2.iter().copied().collect::<Vec<Fr>>())
-                        .collect::<Vec<Vec<Fr>>>()
-                })
+                .map(|l1| l1.iter().map(|l2| l2.to_vec()).collect::<Vec<Vec<Fr>>>())
                 .collect::<Vec<Vec<Vec<Fr>>>>(),
         );
     }

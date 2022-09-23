@@ -29,10 +29,10 @@ impl<C: CurveAffine, E> Encode<SolidityEccChip<C, E>> for PoseidonEncode<Solidit
     ) -> Result<Vec<<SolidityEccChip<C, E> as ArithEccChip>::AssignedNative>, E> {
         let p = pchip.to_value(v)?;
         let c = p.coordinates();
-        let x = c.map(|v| v.x().clone()).unwrap_or(
+        let x = c.map(|v| *v.x()).unwrap_or(
             <<SolidityEccChip<C, E> as ArithEccChip>::Point as CurveAffine>::Base::zero(),
         );
-        let y = c.map(|v| v.y().clone()).unwrap_or(
+        let y = c.map(|v| *v.y()).unwrap_or(
             <<SolidityEccChip<C, E> as ArithEccChip>::Point as CurveAffine>::Base::zero(),
         );
 

@@ -3,7 +3,7 @@ macro_rules! zkaggregate {
     ( $n:expr, $coherent:expr, $( $x:ident ),+ ) => {
         mod zkcli {
             $(
-                use crate::$x;
+                use super::$x;
             )*
             use clap::Parser;
             use halo2_proofs::arithmetic::{CurveAffine};
