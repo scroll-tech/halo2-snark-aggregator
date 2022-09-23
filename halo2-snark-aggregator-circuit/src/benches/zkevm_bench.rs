@@ -1,19 +1,22 @@
 //! Evm circuit benchmarks
-
+//!
 use ark_std::{end_timer, start_timer};
 use eth_types::Field;
+use halo2_proofs::poly::{
+    commitment::ParamsProver,
+    kzg::{commitment::KZGCommitmentScheme, strategy::SingleStrategy},
+    VerificationStrategy,
+};
 use halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner},
     plonk::{
         create_proof, keygen_pk, keygen_vk, verify_proof, Circuit, ConstraintSystem, Error,
         Expression, ProvingKey,
     },
-    poly::{
-        commitment::{Params, ParamsVerifier},
-        kzg::{
-            commitment::{ParamsKZG, ParamsVerifierKZG},
-            multiopen::VerifierGWC,
-        },
+    poly::kzg::{
+        commitment::{ParamsKZG, ParamsVerifierKZG},
+        multiopen::ProverGWC,
+        multiopen::VerifierGWC,
     },
     transcript::{Challenge255, PoseidonRead, PoseidonWrite},
 };
@@ -27,7 +30,6 @@ pub struct TestCircuit<F> {
 }
 
 const DEGREE_OF_EVM_CIRCUIT: u32 = 18;
-const DEGREE: usize = 18;
 const K: u32 = 25u32;
 
 impl<F: Field> Circuit<F> for TestCircuit<F> {
@@ -43,6 +45,8 @@ impl<F: Field> Circuit<F> for TestCircuit<F> {
         let rw_table = [(); 11].map(|_| meta.advice_column());
         let bytecode_table = [(); 5].map(|_| meta.advice_column());
         let block_table = [(); 3].map(|_| meta.advice_column());
+        let copy_table = [(); 3].map(|_| meta.advice_column());
+        let keccak_table = [(); 3].map(|_| meta.advice_column());
         // Use constant expression to mock constant instance column for a more
         // reasonable benchmark.
         let power_of_randomness = [(); 31].map(|_| Expression::Constant(F::one()));
@@ -54,6 +58,8 @@ impl<F: Field> Circuit<F> for TestCircuit<F> {
             &rw_table,
             &bytecode_table,
             &block_table,
+            &copy_table,
+            &keccak_table,
         )
     }
 
@@ -94,13 +100,13 @@ fn setup_sample_circuit() -> (
         ($name:ident) => {
             let $name = {
                 // Prove
-                let mut transcript = PoseidonWrite::<_, _, Challenge255<_>>::init(vec![]);
+                let mut transcript = PoseidonWrite::<_, G1Affine, Challenge255<_>>::init(vec![]);
 
                 // Bench proof generation time
                 let proof_message =
                     format!("EVM Proof generation with {} degree", DEGREE_OF_EVM_CIRCUIT);
                 let start2 = start_timer!(|| proof_message);
-                create_proof(
+                create_proof::<KZGCommitmentScheme<Bn256>, ProverGWC<Bn256>, _, _, _, _>(
                     &general_params,
                     &pk,
                     circuit,
@@ -120,14 +126,17 @@ fn setup_sample_circuit() -> (
     evm_proof!(proof2);
 
     // Verify
-    let verifier_params: ParamsVerifier<Bn256> = general_params.verifier(DEGREE * 2).unwrap();
+    let verifier_params = general_params.verifier_params();
     let mut verifier_transcript = PoseidonRead::<_, _, Challenge255<_>>::init(&proof1[..]);
-    let strategy = VerifierGWC::new(&verifier_params);
+    let strategy: SingleStrategy<Bn256> = VerificationStrategy::<
+        KZGCommitmentScheme<Bn256>,
+        VerifierGWC<Bn256>,
+    >::new(&verifier_params);
 
     // Bench verification time
     let start3 = start_timer!(|| "EVM Proof verification");
-    verify_proof(
-        &verifier_params,
+    verify_proof::<_, VerifierGWC<_>, _, _, _>(
+        verifier_params,
         pk.get_vk(),
         strategy,
         instances,
@@ -146,8 +155,8 @@ fn setup_sample_circuit() -> (
         .collect::<Vec<Vec<Vec<Fr>>>>();
 
     (
-        general_params,
-        verifier_params,
+        general_params.clone(),
+        verifier_params.clone(),
         pk,
         instances.clone(),
         instances,
