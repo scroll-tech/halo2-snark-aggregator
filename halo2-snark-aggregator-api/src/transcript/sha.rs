@@ -41,9 +41,18 @@ impl<R: Read, C: CurveAffine, D: Digest + Clone> TranscriptRead<C, Challenge255<
     for ShaRead<R, C, Challenge255<C>, D>
 {
     fn read_point(&mut self) -> io::Result<C> {
-        let mut compressed = C::Repr::default();
-        self.reader.read_exact(compressed.as_mut())?;
-        let point: C = Option::from(C::from_bytes(&compressed)).ok_or_else(|| {
+        let read_base = |reader: &mut R| -> io::Result<C::Base> {
+            let mut data = <C::Base as PrimeField>::Repr::default();
+            reader.read_exact(data.as_mut())?;
+            let base: C::Base = Option::from(C::Base::from_repr(data)).ok_or_else(|| {
+                io::Error::new(io::ErrorKind::Other, "invalid base encoding in proof")
+            })?;
+
+            Ok(base)
+        };
+        let x = read_base(&mut self.reader)?;
+        let y = read_base(&mut self.reader)?;
+        let point: C = Option::from(C::from_xy(x, y)).ok_or_else(|| {
             io::Error::new(io::ErrorKind::Other, "invalid point encoding in proof")
         })?;
         self.common_point(point)?;
