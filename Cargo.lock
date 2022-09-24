@@ -1462,7 +1462,7 @@ dependencies = [
 [[package]]
 name = "halo2_ecc"
 version = "0.0.1"
-source = "git+https://github.com/jonathanpwang/halo2-ecc?branch=scroll-aggregator#999a9561cb8fee6876d326a8a4fd2228b41bd88f"
+source = "git+https://github.com/jonathanpwang/halo2-ecc?branch=pippenger#edebb87c800a36f55c1aecbf43d266da68704653"
 dependencies = [
  "ff 0.11.1",
  "group 0.11.0",

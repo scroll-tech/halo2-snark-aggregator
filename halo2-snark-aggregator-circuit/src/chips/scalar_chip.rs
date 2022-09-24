@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use halo2_ecc::gates::{
     flex_gate::FlexGateConfig,
     Context, GateInstructions,
-    QuantumCell::{self, Constant, Existing, Witness},
+    QuantumCell::{Constant, Existing, Witness},
 };
 use halo2_proofs::{arithmetic::FieldExt, circuit::AssignedCell, plonk::Error};
 use halo2_snark_aggregator_api::arith::{common::ArithCommonChip, field::ArithFieldChip};

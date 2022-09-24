@@ -12,8 +12,8 @@ use halo2_proofs::{
 use rand_core::OsRng;
 use std::io::Write;
 
-use crate::fs::load_target_circuit_vk;
-use crate::fs::{get_params_cached, load_target_circuit_params};
+// use crate::fs::{load_target_circuit_vk,load_target_circuit_params};
+use crate::fs::get_params_cached;
 
 pub trait TargetCircuit<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> {
     const TARGET_CIRCUIT_K: u32;
@@ -86,7 +86,7 @@ pub fn sample_circuit_random_run<
     // let instances: &[&[&[C::Scalar]]] = &[&[&[constant * a.square() * b.square()]]];
     let instances: &[&[&[_]]] = &[instances];
     let mut transcript = PoseidonWrite::<_, _, Challenge255<_>>::init(vec![]);
-    let pf_time =  start_timer!(|| format!("{} proving time", CIRCUIT::NAME));
+    let pf_time = start_timer!(|| format!("{} proving time", CIRCUIT::NAME));
     create_proof(&params, &pk, &[circuit], instances, OsRng, &mut transcript)
         .expect("proof generation should not fail");
     let proof = transcript.finalize();
