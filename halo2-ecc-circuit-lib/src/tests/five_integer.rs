@@ -259,7 +259,8 @@ impl<W: FieldExt, N: FieldExt> Circuit<N> for TestFiveColumnIntegerChipCircuit<W
             .unwrap();
 
         layouter.assign_region(
-            || "base",
+            // base
+            || "",
             |region| {
                 let base_offset = 0usize;
                 let mut aux = Context::new(region, base_offset);

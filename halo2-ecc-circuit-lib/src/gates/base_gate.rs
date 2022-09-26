@@ -128,8 +128,9 @@ impl<'a, N: FieldExt> Context<'a, N> {
         self.in_shape_mode
     }
     pub fn expand(&mut self, size: usize, v: Cell, value: N) -> Result<(), Error> {
+        // Expand
         self.region.as_mut().assign_advice(
-            || "expand",
+            || "",
             v.column.try_into().unwrap(),
             *self.offset + size - 1,
             || Value::known(value),
@@ -698,7 +699,8 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize>
 
         base.iter().for_each(|c| meta.enable_equality(*c));
 
-        meta.create_gate("base_gate", |meta| {
+        // Base gate
+        meta.create_gate("", |meta| {
             let _constant = meta.query_fixed(constant, Rotation::cur());
             let _next = meta.query_advice(base[VAR_COLUMNS - 1], Rotation::next());
             let _next_coeff = meta.query_fixed(next_coeff, Rotation::cur());
@@ -753,14 +755,16 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize>
         base_coeff_pairs.resize_with(VAR_COLUMNS, || pair_empty!(N));
         for (i, (base, coeff)) in base_coeff_pairs.into_iter().enumerate() {
             let fixed_cell = ctx.region.as_mut().assign_fixed(
-                || format!("coeff_{}", i),
+                // coeff i
+                || "",
                 self.config.coeff[i],
                 *ctx.offset,
                 || Value::known(coeff),
             )?;
 
             let assign_cell = ctx.region.as_mut().assign_advice(
-                || format!("base_{}", i),
+                // base i
+                || "",
                 self.config.base[i],
                 *ctx.offset,
                 || Value::known(base.value()),
@@ -781,7 +785,8 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize>
         mul_coeffs.resize_with(MUL_COLUMNS, || zero);
         for (i, mul_coeff) in mul_coeffs.into_iter().enumerate() {
             ctx.region.as_mut().assign_fixed(
-                || format!("mul_coeff_{}", i),
+                // mul coeff i
+                || "",
                 self.config.mul_coeff[i],
                 *ctx.offset,
                 || Value::known(mul_coeff),
@@ -789,13 +794,15 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize>
         }
 
         ctx.region.as_mut().assign_fixed(
-            || "constant",
+            // constant
+            || "",
             self.config.constant,
             *ctx.offset,
             || Value::known(constant),
         )?;
         ctx.region.as_mut().assign_fixed(
-            || "next_coeff",
+            // next coeff
+            || "",
             self.config.next_coeff,
             *ctx.offset,
             || Value::known(next),

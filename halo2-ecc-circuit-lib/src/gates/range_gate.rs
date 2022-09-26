@@ -91,7 +91,8 @@ impl<
         mul_next_coeffs: (Vec<N>, N),
     ) -> Result<Vec<AssignedValue<N>>, Error> {
         ctx.region.assign_fixed(
-            || "common_range_selector",
+            // common_range_selector
+            || "",
             self.config.common_range_selector,
             *ctx.offset,
             || Value::known(N::one()),
@@ -111,13 +112,15 @@ impl<
         mul_next_coeffs: (Vec<N>, N),
     ) -> Result<Vec<AssignedValue<N>>, Error> {
         ctx.region.assign_fixed(
-            || "common_range_selector",
+            // common_range_selector
+            || "",
             self.config.common_range_selector,
             *ctx.offset,
             || Value::known(N::one()),
         )?;
         ctx.region.assign_fixed(
-            || "w_ceil_leading_limb_range_selector",
+            // w_ceil_leading_limb_range_selector
+            || "",
             self.config.w_ceil_leading_limb_range_selector,
             *ctx.offset,
             || Value::known(N::one()),
@@ -137,13 +140,15 @@ impl<
         mul_next_coeffs: (Vec<N>, N),
     ) -> Result<Vec<AssignedValue<N>>, Error> {
         ctx.region.assign_fixed(
-            || "common_range_selector",
+            // common_range_selector
+            || "",
             self.config.common_range_selector,
             *ctx.offset,
             || Value::known(N::one()),
         )?;
         ctx.region.assign_fixed(
-            || "n_floor_leading_limb_range_selector",
+            // n_floor_leading_limb_range_selector
+            || "",
             self.config.n_floor_leading_limb_range_selector,
             *ctx.offset,
             || Value::known(N::one()),
@@ -163,13 +168,15 @@ impl<
         mul_next_coeffs: (Vec<N>, N),
     ) -> Result<Vec<AssignedValue<N>>, Error> {
         ctx.region.assign_fixed(
-            || "common_range_selector",
+            // common_range_selector
+            || "",
             self.config.common_range_selector,
             *ctx.offset,
             || Value::known(N::one()),
         )?;
         ctx.region.assign_fixed(
-            || "d_leading_limb_range_selector",
+            // d_leading_limb_range_selector
+            || "",
             self.config.d_leading_limb_range_selector,
             *ctx.offset,
             || Value::known(N::one()),
@@ -231,11 +238,13 @@ impl<
         };
 
         layouter.assign_table(
-            || "common range table",
+            // common range table
+            || "",
             |mut table| {
                 for i in 0..1 << COMMON_RANGE_BITS {
                     table.assign_cell(
-                        || "common range table",
+                        // common range table
+                        || "",
                         self.config.common_range_table_column,
                         i,
                         || Value::known(N::from(i as u64)),
@@ -246,11 +255,13 @@ impl<
         )?;
 
         layouter.assign_table(
-            || "w ceil leading range table",
+            // w ceil leading range table
+            || "",
             |mut table| {
                 for i in 0..1 << w_ceil_leading_range_bits {
                     table.assign_cell(
-                        || "w ceil leading limb range table",
+                        // w ceil leading limb range table
+                        || "",
                         self.config.w_ceil_leading_limb_range_table_column,
                         i,
                         || Value::known(N::from(i as u64)),
@@ -261,11 +272,13 @@ impl<
         )?;
 
         layouter.assign_table(
-            || "n floor leading range table",
+            // n floor leading range table
+            || "",
             |mut table| {
                 for i in 0..1 << n_floor_leading_range_bits {
                     table.assign_cell(
-                        || "n floor leading limb range table",
+                        // n floor leading limb range table
+                        || "",
                         self.config.n_floor_leading_limb_range_table_column,
                         i,
                         || Value::known(N::from(i as u64)),
@@ -276,11 +289,13 @@ impl<
         )?;
 
         layouter.assign_table(
-            || "d leading range table",
+            // d leading range table
+            || "",
             |mut table| {
                 for i in 0..1 << d_leading_range_bits {
                     table.assign_cell(
-                        || "d leading limb range table",
+                        // d leading limb range table
+                        || "",
                         self.config.d_leading_limb_range_table_column,
                         i,
                         || Value::known(N::from(i as u64)),

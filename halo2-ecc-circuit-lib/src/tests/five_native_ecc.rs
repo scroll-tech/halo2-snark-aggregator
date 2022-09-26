@@ -280,7 +280,8 @@ impl<C: CurveAffine> Circuit<C::ScalarExt> for TestFiveColumnNativeEccChipCircui
             .unwrap();
 
         layouter.assign_region(
-            || "base",
+            // base
+            || "",
             |region| {
                 let base_offset = 0usize;
                 let mut aux = Context::new(region, base_offset);

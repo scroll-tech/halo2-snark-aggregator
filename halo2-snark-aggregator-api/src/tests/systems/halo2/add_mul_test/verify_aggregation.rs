@@ -161,7 +161,7 @@ mod tests {
     use halo2_proofs::plonk::Error;
 
     #[test]
-    fn test_verify_aggreation_proof_in_chip_code() {
+    fn test_verify_aggregation_proof_in_chip_code() {
         let nchip = MockFieldChip::default();
         let schip = MockFieldChip::default();
         let pchip = MockEccChip::default();

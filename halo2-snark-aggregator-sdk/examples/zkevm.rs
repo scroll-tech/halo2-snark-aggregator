@@ -78,6 +78,6 @@ type ZkEvm = TestCircuit<Fr>;
 zkaggregate! {1, vec![], ZkEvm}
 
 pub fn main() {
-    let builder = zkcli::builder(25);
+    let builder = zkcli::builder(15);
     builder.run()
 }

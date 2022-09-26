@@ -33,7 +33,8 @@ impl<F: FieldExt> MyConfig<F> {
         };
 
         // Lookup on even numbers
-        meta.lookup_any("even number", |meta| {
+        // even number
+        meta.lookup_any("", |meta| {
             let input = meta.query_advice(config.input, Rotation::cur());
 
             let q_even = meta.query_selector(config.q_even);
@@ -43,7 +44,8 @@ impl<F: FieldExt> MyConfig<F> {
         });
 
         // Lookup on odd numbers
-        meta.lookup_any("odd number", |meta| {
+        // odd number
+        meta.lookup_any("", |meta| {
             let input = meta.query_advice(config.input, Rotation::cur());
 
             let q_odd = meta.query_selector(config.q_odd);
@@ -57,12 +59,15 @@ impl<F: FieldExt> MyConfig<F> {
 
     fn witness_even(&self, mut layouter: impl Layouter<F>, value: Value<F>) -> Result<(), Error> {
         layouter.assign_region(
-            || "witness even number",
+            // witness even number
+            || "",
             |mut region| {
                 // Enable the even lookup.
                 self.q_even.enable(&mut region, 0)?;
 
-                region.assign_advice(|| "even input", self.input, 0, || value)?;
+                region.assign_advice(
+                    // even input
+                    || "", self.input, 0, || value)?;
                 Ok(())
             },
         )
@@ -70,12 +75,15 @@ impl<F: FieldExt> MyConfig<F> {
 
     fn witness_odd(&self, mut layouter: impl Layouter<F>, value: Value<F>) -> Result<(), Error> {
         layouter.assign_region(
-            || "witness odd number",
+            // witness odd number
+            || "",
             |mut region| {
                 // Enable the odd lookup.
                 self.q_odd.enable(&mut region, 0)?;
 
-                region.assign_advice(|| "odd input", self.input, 0, || value)?;
+                region.assign_advice(
+                    // odd input
+                    || "", self.input, 0, || value)?;
                 Ok(())
             },
         )
@@ -83,11 +91,13 @@ impl<F: FieldExt> MyConfig<F> {
 
     fn load_even_lookup(&self, mut layouter: impl Layouter<F>, values: &[F]) -> Result<(), Error> {
         layouter.assign_region(
-            || "load values for even lookup table",
+            // load values for even lookup table
+            || "",
             |mut region| {
                 for (offset, value) in values.iter().enumerate() {
                     region.assign_advice(
-                        || "even table value",
+                        // even table value
+                        || "",
                         self.table_even,
                         offset,
                         || Value::known(*value),
@@ -127,18 +137,21 @@ impl<F: FieldExt> Circuit<F> for MyCircuit<F> {
     ) -> Result<(), Error> {
         // Load allowed values for even lookup table
         config.load_even_lookup(
-            layouter.namespace(|| "witness even numbers"),
+            // witness even numbers
+            layouter.namespace(|| ""),
             &self.even_lookup,
         )?;
 
         // Witness even numbers
         for even in self.even_witnesses.iter() {
-            config.witness_even(layouter.namespace(|| "witness even numbers"), *even)?;
+            // witness even numbers
+            config.witness_even(layouter.namespace(|| ""), *even)?;
         }
 
         // Witness odd numbers
         for odd in self.odd_witnesses.iter() {
-            config.witness_odd(layouter.namespace(|| "witness odd numbers"), *odd)?;
+            // witness odd numbers
+            config.witness_odd(layouter.namespace(|| ""), *odd)?;
         }
 
         Ok(())

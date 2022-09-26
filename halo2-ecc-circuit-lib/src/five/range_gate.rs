@@ -45,7 +45,7 @@ impl<'a, W: FieldExt, N: FieldExt, const COMMON_RANGE_BITS: usize>
         base_gate_config.base[0..VAR_COLUMNS - 1]
             .iter()
             .for_each(|column| {
-                meta.lookup("common range", |meta| {
+                meta.lookup("", |meta| {
                     let exp = meta.query_advice(*column, Rotation::cur());
                     let s = meta.query_fixed(common_range_selector, Rotation::cur());
                     vec![(exp * s, common_range_table_column)]
@@ -55,7 +55,7 @@ impl<'a, W: FieldExt, N: FieldExt, const COMMON_RANGE_BITS: usize>
         let w_ceil_leading_limb_range_selector = meta.fixed_column();
         let w_ceil_leading_limb_range_table_column = meta.lookup_table_column();
 
-        meta.lookup("w ceil leading limb range", |meta| {
+        meta.lookup("", |meta| {
             let exp = meta.query_advice(base_gate_config.base[0], Rotation::cur());
             let s = meta.query_fixed(w_ceil_leading_limb_range_selector, Rotation::cur());
             vec![(exp * s, w_ceil_leading_limb_range_table_column)]
@@ -64,7 +64,7 @@ impl<'a, W: FieldExt, N: FieldExt, const COMMON_RANGE_BITS: usize>
         let n_floor_leading_limb_range_selector = meta.fixed_column();
         let n_floor_leading_limb_range_table_column = meta.lookup_table_column();
 
-        meta.lookup("n floor leading limb range", |meta| {
+        meta.lookup("", |meta| {
             let exp = meta.query_advice(base_gate_config.base[0], Rotation::cur());
             let s = meta.query_fixed(n_floor_leading_limb_range_selector, Rotation::cur());
             vec![(exp * s, n_floor_leading_limb_range_table_column)]
@@ -73,7 +73,7 @@ impl<'a, W: FieldExt, N: FieldExt, const COMMON_RANGE_BITS: usize>
         let d_leading_limb_range_selector = meta.fixed_column();
         let d_leading_limb_range_table_column = meta.lookup_table_column();
 
-        meta.lookup("d leading limb range", |meta| {
+        meta.lookup("", |meta| {
             let exp = meta.query_advice(base_gate_config.base[0], Rotation::cur());
             let s = meta.query_fixed(d_leading_limb_range_selector, Rotation::cur());
             vec![(exp * s, d_leading_limb_range_table_column)]

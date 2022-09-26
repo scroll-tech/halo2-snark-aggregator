@@ -330,7 +330,8 @@ impl<N: FieldExt> Circuit<N> for TestFiveColumnBaseGateCircuit<N> {
         let base_gate = FiveColumnBaseGate::new(config.base_gate_config);
 
         layouter.assign_region(
-            || "base",
+            // base
+            || "",
             |region| {
                 let base_offset = 0usize;
                 let mut aux = Context::new(region, base_offset);
