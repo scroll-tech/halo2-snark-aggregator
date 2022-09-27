@@ -6,7 +6,8 @@ authors = ["zhangjunyu <junyu92@gmail.com>"]
 
 [dependencies]
 group = "0.12"
-halo2_proofs = { git = "https://github.com/scroll-tech/halo2.git", branch = "scroll-dev-0902" }
+# halo2_proofs = { git = "https://github.com/scroll-tech/halo2.git", branch = "scroll-dev-0902" }
+halo2_proofs = { path = "../../halo2/halo2_proofs"}
 num-integer = "0.1"
 num-bigint = { version = "0.4", features = ["rand"] }
 halo2curves = { git = 'https://github.com/privacy-scaling-explorations/halo2curves', tag = "0.2.1" }

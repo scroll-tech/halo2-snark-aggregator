@@ -67,7 +67,11 @@ impl<F: FieldExt> MyConfig<F> {
 
                 region.assign_advice(
                     // even input
-                    || "", self.input, 0, || value)?;
+                    || "",
+                    self.input,
+                    0,
+                    || value,
+                )?;
                 Ok(())
             },
         )
@@ -83,7 +87,11 @@ impl<F: FieldExt> MyConfig<F> {
 
                 region.assign_advice(
                     // odd input
-                    || "", self.input, 0, || value)?;
+                    || "",
+                    self.input,
+                    0,
+                    || value,
+                )?;
                 Ok(())
             },
         )

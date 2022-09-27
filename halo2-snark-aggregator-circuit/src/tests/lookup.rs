@@ -140,7 +140,7 @@ impl Circuit<Fr> for TestFiveColumnNativeEccChipCircuit<G1Affine> {
             .unwrap();
 
         layouter.assign_region(
-            || "base",
+            || "",
             |region| {
                 let base_offset = 0usize;
                 let mut aux = Context::new(region, base_offset);

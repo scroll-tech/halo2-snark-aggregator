@@ -125,7 +125,7 @@ fn setup_sample_circuit() -> (
     let strategy = VerifierGWC::new(&verifier_params);
 
     // Bench verification time
-    let start3 = start_timer!(|| "EVM Proof verification");
+    let start3 = start_timer!(|| "");
     verify_proof(
         &verifier_params,
         pk.get_vk(),

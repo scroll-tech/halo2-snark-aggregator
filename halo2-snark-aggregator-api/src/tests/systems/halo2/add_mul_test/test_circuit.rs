@@ -296,7 +296,7 @@ impl<F: FieldExt> Circuit<F> for MyCircuit<F> {
 
         // Load the constant factor into the circuit.
         let constant =
-            field_chip.load_constant(layouter.namespace(|| "load constant"), self.constant)?;
+            field_chip.load_constant(layouter.namespace(|| ""), self.constant)?;
 
         // We only have access to plain multiplication.
         // We could implement our circuit as:

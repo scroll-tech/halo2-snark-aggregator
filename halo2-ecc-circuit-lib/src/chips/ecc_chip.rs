@@ -21,6 +21,11 @@ impl<C: CurveAffine, N: FieldExt> AssignedCurvature<C, N> {
 }
 
 #[derive(Clone, Debug)]
+/// An EC point variable (in Short Weierstrass form) consists of
+/// - a variable for x, decomposed into #LIMB cells
+/// - a variable for y, decomposed into #LIMB cells
+/// - a single cell for the infinity flag
+/// - an optional, internal curvature struct to aid computation
 pub struct AssignedPoint<C: CurveAffine, N: FieldExt> {
     pub x: AssignedInteger<C::Base, N>,
     pub y: AssignedInteger<C::Base, N>,

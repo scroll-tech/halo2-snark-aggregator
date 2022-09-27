@@ -93,6 +93,7 @@ impl<'a, N: FieldExt> ValueSchema<'a, N> {
     }
 }
 
+/// Pairing a variable with its coefficient
 #[macro_export]
 macro_rules! pair {
     ($x: expr, $y: expr) => {
@@ -100,6 +101,7 @@ macro_rules! pair {
     };
 }
 
+/// Generate an empty pair of variable and coefficient
 #[macro_export]
 macro_rules! pair_empty {
     ($N: tt) => {
@@ -156,9 +158,14 @@ pub struct BaseGateConfig<const VAR_COLUMNS: usize, const MUL_COLUMNS: usize> {
 }
 
 pub trait BaseGateOps<N: FieldExt> {
+    /// Number of linear wires: VAR_COLUMNS
     fn var_columns(&self) -> usize;
+
+    /// Number of multiplicative wires: MUL_COLUMNS
     fn mul_columns(&self) -> usize;
 
+    /// Constrain the output satisfies the inputs
+    /// and the customized gate via a single row.
     fn one_line(
         &self,
         ctx: &mut Context<'_, N>,
@@ -167,7 +174,10 @@ pub trait BaseGateOps<N: FieldExt> {
         mul_next_coeffs: (Vec<N>, N),
     ) -> Result<Vec<AssignedValue<N>>, Error>;
 
-    fn one_line_add(
+    /// Constrain the output is a linear combination
+    /// of the input wires and the constant via a single
+    /// row.
+    fn one_line_linear_comb(
         &self,
         ctx: &mut Context<'_, N>,
         base_coeff_pairs: Vec<(ValueSchema<N>, N)>,
@@ -176,6 +186,8 @@ pub trait BaseGateOps<N: FieldExt> {
         self.one_line(ctx, base_coeff_pairs, constant, (vec![], N::zero()))
     }
 
+    /// Same as one_line, except that the d-th wire and its coefficient
+    /// is from a separate line.
     fn one_line_with_last_base<'a>(
         &self,
         ctx: &mut Context<'_, N>,
@@ -191,6 +203,8 @@ pub trait BaseGateOps<N: FieldExt> {
         self.one_line(ctx, base_coeff_pairs, constant, mul_next_coeffs)
     }
 
+    /// Constrain the output is a linear combination of the input wires and the constant. 
+    /// The input may exceed #VAR_COLUMN
     fn sum_with_constant(
         &self,
         ctx: &mut Context<'_, N>,
@@ -500,14 +514,14 @@ pub trait BaseGateOps<N: FieldExt> {
     fn assign_constant(&self, ctx: &mut Context<'_, N>, v: N) -> Result<AssignedValue<N>, Error> {
         let one = N::one();
 
-        let cells = self.one_line_add(ctx, vec![pair!(v, -one)], v)?;
+        let cells = self.one_line_linear_comb(ctx, vec![pair!(v, -one)], v)?;
 
         Ok(cells[0])
     }
 
     fn assign(&self, ctx: &mut Context<'_, N>, v: N) -> Result<AssignedValue<N>, Error> {
         let zero = N::zero();
-        let cells = self.one_line_add(ctx, vec![pair!(v, zero)], zero)?;
+        let cells = self.one_line_linear_comb(ctx, vec![pair!(v, zero)], zero)?;
         Ok(cells[0])
     }
 
@@ -520,7 +534,7 @@ pub trait BaseGateOps<N: FieldExt> {
         let one = N::one();
         let zero = N::zero();
 
-        self.one_line_add(ctx, vec![pair!(a, -one), pair!(b, one)], zero)?;
+        self.one_line_linear_comb(ctx, vec![pair!(a, -one), pair!(b, one)], zero)?;
 
         Ok(())
     }
@@ -533,7 +547,7 @@ pub trait BaseGateOps<N: FieldExt> {
     ) -> Result<(), Error> {
         let one = N::one();
 
-        self.one_line_add(ctx, vec![pair!(a, -one)], b)?;
+        self.one_line_linear_comb(ctx, vec![pair!(a, -one)], b)?;
 
         Ok(())
     }

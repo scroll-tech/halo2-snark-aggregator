@@ -8,7 +8,16 @@ use crate::{
 };
 use halo2_proofs::{arithmetic::FieldExt, plonk::Error};
 
+/// Instantiate a base gate of 5 columns with the following custom gate:
+/// e = mul_coeff_1 * a * b + mul_coeff_2 * c * d
+///   + a_coeff * a + b_coeff * b  + c_coeff * c + d_coeff * d
+///   + const
 pub type FiveColumnBaseGateConfig = BaseGateConfig<VAR_COLUMNS, MUL_COLUMNS>;
+
+/// Instantiate a base gate of 5 columns with the following custom gate:
+/// e = mul_coeff_1 * a * b + mul_coeff_2 * c * d
+///   + a_coeff * a + b_coeff * b  + c_coeff * c + d_coeff * d
+///   + const
 pub type FiveColumnBaseGate<N> = BaseGate<N, VAR_COLUMNS, MUL_COLUMNS>;
 
 impl<N: FieldExt> FiveColumnBaseGate<N> {
@@ -24,6 +33,10 @@ impl<N: FieldExt> FiveColumnBaseGate<N> {
         }
     }
 
+    /// Multiply the first two wires; then add the next two wires to the product.
+    /// Given input variables a, ,b, c, d, and coefficients c_coeff and d_coeff,
+    /// it outputs a variable e such that
+    /// `e = a * b + c_coeff * c + d_coeff * d`
     fn mul_add2(
         &self,
         ctx: &mut Context<'_, N>,
@@ -79,6 +92,7 @@ impl<N: FieldExt> BaseGateOps<N> for FiveColumnBaseGate<N> {
         Ok(r)
     }
 
+    /// Binary selection of variables `a` and `b` based on `condition`
     fn bisec(
         &self,
         ctx: &mut Context<'_, N>,
@@ -91,6 +105,8 @@ impl<N: FieldExt> BaseGateOps<N> for FiveColumnBaseGate<N> {
 
         let cond_v: AssignedValue<N> = cond.into();
         let c = cond.value * a.value + (one - cond.value) * b.value;
+
+        // c = cond * a - cond * b + b
         let (cells, _) = self.one_line(
             ctx,
             vec![

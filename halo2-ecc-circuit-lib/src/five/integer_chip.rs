@@ -216,7 +216,7 @@ impl<'a, W: FieldExt, N: FieldExt> FiveColumnIntegerChip<'a, W, N> {
             self.helper.limb_modulus_exps[2],
         )?;
 
-        self.base_gate().one_line_add(
+        self.base_gate().one_line_linear_comb(
             ctx,
             vec![
                 pair!(&u0, -one),
@@ -236,7 +236,7 @@ impl<'a, W: FieldExt, N: FieldExt> FiveColumnIntegerChip<'a, W, N> {
             ],
             zero,
         )?;
-        self.base_gate().one_line_add(
+        self.base_gate().one_line_linear_comb(
             ctx,
             vec![
                 pair!(&u1, one),
@@ -551,7 +551,7 @@ impl<'a, W: FieldExt, N: FieldExt> IntegerChipOps<W, N> for FiveColumnIntegerChi
         // 2. Add constrains native.
         let rem_native = self.native(ctx, &mut rem)?;
         let a_native = self.native(ctx, a)?;
-        self.base_gate().one_line_add(
+        self.base_gate().one_line_linear_comb(
             ctx,
             vec![
                 pair!(a_native, -one),
@@ -562,7 +562,7 @@ impl<'a, W: FieldExt, N: FieldExt> IntegerChipOps<W, N> for FiveColumnIntegerChi
         )?;
 
         // 3. Add constrains on limb[0].
-        self.base_gate().one_line_add(
+        self.base_gate().one_line_linear_comb(
             ctx,
             vec![
                 pair!(&d, bn_to_field(&self.helper.w_modulus_limbs_le[0])),

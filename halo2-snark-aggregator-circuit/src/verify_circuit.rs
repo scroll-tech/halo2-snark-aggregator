@@ -225,7 +225,7 @@ impl<
             &base_gate,
         );
 
-        let mut layouter = layouter.namespace(|| "mult-circuit");
+        let mut layouter = layouter.namespace(|| "");
         let mut res = self.synthesize_proof(&base_gate, &range_gate, &mut layouter)?;
 
         let integer_chip = FiveColumnIntegerChip::new(&range_gate);
@@ -237,7 +237,7 @@ impl<
         let mut instances = None;
 
         layouter.assign_region(
-            || "base",
+            || "",
             |region| {
                 let base_offset = 0usize;
                 let mut aux = Context::new(region, base_offset);
@@ -328,7 +328,7 @@ impl<
         )?;
 
         {
-            let mut layouter = layouter.namespace(|| "expose");
+            let mut layouter = layouter.namespace(|| "");
             layouter.constrain_instance(x0_low.unwrap().cell, config.instance, 0)?;
             layouter.constrain_instance(x0_high.unwrap().cell, config.instance, 1)?;
             layouter.constrain_instance(x1_low.unwrap().cell, config.instance, 2)?;
@@ -378,7 +378,7 @@ impl<
         let mut r = None;
 
         layouter.assign_region(
-            || "base",
+            || "",
             |region| {
                 let base_offset = 0usize;
                 let mut aux = Context::new(region, base_offset);

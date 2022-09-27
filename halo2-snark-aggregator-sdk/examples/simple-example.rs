@@ -91,7 +91,7 @@ impl<F: FieldExt> FieldChip<F> {
         }
 
         // Define our multiplication gate!
-        meta.create_gate("mul", |meta| {
+        meta.create_gate("", |meta| {
             // To implement multiplication, we need three advice cells and a selector
             // cell. We arrange them like so:
             //
@@ -160,10 +160,10 @@ impl<F: FieldExt> NumericInstructions<F> for FieldChip<F> {
         let config = self.config();
 
         layouter.assign_region(
-            || "load private",
+            || "",
             |mut region| {
                 region
-                    .assign_advice(|| "private input", config.advice[0], 0, || value)
+                    .assign_advice(|| "", config.advice[0], 0, || value)
                     .map(Number)
             },
         )
@@ -177,10 +177,10 @@ impl<F: FieldExt> NumericInstructions<F> for FieldChip<F> {
         let config = self.config();
 
         layouter.assign_region(
-            || "load constant",
+            || "",
             |mut region| {
                 region
-                    .assign_advice_from_constant(|| "constant value", config.advice[0], 0, constant)
+                    .assign_advice_from_constant(|| "", config.advice[0], 0, constant)
                     .map(Number)
             },
         )
@@ -195,19 +195,19 @@ impl<F: FieldExt> NumericInstructions<F> for FieldChip<F> {
         let config = self.config();
 
         layouter.assign_region(
-            || "mul",
+            || "",
             |mut region: Region<'_, F>| {
                 // We only want to use a single multiplication gate in this region,
                 // so we enable it at region offset 0; this means it will constrain
                 // cells at offsets 0 and 1.
-                region.assign_fixed(|| "s_mul", config.s_mul, 0, || Value::known(F::one()))?;
+                region.assign_fixed(|| "", config.s_mul, 0, || Value::known(F::one()))?;
 
                 // The inputs we've been given could be located anywhere in the circuit,
                 // but we can only rely on relative offsets inside this region. So we
                 // assign new cells inside the region and constrain them to have the
                 // same values as the inputs.
-                a.0.copy_advice(|| "lhs", &mut region, config.advice[0], 0)?;
-                b.0.copy_advice(|| "rhs", &mut region, config.advice[1], 0)?;
+                a.0.copy_advice(|| "", &mut region, config.advice[0], 0)?;
+                b.0.copy_advice(|| "", &mut region, config.advice[1], 0)?;
 
                 // Now we can assign the multiplication result, which is to be assigned
                 // into the output position.
@@ -216,7 +216,7 @@ impl<F: FieldExt> NumericInstructions<F> for FieldChip<F> {
                 // Finally, we do the assignment to the output, returning a
                 // variable to be used in another part of the circuit.
                 region
-                    .assign_advice(|| "lhs * rhs", config.advice[0], 1, || value)
+                    .assign_advice(|| "", config.advice[0], 1, || value)
                     .map(Number)
             },
         )
@@ -290,12 +290,12 @@ impl<F: FieldExt> Circuit<F> for MyCircuit<F> {
         let field_chip = FieldChip::<F>::construct(config);
 
         // Load our private values into the circuit.
-        let a = field_chip.load_private(layouter.namespace(|| "load a"), self.a)?;
-        let b = field_chip.load_private(layouter.namespace(|| "load b"), self.b)?;
+        let a = field_chip.load_private(layouter.namespace(|| ""), self.a)?;
+        let b = field_chip.load_private(layouter.namespace(|| ""), self.b)?;
 
         // Load the constant factor into the circuit.
         let constant =
-            field_chip.load_constant(layouter.namespace(|| "load constant"), self.constant)?;
+            field_chip.load_constant(layouter.namespace(|| ""), self.constant)?;
 
         // We only have access to plain multiplication.
         // We could implement our circuit as:
@@ -308,12 +308,12 @@ impl<F: FieldExt> Circuit<F> for MyCircuit<F> {
         //     ab   = a*b
         //     absq = ab^2
         //     c    = constant*absq
-        let ab = field_chip.mul(layouter.namespace(|| "a * b"), a, b)?;
-        let absq = field_chip.mul(layouter.namespace(|| "ab * ab"), ab.clone(), ab)?;
-        let c = field_chip.mul(layouter.namespace(|| "constant * absq"), constant, absq)?;
+        let ab = field_chip.mul(layouter.namespace(|| ""), a, b)?;
+        let absq = field_chip.mul(layouter.namespace(|| ""), ab.clone(), ab)?;
+        let c = field_chip.mul(layouter.namespace(|| ""), constant, absq)?;
 
         // Expose the result as a public input to the circuit.
-        field_chip.expose_public(layouter.namespace(|| "expose c"), c, 0)
+        field_chip.expose_public(layouter.namespace(|| ""), c, 0)
     }
 }
 
