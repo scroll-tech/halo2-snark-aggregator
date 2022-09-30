@@ -194,10 +194,14 @@ macro_rules! zkaggregate {
                         )*
                     ];
 
+                    let verify_params = &halo2_snark_aggregator_circuit::fs::get_params_cached::<G1Affine, Bn256>(self.verify_circuit_k);
+                    // this should work because verify circuit currently doesn't have any selector columns
+                    let verify_vk = &load_verify_circuit_vk_cached_params(&mut self.folder.clone(), verify_params);
+
                     let request = MultiCircuitSolidityGenerate::<G1Affine, $n> {
                         target_circuits_params,
-                        verify_params: &load_verify_circuit_params(&mut self.folder.clone()),
-                        verify_vk: &load_verify_circuit_vk(&mut self.folder.clone()),
+                        verify_params,
+                        verify_vk,
                         verify_circuit_instance: load_verify_circuit_instance(
                             &mut self.folder.clone(),
                         ),

@@ -20,7 +20,6 @@ use halo2_snark_aggregator_api::arith::{common::ArithCommonChip, ecc::ArithEccCh
 use halo2_snark_aggregator_api::systems::halo2::verify::{
     assign_instance_commitment, verify_single_proof_no_eval,
 };
-use halo2_snark_aggregator_circuit::fs::{load_target_circuit_params, load_target_circuit_vk};
 use halo2_snark_aggregator_circuit::sample_circuit::TargetCircuit;
 use log::info;
 use num_bigint::BigUint;

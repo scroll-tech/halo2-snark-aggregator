@@ -1,7 +1,7 @@
 use crate::fs::{
-    get_params_cached, load_target_circuit_instance, load_target_circuit_params,
-    load_target_circuit_proof, load_target_circuit_vk, load_verify_circuit_instance,
-    load_verify_circuit_params, load_verify_circuit_proof, load_verify_circuit_vk,
+    get_params_cached, load_target_circuit_instance, load_target_circuit_proof,
+    load_verify_circuit_instance, load_verify_circuit_params, load_verify_circuit_proof,
+    load_verify_circuit_vk,
 };
 use crate::sample_circuit::TargetCircuit;
 
@@ -963,7 +963,7 @@ where
         // for testing purposes
         let mock_prover_time = start_timer!(|| "Mock prover");
         let prover = match halo2_proofs::dev::MockProver::run(
-            23,
+            21,
             &verify_circuit,
             vec![verify_circuit_instances.clone()],
         ) {

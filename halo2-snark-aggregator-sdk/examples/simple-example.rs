@@ -69,10 +69,7 @@ pub struct FieldConfig {
 
 impl<F: FieldExt> FieldChip<F> {
     fn construct(config: <Self as Chip<F>>::Config) -> Self {
-        Self {
-            config,
-            _marker: PhantomData,
-        }
+        Self { config, _marker: PhantomData }
     }
 
     fn configure(
@@ -118,11 +115,7 @@ impl<F: FieldExt> FieldChip<F> {
             vec![s_mul * (lhs * rhs - out)]
         });
 
-        FieldConfig {
-            advice,
-            instance,
-            s_mul,
-        }
+        FieldConfig { advice, instance, s_mul }
     }
 }
 // ANCHOR_END: chip-config
@@ -257,11 +250,7 @@ pub struct MyCircuit<F: FieldExt> {
 
 impl<F: FieldExt> Default for MyCircuit<F> {
     fn default() -> Self {
-        MyCircuit {
-            constant: F::from(7u64),
-            a: None,
-            b: None,
-        }
+        MyCircuit { constant: F::from(7u64), a: None, b: None }
     }
 }
 
@@ -330,7 +319,7 @@ pub struct TestCircuit;
 impl<C: CurveAffine, E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>> TargetCircuit<C, E>
     for TestCircuit
 {
-    const TARGET_CIRCUIT_K: u32 = 7;
+    const TARGET_CIRCUIT_K: u32 = 8;
     const PUBLIC_INPUT_SIZE: usize = 1;
     const N_PROOFS: usize = 1;
     const NAME: &'static str = "simple_example";
@@ -343,11 +332,7 @@ impl<C: CurveAffine, E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>> Ta
         let constant = C::Scalar::from(7);
         let a = C::Scalar::random(OsRng);
         let b = C::Scalar::random(OsRng);
-        let circuit = MyCircuit {
-            constant,
-            a: Some(a),
-            b: Some(b),
-        };
+        let circuit = MyCircuit { constant, a: Some(a), b: Some(b) };
         let instances = vec![vec![constant * a.square() * b.square()]];
         (circuit, instances)
     }
@@ -367,6 +352,8 @@ impl<C: CurveAffine, E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>> Ta
 zkaggregate! {1, vec![], TestCircuit}
 
 pub fn main() {
-    let builder = zkcli::builder(22);
+    // read in degree of test circuit from file
+    let k = halo2_snark_aggregator_circuit::fs::load_verify_circuit_degree();
+    let builder = zkcli::builder(k);
     builder.run()
 }
