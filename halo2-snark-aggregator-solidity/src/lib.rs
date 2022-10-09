@@ -2,8 +2,6 @@ pub(crate) mod chips;
 pub(crate) mod code_generator;
 pub(crate) mod transcript;
 
-use std::path::PathBuf;
-
 use crate::chips::{
     ecc_chip::SolidityEccChip, encode_chip::PoseidonEncode, scalar_chip::SolidityFieldChip,
 };
@@ -12,19 +10,23 @@ use crate::code_generator::ctx::SolidityCodeGeneratorContext;
 use crate::code_generator::linear_scan::memory_optimize;
 use crate::transcript::codegen::CodegenTranscriptRead;
 use code_generator::ctx::{CodeGeneratorCtx, G2Point, Statement};
-use halo2_proofs::arithmetic::{BaseExt, Field};
-use halo2_proofs::arithmetic::{CurveAffine, MultiMillerLoop};
+use halo2_proofs::arithmetic::CurveAffine;
+use halo2_proofs::arithmetic::Field;
 use halo2_proofs::plonk::VerifyingKey;
-use halo2_proofs::poly::commitment::Params;
+use halo2_proofs::poly::kzg::commitment::ParamsKZG;
 use halo2_snark_aggregator_api::arith::{common::ArithCommonChip, ecc::ArithEccChip};
 use halo2_snark_aggregator_api::systems::halo2::verify::{
     assign_instance_commitment, verify_single_proof_no_eval,
 };
 use halo2_snark_aggregator_circuit::fs::{load_target_circuit_params, load_target_circuit_vk};
 use halo2_snark_aggregator_circuit::sample_circuit::TargetCircuit;
+use halo2curves::bn256::Bn256;
+use halo2curves::pairing::{Engine, MultiMillerLoop};
+use halo2curves::FieldExt;
 use log::info;
 use num_bigint::BigUint;
-use pairing_bn256::bn256::{Bn256, G1Affine};
+use std::fmt::Debug;
+use std::path::PathBuf;
 use tera::{Context, Tera};
 
 fn render_verifier_sol_template<C: CurveAffine>(
@@ -133,22 +135,20 @@ fn render_verifier_sol_template<C: CurveAffine>(
         .expect("failed to render template")
 }
 
-pub fn g2field_to_bn<F: BaseExt>(f: &F) -> (BigUint, BigUint) {
-    let mut bytes: Vec<u8> = Vec::new();
-    f.write(&mut bytes).unwrap();
+pub fn g2field_to_bn<F: FieldExt>(f: &F) -> (BigUint, BigUint) {
     (
-        BigUint::from_bytes_le(&bytes[32..64]),
-        BigUint::from_bytes_le(&bytes[..32]),
+        BigUint::from_bytes_le(&f.to_repr().as_ref()[32..64]),
+        BigUint::from_bytes_le(&f.to_repr().as_ref()[..32]),
     )
 }
 
 pub(crate) fn get_xy_from_g2point<E: MultiMillerLoop>(point: E::G2Affine) -> G2Point {
     let coordinates = point.coordinates();
     let x = coordinates
-        .map(|v| v.x().clone())
+        .map(|v| *v.x())
         .unwrap_or(<E::G2Affine as CurveAffine>::Base::zero());
     let y = coordinates
-        .map(|v| v.y().clone())
+        .map(|v| *v.y())
         .unwrap_or(<E::G2Affine as CurveAffine>::Base::zero());
     // let z = N::conditional_select(&N::zero(), &N::one(), c.to_affine().is_identity());
     let x = g2field_to_bn(&x);
@@ -156,19 +156,17 @@ pub(crate) fn get_xy_from_g2point<E: MultiMillerLoop>(point: E::G2Affine) -> G2P
     G2Point { x, y }
 }
 
-pub struct SolidityGenerate<C: CurveAffine> {
-    pub target_circuit_params: Params<C>,
-    pub target_circuit_vk: VerifyingKey<C>,
+pub struct SolidityGenerate<E: Engine> {
+    pub target_circuit_params: ParamsKZG<E>,
+    pub target_circuit_vk: VerifyingKey<E::G1Affine>,
     pub nproofs: usize,
 }
 
-impl SolidityGenerate<G1Affine> {
-    pub fn new<SingleCircuit: TargetCircuit<G1Affine, Bn256>>(
-        folder: &PathBuf,
-    ) -> SolidityGenerate<G1Affine> {
+impl SolidityGenerate<Bn256> {
+    pub fn new<SingleCircuit: TargetCircuit<Bn256>>(folder: &PathBuf) -> SolidityGenerate<Bn256> {
         let target_circuit_params =
-            load_target_circuit_params::<G1Affine, Bn256, SingleCircuit>(&mut folder.clone());
-        let target_circuit_vk = load_target_circuit_vk::<G1Affine, Bn256, SingleCircuit>(
+            load_target_circuit_params::<Bn256, SingleCircuit>(&mut folder.clone());
+        let target_circuit_vk = load_target_circuit_vk::<Bn256, SingleCircuit>(
             &mut folder.clone(),
             &target_circuit_params,
         );
@@ -181,60 +179,38 @@ impl SolidityGenerate<G1Affine> {
     }
 }
 
-pub struct MultiCircuitSolidityGenerate<'a, C: CurveAffine, const N: usize> {
-    pub target_circuits_params: [SolidityGenerate<C>; N],
-    pub verify_params: &'a Params<C>,
-    pub verify_vk: &'a VerifyingKey<C>,
+pub struct MultiCircuitSolidityGenerate<'a, E: MultiMillerLoop> {
+    //pub target_circuits_params: [SolidityGenerate<E>; N],
+    pub verify_params: &'a ParamsKZG<E>,
+    pub verify_vk: &'a VerifyingKey<E::G1Affine>,
     // serialized instance
-    pub verify_circuit_instance: Vec<Vec<Vec<C::ScalarExt>>>,
+    pub verify_circuit_instance: Vec<Vec<Vec<E::Scalar>>>,
     // serialized proof
     pub proof: Vec<u8>,
     pub verify_public_inputs_size: usize,
 }
 
-impl<'a, C: CurveAffine, const N: usize> MultiCircuitSolidityGenerate<'a, C, N> {
-    pub fn call<E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>>(
-        &self,
-        template_folder: std::path::PathBuf,
-    ) -> String {
-        /*
-        for i in self.target_circuits_params.iter() {
-            let v = i.target_circuit_params.verifier::<E>(i.target_circuit_vk.cs.num_instance_columns).unwrap();
-            println!("g2 {:?}", v.s_g2);
-        }
-        */
+impl<'a, E: MultiMillerLoop + Debug> MultiCircuitSolidityGenerate<'a, E> {
+    pub fn call(&self, template_folder: std::path::PathBuf) -> String {
+        let target_circuit_s_g2 = get_xy_from_g2point::<E>(self.verify_params.s_g2());
+        let target_circuit_n_g2 = get_xy_from_g2point::<E>(-self.verify_params.g2());
 
-        let target_params = self.target_circuits_params[0]
-            .target_circuit_params
-            .verifier::<E>(
-                self.target_circuits_params[0]
-                    .target_circuit_vk
-                    .cs
-                    .num_instance_columns,
-            )
-            .unwrap();
-        let target_circuit_s_g2 = get_xy_from_g2point::<E>(target_params.s_g2);
-        let target_circuit_n_g2 = get_xy_from_g2point::<E>(-target_params.g2);
-
-        let verify_params = self
-            .verify_params
-            .verifier::<E>(self.verify_public_inputs_size)
-            .unwrap();
+        let verify_params = self.verify_params;
 
         let nchip = &SolidityFieldChip::new();
         let schip = nchip;
         let pchip = &SolidityEccChip::new();
         let ctx = &mut SolidityCodeGeneratorContext::new();
 
-        let mut transcript =
-            CodegenTranscriptRead::<_, C, _, PoseidonEncode<_>, 9usize, 8usize>::new(
-                &self.proof[..],
-                ctx,
-                schip,
-                8usize,
-                63usize,
-            )
-            .unwrap();
+        let mut transcript = CodegenTranscriptRead::<
+            _,
+            E::G1Affine,
+            _,
+            PoseidonEncode<_>,
+            9usize,
+            8usize,
+        >::new(&self.proof[..], ctx, schip, 8usize, 63usize)
+        .unwrap();
 
         let verify_circuit_instance1: Vec<Vec<&[E::Scalar]>> = self
             .verify_circuit_instance
@@ -250,8 +226,8 @@ impl<'a, C: CurveAffine, const N: usize> MultiCircuitSolidityGenerate<'a, C, N> 
             schip,
             pchip,
             &verify_circuit_instance2[..],
-            &self.verify_vk,
-            &verify_params,
+            self.verify_vk,
+            verify_params,
         )
         .unwrap();
         ctx.exit_instance();
@@ -262,8 +238,8 @@ impl<'a, C: CurveAffine, const N: usize> MultiCircuitSolidityGenerate<'a, C, N> 
             schip,
             pchip,
             assigned_instances,
-            &self.verify_vk,
-            &verify_params,
+            self.verify_vk,
+            verify_params,
             &mut transcript,
             "".to_owned(),
         )
@@ -271,8 +247,8 @@ impl<'a, C: CurveAffine, const N: usize> MultiCircuitSolidityGenerate<'a, C, N> 
 
         let one = schip.assign_one(ctx).unwrap();
 
-        let (left_s, left_e) = proof.w_x.eval::<_, _>(ctx, schip, pchip, &one).unwrap();
-        let (right_s, right_e) = proof.w_g.eval::<_, _>(ctx, schip, pchip, &one).unwrap();
+        let (left_s, left_e, _) = proof.w_x.eval::<_, _>(ctx, schip, pchip, &one).unwrap();
+        let (right_s, right_e, _) = proof.w_g.eval::<_, _>(ctx, schip, pchip, &one).unwrap();
 
         let generator = pchip.assign_one(ctx).unwrap();
         let left = match left_e {
@@ -290,8 +266,8 @@ impl<'a, C: CurveAffine, const N: usize> MultiCircuitSolidityGenerate<'a, C, N> 
             }
         };
 
-        let verify_circuit_s_g2 = get_xy_from_g2point::<E>(verify_params.s_g2);
-        let verify_circuit_n_g2 = get_xy_from_g2point::<E>(-verify_params.g2);
+        let verify_circuit_s_g2 = get_xy_from_g2point::<E>(verify_params.s_g2());
+        let verify_circuit_n_g2 = get_xy_from_g2point::<E>(-verify_params.g2());
 
         let sol_ctx = CodeGeneratorCtx {
             wx: (*left.expr).clone(),
@@ -313,7 +289,7 @@ impl<'a, C: CurveAffine, const N: usize> MultiCircuitSolidityGenerate<'a, C, N> 
         let sol_ctx: CodeGeneratorCtx = memory_optimize(sol_ctx);
         let sol_ctx: CodeGeneratorCtx = aggregate(sol_ctx);
 
-        let template = render_verifier_sol_template::<C>(sol_ctx, template_folder.clone());
+        let template = render_verifier_sol_template::<E::G1Affine>(sol_ctx, template_folder);
         info!("generate solidity succeeds");
 
         template

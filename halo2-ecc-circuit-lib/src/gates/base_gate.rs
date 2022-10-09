@@ -1,6 +1,6 @@
 use halo2_proofs::{
     arithmetic::FieldExt,
-    circuit::{Cell, Region},
+    circuit::{Cell, Region, Value},
     plonk::{Advice, Column, ConstraintSystem, Error, Fixed},
     poly::Rotation,
 };
@@ -76,8 +76,8 @@ impl<'a, N: FieldExt> From<&'a AssignedValue<N>> for ValueSchema<'a, N> {
 impl<'a, N: FieldExt> ValueSchema<'a, N> {
     pub fn value(&self) -> N {
         match self {
-            ValueSchema::Assigned(cell) => cell.value.clone(),
-            ValueSchema::Unassigned(n) => n.clone(),
+            ValueSchema::Assigned(cell) => cell.value,
+            ValueSchema::Unassigned(n) => *n,
         }
     }
 
@@ -87,7 +87,7 @@ impl<'a, N: FieldExt> ValueSchema<'a, N> {
         new_cell: Cell,
     ) -> Result<(), Error> {
         match self {
-            ValueSchema::Assigned(c) => region.constrain_equal(c.cell.clone(), new_cell),
+            ValueSchema::Assigned(c) => region.constrain_equal(c.cell, new_cell),
             _ => Ok(()),
         }
     }
@@ -96,7 +96,7 @@ impl<'a, N: FieldExt> ValueSchema<'a, N> {
 #[macro_export]
 macro_rules! pair {
     ($x: expr, $y: expr) => {
-        (crate::gates::base_gate::ValueSchema::from($x), ($y))
+        ($crate::gates::base_gate::ValueSchema::from($x), ($y))
     };
 }
 
@@ -104,7 +104,7 @@ macro_rules! pair {
 macro_rules! pair_empty {
     ($N: tt) => {
         (
-            crate::gates::base_gate::ValueSchema::from($N::zero()),
+            $crate::gates::base_gate::ValueSchema::from($N::zero()),
             $N::zero(),
         )
     };
@@ -125,15 +125,19 @@ impl<'a, N: FieldExt> Context<'a, N> {
         }
     }
     pub fn in_shape_mode(&self) -> bool {
-        return self.in_shape_mode;
+        self.in_shape_mode
     }
-    pub fn expand(&mut self, size:usize, v: Cell, value: N) -> Result<(), Error> {
-        self.region.as_mut().assign_advice(|| "expand", v.column.try_into().unwrap(), *self.offset + size - 1, || Ok(value))?;
+    pub fn expand(&mut self, size: usize, v: Cell, value: N) -> Result<(), Error> {
+        self.region.as_mut().assign_advice(
+            || "expand",
+            v.column.try_into().unwrap(),
+            *self.offset + size - 1,
+            || Value::known(value),
+        )?;
         *self.offset += size;
         Ok(())
     }
 }
-
 
 impl<'a, N: FieldExt> std::fmt::Display for Context<'a, N> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -179,7 +183,7 @@ pub trait BaseGateOps<N: FieldExt> {
         constant: N,
         mul_next_coeffs: (Vec<N>, N),
     ) -> Result<Vec<AssignedValue<N>>, Error> {
-        assert!(base_coeff_pairs.len() <= self.var_columns() - 1);
+        assert!(base_coeff_pairs.len() < self.var_columns());
 
         base_coeff_pairs.resize_with(self.var_columns() - 1, || pair_empty!(N));
         base_coeff_pairs.push(last);
@@ -229,14 +233,14 @@ pub trait BaseGateOps<N: FieldExt> {
             acc = Some(acc.unwrap_or(zero) + line_sum);
         }
 
-        let sum = (&elems[curr..])
+        let sum = elems[curr..]
             .iter()
             .fold(constant, |acc, (v, coeff)| acc + v.value * coeff)
             + acc.unwrap_or(zero);
 
         let mut schemas_pairs = vec![pair!(sum, -one)];
         schemas_pairs.append(
-            &mut (&elems[curr..])
+            &mut elems[curr..]
                 .iter()
                 .map(|(v, coeff)| pair!(*v, *coeff))
                 .collect(),
@@ -382,7 +386,7 @@ pub trait BaseGateOps<N: FieldExt> {
     ) -> Result<AssignedValue<N>, Error> {
         assert!(self.var_columns() >= 4);
         assert!(self.mul_columns() >= 1);
-        assert!(ls.len() > 0);
+        assert!(!ls.is_empty());
 
         if ls.len() == 1 {
             let (a, b, c, c_coeff) = ls[0];
@@ -692,7 +696,7 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize>
         let next_coeff = meta.fixed_column();
         let constant = meta.fixed_column();
 
-        base.iter().for_each(|c| meta.enable_equality(c.clone()));
+        base.iter().for_each(|c| meta.enable_equality(*c));
 
         meta.create_gate("base_gate", |meta| {
             let _constant = meta.query_fixed(constant, Rotation::cur());
@@ -738,7 +742,7 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize>
         mut base_coeff_pairs: Vec<(ValueSchema<N>, N)>,
         constant: N,
         mul_next_coeffs: (Vec<N>, N),
-    ) -> Result<(Vec<AssignedValue<N>>, Vec<Option<N>>), Error> {
+    ) -> Result<(Vec<AssignedValue<N>>, Vec<Value<N>>), Error> {
         assert!(base_coeff_pairs.len() <= VAR_COLUMNS);
         assert!(mul_next_coeffs.0.len() <= MUL_COLUMNS);
 
@@ -748,24 +752,19 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize>
 
         base_coeff_pairs.resize_with(VAR_COLUMNS, || pair_empty!(N));
         for (i, (base, coeff)) in base_coeff_pairs.into_iter().enumerate() {
-            let fixed_cell = ctx.region
-                .as_mut()
-                .assign_fixed(
-                    || format!("coeff_{}", i),
-                    self.config.coeff[i],
-                    *ctx.offset,
-                    || Ok(coeff),
-                )?;
+            let fixed_cell = ctx.region.as_mut().assign_fixed(
+                || format!("coeff_{}", i),
+                self.config.coeff[i],
+                *ctx.offset,
+                || Value::known(coeff),
+            )?;
 
-            let assign_cell = ctx
-                .region
-                .as_mut()
-                .assign_advice(
-                    || format!("base_{}", i),
-                    self.config.base[i],
-                    *ctx.offset,
-                    || Ok(base.value()),
-                )?;
+            let assign_cell = ctx.region.as_mut().assign_advice(
+                || format!("base_{}", i),
+                self.config.base[i],
+                *ctx.offset,
+                || Value::known(base.value()),
+            )?;
 
             let cell = assign_cell.cell();
 
@@ -774,8 +773,8 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize>
                 cell,
                 value: base.value(),
             });
-            values.push(fixed_cell.value().map(|x| x.clone()));
-            values.push(assign_cell.value().map(|x| x.clone()));
+            values.push(fixed_cell.value().map(|x| *x));
+            values.push(assign_cell.value().map(|x| *x));
         }
 
         let (mut mul_coeffs, next) = mul_next_coeffs;
@@ -785,7 +784,7 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize>
                 || format!("mul_coeff_{}", i),
                 self.config.mul_coeff[i],
                 *ctx.offset,
-                || Ok(mul_coeff),
+                || Value::known(mul_coeff),
             )?;
         }
 
@@ -793,13 +792,13 @@ impl<N: FieldExt, const VAR_COLUMNS: usize, const MUL_COLUMNS: usize>
             || "constant",
             self.config.constant,
             *ctx.offset,
-            || Ok(constant),
+            || Value::known(constant),
         )?;
         ctx.region.as_mut().assign_fixed(
             || "next_coeff",
             self.config.next_coeff,
             *ctx.offset,
-            || Ok(next),
+            || Value::known(next),
         )?;
 
         *ctx.offset += 1;

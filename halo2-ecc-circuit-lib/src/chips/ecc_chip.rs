@@ -4,12 +4,9 @@ use crate::gates::{
     range_gate::RangeGateOps,
 };
 use group::ff::Field;
-use group::Curve;
-use group::Group;
-use halo2_proofs::{
-    arithmetic::{CurveAffine, FieldExt},
-    plonk::Error,
-};
+use group::{Curve, Group};
+use halo2_proofs::plonk::Error;
+use halo2curves::{CurveAffine, FieldExt};
 
 #[derive(Clone, Debug)]
 pub struct AssignedCurvature<C: CurveAffine, N: FieldExt> {
@@ -115,7 +112,7 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
                     let a0 = it.next().ok_or(Error::Synthesis)?;
                     let a1 = it.next().ok_or(Error::Synthesis)?;
 
-                    let cell = self.bisec_point_with_curvature(ctx, &bit, a1, a0)?;
+                    let cell = self.bisec_point_with_curvature(ctx, bit, a1, a0)?;
                     next_candidates.push(cell);
                 }
                 curr_candidates = next_candidates;
@@ -180,7 +177,7 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
                     let a0 = it.next().ok_or(Error::Synthesis)?;
                     let a1 = it.next().ok_or(Error::Synthesis)?;
 
-                    let cell = self.bisec_point_with_curvature(ctx, &bit, a1, a0)?;
+                    let cell = self.bisec_point_with_curvature(ctx, bit, a1, a0)?;
                     next_candidates.push(cell);
                 }
                 curr_candidates = next_candidates;
@@ -194,40 +191,45 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
         let mut round_size = None;
 
         for wi in 0..windows_in_be[0].len() {
-            let mut get_inner = | round_size: Option<usize> | -> Result<(usize, AssignedPoint<C, N>), Error> {
-                match (round_size, ctx.in_shape_mode()) {
-                    (Some(rsize), true)  => {
-                        ctx.expand(rsize, acc.as_ref().unwrap().z.cell, acc.as_ref().unwrap().z.value)?;
-                        // Hack: acc is not accurate but we depends on overflow bits
-                        Ok((rsize, acc.clone().unwrap())) //Hack: In shape phase we dont care the result
-                    },
-                    _ => {
-                        let c = (*ctx.offset).clone();
-                        let mut inner_acc = None;
-                        for pi in 0..points.len() {
-                            let mut ci = pick_candidate(ctx, pi, &windows_in_be[pi][wi])?;
-                            match inner_acc {
-                                None => inner_acc = Some(ci),
-                                Some(_inner_acc) => {
-                                    let p = self.add(ctx, &mut ci, &_inner_acc)?;
-                                    inner_acc = Some(p);
+            let mut get_inner =
+                |round_size: Option<usize>| -> Result<(usize, AssignedPoint<C, N>), Error> {
+                    match (round_size, ctx.in_shape_mode()) {
+                        (Some(rsize), true) => {
+                            ctx.expand(
+                                rsize,
+                                acc.as_ref().unwrap().z.cell,
+                                acc.as_ref().unwrap().z.value,
+                            )?;
+                            // Hack: acc is not accurate but we depends on overflow bits
+                            Ok((rsize, acc.clone().unwrap())) //Hack: In shape phase we dont care the result
+                        }
+                        _ => {
+                            let c = *ctx.offset;
+                            let mut inner_acc = None;
+                            for pi in 0..points.len() {
+                                let mut ci = pick_candidate(ctx, pi, &windows_in_be[pi][wi])?;
+                                match inner_acc {
+                                    None => inner_acc = Some(ci),
+                                    Some(_inner_acc) => {
+                                        let p = self.add(ctx, &mut ci, &_inner_acc)?;
+                                        inner_acc = Some(p);
+                                    }
                                 }
                             }
-                        };
-                        let rsize = *ctx.offset - c;
-                        // Record the size of each around so that we can skip them in shape mode.
-                        Ok((rsize, inner_acc.unwrap()))
+                            let rsize = *ctx.offset - c;
+                            // Record the size of each around so that we can skip them in shape mode.
+                            Ok((rsize, inner_acc.unwrap()))
+                        }
                     }
-                }
-            };
+                };
 
             let (rsize, mut inner_acc) = get_inner(round_size)?;
             if wi != 0 {
-                round_size = Some (rsize);
+                round_size = Some(rsize);
             }
 
             match acc {
-                None => acc = Some (inner_acc),
+                None => acc = Some(inner_acc),
                 Some(mut _acc) => {
                     for _ in 0..CONFIG_WINDOW_SIZE {
                         _acc = self.double(ctx, &mut _acc)?;
@@ -366,15 +368,15 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
         let cx = {
             let l_square = integer_chip.square(ctx, l)?;
             let t = integer_chip.sub(ctx, &l_square, &a.x)?;
-            let t = integer_chip.sub(ctx, &t, &b.x)?;
-            t
+
+            integer_chip.sub(ctx, &t, &b.x)?
         };
 
         let cy = {
             let mut t = integer_chip.sub(ctx, &a.x, &cx)?;
             let t = integer_chip.mul(ctx, &mut t, l)?;
-            let t = integer_chip.sub(ctx, &t, &a.y)?;
-            t
+
+            integer_chip.sub(ctx, &t, &a.y)?
         };
         Ok(AssignedPoint::new(cx, cy, lambda.z))
     }
@@ -396,7 +398,7 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
 
         let tangent = AssignedCurvature::new(tangent, x_eq);
         let curvature = self.curvature(ctx, a)?;
-        let mut lambda = self.bisec_curvature(ctx, &eq, &curvature, &tangent)?;
+        let mut lambda = self.bisec_curvature(ctx, &eq, curvature, &tangent)?;
 
         let p = self.lambda_to_point(ctx, &mut lambda, a, b)?;
         let p = self.bisec_point(ctx, &a.z, b, &p)?;
@@ -421,12 +423,8 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
         c: C::CurveExt,
     ) -> Result<AssignedPoint<C, N>, Error> {
         let coordinates = c.to_affine().coordinates();
-        let x = coordinates
-            .map(|v| v.x().clone())
-            .unwrap_or(C::Base::zero());
-        let y = coordinates
-            .map(|v| v.y().clone())
-            .unwrap_or(C::Base::zero());
+        let x = coordinates.map(|v| *v.x()).unwrap_or(C::Base::zero());
+        let y = coordinates.map(|v| *v.y()).unwrap_or(C::Base::zero());
         let z = N::conditional_select(&N::zero(), &N::one(), c.to_affine().is_identity());
 
         let base_gate = self.base_gate();
@@ -443,12 +441,8 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
         c: C::CurveExt,
     ) -> Result<AssignedPoint<C, N>, Error> {
         let coordinates = c.to_affine().coordinates();
-        let x = coordinates
-            .map(|v| v.x().clone())
-            .unwrap_or(C::Base::zero());
-        let y = coordinates
-            .map(|v| v.y().clone())
-            .unwrap_or(C::Base::zero());
+        let x = coordinates.map(|v| *v.x()).unwrap_or(C::Base::zero());
+        let y = coordinates.map(|v| *v.y()).unwrap_or(C::Base::zero());
         let z = N::conditional_select(&N::zero(), &N::one(), c.to_affine().is_identity());
 
         let base_gate = self.base_gate();
@@ -482,12 +476,8 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
         c: C::CurveExt,
     ) -> Result<AssignedPoint<C, N>, Error> {
         let coordinates = c.to_affine().coordinates();
-        let x = coordinates
-            .map(|v| v.x().clone())
-            .unwrap_or(C::Base::zero());
-        let y = coordinates
-            .map(|v| v.y().clone())
-            .unwrap_or(C::Base::zero());
+        let x = coordinates.map(|v| *v.x()).unwrap_or(C::Base::zero());
+        let y = coordinates.map(|v| *v.y()).unwrap_or(C::Base::zero());
         let z = N::conditional_select(&N::zero(), &N::one(), c.to_affine().is_identity());
 
         let base_gate = self.base_gate();
@@ -563,7 +553,7 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
     ) -> Result<AssignedPoint<C, N>, Error> {
         let x = a.x.clone();
         let y = self.integer_chip().neg(ctx, &a.y)?;
-        let z = a.z.clone();
+        let z = a.z;
 
         Ok(AssignedPoint::new(x, y, z))
     }
@@ -583,9 +573,9 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
     ) -> Result<AssignedPoint<C, N>, Error> {
         self.integer_chip().reduce(ctx, &mut a.x)?;
         self.integer_chip().reduce(ctx, &mut a.y)?;
-        let z = a.z.clone();
+        let z = a.z;
 
         let identity = self.assign_identity(ctx)?;
-        self.bisec_point(ctx, &z, &identity, &a)
+        self.bisec_point(ctx, &z, &identity, a)
     }
 }

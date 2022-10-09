@@ -80,12 +80,10 @@ impl GroupOptimizer for MulAddMTOptimizer {
             } else {
                 Action::Abort
             }
+        } else if self.byte_pairs.len() > 1 {
+            Action::Complete
         } else {
-            if self.byte_pairs.len() > 1 {
-                Action::Complete
-            } else {
-                Action::Abort
-            }
+            Action::Abort
         }
     }
 
@@ -102,7 +100,7 @@ impl GroupOptimizer for MulAddMTOptimizer {
             .fold(init, |acc, m| (acc << 8u8) + (m));
         Statement::Assign(
             Rc::new(Expression::Temp(self.t.clone())),
-            Expression::MulAddMT(self.target.clone().unwrap(), opcode),
+            Expression::MulAddMT(self.target.unwrap(), opcode),
             self.samples.clone(),
         )
     }

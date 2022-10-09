@@ -8,7 +8,7 @@ use halo2_proofs::{
     dev::MockProver,
     plonk::{Circuit, ConstraintSystem, Error},
 };
-use pairing_bn256::bn256::Fr;
+use halo2curves::bn256::Fr;
 use rand::SeedableRng;
 use rand_xorshift::XorShiftRng;
 use std::marker::PhantomData;
@@ -65,10 +65,10 @@ impl<N: FieldExt> TestFiveColumnBaseGateCircuit<N> {
         let result = {
             let mut result = N::zero();
             for i in 0..VAR_COLUMNS {
-                result = result + vars[i] * coeffs[i]
+                result += vars[i] * coeffs[i]
             }
             for i in 0..MUL_COLUMNS {
-                result = result + muls_coeffs[i] * vars[i * 2] * vars[i * 2 + 1]
+                result += muls_coeffs[i] * vars[i * 2] * vars[i * 2 + 1]
             }
             result + next_var * next_coeff
         };
@@ -105,7 +105,7 @@ impl<N: FieldExt> TestFiveColumnBaseGateCircuit<N> {
         let result = {
             let mut result = N::zero();
             for i in 0..VAR_COLUMNS - 1 {
-                result = result + vars[i] * coeffs[i]
+                result += vars[i] * coeffs[i]
             }
             result + constant
         };

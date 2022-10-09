@@ -2,14 +2,14 @@ use crate::gates::base_gate::{AssignedCondition, BaseGateOps};
 use crate::gates::base_gate::{AssignedValue, Context};
 use crate::gates::range_gate::RangeGateOps;
 use crate::utils::{bn_to_field, field_to_bn, get_d_range_bits_in_mul};
-use halo2_proofs::arithmetic::{BaseExt, FieldExt};
 use halo2_proofs::plonk::Error;
+use halo2curves::FieldExt;
 use num_bigint::BigUint;
 use num_integer::Integer;
 use std::{marker::PhantomData, vec};
 
 #[derive(Clone, Debug)]
-pub struct AssignedInteger<W: BaseExt, N: FieldExt> {
+pub struct AssignedInteger<W: FieldExt, N: FieldExt> {
     pub limbs_le: Vec<AssignedValue<N>>,
     pub native: Option<AssignedValue<N>>,
     pub overflows: usize,
@@ -17,7 +17,7 @@ pub struct AssignedInteger<W: BaseExt, N: FieldExt> {
     _phantom: PhantomData<W>,
 }
 
-impl<W: BaseExt, N: FieldExt> AssignedInteger<W, N> {
+impl<W: FieldExt, N: FieldExt> AssignedInteger<W, N> {
     pub fn new(limbs_le: Vec<AssignedValue<N>>, overflows: usize) -> Self {
         Self {
             limbs_le,
@@ -47,7 +47,8 @@ impl<W: BaseExt, N: FieldExt> AssignedInteger<W, N> {
     }
 }
 
-pub struct IntegerChipHelper<W: BaseExt, N: FieldExt, const LIMBS: usize, const LIMB_WIDTH: usize> {
+pub struct IntegerChipHelper<W: FieldExt, N: FieldExt, const LIMBS: usize, const LIMB_WIDTH: usize>
+{
     pub limb_modulus: BigUint,
     pub integer_modulus: BigUint,
     pub limb_modulus_on_n: N,
@@ -62,7 +63,7 @@ pub struct IntegerChipHelper<W: BaseExt, N: FieldExt, const LIMBS: usize, const 
     pub _phantom_w: PhantomData<W>,
 }
 
-impl<W: BaseExt, N: FieldExt, const LIMBS: usize, const LIMB_WIDTH: usize>
+impl<W: FieldExt, N: FieldExt, const LIMBS: usize, const LIMB_WIDTH: usize>
     IntegerChipHelper<W, N, LIMBS, LIMB_WIDTH>
 {
     pub fn w_to_limb_n_le(&self, w: &W) -> [N; LIMBS] {
@@ -76,7 +77,7 @@ impl<W: BaseExt, N: FieldExt, const LIMBS: usize, const LIMB_WIDTH: usize>
 
         for _ in 0..LIMBS - 1 {
             ret.push(&n % limb_modulus);
-            n = n >> LIMB_WIDTH;
+            n >>= LIMB_WIDTH;
         }
         ret.push(n);
         ret.try_into().unwrap()
@@ -105,7 +106,7 @@ impl<W: BaseExt, N: FieldExt, const LIMBS: usize, const LIMB_WIDTH: usize>
         let mut acc = N::one();
         for _ in 0..LIMBS {
             limb_modulus_exps.push(acc);
-            acc = acc * limb_modulus_on_n;
+            acc *= limb_modulus_on_n;
         }
 
         let d_bits = get_d_range_bits_in_mul::<W, N>(&integer_modulus);
@@ -127,7 +128,7 @@ impl<W: BaseExt, N: FieldExt, const LIMBS: usize, const LIMB_WIDTH: usize>
     }
 }
 
-pub trait IntegerChipOps<W: BaseExt, N: FieldExt> {
+pub trait IntegerChipOps<W: FieldExt, N: FieldExt> {
     fn base_gate(&self) -> &dyn BaseGateOps<N>;
     fn range_gate(&self) -> &dyn RangeGateOps<W, N>;
     fn assign_nonleading_limb(&self, ctx: &mut Context<N>, n: N)
@@ -237,12 +238,12 @@ pub trait IntegerChipOps<W: BaseExt, N: FieldExt> {
     fn get_w(&self, a: &AssignedInteger<W, N>) -> Result<W, Error>;
 }
 
-pub struct IntegerChip<'a, W: BaseExt, N: FieldExt, const LIMBS: usize, const LIMB_WIDTH: usize> {
+pub struct IntegerChip<'a, W: FieldExt, N: FieldExt, const LIMBS: usize, const LIMB_WIDTH: usize> {
     pub range_gate: &'a dyn RangeGateOps<W, N>,
     pub helper: IntegerChipHelper<W, N, LIMBS, LIMB_WIDTH>,
 }
 
-impl<'a, W: BaseExt, N: FieldExt, const LIMBS: usize, const LIMB_WIDTH: usize>
+impl<'a, W: FieldExt, N: FieldExt, const LIMBS: usize, const LIMB_WIDTH: usize>
     IntegerChip<'a, W, N, LIMBS, LIMB_WIDTH>
 {
     pub fn new(range_gate: &'a dyn RangeGateOps<W, N>) -> Self {

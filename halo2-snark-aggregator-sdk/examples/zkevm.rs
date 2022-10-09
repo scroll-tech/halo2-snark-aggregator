@@ -5,7 +5,7 @@ use halo2_proofs::{
 };
 use halo2_snark_aggregator_circuit::sample_circuit::TargetCircuit;
 use halo2_snark_aggregator_sdk::zkaggregate;
-use pairing_bn256::bn256::{Bn256, Fr, G1Affine};
+use halo2curves::bn256::{Bn256, Fr};
 use zkevm_circuits::evm_circuit::{witness::Block, EvmCircuit};
 
 #[derive(Debug, Default)]
@@ -26,6 +26,9 @@ impl<F: Field> Circuit<F> for TestCircuit<F> {
         let rw_table = [(); 11].map(|_| meta.advice_column());
         let bytecode_table = [(); 5].map(|_| meta.advice_column());
         let block_table = [(); 3].map(|_| meta.advice_column());
+        let copy_table = [(); 3].map(|_| meta.advice_column());
+        let keccak_table = [(); 3].map(|_| meta.advice_column());
+
         // Use constant expression to mock constant instance column for a more
         // reasonable benchmark.
         let power_of_randomness = [(); 31].map(|_| Expression::Constant(F::one()));
@@ -37,6 +40,8 @@ impl<F: Field> Circuit<F> for TestCircuit<F> {
             &rw_table,
             &bytecode_table,
             &block_table,
+            &copy_table,
+            &keccak_table,
         )
     }
 
@@ -50,7 +55,7 @@ impl<F: Field> Circuit<F> for TestCircuit<F> {
     }
 }
 
-impl TargetCircuit<G1Affine, Bn256> for TestCircuit<Fr> {
+impl TargetCircuit<Bn256> for TestCircuit<Fr> {
     const TARGET_CIRCUIT_K: u32 = 18;
     const PUBLIC_INPUT_SIZE: usize = (Self::TARGET_CIRCUIT_K * 2) as usize;
     const N_PROOFS: usize = 1;
@@ -64,7 +69,7 @@ impl TargetCircuit<G1Affine, Bn256> for TestCircuit<Fr> {
         (Self::Circuit::default(), vec![])
     }
 
-    fn load_instances(buf: &Vec<u8>) -> Vec<Vec<Vec<Fr>>> {
+    fn load_instances(_buf: &[u8]) -> Vec<Vec<Vec<Fr>>> {
         vec![vec![]]
     }
 }

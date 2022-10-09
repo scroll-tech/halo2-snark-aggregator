@@ -1,12 +1,19 @@
-use halo2_proofs::{
-    arithmetic::{BaseExt, CurveAffine, MultiMillerLoop},
-    plonk::{keygen_vk, VerifyingKey},
-    poly::commitment::Params,
-};
-use pairing_bn256::bn256::{Bn256, Fr, G1Affine};
-
 use crate::{sample_circuit::TargetCircuit, verify_circuit::Halo2VerifierCircuit};
+use halo2_proofs::{
+    arithmetic::CurveAffine,
+    plonk::{keygen_vk, VerifyingKey},
+    poly::{
+        commitment::{CommitmentScheme, Params},
+        kzg::commitment::{KZGCommitmentScheme, ParamsKZG},
+    },
+};
+use halo2curves::{
+    bn256::{Bn256, Fr, G1Affine},
+    pairing::MultiMillerLoop,
+};
+use halo2curves::{group::ff::PrimeField, pairing::Engine};
 use std::{
+    fmt::Debug,
     io::{Cursor, Read, Write},
     path::PathBuf,
 };
@@ -27,14 +34,10 @@ pub fn write_file(folder: &mut PathBuf, filename: &str, buf: &Vec<u8>) {
     let mut fd = std::fs::File::create(folder.as_path()).unwrap();
     folder.pop();
 
-    fd.write(buf).unwrap();
+    fd.write_all(buf).unwrap();
 }
 
-pub fn read_target_circuit_params<
-    C: CurveAffine,
-    E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>,
-    Circuit: TargetCircuit<C, E>,
->(
+pub fn read_target_circuit_params<E: MultiMillerLoop, Circuit: TargetCircuit<E>>(
     folder: &mut PathBuf,
 ) -> Vec<u8> {
     read_file(
@@ -43,24 +46,16 @@ pub fn read_target_circuit_params<
     )
 }
 
-pub fn load_target_circuit_params<
-    C: CurveAffine,
-    E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>,
-    Circuit: TargetCircuit<C, E>,
->(
+pub fn load_target_circuit_params<E: MultiMillerLoop + Debug, Circuit: TargetCircuit<E>>(
     folder: &mut PathBuf,
-) -> Params<C> {
-    Params::<C>::read(Cursor::new(&read_target_circuit_params::<C, E, Circuit>(
-        &mut folder.clone(),
-    )))
+) -> ParamsKZG<E> {
+    KZGCommitmentScheme::<E>::read_params(&mut Cursor::new(
+        &read_target_circuit_params::<E, Circuit>(&mut folder.clone()),
+    ))
     .unwrap()
 }
 
-pub fn read_target_circuit_vk<
-    C: CurveAffine,
-    E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>,
-    Circuit: TargetCircuit<C, E>,
->(
+pub fn read_target_circuit_vk<E: MultiMillerLoop, Circuit: TargetCircuit<E>>(
     folder: &mut PathBuf,
 ) -> Vec<u8> {
     read_file(
@@ -69,31 +64,25 @@ pub fn read_target_circuit_vk<
     )
 }
 
-pub fn load_target_circuit_vk<
-    C: CurveAffine,
-    E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>,
-    Circuit: TargetCircuit<C, E>,
->(
+pub fn load_target_circuit_vk<E: MultiMillerLoop + Debug, Circuit: TargetCircuit<E>>(
     folder: &mut PathBuf,
-    params: &Params<C>,
-) -> VerifyingKey<C> {
+    params: &ParamsKZG<E>,
+) -> VerifyingKey<E::G1Affine> {
     if Circuit::READABLE_VKEY {
-        VerifyingKey::<C>::read::<_, Circuit::Circuit>(
-            &mut Cursor::new(&read_target_circuit_vk::<C, E, Circuit>(
-                &mut folder.clone(),
-            )),
-            &load_target_circuit_params::<C, E, Circuit>(&mut folder.clone()),
+        VerifyingKey::<E::G1Affine>::read::<_, Circuit::Circuit, E, _>(
+            &mut Cursor::new(&read_target_circuit_vk::<E, Circuit>(&mut folder.clone())),
+            &load_target_circuit_params::<E, Circuit>(&mut folder.clone()),
         )
         .unwrap()
     } else {
         let circuit = Circuit::Circuit::default();
-        let vk =
-            keygen_vk::<C, Circuit::Circuit>(params, &circuit).expect("keygen_vk should not fail");
-        vk
+
+        keygen_vk::<E::G1Affine, _, Circuit::Circuit>(params, &circuit)
+            .expect("keygen_vk should not fail")
     }
 }
 
-pub fn load_target_circuit_instance<Circuit: TargetCircuit<G1Affine, Bn256>>(
+pub fn load_target_circuit_instance<Circuit: TargetCircuit<Bn256>>(
     folder: &mut PathBuf,
     index: usize,
 ) -> Vec<u8> {
@@ -103,7 +92,7 @@ pub fn load_target_circuit_instance<Circuit: TargetCircuit<G1Affine, Bn256>>(
     )
 }
 
-pub fn load_target_circuit_proof<Circuit: TargetCircuit<G1Affine, Bn256>>(
+pub fn load_target_circuit_proof<Circuit: TargetCircuit<Bn256>>(
     folder: &mut PathBuf,
     index: usize,
 ) -> Vec<u8> {
@@ -117,8 +106,8 @@ pub fn read_verify_circuit_params(folder: &mut PathBuf) -> Vec<u8> {
     read_file(folder, "verify_circuit.params")
 }
 
-pub fn load_verify_circuit_params(folder: &mut PathBuf) -> Params<G1Affine> {
-    Params::<G1Affine>::read(Cursor::new(&read_verify_circuit_params(
+pub fn load_verify_circuit_params(folder: &mut PathBuf) -> ParamsKZG<Bn256> {
+    KZGCommitmentScheme::<Bn256>::read_params(&mut Cursor::new(&read_verify_circuit_params(
         &mut folder.clone(),
     )))
     .unwrap()
@@ -129,7 +118,7 @@ pub fn read_verify_circuit_vk(folder: &mut PathBuf) -> Vec<u8> {
 }
 
 pub fn load_verify_circuit_vk(folder: &mut PathBuf) -> VerifyingKey<G1Affine> {
-    VerifyingKey::<G1Affine>::read::<_, Halo2VerifierCircuit<'_, Bn256>>(
+    VerifyingKey::<G1Affine>::read::<_, Halo2VerifierCircuit<'_, Bn256>, Bn256, _>(
         &mut Cursor::new(&read_verify_circuit_vk(&mut folder.clone())),
         &load_verify_circuit_params(&mut folder.clone()),
     )
@@ -143,9 +132,10 @@ pub fn read_verify_circuit_instance(folder: &mut PathBuf) -> Vec<u8> {
 fn load_instances<E: MultiMillerLoop>(buf: &[u8]) -> Vec<Vec<Vec<E::Scalar>>> {
     let mut ret = vec![];
     let cursor = &mut std::io::Cursor::new(buf);
+    let mut scalar_bytes = <<E as Engine>::Scalar as PrimeField>::Repr::default();
 
-    while let Ok(a) = <E::Scalar as BaseExt>::read(cursor) {
-        ret.push(a);
+    while cursor.read_exact(scalar_bytes.as_mut()).is_ok() {
+        ret.push(<E::Scalar as PrimeField>::from_repr(scalar_bytes).unwrap())
     }
 
     vec![vec![ret]]
@@ -160,7 +150,7 @@ pub fn load_verify_circuit_proof(folder: &mut PathBuf) -> Vec<u8> {
     read_file(folder, "verify_circuit_proof.data")
 }
 
-pub fn write_verify_circuit_params(folder: &mut PathBuf, verify_circuit_params: &Params<G1Affine>) {
+pub fn write_verify_circuit_params(folder: &mut PathBuf, verify_circuit_params: &ParamsKZG<Bn256>) {
     folder.push("verify_circuit.params");
     let mut fd = std::fs::File::create(folder.as_path()).unwrap();
     folder.pop();
@@ -178,13 +168,15 @@ pub fn write_verify_circuit_vk(folder: &mut PathBuf, verify_circuit_vk: &Verifyi
 
 pub fn write_verify_circuit_instance(
     folder: &mut PathBuf,
-    buf: &Vec<<G1Affine as CurveAffine>::ScalarExt>,
+    buf: &[<G1Affine as CurveAffine>::ScalarExt],
 ) {
     folder.push("verify_circuit_instance.data");
     let mut fd = std::fs::File::create(folder.as_path()).unwrap();
     folder.pop();
 
-    buf.iter().for_each(|x| x.write(&mut fd).unwrap());
+    buf.iter().for_each(|x| {
+        fd.write_all(x.to_repr().as_ref()).unwrap();
+    });
 }
 
 pub fn write_verify_circuit_final_pair(folder: &mut PathBuf, pair: &(G1Affine, G1Affine, Vec<Fr>)) {
@@ -192,13 +184,13 @@ pub fn write_verify_circuit_final_pair(folder: &mut PathBuf, pair: &(G1Affine, G
     let mut fd = std::fs::File::create(folder.as_path()).unwrap();
     folder.pop();
 
-    pair.0.x.write(&mut fd).unwrap();
-    pair.0.y.write(&mut fd).unwrap();
-    pair.1.x.write(&mut fd).unwrap();
-    pair.1.y.write(&mut fd).unwrap();
+    fd.write_all(pair.0.x.to_repr().as_ref()).unwrap();
+    fd.write_all(pair.0.y.to_repr().as_ref()).unwrap();
+    fd.write_all(pair.1.x.to_repr().as_ref()).unwrap();
+    fd.write_all(pair.1.y.to_repr().as_ref()).unwrap();
 
     pair.2.iter().for_each(|scalar| {
-        scalar.write(&mut fd).unwrap();
+        fd.write_all(scalar.to_repr().as_ref()).unwrap();
     })
 }
 

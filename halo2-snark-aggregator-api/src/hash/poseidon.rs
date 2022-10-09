@@ -15,7 +15,7 @@ impl<A: ArithFieldChip, const T: usize, const RATE: usize> PoseidonState<A, T, R
     ) -> Result<A::AssignedValue, A::Error> {
         let x2 = chip.mul(ctx, x, x)?;
         let x4 = chip.mul(ctx, &x2, &x2)?;
-        chip.mul_add_constant(ctx, &x, &x4, constant.clone())
+        chip.mul_add_constant(ctx, x, &x4, constant)
     }
 
     fn sbox_full(
@@ -25,7 +25,7 @@ impl<A: ArithFieldChip, const T: usize, const RATE: usize> PoseidonState<A, T, R
         constants: &[A::Value; T],
     ) -> Result<(), A::Error> {
         for (x, constant) in self.s.iter_mut().zip(constants.iter()) {
-            *x = Self::x_power5_with_constant(ctx, chip, x, constant.clone())?;
+            *x = Self::x_power5_with_constant(ctx, chip, x, *constant)?;
         }
         Ok(())
     }
@@ -37,7 +37,7 @@ impl<A: ArithFieldChip, const T: usize, const RATE: usize> PoseidonState<A, T, R
         constant: &A::Value,
     ) -> Result<(), A::Error> {
         let x = &mut self.s[0];
-        *x = Self::x_power5_with_constant(ctx, chip, x, constant.clone())?;
+        *x = Self::x_power5_with_constant(ctx, chip, x, *constant)?;
 
         Ok(())
     }
@@ -61,7 +61,7 @@ impl<A: ArithFieldChip, const T: usize, const RATE: usize> PoseidonState<A, T, R
             .zip(pre_constants.iter().skip(1))
             .zip(inputs.iter())
         {
-            *x = chip.sum_with_constant(ctx, vec![&x, input], *constant)?;
+            *x = chip.sum_with_constant(ctx, vec![x, input], *constant)?;
         }
 
         for (i, (x, constant)) in self
@@ -114,21 +114,21 @@ impl<A: ArithFieldChip, const T: usize, const RATE: usize> PoseidonState<A, T, R
         &mut self,
         ctx: &mut A::Context,
         chip: &A,
-        mds: &SparseMDSMatrix<A::Value, T, RATE>,
+        mds: &SparseMDSMatrix<A::Field, T, RATE>,
     ) -> Result<(), A::Error> {
         let a = self
             .s
             .iter()
-            .zip(mds.row.iter())
+            .zip(mds.row().iter())
             .map(|(e, word)| (e, *word))
             .collect::<Vec<_>>();
 
         let mut res = vec![chip.sum_with_coeff_and_constant(ctx, a, A::Value::zero())?];
 
-        for (e, x) in mds.col_hat.iter().zip(self.s.iter().skip(1)) {
+        for (e, x) in mds.col_hat().iter().zip(self.s.iter().skip(1)) {
             res.push(chip.sum_with_coeff_and_constant(
                 ctx,
-                vec![(&self.s[0], *e), (&x, A::Value::one())],
+                vec![(&self.s[0], *e), (x, A::Value::one())],
                 A::Value::zero(),
             )?);
         }
@@ -143,7 +143,7 @@ impl<A: ArithFieldChip, const T: usize, const RATE: usize> PoseidonState<A, T, R
 
 pub struct PoseidonChip<A: ArithFieldChip, const T: usize, const RATE: usize> {
     state: PoseidonState<A, T, RATE>,
-    spec: Spec<A::Value, T, RATE>,
+    spec: Spec<A::Field, T, RATE>,
     absorbing: Vec<A::AssignedValue>,
 }
 
@@ -196,10 +196,10 @@ impl<A: ArithFieldChip, const T: usize, const RATE: usize> PoseidonChip<A, T, RA
         chip: &A,
         inputs: Vec<A::AssignedValue>,
     ) -> Result<(), A::Error> {
-        let r_f = self.spec.r_f / 2;
-        let mds = &self.spec.mds_matrices.mds.rows();
+        let r_f = self.spec.r_f() / 2;
+        let mds = &self.spec.mds_matrices().mds().rows();
 
-        let constants = &self.spec.constants.start;
+        let constants = &self.spec.constants().start();
         self.state
             .absorb_with_pre_constants(ctx, chip, inputs, &constants[0])?;
         for constants in constants.iter().skip(1).take(r_f - 1) {
@@ -207,18 +207,18 @@ impl<A: ArithFieldChip, const T: usize, const RATE: usize> PoseidonChip<A, T, RA
             self.state.apply_mds(ctx, chip, mds)?;
         }
 
-        let pre_sparse_mds = &self.spec.mds_matrices.pre_sparse_mds.rows();
+        let pre_sparse_mds = &self.spec.mds_matrices().pre_sparse_mds().rows();
         self.state.sbox_full(ctx, chip, constants.last().unwrap())?;
-        self.state.apply_mds(ctx, chip, &pre_sparse_mds)?;
+        self.state.apply_mds(ctx, chip, pre_sparse_mds)?;
 
-        let sparse_matrices = &self.spec.mds_matrices.sparse_matrices;
-        let constants = &self.spec.constants.partial;
+        let sparse_matrices = &self.spec.mds_matrices().sparse_matrices();
+        let constants = &self.spec.constants().partial();
         for (constant, sparse_mds) in constants.iter().zip(sparse_matrices.iter()) {
             self.state.sbox_part(ctx, chip, constant)?;
             self.state.apply_sparse_mds(ctx, chip, sparse_mds)?;
         }
 
-        let constants = &self.spec.constants.end;
+        let constants = &self.spec.constants().end();
         for constants in constants.iter() {
             self.state.sbox_full(ctx, chip, constants)?;
             self.state.apply_mds(ctx, chip, mds)?;

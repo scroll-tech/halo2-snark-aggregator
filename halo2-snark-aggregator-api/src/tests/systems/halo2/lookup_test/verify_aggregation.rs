@@ -1,5 +1,3 @@
-use std::marker::PhantomData;
-
 use crate::tests::systems::halo2::lookup_test::test_circuit::test_circuit_builder;
 use crate::transcript::encode::Encode;
 use crate::{
@@ -10,14 +8,18 @@ use crate::{
     },
 };
 use halo2_proofs::arithmetic::CurveAffine;
+use halo2_proofs::poly::commitment::ParamsProver;
+use halo2_proofs::poly::kzg::commitment::{KZGCommitmentScheme, ParamsKZG, ParamsVerifierKZG};
+use halo2_proofs::poly::kzg::multiopen::ProverGWC;
 use halo2_proofs::{
-    pairing::bn256::Fr as Fp,
     plonk::{create_proof, keygen_pk, keygen_vk},
-    poly::commitment::{Params, ParamsVerifier},
     transcript::{Challenge255, PoseidonWrite},
 };
-use pairing_bn256::bn256::{Bn256, G1Affine};
+use halo2curves::bn256::Fr as Fp;
+use halo2curves::bn256::{Bn256, G1Affine};
 use rand::rngs::OsRng;
+use rand::thread_rng;
+use std::marker::PhantomData;
 
 const K: u32 = 6;
 const NPROOFS: usize = 2usize;
@@ -44,12 +46,12 @@ pub fn test_verify_aggregation_proof_in_chip<
         Error = halo2_proofs::plonk::Error,
     >,
 {
+    let mut test_rng = thread_rng();
     let circuit_template = test_circuit_builder();
-    let params = Params::<G1Affine>::unsafe_setup::<Bn256>(K);
+    let params = ParamsKZG::<Bn256>::setup(K, &mut test_rng);
     let vk = keygen_vk(&params, &circuit_template).expect("keygen_vk should not fail");
 
-    let public_inputs_size: usize = (K * 2) as usize;
-    let params_verifier: &ParamsVerifier<Bn256> = &params.verifier(public_inputs_size).unwrap();
+    let params_verifier: &ParamsVerifierKZG<Bn256> = params.verifier_params();
 
     let mut n_instances: Vec<_> = vec![];
     let mut n_proof: Vec<_> = vec![];
@@ -66,7 +68,8 @@ pub fn test_verify_aggregation_proof_in_chip<
         ];
         let instances = vec![vec![odd_lookup]];
         let pk = keygen_pk(&params, vk, &circuit).expect("keygen_pk should not fail");
-        let mut transcript = PoseidonWrite::<_, _, Challenge255<_>>::init(vec![]);
+        let mut transcript =
+            PoseidonWrite::<Vec<u8>, G1Affine, Challenge255<G1Affine>>::init(vec![]);
 
         let instances1: Vec<Vec<&[Fp]>> = instances
             .iter()
@@ -74,7 +77,7 @@ pub fn test_verify_aggregation_proof_in_chip<
             .collect();
         let instances2: Vec<&[&[Fp]]> = instances1.iter().map(|x| &x[..]).collect();
 
-        create_proof(
+        create_proof::<KZGCommitmentScheme<Bn256>, ProverGWC<Bn256>, _, _, _, _>(
             &params,
             &pk,
             &[circuit],
@@ -127,7 +130,7 @@ pub fn test_verify_aggregation_proof_in_chip<
         vec![CircuitProof {
             name: String::from("lookup_test"),
             vk: &vk,
-            params: &params_verifier,
+            params: params_verifier,
             proofs: proof_data_list,
         }],
         &mut transcript,
@@ -139,7 +142,10 @@ pub fn test_verify_aggregation_proof_in_chip<
 mod tests {
     use super::*;
     use crate::mock::{
-        arith::{ecc::MockEccChip, field::{MockFieldChip, MockChipCtx}},
+        arith::{
+            ecc::MockEccChip,
+            field::{MockChipCtx, MockFieldChip},
+        },
         transcript_encode::PoseidonEncode,
     };
     use halo2_proofs::plonk::Error;

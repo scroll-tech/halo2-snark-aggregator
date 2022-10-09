@@ -108,7 +108,7 @@ impl<Scalar: FieldExt, A: ArithEccChip<Scalar = Scalar>> VerifierParams<A> {
                         &|n| self.fixed_evals[n].clone(),
                         &|n| advice_evals[n].clone(),
                         &|n| instance_evals[n].clone(),
-                        &zero,
+                        zero,
                     )?);
                 }
             }
@@ -133,8 +133,8 @@ impl<Scalar: FieldExt, A: ArithEccChip<Scalar = Scalar>> VerifierParams<A> {
                     ctx,
                     schip,
                     &self.fixed_evals,
-                    &instance_evals,
-                    &advice_evals,
+                    instance_evals,
+                    advice_evals,
                     l_0,
                     l_last,
                     l_blind,

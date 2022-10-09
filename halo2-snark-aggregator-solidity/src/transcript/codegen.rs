@@ -12,7 +12,7 @@ use halo2_snark_aggregator_api::{
     hash::poseidon::PoseidonChip,
     transcript::{encode::Encode, read::TranscriptRead as APITranscriptRead},
 };
-use pairing_bn256::group::Curve;
+use halo2curves::group::Curve;
 use std::{io, marker::PhantomData};
 
 pub struct CodegenTranscriptRead<
@@ -75,7 +75,7 @@ impl<
     ) -> Result<(), A::Error> {
         let encoded = E::encode_point(ctx, nchip, schip, pchip, p)?;
         ctx.update(&p.expr, ctx.absorbing_offset);
-        ctx.absorbing_offset = ctx.absorbing_offset + 3;
+        ctx.absorbing_offset += 3;
         // ctx.update(&encoded[1].expr);
         self.hash.update(&encoded);
         Ok(())
@@ -90,7 +90,7 @@ impl<
     ) -> Result<(), A::Error> {
         let encoded = E::encode_scalar(ctx, nchip, schip, s)?;
         ctx.update(&s.expr, ctx.absorbing_offset);
-        ctx.absorbing_offset = ctx.absorbing_offset + 2;
+        ctx.absorbing_offset += 2;
         self.hash.update(&encoded);
         Ok(())
     }

@@ -87,12 +87,10 @@ impl GroupOptimizer for MulAddPMOptimizer {
             } else {
                 Action::Abort
             }
+        } else if self.byte_pairs.len() > 1 {
+            Action::Complete
         } else {
-            if self.byte_pairs.len() > 1 {
-                Action::Complete
-            } else {
-                Action::Abort
-            }
+            Action::Abort
         }
     }
 

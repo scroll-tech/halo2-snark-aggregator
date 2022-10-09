@@ -5,13 +5,13 @@ use crate::five::range_gate::FiveColumnRangeGate;
 use crate::gates::base_gate::Context;
 use crate::gates::range_gate::RangeGateConfig;
 use crate::utils::field_to_bn;
-use halo2_proofs::arithmetic::{BaseExt, FieldExt};
+use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner},
     dev::MockProver,
     plonk::{Circuit, ConstraintSystem, Error},
 };
-use pairing_bn256::bn256::{Fq, Fr};
+use halo2curves::bn256::{Fq, Fr};
 use rand::SeedableRng;
 use rand_xorshift::XorShiftRng;
 use std::marker::PhantomData;
@@ -40,13 +40,13 @@ struct TestFiveColumnIntegerChipConfig {
 }
 
 #[derive(Default)]
-struct TestFiveColumnIntegerChipCircuit<W: BaseExt, N: FieldExt> {
+struct TestFiveColumnIntegerChipCircuit<W: FieldExt, N: FieldExt> {
     test_case: TestCase,
     _phantom_w: PhantomData<W>,
     _phantom_n: PhantomData<N>,
 }
 
-impl<W: BaseExt, N: FieldExt> TestFiveColumnIntegerChipCircuit<W, N> {
+impl<W: FieldExt, N: FieldExt> TestFiveColumnIntegerChipCircuit<W, N> {
     fn random() -> W {
         let seed = chrono::offset::Utc::now()
             .timestamp_nanos()
@@ -224,7 +224,7 @@ impl<W: BaseExt, N: FieldExt> TestFiveColumnIntegerChipCircuit<W, N> {
 
 const COMMON_RANGE_BITS: usize = 17usize;
 
-impl<W: BaseExt, N: FieldExt> Circuit<N> for TestFiveColumnIntegerChipCircuit<W, N> {
+impl<W: FieldExt, N: FieldExt> Circuit<N> for TestFiveColumnIntegerChipCircuit<W, N> {
     type Config = TestFiveColumnIntegerChipConfig;
     type FloorPlanner = SimpleFloorPlanner;
 

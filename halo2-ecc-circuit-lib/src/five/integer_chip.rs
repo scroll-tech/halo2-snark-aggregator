@@ -7,7 +7,7 @@ use crate::{
     pair, pair_empty,
     utils::{bn_to_field, decompose_bn, field_to_bn},
 };
-use halo2_proofs::arithmetic::{BaseExt, FieldExt};
+use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Error;
 use num_bigint::BigUint;
 use num_integer::Integer;
@@ -27,7 +27,7 @@ const OVERFLOW_THRESHOLD: usize = 1usize << OVERFLOW_THRESHOLD_SHIFT;
 pub type FiveColumnIntegerChip<'a, W, N> = IntegerChip<'a, W, N, LIMBS, LIMB_COMMON_WIDTH>;
 pub type FiveColumnIntegerChipHelper<W, N> = IntegerChipHelper<W, N, LIMBS, LIMB_COMMON_WIDTH>;
 
-impl<'a, W: BaseExt, N: FieldExt> FiveColumnIntegerChip<'a, W, N> {
+impl<'a, W: FieldExt, N: FieldExt> FiveColumnIntegerChip<'a, W, N> {
     fn find_w_modulus_ceil(&self, a: &AssignedInteger<W, N>) -> [BigUint; LIMBS] {
         let max_a = (a.overflows + 1) * (BigUint::from(1u64) << self.helper.w_ceil_bits);
         let (n, rem) = max_a.div_rem(&self.helper.w_modulus);
@@ -85,7 +85,7 @@ impl<'a, W: BaseExt, N: FieldExt> FiveColumnIntegerChip<'a, W, N> {
         // TO OPTIMIZE: the two can be merged.
         let native_diff = self.base_gate().sum_with_constant(
             ctx,
-            vec![(&native_a, one)],
+            vec![(native_a, one)],
             -self.helper.w_native,
         )?;
         let is_native_eq = self.base_gate().is_zero(ctx, &native_diff)?;
@@ -156,7 +156,7 @@ impl<'a, W: BaseExt, N: FieldExt> FiveColumnIntegerChip<'a, W, N> {
                             &a.limbs_le[i],
                             &b.limbs_le[pos - i],
                             &d[i],
-                            neg_w_limbs_le[pos - i].clone(),
+                            neg_w_limbs_le[pos - i],
                         )
                     })
                     .collect(),
@@ -209,9 +209,9 @@ impl<'a, W: BaseExt, N: FieldExt> FiveColumnIntegerChip<'a, W, N> {
             ctx,
             vec![
                 (&limbs[0], one),
-                (&limbs[1], self.helper.limb_modulus_on_n.clone()),
+                (&limbs[1], self.helper.limb_modulus_on_n),
                 (&rem.limbs_le[0], -one),
-                (&rem.limbs_le[1], -self.helper.limb_modulus_on_n.clone()),
+                (&rem.limbs_le[1], -self.helper.limb_modulus_on_n),
             ],
             self.helper.limb_modulus_exps[2],
         )?;
@@ -230,9 +230,9 @@ impl<'a, W: BaseExt, N: FieldExt> FiveColumnIntegerChip<'a, W, N> {
             ctx,
             vec![
                 (&limbs[2], one),
-                (&limbs[3], self.helper.limb_modulus_on_n.clone()),
+                (&limbs[3], self.helper.limb_modulus_on_n),
                 (&rem.limbs_le[2], -one),
-                (&rem.limbs_le[3], -self.helper.limb_modulus_on_n.clone()),
+                (&rem.limbs_le[3], -self.helper.limb_modulus_on_n),
             ],
             zero,
         )?;
@@ -320,7 +320,7 @@ impl<'a, W: BaseExt, N: FieldExt> FiveColumnIntegerChip<'a, W, N> {
     }
 }
 
-impl<'a, W: BaseExt, N: FieldExt> IntegerChipOps<W, N> for FiveColumnIntegerChip<'a, W, N> {
+impl<'a, W: FieldExt, N: FieldExt> IntegerChipOps<W, N> for FiveColumnIntegerChip<'a, W, N> {
     fn assign_nonleading_limb(
         &self,
         ctx: &mut Context<N>,
@@ -764,8 +764,8 @@ impl<'a, W: BaseExt, N: FieldExt> IntegerChipOps<W, N> for FiveColumnIntegerChip
 
         let w_modulus = &self.helper.w_modulus;
         let limb_modulus = &self.helper.limb_modulus;
-        let a_bn = a.bn(&limb_modulus);
-        let b_bn = b.bn(&limb_modulus);
+        let a_bn = a.bn(limb_modulus);
+        let b_bn = b.bn(limb_modulus);
         let a_w = a.w(limb_modulus, w_modulus);
         let b_w = b.w(limb_modulus, w_modulus);
         let c = b_w.invert().unwrap_or(W::zero()) * a_w;
@@ -799,7 +799,7 @@ impl<'a, W: BaseExt, N: FieldExt> IntegerChipOps<W, N> for FiveColumnIntegerChip
         a: &mut AssignedInteger<W, N>,
     ) -> Result<AssignedCondition<N>, Error> {
         self.reduce(ctx, a)?;
-        let is_zero = self.is_pure_zero(ctx, &a)?;
+        let is_zero = self.is_pure_zero(ctx, a)?;
         let is_w_modulus = self.is_pure_w_modulus(ctx, a)?;
 
         self.base_gate().or(ctx, &is_zero, &is_w_modulus)
