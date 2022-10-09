@@ -31,18 +31,8 @@ use tera::{Context, Tera};
 
 fn render_verifier_sol_template<C: CurveAffine>(
     args: CodeGeneratorCtx,
-    template_folder: std::path::PathBuf,
+    _template_folder: std::path::PathBuf,
 ) -> String {
-    let path = format!(
-        "{}/*",
-        template_folder
-            .as_path()
-            .canonicalize()
-            .unwrap()
-            .to_str()
-            .unwrap()
-    );
-    let tera = Tera::new(&path).unwrap();
     let mut ctx = Context::new();
     let mut opcodes = vec![];
     let mut incremental_ident = 0u64;
@@ -131,7 +121,7 @@ fn render_verifier_sol_template<C: CurveAffine>(
     ctx.insert("memory_size", &args.memory_size);
     ctx.insert("instance_size", &args.instance_size);
     ctx.insert("absorbing_length", &args.absorbing_length);
-    tera.render("verifier.sol", &ctx)
+    Tera::one_off(include_str!("../templates/verifier.sol"), &ctx, true)
         .expect("failed to render template")
 }
 
