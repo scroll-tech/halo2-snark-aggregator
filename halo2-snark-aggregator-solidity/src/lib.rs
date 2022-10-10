@@ -121,7 +121,7 @@ fn render_verifier_sol_template<C: CurveAffine>(
     ctx.insert("memory_size", &args.memory_size);
     ctx.insert("instance_size", &args.instance_size);
     ctx.insert("absorbing_length", &args.absorbing_length);
-    Tera::one_off(include_str!("../templates/verifier.sol"), &ctx, true)
+    Tera::one_off(include_str!("../templates/verifier.sol"), &ctx, false)
         .expect("failed to render template")
 }
 
