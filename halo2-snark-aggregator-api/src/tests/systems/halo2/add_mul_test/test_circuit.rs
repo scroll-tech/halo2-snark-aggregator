@@ -1,10 +1,10 @@
 use halo2_proofs::{
     arithmetic::FieldExt,
-    circuit::{AssignedCell, Chip, Layouter, Region, SimpleFloorPlanner},
-    pairing::bn256::Fr as Fp,
+    circuit::{AssignedCell, Chip, Layouter, Region, SimpleFloorPlanner, Value},
     plonk::{Advice, Circuit, Column, ConstraintSystem, Error, Fixed, Instance, Selector},
     poly::Rotation,
 };
+use halo2curves::bn256::Fr as Fp;
 use std::marker::PhantomData;
 
 // ANCHOR: instructions
@@ -13,7 +13,7 @@ trait NumericInstructions<F: FieldExt>: Chip<F> {
     type Num;
 
     /// Loads a number into the circuit as a private input.
-    fn load_private(&self, layouter: impl Layouter<F>, a: Option<F>) -> Result<Self::Num, Error>;
+    fn load_private(&self, layouter: impl Layouter<F>, a: Value<F>) -> Result<Self::Num, Error>;
 
     /// Loads a number into the circuit as a fixed constant.
     fn load_constant(&self, layouter: impl Layouter<F>, constant: F) -> Result<Self::Num, Error>;
@@ -151,7 +151,7 @@ impl<F: FieldExt> NumericInstructions<F> for FieldChip<F> {
     fn load_private(
         &self,
         mut layouter: impl Layouter<F>,
-        value: Option<F>,
+        value: Value<F>,
     ) -> Result<Self::Num, Error> {
         let config = self.config();
 
@@ -159,12 +159,7 @@ impl<F: FieldExt> NumericInstructions<F> for FieldChip<F> {
             || "load private",
             |mut region| {
                 region
-                    .assign_advice(
-                        || "private input",
-                        config.advice[0],
-                        0,
-                        || value.ok_or(Error::Synthesis),
-                    )
+                    .assign_advice(|| "private input", config.advice[0], 0, || value)
                     .map(Number)
             },
         )
@@ -217,12 +212,7 @@ impl<F: FieldExt> NumericInstructions<F> for FieldChip<F> {
                 // Finally, we do the assignment to the output, returning a
                 // variable to be used in another part of the circuit.
                 region
-                    .assign_advice(
-                        || "lhs * rhs",
-                        config.advice[0],
-                        1,
-                        || value.ok_or(Error::Synthesis),
-                    )
+                    .assign_advice(|| "lhs * rhs", config.advice[0], 1, || value)
                     .map(Number)
             },
         )
@@ -250,8 +240,8 @@ impl<F: FieldExt> NumericInstructions<F> for FieldChip<F> {
 #[derive(Default)]
 pub(crate) struct MyCircuit<F: FieldExt> {
     pub(crate) constant: F,
-    pub(crate) a: Option<F>,
-    pub(crate) b: Option<F>,
+    pub(crate) a: Value<F>,
+    pub(crate) b: Value<F>,
 }
 
 impl<F: FieldExt> Circuit<F> for MyCircuit<F> {
@@ -316,7 +306,7 @@ pub(crate) fn test_circuit_builder(a: Fp, b: Fp) -> MyCircuit<Fp> {
 
     MyCircuit {
         constant,
-        a: Some(a),
-        b: Some(b),
+        a: Value::known(a),
+        b: Value::known(b),
     }
 }

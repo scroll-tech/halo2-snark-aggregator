@@ -46,11 +46,11 @@ impl<F: FieldExt, E> ArithCommonChip for SolidityFieldChip<F, E> {
             return self.assign_const(ctx, v);
         }
 
-        if a.is_const && a.v == bn_to_field(&(0 as u32).to_biguint().unwrap()) {
+        if a.is_const && a.v == bn_to_field(&0_u32.to_biguint().unwrap()) {
             return Ok(b.clone());
         }
 
-        if b.is_const && b.v == bn_to_field(&(0 as u32).to_biguint().unwrap()) {
+        if b.is_const && b.v == bn_to_field(&0_u32.to_biguint().unwrap()) {
             return Ok(a.clone());
         }
 
@@ -76,7 +76,7 @@ impl<F: FieldExt, E> ArithCommonChip for SolidityFieldChip<F, E> {
             return self.assign_const(ctx, v);
         }
 
-        if b.is_const && b.v == bn_to_field(&(0 as u32).to_biguint().unwrap()) {
+        if b.is_const && b.v == bn_to_field(&0_u32.to_biguint().unwrap()) {
             return Ok(a.clone());
         }
 
@@ -91,11 +91,11 @@ impl<F: FieldExt, E> ArithCommonChip for SolidityFieldChip<F, E> {
     }
 
     fn assign_zero(&self, ctx: &mut Self::Context) -> Result<Self::AssignedValue, Self::Error> {
-        self.assign_const(ctx, bn_to_field(&(0 as u32).to_biguint().unwrap()))
+        self.assign_const(ctx, bn_to_field(&0_u32.to_biguint().unwrap()))
     }
 
     fn assign_one(&self, ctx: &mut Self::Context) -> Result<Self::AssignedValue, Self::Error> {
-        self.assign_const(ctx, bn_to_field(&(1 as u32).to_biguint().unwrap()))
+        self.assign_const(ctx, bn_to_field(&1_u32.to_biguint().unwrap()))
     }
 
     fn assign_const(
@@ -162,11 +162,11 @@ impl<F: FieldExt, E> ArithFieldChip for SolidityFieldChip<F, E> {
             return self.assign_const(ctx, v);
         }
 
-        if a.is_const && a.v == bn_to_field(&(1 as u32).to_biguint().unwrap()) {
+        if a.is_const && a.v == bn_to_field(&1_u32.to_biguint().unwrap()) {
             return Ok(b.clone());
         }
 
-        if b.is_const && b.v == bn_to_field(&(1 as u32).to_biguint().unwrap()) {
+        if b.is_const && b.v == bn_to_field(&1_u32.to_biguint().unwrap()) {
             return Ok(a.clone());
         }
 
@@ -192,7 +192,7 @@ impl<F: FieldExt, E> ArithFieldChip for SolidityFieldChip<F, E> {
             return self.assign_const(ctx, v);
         }
 
-        if b.is_const && b.v == bn_to_field(&(1 as u32).to_biguint().unwrap()) {
+        if b.is_const && b.v == bn_to_field(&1_u32.to_biguint().unwrap()) {
             return Ok(a.clone());
         }
 
@@ -234,7 +234,6 @@ impl<F: FieldExt, E> ArithFieldChip for SolidityFieldChip<F, E> {
     ) -> Result<Self::AssignedField, Self::Error> {
         let mut acc = self.assign_const(ctx, b)?;
         for (x, coeff) in a_with_coeff {
-            // TODO: const or var
             let coeff = self.assign_const(ctx, coeff)?;
             let m = self.mul(ctx, x, &coeff)?;
             acc = self.add(ctx, &acc, &m)?;

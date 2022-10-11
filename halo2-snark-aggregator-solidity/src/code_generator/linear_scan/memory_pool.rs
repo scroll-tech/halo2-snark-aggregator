@@ -28,7 +28,7 @@ impl Default for MemoryPool {
 
 impl MemoryPool {
     pub(crate) fn alloc_scalar(&mut self) -> MemoryBlock {
-        let pos = self.free_256_block.iter().next().unwrap().clone();
+        let pos = *self.free_256_block.iter().next().unwrap();
         self.free_256_block.remove(&pos);
         self.free_512_block.remove(&(pos - (pos % 2)));
 
@@ -39,7 +39,7 @@ impl MemoryPool {
     }
 
     pub(crate) fn alloc_point(&mut self) -> MemoryBlock {
-        let pos = self.free_512_block.iter().next().unwrap().clone();
+        let pos = *self.free_512_block.iter().next().unwrap();
         self.free_256_block.remove(&pos);
         self.free_256_block.remove(&(pos + 1));
         self.free_512_block.remove(&pos);
@@ -74,7 +74,7 @@ impl MemoryPool {
         self.free_256_block.insert(addr);
         self.free_256_block.insert(addr + 1);
         self.free_512_block.insert(addr);
-        self.capability = self.capability + 2;
+        self.capability += 2;
         addr
     }
 }

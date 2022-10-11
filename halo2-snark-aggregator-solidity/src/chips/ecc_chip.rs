@@ -4,9 +4,9 @@ use halo2_ecc::utils::{biguint_to_fe as bn_to_field, fe_to_biguint as field_to_b
 use halo2_proofs::arithmetic::CurveAffine;
 use halo2_proofs::arithmetic::Field;
 use halo2_snark_aggregator_api::arith::{common::ArithCommonChip, ecc::ArithEccChip};
+use halo2curves::group::ff::PrimeField;
+use halo2curves::group::Curve;
 use num_bigint::BigUint;
-use pairing_bn256::group::ff::PrimeField;
-use pairing_bn256::group::Curve;
 use std::{marker::PhantomData, rc::Rc};
 
 pub fn get_xy_from_point<C: CurveAffine>(point: C::CurveExt) -> (BigUint, BigUint)
@@ -14,12 +14,8 @@ where
     C::Base: PrimeField,
 {
     let coordinates = point.to_affine().coordinates();
-    let x = coordinates
-        .map(|v| v.x().clone())
-        .unwrap_or(C::Base::zero());
-    let y = coordinates
-        .map(|v| v.y().clone())
-        .unwrap_or(C::Base::zero());
+    let x = coordinates.map(|v| *v.x()).unwrap_or(C::Base::zero());
+    let y = coordinates.map(|v| *v.y()).unwrap_or(C::Base::zero());
     // let z = N::conditional_select(&N::zero(), &N::one(), c.to_affine().is_identity());
     (field_to_bn(&x), field_to_bn(&y))
 }

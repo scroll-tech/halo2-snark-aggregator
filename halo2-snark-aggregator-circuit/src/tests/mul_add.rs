@@ -14,7 +14,7 @@ use halo2_snark_aggregator_api::tests::systems::halo2::add_mul_test::{
     verify_aggregation::test_verify_aggregation_proof_in_chip,
     verify_single::test_verify_single_proof_in_chip,
 };
-use pairing_bn256::bn256::{Fq, Fr, G1Affine};
+use halo2curves::bn256::{Fq, Fr, G1Affine};
 use std::marker::PhantomData;
 
 enum TestCase {

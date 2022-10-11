@@ -1,9 +1,10 @@
-use group::prime::PrimeCurveAffine;
+use std::collections::BTreeMap;
+
 use halo2_proofs::arithmetic::FieldExt;
 
 use crate::arith::{common::ArithCommonChip, ecc::ArithEccChip, field::ArithFieldChip};
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CommitQuery<P, S> {
     pub key: String,
     pub commitment: Option<P>,
@@ -115,11 +116,49 @@ impl<A: ArithEccChip> EvaluationQuery<A> {
     }
 }
 
-impl<P, S> EvaluationQuerySchema<P, S>
-where
-    P: Clone + std::fmt::Debug,
-    S: Clone + std::fmt::Debug,
-{
+pub fn print_points_profiling(point_list: &[String]) {
+    log::debug!("===== BEGIN: Halo2VerifierCircuit rows cost estimation ========");
+    let n = point_list.len();
+    let ecmul_rows = 32196;
+    let rows = n * ecmul_rows;
+    let mut k = 18;
+    loop {
+        if 1 << k > rows {
+            break;
+        }
+        k += 1;
+    }
+    log::debug!("total ecmul: {}", n);
+    log::debug!(
+        "rows needed by ecmul: {} = {} * {} = {:.2} * 2**{}",
+        rows,
+        n,
+        ecmul_rows,
+        (rows as f64) / ((1 << k) as f64),
+        k
+    );
+    log::debug!("at least need k: {}", k);
+    let counter = point_list
+        .iter()
+        .cloned()
+        .fold(BTreeMap::new(), |mut map, val| {
+            let tag = val.split('_').next().unwrap_or("unknown").to_string();
+            map.entry(tag).and_modify(|frq| *frq += 1).or_insert(1);
+            map
+        });
+    for (k, v) in counter {
+        log::debug!(
+            "circuit {}: num {}, percentage {:.2}%",
+            k,
+            v,
+            (v as f64 / n as f64) * 100f64
+        );
+    }
+    log::trace!("all point list: {:?}", point_list);
+    log::debug!("===== END: Halo2VerifierCircuit rows cost estimation ========");
+}
+
+impl<P: Clone, S: Clone> EvaluationQuerySchema<P, S> {
     pub fn eval<
         Scalar: FieldExt,
         A: ArithEccChip<AssignedPoint = P, AssignedScalar = S, Scalar = Scalar>,
@@ -129,28 +168,21 @@ where
         schip: &A::ScalarChip,
         pchip: &A,
         one: &A::AssignedScalar,
-    ) -> Result<(A::AssignedPoint, Option<A::AssignedScalar>), A::Error> {
+    ) -> Result<(A::AssignedPoint, Option<A::AssignedScalar>, Vec<String>), A::Error> {
         let points = self.eval_prepare::<Scalar, A>(ctx, schip, one, None)?;
-
-        let re = regex::Regex::new("fixed_commitments").unwrap();
-        let s = points.iter().find(|b| b.0 == "").map(|b| b.2.as_ref().unwrap().clone());
+        let point_names: Vec<String> = points.iter().map(|(name, _p, _s)| name.clone()).collect();
+        //Self::print_points_profiling(&point_names);
+        let s = points
+            .iter()
+            .find(|b| b.0.is_empty())
+            .map(|b| b.2.as_ref().unwrap().clone());
         let p_wo_scalar = points
             .iter()
             .filter_map(|b| if b.2.is_none() { b.1.clone() } else { None })
             .collect::<Vec<_>>();
         let (p_l, s_l) = points
-            .iter()
-            .filter_map(|(id, p, s)| {
-                p.as_ref().and_then(|p| {
-                    s.as_ref().and_then(|s| {
-                        if !re.is_match(id.as_str()) {
-                            Some((p.clone(), s.clone()))
-                        } else {
-                            None
-                        }
-                    })
-                })
-            })
+            .into_iter()
+            .filter_map(|(_, p, s)| p.and_then(|p| s.map(|s| (p, s))))
             .unzip();
         let mut acc = pchip.multi_exp(ctx, p_l, s_l)?;
         for p in p_wo_scalar {
@@ -175,7 +207,7 @@ where
             }
         }
 
-        Ok((acc, s))
+        Ok((acc, s, point_names))
     }
 
     fn eval_prepare<
@@ -212,8 +244,7 @@ where
                     let r = r.0.eval_prepare::<Scalar, A>(ctx, schip, one, None)?;
                     assert!(l.len() == 1);
                     assert!(r.len() == 1);
-                    let sum =
-                        schip.add(ctx, l[0].2.as_ref().unwrap(), &r[0].2.as_ref().unwrap())?;
+                    let sum = schip.add(ctx, l[0].2.as_ref().unwrap(), r[0].2.as_ref().unwrap())?;
                     let sum = match scalar {
                         Some(scalar) => schip.mul(ctx, &scalar, &sum)?,
                         None => sum,
@@ -290,8 +321,8 @@ where
                     }
                 } else {
                     let mut est = 0;
-                    for s in vec![l, r] {
-                        est += s.0.estimate(scalar.clone())
+                    for s in &[l, r] {
+                        est += s.0.estimate(scalar)
                     }
                     est
                 }

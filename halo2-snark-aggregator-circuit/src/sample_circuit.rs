@@ -1,21 +1,23 @@
-use ark_std::{end_timer, start_timer};
+suse ark_std::{end_timer, start_timer};
 use halo2_proofs::arithmetic::BaseExt;
 use halo2_proofs::plonk::keygen_vk;
 use halo2_proofs::plonk::{create_proof, keygen_pk};
+use halo2_proofs::poly::kzg::commitment::{KZGCommitmentScheme, ParamsKZG};
+use halo2_proofs::poly::kzg::multiopen::{ProverGWC, VerifierGWC};
+use halo2_proofs::poly::kzg::strategy::SingleStrategy;
 use halo2_proofs::transcript::PoseidonRead;
 use halo2_proofs::transcript::{Challenge255, PoseidonWrite};
-use halo2_proofs::{
-    arithmetic::{CurveAffine, MultiMillerLoop},
-    plonk::Circuit,
-    poly::commitment::Params,
-};
+use halo2_proofs::{plonk::Circuit, poly::commitment::Params};
+use halo2curves::group::ff::PrimeField;
+use halo2curves::pairing::{Engine, MultiMillerLoop};
 use rand_core::OsRng;
+use std::fmt::Debug;
 use std::io::Write;
 
 // use crate::fs::{load_target_circuit_vk,load_target_circuit_params};
 use crate::fs::get_params_cached;
 
-pub trait TargetCircuit<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> {
+pub trait TargetCircuit<E: MultiMillerLoop> {
     const TARGET_CIRCUIT_K: u32;
     const PUBLIC_INPUT_SIZE: usize;
     const N_PROOFS: usize;
@@ -23,21 +25,17 @@ pub trait TargetCircuit<C: CurveAffine, E: MultiMillerLoop<G1Affine = C>> {
     const PARAMS_NAME: &'static str;
     const READABLE_VKEY: bool;
 
-    type Circuit: Circuit<C::ScalarExt> + Default;
+    type Circuit: Circuit<<E as Engine>::Scalar> + Default;
 
-    fn instance_builder() -> (Self::Circuit, Vec<Vec<C::ScalarExt>>);
-    fn load_instances(buf: &Vec<u8>) -> Vec<Vec<Vec<C::ScalarExt>>>;
+    fn instance_builder() -> (Self::Circuit, Vec<Vec<<E as Engine>::Scalar>>);
+    fn load_instances(buf: &[u8]) -> Vec<Vec<Vec<<E as Engine>::Scalar>>>;
 }
 
-pub fn sample_circuit_setup<
-    C: CurveAffine,
-    E: MultiMillerLoop<G1Affine = C>,
-    CIRCUIT: TargetCircuit<C, E>,
->(
+pub fn sample_circuit_setup<E: MultiMillerLoop + Debug, CIRCUIT: TargetCircuit<E>>(
     mut folder: std::path::PathBuf,
 ) {
     // TODO: Do not use setup in production
-    let params = Params::<C>::unsafe_setup::<E>(CIRCUIT::TARGET_CIRCUIT_K);
+    let params = ParamsKZG::<E>::unsafe_setup(CIRCUIT::TARGET_CIRCUIT_K);
 
     let circuit = CIRCUIT::Circuit::default();
     let vk = keygen_vk(&params, &circuit).expect("keygen_vk should not fail");
@@ -57,38 +55,33 @@ pub fn sample_circuit_setup<
     }
 }
 
-pub fn sample_circuit_random_run<
-    C: CurveAffine,
-    E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>,
-    CIRCUIT: TargetCircuit<C, E>,
->(
+pub fn sample_circuit_random_run<E: MultiMillerLoop + Debug, CIRCUIT: TargetCircuit<E>>(
     mut folder: std::path::PathBuf,
     circuit: CIRCUIT::Circuit,
-    instances: &[&[C::Scalar]],
+    instances: &[&[E::Scalar]],
     index: usize,
 ) {
-    /*
-    // reading vk does not work for all circuits
-    let params = load_target_circuit_params::<C, E, CIRCUIT>(&mut folder);
-    let vk = load_target_circuit_vk::<C, E, CIRCUIT>(&mut folder, &params);
-    */
-    let params = get_params_cached::<C, E>(CIRCUIT::TARGET_CIRCUIT_K);
-    let empty_circuit = CIRCUIT::Circuit::default();
+    let params = load_target_circuit_params::<E, CIRCUIT>(&mut folder);
 
     let vk_time = start_timer!(|| format!("{} vk time", CIRCUIT::NAME));
-    let vk = keygen_vk(&params, &empty_circuit).expect("keygen_vk should not fail");
+    let vk = load_target_circuit_vk::<E, CIRCUIT>(&mut folder, &params);
     end_timer!(vk_time);
-
     let pk_time = start_timer!(|| format!("{} target pk time", CIRCUIT::NAME));
-    let pk = keygen_pk(&params, vk, &empty_circuit).expect("keygen_pk should not fail");
-    end_timer!(pk_time);
+    let pk = keygen_pk(&params, vk, &circuit).expect("keygen_pk should not fail");
+    end_timer!(vk_time);
 
     // let instances: &[&[&[C::Scalar]]] = &[&[&[constant * a.square() * b.square()]]];
     let instances: &[&[&[_]]] = &[instances];
-    let mut transcript = PoseidonWrite::<_, _, Challenge255<_>>::init(vec![]);
-    let pf_time = start_timer!(|| format!("{} proving time", CIRCUIT::NAME));
-    create_proof(&params, &pk, &[circuit], instances, OsRng, &mut transcript)
-        .expect("proof generation should not fail");
+    let mut transcript = PoseidonWrite::<_, E::G1Affine, Challenge255<_>>::init(vec![]);
+    create_proof::<KZGCommitmentScheme<_>, ProverGWC<_>, _, _, _, _>(
+        &params,
+        &pk,
+        &[circuit],
+        instances,
+        OsRng,
+        &mut transcript,
+    )
+    .expect("proof generation should not fail");
     let proof = transcript.finalize();
     end_timer!(pf_time);
 
@@ -105,19 +98,18 @@ pub fn sample_circuit_random_run<
         folder.pop();
         instances.iter().for_each(|l1| {
             l1.iter().for_each(|l2| {
-                l2.iter().for_each(|c: &C::ScalarExt| {
-                    c.write(&mut fd).unwrap();
+                l2.iter().for_each(|c: &E::Scalar| {
+                    fd.write_all(c.to_repr().as_ref()).unwrap();
                 })
             })
         });
     }
 
-    let params = params.verifier::<E>(CIRCUIT::PUBLIC_INPUT_SIZE).unwrap();
-    let strategy = halo2_proofs::plonk::SingleVerifier::new(&params);
+    let strategy = SingleStrategy::new(&params);
     let mut transcript = PoseidonRead::<_, _, Challenge255<_>>::init(&proof[..]);
-    halo2_proofs::plonk::verify_proof::<E, _, _, _>(
+    halo2_proofs::plonk::verify_proof::<_, VerifierGWC<_>, _, _, _>(
         &params,
-        &pk.get_vk(),
+        pk.get_vk(),
         strategy,
         instances,
         &mut transcript,

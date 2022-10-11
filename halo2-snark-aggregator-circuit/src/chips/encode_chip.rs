@@ -23,12 +23,16 @@ where
         _pchip: &EccChip<'a, 'b, C>,
         v: &<EccChip<'a, 'b, C> as ArithEccChip>::AssignedPoint,
     ) -> Result<Vec<<EccChip<'a, 'b, C> as ArithEccChip>::AssignedNative>, Error> {
-        let x_native = v.x.native.clone();
-        let y_native = v.y.native.clone();
-        Ok(vec![
-            AssignedValue(x_native, None),
-            AssignedValue(y_native, None),
-        ])
+        let mut px = v.x.clone();
+        let mut py = v.y.clone();
+        let x_native = EccChipOps::integer_chip(pchip.chip).native(ctx, &mut px)?;
+        let y_native = if true {
+            pchip.chip.integer_chip().native(ctx, &mut py)?
+        } else {
+            &py.limbs_le[0]
+        };
+
+        Ok(vec![*x_native, *y_native])
     }
 
     fn encode_scalar(
@@ -37,7 +41,7 @@ where
         _: &<EccChip<'a, 'b, C> as ArithEccChip>::ScalarChip,
         v: &<EccChip<'a, 'b, C> as ArithEccChip>::AssignedScalar,
     ) -> Result<Vec<<EccChip<'a, 'b, C> as ArithEccChip>::AssignedNative>, Error> {
-        Ok(vec![v.clone()])
+        Ok(vec![*v])
     }
 
     fn decode_scalar(
@@ -46,6 +50,6 @@ where
         _: &<EccChip<'a, 'b, C> as ArithEccChip>::ScalarChip,
         v: &[<EccChip<'a, 'b, C> as ArithEccChip>::AssignedNative],
     ) -> Result<<EccChip<'a, 'b, C> as ArithEccChip>::AssignedScalar, Error> {
-        Ok(v[0].clone())
+        Ok(v[0])
     }
 }
