@@ -7,16 +7,15 @@ use super::{
 };
 use crate::arith::{common::ArithCommonChip, ecc::ArithEccChip, field::ArithFieldChip};
 use crate::scalar;
-use crate::systems::halo2::evaluation::print_points_profiling;
 use crate::transcript::read::TranscriptRead;
 use group::prime::PrimeCurveAffine;
 use halo2_proofs::arithmetic::{Field, FieldExt};
-use halo2_proofs::poly::commitment::{Params, ParamsProver};
-use halo2_proofs::poly::kzg::commitment::{ParamsKZG, ParamsVerifierKZG};
+use halo2_proofs::poly::kzg::commitment::ParamsVerifierKZG;
 use halo2_proofs::poly::Rotation;
 use halo2_proofs::{
     arithmetic::CurveAffine,
     plonk::{Expression, VerifyingKey},
+    poly::commitment::Params,
 };
 use halo2curves::pairing::MultiMillerLoop;
 use std::fmt::Debug;
@@ -35,7 +34,7 @@ pub struct VerifierParamsBuilder<
     pchip: &'a A,
     assigned_instances: Vec<Vec<A::AssignedPoint>>,
     vk: &'a VerifyingKey<E::G1Affine>,
-    params: &'a ParamsKZG<E>,
+    params: &'a ParamsVerifierKZG<E>,
     transcript: &'a mut T,
     key: String,
 }
@@ -53,8 +52,10 @@ impl<
     > VerifierParamsBuilder<'a, E, A, T>
 {
     fn init_transcript(&mut self) -> Result<(), A::Error> {
-        let mut hasher =
-            blake2b_simd::Params::new().hash_length(64).personal(b"Halo2-Verify-Key").to_state();
+        let mut hasher = blake2b_simd::Params::new()
+            .hash_length(64)
+            .personal(b"Halo2-Verify-Key")
+            .to_state();
 
         let s = format!("{:?}", self.vk.pinned());
 
@@ -63,7 +64,8 @@ impl<
 
         let scalar = E::Scalar::from_bytes_wide(hasher.finalize().as_array());
         let assigned_scalar = self.schip.assign_const(self.ctx, scalar)?;
-        self.transcript.common_scalar(self.ctx, self.nchip, self.schip, &assigned_scalar)?;
+        self.transcript
+            .common_scalar(self.ctx, self.nchip, self.schip, &assigned_scalar)?;
         Ok(())
     }
 
@@ -76,7 +78,7 @@ impl<
                     .iter()
                     .map(|p| {
                         self.transcript
-                            .common_point(self.ctx, self.nchip, self.schip, self.pchip, p)?;
+                            .common_point(self.ctx, self.nchip, self.schip, self.pchip, &p)?;
 
                         Ok(())
                     })
@@ -88,7 +90,8 @@ impl<
     }
 
     fn load_point(&mut self) -> Result<A::AssignedPoint, A::Error> {
-        self.transcript.read_point(self.ctx, self.nchip, self.schip, self.pchip)
+        self.transcript
+            .read_point(self.ctx, self.nchip, self.schip, self.pchip)
     }
 
     fn load_n_points(&mut self, n: usize) -> Result<Vec<A::AssignedPoint>, A::Error> {
@@ -114,7 +117,8 @@ impl<
     }
 
     fn load_scalar(&mut self) -> Result<A::AssignedScalar, A::Error> {
-        self.transcript.read_scalar(self.ctx, self.nchip, self.schip)
+        self.transcript
+            .read_scalar(self.ctx, self.nchip, self.schip)
     }
 
     fn load_n_scalars(&mut self, n: usize) -> Result<Vec<A::AssignedScalar>, A::Error> {
@@ -140,7 +144,8 @@ impl<
     }
 
     fn squeeze_challenge_scalar(&mut self) -> Result<A::AssignedScalar, A::Error> {
-        self.transcript.squeeze_challenge_scalar(self.ctx, self.nchip, self.schip)
+        self.transcript
+            .squeeze_challenge_scalar(self.ctx, self.nchip, self.schip)
     }
 
     fn rotate_omega(
@@ -155,7 +160,8 @@ impl<
             (omega, [at as u64, 0, 0, 0])
         };
         let omega_at = base.pow_vartime(exp);
-        self.schip.sum_with_coeff_and_constant(self.ctx, vec![(x, omega_at)], A::Scalar::zero())
+        self.schip
+            .sum_with_coeff_and_constant(self.ctx, vec![(x, omega_at)], A::Scalar::zero())
     }
 
     fn convert_expression(
@@ -203,8 +209,11 @@ impl<
                 while let Some(permutation_product_commitment) = iter.next() {
                     let permutation_product_eval = self.load_scalar()?;
                     let permutation_product_next_eval = self.load_scalar()?;
-                    let permutation_product_last_eval =
-                        if iter.len() > 0 { Some(self.load_scalar()?) } else { None };
+                    let permutation_product_last_eval = if iter.len() > 0 {
+                        Some(self.load_scalar()?)
+                    } else {
+                        None
+                    };
 
                     sets.push(permutation::EvaluatedSet {
                         permutation_product_commitment,
@@ -308,7 +317,10 @@ impl<
                                 .iter()
                                 .map(|expr| self.convert_expression(expr.clone()))
                                 .collect::<Result<Vec<_>, _>>()?,
-                            committed: lookup::Committed { permuted, product_commitment },
+                            committed: lookup::Committed {
+                                permuted,
+                                product_commitment,
+                            },
                             product_eval,
                             product_next_eval,
                             permuted_input_eval,
@@ -371,7 +383,7 @@ impl<
             .map(|lookups| {
                 // Hash each lookup product commitment
                 lookups
-                    .iter()
+                    .into_iter()
                     .map(|_| self.load_point())
                     .collect::<Result<Vec<_>, _>>()
             })
@@ -380,10 +392,10 @@ impl<
         let random_commitment = self.load_point()?;
 
         let y = self.squeeze_challenge_scalar()?;
-        let h_commitments = self.load_n_points(self.vk.get_domain().get_quotient_poly_degree())?;
+        let h_commitments = self.load_n_points(self.vk.domain_ref().get_quotient_poly_degree())?;
         let l = self.vk.cs().blinding_factors() as u32 + 1;
         let n = self.params.n() as u32;
-        let omega = self.vk.get_domain().get_omega();
+        let omega = self.vk.domain_ref().get_omega();
 
         let x = self.squeeze_challenge_scalar()?;
 
@@ -497,7 +509,7 @@ impl<
             v,
             omega: self
                 .schip
-                .assign_const(self.ctx, self.vk.get_domain().get_omega())?,
+                .assign_const(self.ctx, self.vk.domain_ref().get_omega())?,
             w,
             zero: self
                 .schip
@@ -505,9 +517,10 @@ impl<
             one: self
                 .schip
                 .assign_const(self.ctx, <E::G1Affine as CurveAffine>::ScalarExt::one())?,
-            n: self
-                .schip
-                .assign_const(self.ctx, <E::G1Affine as CurveAffine>::ScalarExt::from(n as u64))?,
+            n: self.schip.assign_const(
+                self.ctx,
+                <E::G1Affine as CurveAffine>::ScalarExt::from(n as u64),
+            )?,
         })
     }
 }
@@ -545,7 +558,7 @@ pub fn assign_instance_commitment<
 
                     let mut assigned_scalars = vec![];
                     for instance in instance.iter() {
-                        let s = schip.assign_var(ctx, *instance)?;
+                        let s = schip.assign_var(ctx, instance.clone())?;
                         assigned_scalars.push(s.clone());
                         plain_assigned_instances.push(s);
                     }
@@ -564,7 +577,11 @@ pub fn assign_instance_commitment<
                     let mut acc = None;
 
                     for (i, instance) in instance.iter().enumerate() {
-                        let ls = pchip.scalar_mul_constant(ctx, instance, params.get_g()[i])?;
+                        let ls = pchip.scalar_mul_constant(
+                            ctx,
+                            &instance,
+                            params.g_lagrange_ref()[i].clone(),
+                        )?;
 
                         match acc {
                             None => acc = Some(ls),
@@ -645,14 +662,16 @@ fn evaluate_multiopen_proof<
 ) -> Result<(A::AssignedPoint, A::AssignedPoint), A::Error> {
     let one = schip.assign_one(ctx)?;
 
-    println!("debug context before evaluate multiopen proof: {}", ctx);
-    let mut points = Vec::new();
-    let (left_s, left_e, mut points_wx) = proof.w_x.eval::<_, A>(ctx, schip, pchip, &one)?;
-    let (right_s, right_e, mut points_wg) = proof.w_g.eval::<_, A>(ctx, schip, pchip, &one)?;
-    points.append(&mut points_wx);
-    points.append(&mut points_wg);
-    print_points_profiling(&points);
-    let generator = pchip.assign_one(ctx)?;
+    // do not print ctx anymore! our ctx contains constants_to_assign and lookup_cells, very long
+    // println!("debug context before evaluate multiopen proof: {}", ctx);
+
+    // println!("w_x.eval");
+    let (left_s, left_e) = proof.w_x.eval::<_, A>(ctx, schip, pchip, &one)?;
+    // println!("w_g.eval");
+    let (right_s, right_e) = proof.w_g.eval::<_, A>(ctx, schip, pchip, &one)?;
+    // println!("right_s: {:#?}", right_s);
+    // println!("right_e: {:#?}", right_e);
+
     let left = match left_e {
         None => left_s,
         Some(eval) => {
@@ -668,7 +687,6 @@ fn evaluate_multiopen_proof<
         }
     };
 
-    // TODO: zzhang. should we re-enable this? at least log::error?
     /* FIXME: only for debugging purpose
 
     let left_v = pchip.to_value(&left)?;
@@ -751,8 +769,14 @@ pub fn verify_single_proof_in_chip<
         .map(|x| x.iter().map(|y| &y[..]).collect())
         .collect();
     let instances2: Vec<&[&[E::Scalar]]> = instances1.iter().map(|x| &x[..]).collect();
-    let (plain_assigned_instances, assigned_instances_commitment) =
-        assign_instance_commitment(ctx, schip, pchip, &instances2[..], circuit.vk, circuit.params)?;
+    let (plain_assigned_instances, assigned_instances_commitment) = assign_instance_commitment(
+        ctx,
+        schip,
+        pchip,
+        &instances2[..],
+        circuit.vk,
+        circuit.params,
+    )?;
 
     let (proof, advice_commitments) = verify_single_proof_no_eval(
         ctx,
@@ -774,7 +798,7 @@ pub fn verify_single_proof_in_chip<
 }
 
 pub fn verify_aggregation_proofs_in_chip<
-    E: MultiMillerLoop + Debug,
+    E: MultiMillerLoop +Debug,
     A: ArithEccChip<
         Point = E::G1Affine,
         Scalar = <E::G1Affine as CurveAffine>::ScalarExt,
@@ -853,7 +877,7 @@ pub fn verify_aggregation_proofs_in_chip<
                 transcript.common_scalar(ctx, nchip, schip, &scalar)?;
             }
 
-            r
+            return r;
         })
         .collect::<Result<Vec<Vec<(MultiOpenProof<A>, Vec<A::AssignedPoint>)>>, A::Error>>()?;
 

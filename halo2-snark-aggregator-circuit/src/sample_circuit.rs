@@ -1,4 +1,4 @@
-suse ark_std::{end_timer, start_timer};
+use ark_std::{end_timer, start_timer};
 use halo2_proofs::arithmetic::BaseExt;
 use halo2_proofs::plonk::keygen_vk;
 use halo2_proofs::plonk::{create_proof, keygen_pk};
