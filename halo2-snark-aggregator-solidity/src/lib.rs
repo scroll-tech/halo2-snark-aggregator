@@ -21,7 +21,8 @@ use halo2_snark_aggregator_api::systems::halo2::verify::{
 use halo2_snark_aggregator_circuit::fs::{load_target_circuit_params, load_target_circuit_vk};
 use halo2_snark_aggregator_circuit::sample_circuit::TargetCircuit;
 use halo2curves::bn256::Bn256;
-use halo2curves::pairing::{Engine, MultiMillerLoop};
+use halo2curves::group::{Curve, Group};
+use halo2curves::pairing::{Engine, MultiMillerLoop, MillerLoopResult};
 use halo2curves::FieldExt;
 use log::info;
 use num_bigint::BigUint;
@@ -258,6 +259,17 @@ impl<'a, E: MultiMillerLoop + Debug> MultiCircuitSolidityGenerate<'a, E> {
 
         let verify_circuit_s_g2 = get_xy_from_g2point::<E>(verify_params.s_g2());
         let verify_circuit_n_g2 = get_xy_from_g2point::<E>(-verify_params.g2());
+
+        let left_v = left.v.to_affine();
+        let right_v = right.v.to_affine();
+        let s_g2_prepared = E::G2Prepared::from(verify_params.s_g2());
+        let n_g2_prepared = E::G2Prepared::from(-verify_params.g2());
+        let success = bool::from(
+            E::multi_miller_loop(&[(&left_v, &s_g2_prepared), (&right_v, &n_g2_prepared)])
+                .final_exponentiation()
+                .is_identity(),
+        );
+        assert!(success);
 
         let sol_ctx = CodeGeneratorCtx {
             wx: (*left.expr).clone(),
