@@ -51,8 +51,8 @@ use halo2_snark_aggregator_api::systems::halo2::{
 };
 use halo2_snark_aggregator_api::transcript::sha::{ShaRead, ShaWrite};
 use halo2curves::bn256::{Bn256, Fr, G1Affine};
-use halo2curves::group::Curve;
-use halo2curves::pairing::{Engine, MultiMillerLoop};
+use halo2curves::group::{Curve, Group};
+use halo2curves::pairing::{Engine, MultiMillerLoop, MillerLoopResult};
 use log::info;
 use rand_core::OsRng;
 use std::env::var;
@@ -172,6 +172,24 @@ impl<
         )
         .unwrap();
 
+        {
+            // check final pair
+            let s_g2_prepared =
+                <E as MultiMillerLoop>::G2Prepared::from(self.0[0].params.s_g2());
+            let n_g2_prepared = <E as MultiMillerLoop>::G2Prepared::from(-self.0[0].params.g2());
+            let terms = &[(&(w_x.to_affine()), &s_g2_prepared), (&w_g.to_affine(), &n_g2_prepared)];
+            let success = bool::from(
+                <E as MultiMillerLoop>::multi_miller_loop(terms)
+                    .final_exponentiation()
+                    .is_identity(),
+            );
+            log::debug!(
+                "check final pairing({}): {:?}",
+                success,
+                (w_x.to_affine(), w_g.to_affine(), self.0[0].params.s_g2(), -self.0[0].params.g2())
+            );
+            //debug_assert!(success);
+        }
         (w_x.to_affine(), w_g.to_affine(), instances)
     }
 }
