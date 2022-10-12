@@ -5,6 +5,7 @@ use halo2_ecc::{
     fields::fp::FpConfig,
     gates::{Context, ContextParams},
 };
+use halo2_proofs::halo2curves::bn254::{Fq, Fr, G1Affine};
 use halo2_proofs::{
     arithmetic::CurveAffine,
     circuit::{Layouter, SimpleFloorPlanner},
@@ -14,7 +15,6 @@ use halo2_snark_aggregator_api::tests::systems::halo2::add_mul_test::{
     verify_aggregation::test_verify_aggregation_proof_in_chip,
     verify_single::test_verify_single_proof_in_chip,
 };
-use halo2curves::bn256::{Fq, Fr, G1Affine};
 use std::marker::PhantomData;
 
 enum TestCase {
@@ -199,9 +199,10 @@ impl Circuit<Fr> for TestCircuit<G1Affine> {
 
 #[cfg(test)]
 mod tests {
+    use halo2_proofs::poly::kzg::commitment::ParamsKZG;
     // use halo2_proofs::dev::MockProver;
-    use halo2_proofs::{plonk::keygen_vk, poly::commitment::Params};
-    use pairing_bn256::bn256::Bn256;
+    use halo2_proofs::halo2curves::bn254::Bn256;
+    use halo2_proofs::plonk::keygen_vk;
 
     use crate::fs::get_params_cached;
 
@@ -226,7 +227,7 @@ mod tests {
         println!("mock prover OK");
         */
 
-        let general_params: Params<G1Affine> = get_params_cached::<G1Affine, Bn256>(k);
+        let general_params: ParamsKZG<Bn256> = get_params_cached::<G1Affine, Bn256>(k);
         println!("starting keygen vk");
         keygen_vk(&general_params, &chip).expect("keygen_vk should not fail");
     }
@@ -241,7 +242,7 @@ mod tests {
             _phantom_n: PhantomData,
         };
 
-        let general_params: Params<G1Affine> = get_params_cached::<G1Affine, Bn256>(k);
+        let general_params: ParamsKZG<Bn256> = get_params_cached::<G1Affine, Bn256>(k);
         keygen_vk(&general_params, &chip).expect("keygen_vk should not fail");
         /*
         let prover = match MockProver::run(k, &chip, vec![]) {

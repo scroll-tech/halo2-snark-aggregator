@@ -5,6 +5,7 @@ use halo2_ecc::{
     fields::fp::FpConfig,
     gates::{Context, ContextParams},
 };
+use halo2_proofs::halo2curves::bn254::{Fq, Fr, G1Affine};
 use halo2_proofs::{
     arithmetic::CurveAffine,
     circuit::{Layouter, SimpleFloorPlanner},
@@ -14,7 +15,6 @@ use halo2_snark_aggregator_api::tests::systems::halo2::lookup_test::{
     verify_aggregation::test_verify_aggregation_proof_in_chip,
     verify_single::test_verify_single_proof_in_chip,
 };
-use halo2curves::bn256::{Fq, Fr, G1Affine};
 use std::marker::PhantomData;
 
 enum TestCase {
@@ -154,8 +154,7 @@ impl Circuit<Fr> for TestCircuit<G1Affine> {
                         }
                     }?;
                 }
-                let (const_rows, total_fixed, _) =
-                    config.base_field_config.finalize(ctx)?;
+                let (const_rows, total_fixed, _) = config.base_field_config.finalize(ctx)?;
 
                 let advice_rows = ctx.advice_rows.iter();
                 println!(

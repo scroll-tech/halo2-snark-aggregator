@@ -1,3 +1,4 @@
+use halo2_proofs::halo2curves::pairing::MultiMillerLoop;
 use halo2_proofs::{
     arithmetic::{Field, FieldExt},
     circuit::{AssignedCell, Chip, Layouter, Region, SimpleFloorPlanner, Value},
@@ -6,7 +7,6 @@ use halo2_proofs::{
 };
 use halo2_snark_aggregator_circuit::sample_circuit::TargetCircuit;
 use halo2_snark_aggregator_sdk::zkaggregate;
-use halo2curves::pairing::MultiMillerLoop;
 use rand_core::OsRng;
 use std::{io::Read, marker::PhantomData};
 use zkevm_circuits::tx_circuit::PrimeField;
@@ -71,7 +71,10 @@ pub struct FieldConfig {
 
 impl<F: FieldExt> FieldChip<F> {
     fn construct(config: <Self as Chip<F>>::Config) -> Self {
-        Self { config, _marker: PhantomData }
+        Self {
+            config,
+            _marker: PhantomData,
+        }
     }
 
     fn configure(
@@ -117,7 +120,11 @@ impl<F: FieldExt> FieldChip<F> {
             vec![s_mul * (lhs * rhs - out)]
         });
 
-        FieldConfig { advice, instance, s_mul }
+        FieldConfig {
+            advice,
+            instance,
+            s_mul,
+        }
     }
 }
 // ANCHOR_END: chip-config
@@ -242,15 +249,11 @@ pub struct MyCircuit<F: FieldExt> {
 
 impl<F: FieldExt> Default for MyCircuit<F> {
     fn default() -> Self {
-<<<<<<< HEAD
-        MyCircuit { constant: F::from(7u64), a: None, b: None }
-=======
         MyCircuit {
             constant: F::from(7u64),
             a: Value::unknown(),
             b: Value::unknown(),
         }
->>>>>>> scroll/scroll-dev-0920
     }
 }
 
@@ -316,15 +319,8 @@ impl<F: FieldExt> Circuit<F> for MyCircuit<F> {
 
 pub struct TestCircuit;
 
-<<<<<<< HEAD
-impl<C: CurveAffine, E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>> TargetCircuit<C, E>
-    for TestCircuit
-{
-    const TARGET_CIRCUIT_K: u32 = 8;
-=======
 impl<E: MultiMillerLoop> TargetCircuit<E> for TestCircuit {
     const TARGET_CIRCUIT_K: u32 = 7;
->>>>>>> scroll/scroll-dev-0920
     const PUBLIC_INPUT_SIZE: usize = 1;
     const N_PROOFS: usize = 1;
     const NAME: &'static str = "simple_example";
@@ -333,13 +329,6 @@ impl<E: MultiMillerLoop> TargetCircuit<E> for TestCircuit {
 
     type Circuit = MyCircuit<E::Scalar>;
 
-<<<<<<< HEAD
-    fn instance_builder() -> (Self::Circuit, Vec<Vec<C::ScalarExt>>) {
-        let constant = C::Scalar::from(7);
-        let a = C::Scalar::random(OsRng);
-        let b = C::Scalar::random(OsRng);
-        let circuit = MyCircuit { constant, a: Some(a), b: Some(b) };
-=======
     fn instance_builder() -> (Self::Circuit, Vec<Vec<E::Scalar>>) {
         let constant = E::Scalar::from(7);
         let a = E::Scalar::random(OsRng);
@@ -349,7 +338,6 @@ impl<E: MultiMillerLoop> TargetCircuit<E> for TestCircuit {
             a: Value::known(a),
             b: Value::known(b),
         };
->>>>>>> scroll/scroll-dev-0920
         let instances = vec![vec![constant * a.square() * b.square()]];
         (circuit, instances)
     }

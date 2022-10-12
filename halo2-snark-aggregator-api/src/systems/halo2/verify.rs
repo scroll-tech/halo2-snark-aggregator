@@ -10,6 +10,7 @@ use crate::scalar;
 use crate::transcript::read::TranscriptRead;
 use group::prime::PrimeCurveAffine;
 use halo2_proofs::arithmetic::{Field, FieldExt};
+use halo2_proofs::halo2curves::pairing::MultiMillerLoop;
 use halo2_proofs::poly::kzg::commitment::ParamsVerifierKZG;
 use halo2_proofs::poly::Rotation;
 use halo2_proofs::{
@@ -17,7 +18,6 @@ use halo2_proofs::{
     plonk::{Expression, VerifyingKey},
     poly::commitment::Params,
 };
-use halo2curves::pairing::MultiMillerLoop;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::vec;
@@ -798,7 +798,7 @@ pub fn verify_single_proof_in_chip<
 }
 
 pub fn verify_aggregation_proofs_in_chip<
-    E: MultiMillerLoop +Debug,
+    E: MultiMillerLoop + Debug,
     A: ArithEccChip<
         Point = E::G1Affine,
         Scalar = <E::G1Affine as CurveAffine>::ScalarExt,

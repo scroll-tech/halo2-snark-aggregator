@@ -1,28 +1,21 @@
 use std::marker::PhantomData;
 
 use super::ecc_chip::SolidityEccChip;
-<<<<<<< HEAD
-use halo2_ecc::utils::{biguint_to_fe as bn_to_field, fe_to_biguint as field_to_bn};
-use halo2_proofs::arithmetic::{BaseExt, CurveAffine, Field, FieldExt};
-=======
-use halo2_ecc_circuit_lib::utils::{bn_to_field, field_to_bn};
-use halo2_proofs::arithmetic::{CurveAffine, Field, FieldExt};
->>>>>>> scroll/scroll-dev-0920
+use halo2_proofs::{
+    arithmetic::{CurveAffine, Field, FieldExt},
+    halo2curves::group::ff::PrimeField,
+};
 use halo2_snark_aggregator_api::{
     arith::{common::ArithCommonChip, ecc::ArithEccChip},
+    mock::transcript_encode::{bn_to_field, field_to_bn},
     transcript::encode::Encode,
 };
-use pairing_bn256::group::ff::PrimeField;
 
 pub struct PoseidonEncode<A: ArithEccChip> {
     _phantom: PhantomData<A>,
 }
 
-<<<<<<< HEAD
-fn base_to_scalar<B: BaseExt + PrimeField, S: FieldExt>(base: &B) -> S {
-=======
 fn base_to_scalar<B: FieldExt, S: FieldExt>(base: &B) -> S {
->>>>>>> scroll/scroll-dev-0920
     let bn = field_to_bn(base);
     let modulus = field_to_bn(&-B::one()) + 1u64;
     let bn = bn % modulus;

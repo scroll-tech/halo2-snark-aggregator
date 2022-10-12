@@ -6,7 +6,7 @@ use halo2_ecc::{
     fields::{fp, FieldChip},
     gates::Context,
 };
-use halo2_proofs::{arithmetic::CurveAffine, plonk::Error};
+use halo2_proofs::{arithmetic::CurveAffine, circuit::Value, plonk::Error};
 use halo2_snark_aggregator_api::arith::{common::ArithCommonChip, ecc::ArithEccChip};
 use std::marker::PhantomData;
 
@@ -34,7 +34,10 @@ where
     C::Base: PrimeField,
 {
     pub fn new(field_chip: &'a FpChip<C>) -> Self {
-        EccChip { chip: ecc::EccChip::construct(field_chip), _marker: PhantomData }
+        EccChip {
+            chip: ecc::EccChip::construct(field_chip),
+            _marker: PhantomData,
+        }
     }
 }
 
@@ -98,15 +101,15 @@ where
         self.chip.load_private(
             ctx,
             (
-                Some(v.coordinates().unwrap().x().clone()),
-                Some(v.coordinates().unwrap().y().clone()),
+                Value::known(v.coordinates().unwrap().x().clone()),
+                Value::known(v.coordinates().unwrap().y().clone()),
             ),
         )
     }
 
     fn to_value(&self, v: &Self::AssignedValue) -> Result<Self::Value, Self::Error> {
-        let x = FpChip::<C>::get_assigned_value(&v.x).expect("x should not be None");
-        let y = FpChip::<C>::get_assigned_value(&v.y).expect("y should not be None");
+        let x = FpChip::<C>::get_assigned_value(&v.x).assign()?;
+        let y = FpChip::<C>::get_assigned_value(&v.y).assign()?;
         // CurveAffine allows x = 0 and y = 0 to means the point at infinity
         Ok(C::from_xy(x, y).unwrap())
     }
@@ -161,8 +164,8 @@ where
         rhs: Self::Point,
     ) -> Result<Self::AssignedPoint, Self::Error> {
         // only works if C::b(), which is an element of C::Base, actually fits into C::ScalarExt
-        let b_base = halo2_ecc::utils::fe_to_biguint(&C::b());
-        let b = halo2_ecc::utils::biguint_to_fe::<C::ScalarExt>(&b_base);
+        // let b_base = halo2_ecc::utils::fe_to_biguint(&C::b());
+        // let b = halo2_ecc::utils::biguint_to_fe::<C::ScalarExt>(&b_base);
 
         let fixed_point = ecc::fixed::FixedEccPoint::from_g1(
             &rhs,
@@ -173,7 +176,6 @@ where
             ctx,
             &fixed_point,
             &vec![lhs.0.clone()],
-            b,
             <C::Scalar as PrimeField>::NUM_BITS as usize,
             4,
         )
@@ -192,7 +194,10 @@ where
         self.chip.multi_scalar_mult::<C>(
             ctx,
             &points,
-            &scalars.iter().map(|scalar| vec![scalar.0.clone()]).collect(),
+            &scalars
+                .iter()
+                .map(|scalar| vec![scalar.0.clone()])
+                .collect(),
             b,
             <C::Scalar as PrimeField>::NUM_BITS as usize,
             4,

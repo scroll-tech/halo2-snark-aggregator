@@ -3,9 +3,9 @@ use crate::code_generator::ctx::{Expression, SolidityCodeGeneratorContext, Type}
 use halo2_ecc::utils::{biguint_to_fe as bn_to_field, fe_to_biguint as field_to_bn};
 use halo2_proofs::arithmetic::CurveAffine;
 use halo2_proofs::arithmetic::Field;
+use halo2_proofs::halo2curves::group::ff::PrimeField;
+use halo2_proofs::halo2curves::group::Curve;
 use halo2_snark_aggregator_api::arith::{common::ArithCommonChip, ecc::ArithEccChip};
-use halo2curves::group::ff::PrimeField;
-use halo2curves::group::Curve;
 use num_bigint::BigUint;
 use std::{marker::PhantomData, rc::Rc};
 

@@ -9,6 +9,8 @@ use crate::{
     tests::systems::halo2::add_mul_test::test_circuit::test_circuit_builder,
     transcript::encode::Encode,
 };
+use halo2_proofs::halo2curves::bn254::Fr as Fp;
+use halo2_proofs::halo2curves::bn254::{Bn256, G1Affine};
 use halo2_proofs::{
     arithmetic::{CurveAffine, Field},
     poly::{
@@ -23,8 +25,6 @@ use halo2_proofs::{
     plonk::{create_proof, keygen_pk, keygen_vk},
     transcript::{Challenge255, PoseidonWrite},
 };
-use halo2curves::bn256::Fr as Fp;
-use halo2curves::bn256::{Bn256, G1Affine};
 use rand::{thread_rng, SeedableRng};
 use rand_pcg::Pcg32;
 use rand_xorshift::XorShiftRng;

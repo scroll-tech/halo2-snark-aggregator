@@ -1,5 +1,7 @@
+use crate::fs::{load_target_circuit_params, load_target_circuit_vk};
 use ark_std::{end_timer, start_timer};
-use halo2_proofs::arithmetic::BaseExt;
+use halo2_proofs::halo2curves::group::ff::PrimeField;
+use halo2_proofs::halo2curves::pairing::{Engine, MultiMillerLoop};
 use halo2_proofs::plonk::keygen_vk;
 use halo2_proofs::plonk::{create_proof, keygen_pk};
 use halo2_proofs::poly::kzg::commitment::{KZGCommitmentScheme, ParamsKZG};
@@ -8,16 +10,11 @@ use halo2_proofs::poly::kzg::strategy::SingleStrategy;
 use halo2_proofs::transcript::PoseidonRead;
 use halo2_proofs::transcript::{Challenge255, PoseidonWrite};
 use halo2_proofs::{plonk::Circuit, poly::commitment::Params};
-use halo2curves::group::ff::PrimeField;
-use halo2curves::pairing::{Engine, MultiMillerLoop};
 use rand_core::OsRng;
 use std::fmt::Debug;
 use std::io::Write;
 
-// use crate::fs::{load_target_circuit_vk,load_target_circuit_params};
-use crate::fs::get_params_cached;
-
-pub trait TargetCircuit<E: MultiMillerLoop> {
+pub trait TargetCircuit<E: Engine> {
     const TARGET_CIRCUIT_K: u32;
     const PUBLIC_INPUT_SIZE: usize;
     const N_PROOFS: usize;
@@ -31,7 +28,7 @@ pub trait TargetCircuit<E: MultiMillerLoop> {
     fn load_instances(buf: &[u8]) -> Vec<Vec<Vec<<E as Engine>::Scalar>>>;
 }
 
-pub fn sample_circuit_setup<E: MultiMillerLoop + Debug, CIRCUIT: TargetCircuit<E>>(
+pub fn sample_circuit_setup<E: Engine + Debug, CIRCUIT: TargetCircuit<E>>(
     mut folder: std::path::PathBuf,
 ) {
     // TODO: Do not use setup in production
@@ -68,11 +65,12 @@ pub fn sample_circuit_random_run<E: MultiMillerLoop + Debug, CIRCUIT: TargetCirc
     end_timer!(vk_time);
     let pk_time = start_timer!(|| format!("{} target pk time", CIRCUIT::NAME));
     let pk = keygen_pk(&params, vk, &circuit).expect("keygen_pk should not fail");
-    end_timer!(vk_time);
+    end_timer!(pk_time);
 
     // let instances: &[&[&[C::Scalar]]] = &[&[&[constant * a.square() * b.square()]]];
     let instances: &[&[&[_]]] = &[instances];
     let mut transcript = PoseidonWrite::<_, E::G1Affine, Challenge255<_>>::init(vec![]);
+    let pf_time = start_timer!(|| format!("{} prove time", CIRCUIT::NAME));
     create_proof::<KZGCommitmentScheme<_>, ProverGWC<_>, _, _, _, _>(
         &params,
         &pk,
@@ -86,14 +84,22 @@ pub fn sample_circuit_random_run<E: MultiMillerLoop + Debug, CIRCUIT: TargetCirc
     end_timer!(pf_time);
 
     {
-        folder.push(format!("sample_circuit_proof_{}{}.data", CIRCUIT::NAME, index));
+        folder.push(format!(
+            "sample_circuit_proof_{}{}.data",
+            CIRCUIT::NAME,
+            index
+        ));
         let mut fd = std::fs::File::create(folder.as_path()).unwrap();
         folder.pop();
         fd.write_all(&proof).unwrap();
     }
 
     {
-        folder.push(format!("sample_circuit_instance_{}{}.data", CIRCUIT::NAME, index));
+        folder.push(format!(
+            "sample_circuit_instance_{}{}.data",
+            CIRCUIT::NAME,
+            index
+        ));
         let mut fd = std::fs::File::create(folder.as_path()).unwrap();
         folder.pop();
         instances.iter().for_each(|l1| {

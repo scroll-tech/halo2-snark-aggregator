@@ -6,11 +6,14 @@ authors = ["zhangjunyu <junyu92@gmail.com>"]
 
 [dependencies]
 clap = { version = "3.1.11", features = ["derive"] }
-halo2_ecc = { git = "ssh://git@github.com/scroll-tech/halo2-ecc.git", branch = "pippenger", default-features = false }
+# halo2_ecc = { git = "ssh://git@github.com/scroll-tech/halo2-ecc.git", branch = "pippenger", default-features = false }
+halo2_ecc = { path = "../../halo2-ecc" }
 halo2-snark-aggregator-api = { path = "../halo2-snark-aggregator-api" }
-halo2_proofs = { git = "https://github.com/scroll-tech/halo2.git", branch = "scroll-dev-0902" }
+ff = "0.12"
+# halo2_proofs = { git = "https://github.com/scroll-tech/halo2.git", branch = "scroll-dev-0902" }
 log = "0.4.17"
-halo2curves = { git = 'https://github.com/privacy-scaling-explorations/halo2curves', tag = "0.2.1" }
+halo2_proofs = { path = "../../halo2/halo2_proofs" }
+# halo2_proofs = { git = "https://github.com/scroll-tech/halo2.git", branch = "scroll-dev-0902" }
 rand = "0.8.5"
 rand_core = "0.6.3"
 serde = { version = "1.0", features = ["derive"] }

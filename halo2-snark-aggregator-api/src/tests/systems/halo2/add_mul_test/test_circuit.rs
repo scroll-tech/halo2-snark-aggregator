@@ -1,10 +1,10 @@
+use halo2_proofs::halo2curves::bn254::Fr as Fp;
 use halo2_proofs::{
     arithmetic::FieldExt,
     circuit::{AssignedCell, Chip, Layouter, Region, SimpleFloorPlanner, Value},
     plonk::{Advice, Circuit, Column, ConstraintSystem, Error, Fixed, Instance, Selector},
     poly::Rotation,
 };
-use halo2curves::bn256::Fr as Fp;
 use std::marker::PhantomData;
 
 // ANCHOR: instructions

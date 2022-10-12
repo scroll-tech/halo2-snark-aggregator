@@ -2,6 +2,7 @@ use crate::chips::ecc_chip::SolidityEccExpr;
 use crate::chips::scalar_chip::SolidityFieldExpr;
 use crate::code_generator::ctx::SolidityCodeGeneratorContext;
 use halo2_ecc::utils::fe_to_biguint as field_to_bn;
+use halo2_proofs::halo2curves::group::Curve;
 use halo2_proofs::transcript::EncodedChallenge;
 use halo2_proofs::transcript::{Challenge255, Transcript, TranscriptRead};
 use halo2_proofs::{arithmetic::CurveAffine, plonk::Error};
@@ -12,7 +13,6 @@ use halo2_snark_aggregator_api::{
     hash::poseidon::PoseidonChip,
     transcript::{encode::Encode, read::TranscriptRead as APITranscriptRead},
 };
-use halo2curves::group::Curve;
 use std::{io, marker::PhantomData};
 
 pub struct CodegenTranscriptRead<

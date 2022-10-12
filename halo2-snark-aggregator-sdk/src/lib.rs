@@ -19,7 +19,7 @@ macro_rules! zkaggregate {
             };
             use halo2_snark_aggregator_solidity::{SolidityGenerate, MultiCircuitSolidityGenerate};
             use log::info;
-            use halo2curves::bn256::{Bn256, Fr, G1Affine};
+            use halo2_proofs::halo2curves::bn254::{Bn256, Fr, G1Affine};
             use std::io::{Cursor, Read, Write};
             use std::marker::PhantomData;
             use std::path::PathBuf;
@@ -111,7 +111,7 @@ macro_rules! zkaggregate {
                 fn dispatch_verify_setup(&self) {
                     let setup: [Setup<_, _>; $n] = [
                         $(
-                            Setup::new::<$x, _>(&self.folder, &<$x as TargetCircuit< Bn256>>::load_instances),
+                            Setup::new::<$x, _>(&self.folder, &<$x as TargetCircuit<Bn256>>::load_instances),
                         )*
                     ];
 
@@ -131,7 +131,7 @@ macro_rules! zkaggregate {
                 fn dispatch_verify_run(&self) {
                     let target_circuit_proofs: [CreateProof<_, _>; $n] = [
                         $(
-                            CreateProof::new::<$x, _>(&self.folder, &<$x as TargetCircuit< Bn256>>::load_instances),
+                            CreateProof::new::<$x, _>(&self.folder, &<$x as TargetCircuit<Bn256>>::load_instances),
                         )*
                     ];
 

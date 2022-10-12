@@ -1,4 +1,12 @@
-use crate::{sample_circuit::TargetCircuit, verify_circuit::Halo2VerifierCircuit};
+use crate::{
+    sample_circuit::TargetCircuit,
+    verify_circuit::{Halo2VerifierCircuit, Halo2VerifierCircuits},
+};
+use halo2_proofs::halo2curves::{
+    bn254::{Bn256, Fr, G1Affine},
+    pairing::MultiMillerLoop,
+};
+use halo2_proofs::halo2curves::{group::ff::PrimeField, pairing::Engine};
 use halo2_proofs::{
     arithmetic::CurveAffine,
     plonk::{keygen_vk, VerifyingKey},
@@ -7,11 +15,6 @@ use halo2_proofs::{
         kzg::commitment::{KZGCommitmentScheme, ParamsKZG},
     },
 };
-use halo2curves::{
-    bn256::{Bn256, Fr, G1Affine},
-    pairing::MultiMillerLoop,
-};
-use halo2curves::{group::ff::PrimeField, pairing::Engine};
 use std::{
     fmt::Debug,
     io::{Cursor, Read, Write},
@@ -37,7 +40,7 @@ pub fn write_file(folder: &mut PathBuf, filename: &str, buf: &Vec<u8>) {
     fd.write_all(buf).unwrap();
 }
 
-pub fn read_target_circuit_params<E: MultiMillerLoop, Circuit: TargetCircuit<E>>(
+pub fn read_target_circuit_params<E: Engine, Circuit: TargetCircuit<E>>(
     folder: &mut PathBuf,
 ) -> Vec<u8> {
     read_file(
@@ -46,7 +49,7 @@ pub fn read_target_circuit_params<E: MultiMillerLoop, Circuit: TargetCircuit<E>>
     )
 }
 
-pub fn load_target_circuit_params<E: MultiMillerLoop + Debug, Circuit: TargetCircuit<E>>(
+pub fn load_target_circuit_params<E: Engine + Debug, Circuit: TargetCircuit<E>>(
     folder: &mut PathBuf,
 ) -> ParamsKZG<E> {
     KZGCommitmentScheme::<E>::read_params(&mut Cursor::new(
@@ -55,7 +58,7 @@ pub fn load_target_circuit_params<E: MultiMillerLoop + Debug, Circuit: TargetCir
     .unwrap()
 }
 
-pub fn read_target_circuit_vk<E: MultiMillerLoop, Circuit: TargetCircuit<E>>(
+pub fn read_target_circuit_vk<E: Engine, Circuit: TargetCircuit<E>>(
     folder: &mut PathBuf,
 ) -> Vec<u8> {
     read_file(
@@ -64,7 +67,7 @@ pub fn read_target_circuit_vk<E: MultiMillerLoop, Circuit: TargetCircuit<E>>(
     )
 }
 
-pub fn load_target_circuit_vk<E: MultiMillerLoop + Debug, Circuit: TargetCircuit<E>>(
+pub fn load_target_circuit_vk<E: Engine + Debug, Circuit: TargetCircuit<E>>(
     folder: &mut PathBuf,
     params: &ParamsKZG<E>,
 ) -> VerifyingKey<E::G1Affine> {
@@ -106,12 +109,9 @@ pub fn read_verify_circuit_params(folder: &mut PathBuf) -> Vec<u8> {
     read_file(folder, "verify_circuit.params")
 }
 
-pub fn get_params_cached<
-    C: CurveAffine,
-    E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>,
->(
+pub fn get_params_cached<C: CurveAffine, E: Engine<G1Affine = C, Scalar = C::ScalarExt> + Debug>(
     k: u32,
-) -> Params<C> {
+) -> ParamsKZG<E> {
     let mut params_folder = std::path::PathBuf::new();
     params_folder.push("../params");
     if !params_folder.is_dir() {
@@ -126,9 +126,9 @@ pub fn get_params_cached<
     if Path::exists(path) {
         println!("read params from {:?}", path);
         let mut fd = std::fs::File::open(path).unwrap();
-        Params::<C>::read(&mut fd).unwrap()
+        ParamsKZG::<E>::read(&mut fd).unwrap()
     } else {
-        let params = Params::<C>::unsafe_setup::<E>(k);
+        let params = ParamsKZG::<E>::unsafe_setup(k);
         println!("write params to {:?}", path);
         let mut fd = std::fs::File::create(path).unwrap();
         params.write(&mut fd).unwrap();
@@ -153,7 +153,7 @@ pub fn load_verify_circuit_vk(folder: &mut PathBuf) -> VerifyingKey<G1Affine> {
     folder.pop();
 
     VerifyingKey::<G1Affine>::read::<_, Halo2VerifierCircuit<'_, Bn256>, Bn256, _>(
-        &mut Cursor::new(&read_verify_circuit_vk(&mut folder.clone())),
+        &mut f,
         &load_verify_circuit_params(&mut folder.clone()),
     )
     .unwrap()
@@ -162,13 +162,13 @@ pub fn load_verify_circuit_vk(folder: &mut PathBuf) -> VerifyingKey<G1Affine> {
 // currently assuming N in Halo2VerifierCircuits is 1
 pub fn load_verify_circuit_vk_cached_params(
     folder: &mut PathBuf,
-    verify_circuit_params: &Params<G1Affine>,
+    verify_circuit_params: &ParamsKZG<Bn256>,
 ) -> VerifyingKey<G1Affine> {
     folder.push("verify_circuit.vkey");
     let mut f = std::fs::File::open(folder.as_path()).unwrap();
     folder.pop();
 
-    VerifyingKey::<G1Affine>::read::<_, Halo2VerifierCircuits<'_, Bn256, 1>>(
+    VerifyingKey::<G1Affine>::read::<_, Halo2VerifierCircuits<'_, Bn256, 1>, Bn256, _>(
         &mut f,
         verify_circuit_params,
     )

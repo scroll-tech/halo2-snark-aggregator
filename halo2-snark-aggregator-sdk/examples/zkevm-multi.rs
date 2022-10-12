@@ -1,11 +1,11 @@
 use eth_types::Field;
+use halo2_proofs::halo2curves::bn254::{Bn256, Fr, G1Affine};
 use halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner},
     plonk::{Circuit, ConstraintSystem, Error, Expression},
 };
 use halo2_snark_aggregator_circuit::sample_circuit::TargetCircuit;
 use halo2_snark_aggregator_sdk::zkaggregate;
-use pairing_bn256::bn256::{Bn256, Fr, G1Affine};
 use zkevm_circuits::evm_circuit::{
     witness::{Block, RwMap},
     EvmCircuit,
@@ -59,7 +59,7 @@ impl<F: Field> Circuit<F> for TestCircuit<F> {
     }
 }
 
-impl TargetCircuit<G1Affine, Bn256> for TestCircuit<Fr> {
+impl TargetCircuit<Bn256> for TestCircuit<Fr> {
     const TARGET_CIRCUIT_K: u32 = 18;
     const PUBLIC_INPUT_SIZE: usize = (Self::TARGET_CIRCUIT_K * 2) as usize;
     const N_PROOFS: usize = 1;
@@ -73,7 +73,7 @@ impl TargetCircuit<G1Affine, Bn256> for TestCircuit<Fr> {
         (Self::Circuit::default(), vec![])
     }
 
-    fn load_instances(_buf: &Vec<u8>) -> Vec<Vec<Vec<Fr>>> {
+    fn load_instances(_buf: &[u8]) -> Vec<Vec<Vec<Fr>>> {
         vec![vec![]]
     }
 }
@@ -82,7 +82,7 @@ type ZkEvm = TestCircuit<Fr>;
 
 pub struct ZkState;
 
-impl TargetCircuit<G1Affine, Bn256> for ZkState {
+impl TargetCircuit<Bn256> for ZkState {
     const TARGET_CIRCUIT_K: u32 = 18;
     const PUBLIC_INPUT_SIZE: usize = (Self::TARGET_CIRCUIT_K * 2) as usize;
     const N_PROOFS: usize = 1;
@@ -93,10 +93,13 @@ impl TargetCircuit<G1Affine, Bn256> for ZkState {
     type Circuit = StateCircuit<Fr>;
 
     fn instance_builder() -> (Self::Circuit, Vec<Vec<Fr>>) {
-        (StateCircuit::<Fr>::new(Fr::default(), RwMap::default(), 1 << 16), vec![])
+        (
+            StateCircuit::<Fr>::new(Fr::default(), RwMap::default(), 1 << 16),
+            vec![],
+        )
     }
 
-    fn load_instances(_buf: &Vec<u8>) -> Vec<Vec<Vec<Fr>>> {
+    fn load_instances(_buf: &[u8]) -> Vec<Vec<Vec<Fr>>> {
         vec![vec![]]
     }
 }
