@@ -1,5 +1,5 @@
 use eth_types::Field;
-use halo2_proofs::halo2curves::bn256::{Bn256, Fr, G1Affine};
+use halo2_proofs::halo2curves::bn256::{Bn256, Fr};
 use halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner},
     plonk::{Circuit, ConstraintSystem, Error, Expression},

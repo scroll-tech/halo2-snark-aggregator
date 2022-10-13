@@ -158,7 +158,7 @@ macro_rules! zkaggregate {
                         )*
                     ];
 
-                    let request = MultiCircuitSolidityGenerate::<G1Affine, $n> {
+                    let request = MultiCircuitSolidityGenerate::<Bn256, $n> {
                         target_circuits_params,
                         verify_params: verify_circuit_params,
                         verify_vk: pk.get_vk(),
@@ -167,7 +167,7 @@ macro_rules! zkaggregate {
                         verify_public_inputs_size: self.compute_verify_public_input_size(),
                     };
 
-                    let sol = request.call::<Bn256>(self.template_folder.clone().unwrap());
+                    let sol = request.call(self.template_folder.clone().unwrap());
 
                     write_verify_circuit_solidity(
                         &mut self.folder.clone(),
@@ -190,8 +190,8 @@ macro_rules! zkaggregate {
                         )*
                     ];
 
-                    let request = MultiCircuitSolidityGenerate::<Bn256> {
-                        //target_circuits_params,
+                    let request = MultiCircuitSolidityGenerate::<Bn256, $n> {
+                        target_circuits_params,
                         verify_params: &load_verify_circuit_params(&mut self.folder.clone()),
                         verify_vk: &load_verify_circuit_vk(&mut self.folder.clone()),
                         verify_circuit_instance: load_verify_circuit_instance(
