@@ -1,4 +1,4 @@
-use halo2_proofs::halo2curves::bn254::Fr as Fp;
+use halo2_proofs::halo2curves::bn256::Fr as Fp;
 use halo2_proofs::{
     arithmetic::FieldExt,
     circuit::{Layouter, SimpleFloorPlanner, Value},

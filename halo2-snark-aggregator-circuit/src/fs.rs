@@ -3,7 +3,7 @@ use crate::{
     verify_circuit::{Halo2VerifierCircuit, Halo2VerifierCircuits},
 };
 use halo2_proofs::halo2curves::{
-    bn254::{Bn256, Fr, G1Affine},
+    bn256::{Bn256, Fr, G1Affine},
     pairing::MultiMillerLoop,
 };
 use halo2_proofs::halo2curves::{group::ff::PrimeField, pairing::Engine};
@@ -118,7 +118,7 @@ pub fn get_params_cached<C: CurveAffine, E: Engine<G1Affine = C, Scalar = C::Sca
         std::fs::create_dir(params_folder.as_path())
             .expect("params folder creation should not fail");
     }
-    params_folder.push(format!("bn254_{}.params", k));
+    params_folder.push(format!("bn256_{}.params", k));
 
     let path = params_folder.as_path();
 

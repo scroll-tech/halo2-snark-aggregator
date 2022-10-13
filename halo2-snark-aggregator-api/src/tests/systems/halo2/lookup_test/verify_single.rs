@@ -7,8 +7,8 @@ use crate::{
     tests::systems::halo2::lookup_test::test_circuit::test_circuit_builder,
     transcript::encode::Encode,
 };
-use halo2_proofs::halo2curves::bn254::Fr as Fp;
-use halo2_proofs::halo2curves::bn254::{Bn256, G1Affine};
+use halo2_proofs::halo2curves::bn256::Fr as Fp;
+use halo2_proofs::halo2curves::bn256::{Bn256, G1Affine};
 use halo2_proofs::{
     arithmetic::CurveAffine,
     poly::{

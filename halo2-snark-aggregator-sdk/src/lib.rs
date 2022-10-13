@@ -19,7 +19,7 @@ macro_rules! zkaggregate {
             };
             use halo2_snark_aggregator_solidity::{SolidityGenerate, MultiCircuitSolidityGenerate};
             use log::info;
-            use halo2_proofs::halo2curves::bn254::{Bn256, Fr, G1Affine};
+            use halo2_proofs::halo2curves::bn256::{Bn256, Fr, G1Affine};
             use std::io::{Cursor, Read, Write};
             use std::marker::PhantomData;
             use std::path::PathBuf;

@@ -5,7 +5,7 @@ use halo2_proofs::{
 };
 use halo2_snark_aggregator_circuit::sample_circuit::TargetCircuit;
 use halo2_snark_aggregator_sdk::zkaggregate;
-use halo2curves::bn256::{Bn256, Fr};
+use halo2_proofs::halo2curves::bn256::{Bn256, Fr};
 use zkevm_circuits::evm_circuit::{witness::Block, EvmCircuit};
 use zkevm_circuits::table::{BlockTable, BytecodeTable, RwTable, TxTable};
 

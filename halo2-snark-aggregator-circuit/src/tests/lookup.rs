@@ -5,7 +5,7 @@ use halo2_ecc::{
     fields::fp::FpConfig,
     gates::{Context, ContextParams},
 };
-use halo2_proofs::halo2curves::bn254::{Fq, Fr, G1Affine};
+use halo2_proofs::halo2curves::bn256::{Fq, Fr, G1Affine};
 use halo2_proofs::{
     arithmetic::CurveAffine,
     circuit::{Layouter, SimpleFloorPlanner},

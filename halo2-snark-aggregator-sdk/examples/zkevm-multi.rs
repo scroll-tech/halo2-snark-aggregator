@@ -1,5 +1,5 @@
 use eth_types::Field;
-use halo2_proofs::halo2curves::bn254::{Bn256, Fr, G1Affine};
+use halo2_proofs::halo2curves::bn256::{Bn256, Fr, G1Affine};
 use halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner},
     plonk::{Circuit, ConstraintSystem, Error, Expression},
@@ -58,7 +58,6 @@ impl<F: Field> Circuit<F> for TestCircuit<F> {
         Ok(())
     }
 }
-
 impl TargetCircuit<Bn256> for TestCircuit<Fr> {
     const TARGET_CIRCUIT_K: u32 = 18;
     const PUBLIC_INPUT_SIZE: usize = (Self::TARGET_CIRCUIT_K * 2) as usize;

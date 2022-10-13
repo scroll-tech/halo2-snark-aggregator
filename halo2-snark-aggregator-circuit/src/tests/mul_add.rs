@@ -5,7 +5,7 @@ use halo2_ecc::{
     fields::fp::FpConfig,
     gates::{Context, ContextParams},
 };
-use halo2_proofs::halo2curves::bn254::{Fq, Fr, G1Affine};
+use halo2_proofs::halo2curves::bn256::{Fq, Fr, G1Affine};
 use halo2_proofs::{
     arithmetic::CurveAffine,
     circuit::{Layouter, SimpleFloorPlanner},
@@ -201,7 +201,7 @@ impl Circuit<Fr> for TestCircuit<G1Affine> {
 mod tests {
     use halo2_proofs::poly::kzg::commitment::ParamsKZG;
     // use halo2_proofs::dev::MockProver;
-    use halo2_proofs::halo2curves::bn254::Bn256;
+    use halo2_proofs::halo2curves::bn256::Bn256;
     use halo2_proofs::plonk::keygen_vk;
 
     use crate::fs::get_params_cached;

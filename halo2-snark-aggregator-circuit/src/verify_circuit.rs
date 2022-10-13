@@ -18,7 +18,7 @@ use halo2_ecc::{
     gates::{Context, ContextParams, GateInstructions},
 };
 use halo2_proofs::circuit::{AssignedCell, SimpleFloorPlanner};
-use halo2_proofs::halo2curves::bn254::{Bn256, Fr, G1Affine};
+use halo2_proofs::halo2curves::bn256::{Bn256, Fr, G1Affine};
 use halo2_proofs::halo2curves::group::Curve;
 use halo2_proofs::halo2curves::pairing::Engine;
 use halo2_proofs::halo2curves::pairing::MultiMillerLoop;

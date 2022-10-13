@@ -5,11 +5,11 @@ edition = "2021"
 authors = ["zhangjunyu <junyu92@gmail.com>"]
 
 [dependencies]
-halo2_proofs = { path = "../../halo2/halo2_proofs" }
-# halo2_proofs = { git = "https://github.com/scroll-tech/halo2.git", branch = "scroll-dev-0902" }
+# halo2_proofs = { path = "../../halo2/halo2_proofs" }
+halo2_proofs = { git = "https://github.com/scroll-tech/halo2.git", branch = "sync-halo2-ecc-1013" }
 halo2-snark-aggregator-api = { path = "../halo2-snark-aggregator-api" }
 halo2-snark-aggregator-circuit = { path = "../halo2-snark-aggregator-circuit" }
-halo2_ecc = { path = "../../halo2-ecc" }
+halo2_ecc = { git = "ssh://git@github.com/scroll-tech/halo2-ecc.git", branch = "sync-halo2-ecc-1013", default-features = false }
 
 log = "0.4.17"
 num-bigint = { version = "0.4", features = ["rand"] }

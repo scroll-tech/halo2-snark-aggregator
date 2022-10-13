@@ -11,8 +11,8 @@ use crate::{
     },
 };
 use halo2_proofs::arithmetic::{CurveAffine, Field};
-use halo2_proofs::halo2curves::bn254::Fr as Fp;
-use halo2_proofs::halo2curves::bn254::{Bn256, G1Affine};
+use halo2_proofs::halo2curves::bn256::Fr as Fp;
+use halo2_proofs::halo2curves::bn256::{Bn256, G1Affine};
 use halo2_proofs::poly::commitment::ParamsProver;
 use halo2_proofs::poly::kzg::commitment::ParamsVerifierKZG;
 use halo2_proofs::poly::kzg::multiopen::ProverGWC;
