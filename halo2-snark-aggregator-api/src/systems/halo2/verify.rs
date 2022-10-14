@@ -10,6 +10,7 @@ use crate::scalar;
 use crate::systems::halo2::evaluation::print_points_profiling;
 use crate::transcript::read::TranscriptRead;
 use group::prime::PrimeCurveAffine;
+use group::Group;
 use halo2_proofs::arithmetic::{Field, FieldExt};
 use halo2_proofs::poly::commitment::{Params, ParamsProver};
 use halo2_proofs::poly::kzg::commitment::{ParamsKZG, ParamsVerifierKZG};
@@ -18,6 +19,7 @@ use halo2_proofs::{
     arithmetic::CurveAffine,
     plonk::{Expression, VerifyingKey},
 };
+use halo2curves::pairing::MillerLoopResult;
 use halo2curves::pairing::MultiMillerLoop;
 use std::fmt::Debug;
 use std::marker::PhantomData;
@@ -393,6 +395,7 @@ impl<
         let random_commitment = self.load_point()?;
 
         let y = self.squeeze_challenge_scalar()?;
+
         let h_commitments = self.load_n_points(self.vk.get_domain().get_quotient_poly_degree())?;
         let l = self.vk.cs().blinding_factors() as u32 + 1;
         let n = self.params.n() as u32;
@@ -426,12 +429,13 @@ impl<
             .collect::<Result<Vec<_>, _>>()?;
 
         let v = self.squeeze_challenge_scalar()?;
-        let u = self.squeeze_challenge_scalar()?;
 
         let mut w = vec![];
         while let Ok(p) = self.load_point() {
             w.push(p);
         }
+
+        let u = self.squeeze_challenge_scalar()?;
 
         let x_next = self.rotate_omega(&x, omega, 1)?;
         let x_last = self.rotate_omega(&x, omega, -(l as i32))?;
@@ -637,13 +641,13 @@ pub fn verify_single_proof_no_eval<
     let chip_params = params_builder.build_params()?;
     let advice_commitments = chip_params.advice_commitments.clone();
     Ok((
-        chip_params.batch_multi_open_proofs(ctx, schip)?,
+        chip_params.batch_multi_open_proofs(ctx, schip, pchip)?,
         advice_commitments[0].clone(),
     ))
 }
 
 fn evaluate_multiopen_proof<
-    E: MultiMillerLoop,
+    E: MultiMillerLoop + Debug,
     A: ArithEccChip<
         Point = E::G1Affine,
         Scalar = <E::G1Affine as CurveAffine>::ScalarExt,
@@ -655,7 +659,7 @@ fn evaluate_multiopen_proof<
     schip: &A::ScalarChip,
     pchip: &A,
     proof: MultiOpenProof<A>,
-    //params: &ParamsVerifier<E>,  only for debugging purpose
+    params: &ParamsVerifierKZG<E>,
 ) -> Result<(A::AssignedPoint, A::AssignedPoint), A::Error> {
     let one = schip.assign_one(ctx)?;
 
@@ -682,14 +686,11 @@ fn evaluate_multiopen_proof<
         }
     };
 
-    // TODO: zzhang. should we re-enable this? at least log::error?
-    /* FIXME: only for debugging purpose
-
     let left_v = pchip.to_value(&left)?;
     let right_v = pchip.to_value(&right)?;
 
-    let s_g2_prepared = E::G2Prepared::from(params.s_g2);
-    let n_g2_prepared = E::G2Prepared::from(-params.g2);
+    let s_g2_prepared = E::G2Prepared::from(params.s_g2());
+    let n_g2_prepared = E::G2Prepared::from(-params.g2());
     let success = bool::from(
         E::multi_miller_loop(&[(&left_v, &s_g2_prepared), (&right_v, &n_g2_prepared)])
             .final_exponentiation()
@@ -697,7 +698,6 @@ fn evaluate_multiopen_proof<
     );
     assert!(success);
 
-    */
     println!("debug context after evaluate multiopen proof: {}", ctx);
 
     Ok((left, right))
@@ -787,8 +787,7 @@ pub fn verify_single_proof_in_chip<
     )?;
 
     print!("get single proof {}", circuit.name);
-    let (w_x, w_g) =
-        evaluate_multiopen_proof::<E, A, T>(ctx, schip, pchip, proof /*, circuit.params*/)?;
+    let (w_x, w_g) = evaluate_multiopen_proof::<E, A, T>(ctx, schip, pchip, proof, circuit.params)?;
     Ok((w_x, w_g, plain_assigned_instances, advice_commitments))
 }
 
@@ -897,6 +896,6 @@ pub fn verify_aggregation_proofs_in_chip<
     }
     let aggregated_proof = acc.unwrap();
 
-    evaluate_multiopen_proof::<E, A, T>(ctx, schip, pchip, aggregated_proof)
+    evaluate_multiopen_proof::<E, A, T>(ctx, schip, pchip, aggregated_proof, circuits[0].params)
         .map(|pair| (pair.0, pair.1, plain_assigned_instances, commits))
 }

@@ -264,10 +264,7 @@ impl<'a, E: MultiMillerLoop + Debug> MultiCircuitSolidityGenerate<'a, E> {
         let right_v = right.v.to_affine();
         let s_g2_prepared = E::G2Prepared::from(self.verify_params.s_g2());
         let n_g2_prepared = E::G2Prepared::from(-self.verify_params.g2());
-        let (term_1, term_2) = (
-            (&left_v.into(), &s_g2_prepared),
-            (&right_v.into(), &n_g2_prepared),
-        );
+        let (term_1, term_2) = ((&left_v, &s_g2_prepared), (&right_v, &n_g2_prepared));
         let terms = &[term_1, term_2];
         let success = bool::from(
             E::multi_miller_loop(terms)

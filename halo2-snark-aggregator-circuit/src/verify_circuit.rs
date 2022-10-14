@@ -172,7 +172,7 @@ impl<
         )
         .unwrap();
 
-        {
+        if false {
             // check final pair
             let s_g2_prepared = <E as MultiMillerLoop>::G2Prepared::from(self.0[0].params.s_g2());
             let n_g2_prepared = <E as MultiMillerLoop>::G2Prepared::from(-self.0[0].params.g2());
@@ -195,7 +195,7 @@ impl<
                     -self.0[0].params.g2()
                 )
             );
-            //debug_assert!(success);
+            debug_assert!(success);
         }
         (w_x.to_affine(), w_g.to_affine(), instances)
     }
