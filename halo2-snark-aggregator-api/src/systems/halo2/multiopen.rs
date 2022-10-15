@@ -1,5 +1,3 @@
-use std::collections::BTreeMap;
-
 use crate::{
     arith::ecc::ArithEccChip, commit, scalar, systems::halo2::evaluation::EvaluationQuerySchema,
 };
@@ -26,18 +24,27 @@ impl<A: ArithEccChip> VerifierParams<A> {
         &'a self,
         ctx: &mut A::Context,
         schip: &A::ScalarChip,
+        _pchip: &A,
     ) -> Result<Vec<EvaluationProof<A>>, A::Error> {
         let queries = self.queries(ctx, schip)?;
 
-        let mut points: BTreeMap<i32, (_, Vec<_>)> = BTreeMap::new();
+        let mut points: Vec<(i32, (_, Vec<_>))> = Vec::new();
+
         for query in queries {
-            if let Some(queries) = points.get_mut(&query.rotation) {
-                queries.1.push(query.s);
+            if let Some(pos) = points
+                .iter()
+                .position(|(rotation, _)| *rotation == query.rotation)
+            {
+                let (_, schemas) = &mut points[pos];
+                schemas.1.push(query.s);
             } else {
-                points.insert(query.rotation, (query.point, vec![query.s]));
+                points.push((query.rotation, (query.point, vec![query.s])));
             }
         }
 
+        // update 2020.10.14(zzhang): self.w here is not sorted by rotation
+        // check https://github.com/privacy-scaling-explorations/halo2/blob/main/halo2_proofs/src/poly/kzg/multiopen/gwc/prover.rs
+        // for more details
         assert_eq!(self.w.len(), points.len());
 
         points
@@ -49,6 +56,7 @@ impl<A: ArithEccChip> VerifierParams<A> {
                 let acc =
                     p.1 .1
                         .into_iter()
+                        .rev()
                         .reduce(|acc, q| scalar!(self.v) * acc + q);
 
                 Ok(EvaluationProof {
@@ -64,13 +72,14 @@ impl<A: ArithEccChip> VerifierParams<A> {
         &self,
         ctx: &mut A::Context,
         schip: &A::ScalarChip,
+        pchip: &A,
     ) -> Result<MultiOpenProof<A>, A::Error> {
-        let proofs = self.get_point_schemas(ctx, schip)?;
+        let proofs = self.get_point_schemas(ctx, schip, pchip)?;
 
         let mut w_x = None;
         let mut w_g = None;
 
-        for (i, p) in proofs.into_iter().enumerate() {
+        for (i, p) in proofs.into_iter().enumerate().rev() {
             let s = &p.s;
             let w = CommitQuery {
                 key: format!("{}_w{}", self.key, i),

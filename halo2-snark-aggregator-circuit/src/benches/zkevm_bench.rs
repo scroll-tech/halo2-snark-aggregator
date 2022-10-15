@@ -131,7 +131,7 @@ fn setup_sample_circuit() -> (
     let strategy: SingleStrategy<Bn256> = VerificationStrategy::<
         KZGCommitmentScheme<Bn256>,
         VerifierGWC<Bn256>,
-    >::new(&verifier_params);
+    >::new(verifier_params);
 
     // Bench verification time
     let start3 = start_timer!(|| "EVM Proof verification");
@@ -149,7 +149,7 @@ fn setup_sample_circuit() -> (
         .iter()
         .map(|l1| {
             l1.iter()
-                .map(|l2| l2.iter().map(|c: &Fr| *c).collect::<Vec<Fr>>())
+                .map(|l2| l2.iter().copied().collect::<Vec<Fr>>())
                 .collect::<Vec<Vec<Fr>>>()
         })
         .collect::<Vec<Vec<Vec<Fr>>>>();
@@ -205,7 +205,7 @@ mod evm_circ_benches {
         let instances = calc_verify_circuit_instances(
             String::from("zkevm"),
             &target_circuit_verifier_params,
-            &target_circuit_pk.get_vk(),
+            target_circuit_pk.get_vk(),
             &vec![instances1],
             &vec![proof1],
         );
