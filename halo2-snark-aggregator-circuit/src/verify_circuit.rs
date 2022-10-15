@@ -172,7 +172,7 @@ impl<
         )
         .unwrap();
 
-        if false {
+        if true {
             // check final pair
             let s_g2_prepared = <E as MultiMillerLoop>::G2Prepared::from(self.0[0].params.s_g2());
             let n_g2_prepared = <E as MultiMillerLoop>::G2Prepared::from(-self.0[0].params.g2());
