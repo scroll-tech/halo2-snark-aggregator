@@ -696,7 +696,7 @@ fn evaluate_multiopen_proof<
             .final_exponentiation()
             .is_identity(),
     );
-    assert!(success);
+    println!("evaluate_multiopen_proof pairing check {}", success);
 
     println!("debug context after evaluate multiopen proof: {}", ctx);
 
