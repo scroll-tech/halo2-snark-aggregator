@@ -20,7 +20,9 @@ use halo2_ecc::{
 use halo2_proofs::circuit::{AssignedCell, SimpleFloorPlanner};
 use halo2_proofs::halo2curves::bn256::{Bn256, Fr, G1Affine};
 use halo2_proofs::halo2curves::group::Curve;
+use halo2_proofs::halo2curves::group::Group;
 use halo2_proofs::halo2curves::pairing::Engine;
+use halo2_proofs::halo2curves::pairing::MillerLoopResult;
 use halo2_proofs::halo2curves::pairing::MultiMillerLoop;
 use halo2_proofs::plonk::{create_proof, keygen_vk, ProvingKey};
 use halo2_proofs::plonk::{Column, Instance};
@@ -183,6 +185,31 @@ impl<
         )
         .unwrap();
 
+        if true {
+            // check final pair
+            let s_g2_prepared = <E as MultiMillerLoop>::G2Prepared::from(self.0[0].params.s_g2());
+            let n_g2_prepared = <E as MultiMillerLoop>::G2Prepared::from(-self.0[0].params.g2());
+            let terms = &[
+                (&(w_x.to_affine()), &s_g2_prepared),
+                (&w_g.to_affine(), &n_g2_prepared),
+            ];
+            let success = bool::from(
+                <E as MultiMillerLoop>::multi_miller_loop(terms)
+                    .final_exponentiation()
+                    .is_identity(),
+            );
+            log::debug!(
+                "check final pairing({}): {:?}",
+                success,
+                (
+                    w_x.to_affine(),
+                    w_g.to_affine(),
+                    self.0[0].params.s_g2(),
+                    -self.0[0].params.g2()
+                )
+            );
+            debug_assert!(success);
+        }
         (w_x.to_affine(), w_g.to_affine(), instances)
     }
 }

@@ -16,6 +16,8 @@ use code_generator::ctx::{CodeGeneratorCtx, G2Point, Statement};
 use halo2_proofs::arithmetic::CurveAffine;
 use halo2_proofs::arithmetic::Field;
 use halo2_proofs::halo2curves::group::ff::PrimeField;
+use halo2_proofs::halo2curves::group::{Curve, Group};
+use halo2_proofs::halo2curves::pairing::MillerLoopResult;
 use halo2_proofs::halo2curves::pairing::{Engine, MultiMillerLoop};
 use halo2_proofs::plonk::{keygen_vk, VerifyingKey};
 use halo2_proofs::poly::commitment::ParamsProver;
@@ -31,18 +33,8 @@ use tera::{Context, Tera};
 
 fn render_verifier_sol_template<C: CurveAffine>(
     args: CodeGeneratorCtx,
-    template_folder: std::path::PathBuf,
+    _template_folder: std::path::PathBuf,
 ) -> String {
-    let path = format!(
-        "{}/*",
-        template_folder
-            .as_path()
-            .canonicalize()
-            .unwrap()
-            .to_str()
-            .unwrap()
-    );
-    let tera = Tera::new(&path).unwrap();
     let mut ctx = Context::new();
     let mut opcodes = vec![];
     let mut incremental_ident = 0u64;
@@ -131,7 +123,7 @@ fn render_verifier_sol_template<C: CurveAffine>(
     ctx.insert("memory_size", &args.memory_size);
     ctx.insert("instance_size", &args.instance_size);
     ctx.insert("absorbing_length", &args.absorbing_length);
-    tera.render("verifier.sol", &ctx)
+    Tera::one_off(include_str!("../templates/verifier.sol"), &ctx, false)
         .expect("failed to render template")
 }
 
@@ -287,8 +279,31 @@ impl<'a, E: MultiMillerLoop + Debug, const N: usize> MultiCircuitSolidityGenerat
             }
         };
 
-        let verify_circuit_s_g2 = get_xy_from_g2point::<E>(verify_params.s_g2());
-        let verify_circuit_n_g2 = get_xy_from_g2point::<E>(-verify_params.g2());
+        let verify_circuit_s_g2 = get_xy_from_g2point::<E>(self.verify_params.s_g2());
+        let verify_circuit_n_g2 = get_xy_from_g2point::<E>(-self.verify_params.g2());
+
+        let left_v = left.v.to_affine();
+        let right_v = right.v.to_affine();
+        let s_g2_prepared = E::G2Prepared::from(self.verify_params.s_g2());
+        let n_g2_prepared = E::G2Prepared::from(-self.verify_params.g2());
+        let (term_1, term_2) = ((&left_v, &s_g2_prepared), (&right_v, &n_g2_prepared));
+        let terms = &[term_1, term_2];
+        let success = bool::from(
+            E::multi_miller_loop(terms)
+                .final_exponentiation()
+                .is_identity(),
+        );
+        log::debug!(
+            "check pairing in solidity generation: {:?}({})",
+            (
+                left_v,
+                right_v,
+                self.verify_params.s_g2(),
+                -self.verify_params.g2()
+            ),
+            success
+        );
+        //assert!(success);
 
         let sol_ctx = CodeGeneratorCtx {
             wx: (*left.expr).clone(),
