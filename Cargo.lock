@@ -63,9 +63,9 @@ checksum = "8da52d66c7071e2e3fa2a1e5c6d088fec47b593032b254f5e980de8ea54454d6"
 
 [[package]]
 name = "async-trait"
-version = "0.1.57"
+version = "0.1.58"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "76464446b8bc32758d7e88ee1a804d9914cd9b1cb264c029899680b0be29826f"
+checksum = "1e805d94e6b5001b651426cf4cd446b1ab5f319d27bab5c644f61de0a804360c"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -281,9 +281,9 @@ dependencies = [
 
 [[package]]
 name = "bumpalo"
-version = "3.11.0"
+version = "3.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c1ad822118d20d2c234f427000d5acc36eabe1e29a348c89b63dd60b13f28e5d"
+checksum = "572f695136211188308f16ad2ca5c851a712c464060ae6974944458eb83880ba"
 
 [[package]]
 name = "bus-mapping"
@@ -505,7 +505,7 @@ dependencies = [
  "serde",
  "serde_derive",
  "sha2 0.10.6",
- "sha3 0.10.5",
+ "sha3 0.10.6",
  "thiserror",
 ]
 
@@ -881,7 +881,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.6",
- "sha3 0.10.5",
+ "sha3 0.10.6",
  "thiserror",
  "uuid",
 ]
@@ -904,7 +904,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with",
- "sha3 0.10.5",
+ "sha3 0.10.6",
  "subtle",
  "uint",
 ]
@@ -921,7 +921,7 @@ dependencies = [
  "regex",
  "serde",
  "serde_json",
- "sha3 0.10.5",
+ "sha3 0.10.6",
  "thiserror",
  "uint",
 ]
@@ -1398,7 +1398,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.6",
- "sha3 0.10.5",
+ "sha3 0.10.6",
  "zkevm-circuits",
 ]
 
@@ -1433,7 +1433,7 @@ dependencies = [
  "halo2_proofs",
  "log",
  "num-bigint",
- "sha3 0.10.5",
+ "sha3 0.10.6",
  "tera",
 ]
 
@@ -1458,13 +1458,14 @@ dependencies = [
 [[package]]
 name = "halo2_proofs"
 version = "0.2.0"
-source = "git+https://github.com/scroll-tech/halo2.git?branch=sync-halo2-ecc-1013#39e95510b363187b5fd3835a5a40999de167fb5b"
+source = "git+https://github.com/scroll-tech/halo2.git?branch=sync-halo2-ecc-1013#e161143b394f3018158fd1ca1268dfaf3bf26f54"
 dependencies = [
  "blake2b_simd",
  "cfg-if 0.1.10",
  "ff",
  "group",
  "halo2curves",
+ "log",
  "num-bigint",
  "num-integer",
  "poseidon",
@@ -1845,7 +1846,7 @@ dependencies = [
  "ecdsa 0.14.8",
  "elliptic-curve",
  "sha2 0.10.6",
- "sha3 0.10.5",
+ "sha3 0.10.6",
 ]
 
 [[package]]
@@ -2708,9 +2709,9 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.20.6"
+version = "0.20.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5aab8ee6c7097ed6057f43c187a62418d0c05a4bd5f18b3571db50ee0f9ce033"
+checksum = "539a2bfe908f471bfa933876bd1eb6a19cf2176d375f82ef7f99530a40e48c2c"
 dependencies = [
  "log",
  "ring",
@@ -2955,9 +2956,9 @@ dependencies = [
 
 [[package]]
 name = "sha3"
-version = "0.10.5"
+version = "0.10.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e2904bea16a1ae962b483322a1c7b81d976029203aea1f461e51cd7705db7ba9"
+checksum = "bdf0c33fae925bdc080598b84bc15c55e7b9a4a43b3c704da051f977469691c9"
 dependencies = [
  "digest 0.10.5",
  "keccak",
@@ -3769,7 +3770,7 @@ dependencies = [
  "num-bigint",
  "rand",
  "rand_xorshift",
- "sha3 0.10.5",
+ "sha3 0.10.6",
  "strum",
  "strum_macros",
  "subtle",
