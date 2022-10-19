@@ -31,7 +31,6 @@ jobs:
       - name: Build
         uses: actions-rs/cargo@v1
         with:          
-          repo-token: ${{ github.token }}
           command: build
           args: --features ${{ matrix.feature }}
 
@@ -57,7 +56,6 @@ jobs:
       - name: Test
         uses: actions-rs/cargo@v1
         with:          
-          repo-token: ${{ github.token }}
           command: test
           args: --verbose --release --all --features ${{ matrix.feature }}
 
@@ -76,7 +74,6 @@ jobs:
           ssh-private-key: ${{ secrets.SECRET_REPO_DEPLOY_KEY }}
       - uses: actions-rs/cargo@v1
         with:          
-          repo-token: ${{ github.token }}
           command: fmt
           args: --all -- --check
 
@@ -97,6 +94,5 @@ jobs:
       - name: Bench
         uses: actions-rs/cargo@v1
         with:          
-          repo-token: ${{ github.token }}
           command: test
 
