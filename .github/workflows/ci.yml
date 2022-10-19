@@ -5,6 +5,9 @@ on:
     branches:
       - main
 
+env:
+  CARGO_NET_GIT_FETCH_WITH_CLI: true
+
 jobs:
   build:
     if: github.event.pull_request.draft == false
@@ -21,11 +24,13 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           override: true
-          toolchain: ${{ matrix.rust }}
+          toolchain: nightly
+      - uses: webfactory/ssh-agent@v0.5.4
+        with:
+          ssh-private-key: ${{ secrets.SECRET_REPO_DEPLOY_KEY }}
       - name: Build
         uses: actions-rs/cargo@v1
         with:          
-          repo-token: ${{ github.token }}
           command: build
           args: --features ${{ matrix.feature }}
 
@@ -44,11 +49,13 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           override: true
-          toolchain: ${{ matrix.rust }}
+          toolchain: nightly
+      - uses: webfactory/ssh-agent@v0.5.4
+        with:
+          ssh-private-key: ${{ secrets.SECRET_REPO_DEPLOY_KEY }}
       - name: Test
         uses: actions-rs/cargo@v1
         with:          
-          repo-token: ${{ github.token }}
           command: test
           args: --verbose --release --all --features ${{ matrix.feature }}
 
@@ -62,9 +69,11 @@ jobs:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
       - run: rustup component add rustfmt
+      - uses: webfactory/ssh-agent@v0.5.4
+        with:
+          ssh-private-key: ${{ secrets.SECRET_REPO_DEPLOY_KEY }}
       - uses: actions-rs/cargo@v1
         with:          
-          repo-token: ${{ github.token }}
           command: fmt
           args: --all -- --check
 
@@ -79,9 +88,11 @@ jobs:
         with:
           override: true
           toolchain: nightly
+      - uses: webfactory/ssh-agent@v0.5.4
+        with:
+          ssh-private-key: ${{ secrets.SECRET_REPO_DEPLOY_KEY }}
       - name: Bench
         uses: actions-rs/cargo@v1
         with:          
-          repo-token: ${{ github.token }}
           command: test
 
