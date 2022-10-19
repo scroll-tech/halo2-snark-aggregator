@@ -16,7 +16,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - rust: 1.65.0-nightly
+          - rust: 1.63.0
             feature: default
 
     steps:
@@ -24,7 +24,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           override: true
-          toolchain: ${{ matrix.rust }}
+          toolchain: nightly
       - uses: webfactory/ssh-agent@v0.5.4
         with:
           ssh-private-key: ${{ secrets.SECRET_REPO_DEPLOY_KEY }}
@@ -41,7 +41,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - rust: 1.65.0-nightly
+          - rust: 1.63.0
             feature: default
 
     steps:
@@ -49,7 +49,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           override: true
-          toolchain: ${{ matrix.rust }}
+          toolchain: nightly
       - uses: webfactory/ssh-agent@v0.5.4
         with:
           ssh-private-key: ${{ secrets.SECRET_REPO_DEPLOY_KEY }}
