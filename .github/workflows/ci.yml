@@ -16,7 +16,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - rust: 1.63.0
+          - rust: 1.65.0-nightly
             feature: default
 
     steps:
@@ -41,7 +41,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - rust: 1.63.0
+          - rust: 1.65.0-nightly
             feature: default
 
     steps:
