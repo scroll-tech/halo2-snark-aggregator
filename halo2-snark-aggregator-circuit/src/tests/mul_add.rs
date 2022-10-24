@@ -91,13 +91,9 @@ impl Circuit<Fr> for TestCircuit<G1Affine> {
     }
 
     fn configure(meta: &mut ConstraintSystem<Fr>) -> Self::Config {
-        let mut folder = std::path::PathBuf::new();
-        folder.push("./src/configs");
-        folder.push("verify_circuit.config");
-        let params_str = std::fs::read_to_string(folder.as_path())
-            .expect("src/configs/verify_circuit.config file should exist");
+        let params_str = include_str!("../configs/verify_circuit.config");
         let params: crate::verify_circuit::Halo2VerifierCircuitConfigParams =
-            serde_json::from_str(params_str.as_str()).unwrap();
+            serde_json::from_str(params_str).unwrap();
 
         println!("{}", serde_json::to_string_pretty(&params).unwrap());
 
@@ -145,12 +141,14 @@ impl Circuit<Fr> for TestCircuit<G1Affine> {
                 let ctx = &mut aux;
 
                 let round = 1;
-                for _ in 0..round {
+                for _i in 0..round {
                     match self.test_case {
                         TestCase::Single => {
+                            println!("single");
                             self.setup_single_proof_verify_test(&config.base_field_config, ctx)
                         }
                         TestCase::Aggregation => {
+                            println!("Aggregation");
                             self.setup_aggregation_proof_verify_test(&config.base_field_config, ctx)
                         }
                     }?;
@@ -228,7 +226,6 @@ mod tests {
         */
 
         let general_params: ParamsKZG<Bn256> = get_params_cached::<G1Affine, Bn256>(k);
-        println!("starting keygen vk");
         keygen_vk(&general_params, &chip).expect("keygen_vk should not fail");
     }
 

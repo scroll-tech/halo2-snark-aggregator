@@ -1,4 +1,4 @@
-use super::evaluation::EvaluationQuerySchema;
+use super::evaluation::{print_points_profiling, EvaluationQuerySchema};
 use super::multiopen::MultiOpenProof;
 use super::params::{PlonkCommonSetup, VerifierParams};
 use super::{
@@ -9,9 +9,7 @@ use crate::arith::{common::ArithCommonChip, ecc::ArithEccChip, field::ArithField
 use crate::scalar;
 use crate::transcript::read::TranscriptRead;
 use group::prime::PrimeCurveAffine;
-use group::Group;
 use halo2_proofs::arithmetic::{Field, FieldExt};
-use halo2_proofs::halo2curves::pairing::MillerLoopResult;
 use halo2_proofs::halo2curves::pairing::MultiMillerLoop;
 use halo2_proofs::poly::kzg::commitment::ParamsVerifierKZG;
 use halo2_proofs::poly::Rotation;
@@ -339,6 +337,7 @@ impl<
     }
 
     pub fn build_params(mut self) -> Result<VerifierParams<A>, A::Error> {
+        // get the challenges
         self.init_transcript()?;
 
         self.squeeze_instance_commitment()?;
@@ -646,6 +645,8 @@ pub fn verify_single_proof_no_eval<
     ))
 }
 
+/// Evaluate multi-open proofs. Generate the `left` and `right`
+/// inputs to the pairing product. Defer the pairing checks.
 fn evaluate_multiopen_proof<
     E: MultiMillerLoop + Debug,
     A: ArithEccChip<
@@ -659,48 +660,39 @@ fn evaluate_multiopen_proof<
     schip: &A::ScalarChip,
     pchip: &A,
     proof: MultiOpenProof<A>,
-    params: &ParamsVerifierKZG<E>,
+    _params: &ParamsVerifierKZG<E>,
 ) -> Result<(A::AssignedPoint, A::AssignedPoint), A::Error> {
     let one = schip.assign_one(ctx)?;
 
     // do not print ctx anymore! our ctx contains constants_to_assign and lookup_cells, very long
     // println!("debug context before evaluate multiopen proof: {}", ctx);
+    let mut points = Vec::new();
+    let (left_s, left_e, mut points_wx) = proof.w_x.eval::<_, A>(ctx, schip, pchip, &one)?;
+    let (right_s, right_e, mut points_wg) = proof.w_g.eval::<_, A>(ctx, schip, pchip, &one)?;
+    points.append(&mut points_wx);
+    points.append(&mut points_wg);
+    print_points_profiling(&points);
 
-    // println!("w_x.eval");
-    let (left_s, left_e) = proof.w_x.eval::<_, A>(ctx, schip, pchip, &one)?;
-    // println!("w_g.eval");
-    let (right_s, right_e) = proof.w_g.eval::<_, A>(ctx, schip, pchip, &one)?;
-    // println!("right_s: {:#?}", right_s);
-    // println!("right_e: {:#?}", right_e);
+    let generator = pchip.assign_one(ctx)?;
 
     let left = match left_e {
         None => left_s,
         Some(eval) => {
-            let s = pchip.scalar_mul_constant(ctx, &eval, E::G1Affine::generator())?;
+            let s = pchip.scalar_mul(ctx, &eval, &generator)?;
+            // let s = pchip.scalar_mul_constant(ctx, &eval, E::G1Affine::generator())?;
             pchip.add(ctx, &left_s, &s)?
         }
     };
     let right = match right_e {
         None => right_s,
         Some(eval) => {
-            let s = pchip.scalar_mul_constant(ctx, &eval, E::G1Affine::generator())?;
+            let s = pchip.scalar_mul(ctx, &eval, &generator)?;
+            // let s = pchip.scalar_mul_constant(ctx, &eval, E::G1Affine::generator())?;
             pchip.sub(ctx, &right_s, &s)?
         }
     };
 
-    let left_v = pchip.to_value(&left)?;
-    let right_v = pchip.to_value(&right)?;
-
-    let s_g2_prepared = E::G2Prepared::from(params.s_g2());
-    let n_g2_prepared = E::G2Prepared::from(-params.g2());
-    let success = bool::from(
-        E::multi_miller_loop(&[(&left_v, &s_g2_prepared), (&right_v, &n_g2_prepared)])
-            .final_exponentiation()
-            .is_identity(),
-    );
-    println!("evaluate_multiopen_proof pairing check {}", success);
-
-    println!("debug context after evaluate multiopen proof: {}", ctx);
+    // println!("debug context after evaluate multiopen proof: {}", ctx);
 
     Ok((left, right))
 }
@@ -761,6 +753,7 @@ pub fn verify_single_proof_in_chip<
     ),
     A::Error,
 > {
+    // assign instances
     let instances1: Vec<Vec<&[E::Scalar]>> = circuit.proofs[0]
         .instances
         .iter()
@@ -776,6 +769,7 @@ pub fn verify_single_proof_in_chip<
         circuit.params,
     )?;
 
+    // Verify the polynomial.
     let (proof, advice_commitments) = verify_single_proof_no_eval(
         ctx,
         nchip,
@@ -788,7 +782,8 @@ pub fn verify_single_proof_in_chip<
         "".to_owned(),
     )?;
 
-    print!("get single proof {}", circuit.name);
+    // Evaluate the multi-open proof, generate the the `left` and `right` input to pairing product.
+    // Defer the pairing product check to the caller.
     let (w_x, w_g) = evaluate_multiopen_proof::<E, A, T>(ctx, schip, pchip, proof, circuit.params)?;
     Ok((w_x, w_g, plain_assigned_instances, advice_commitments))
 }
@@ -860,8 +855,6 @@ pub fn verify_aggregation_proofs_in_chip<
                         &mut proof.transcript,
                         proof.key.clone(),
                     )?;
-
-                    println!("get proof {} {}", circuit_proof.name, p);
 
                     Ok((p, c))
                 })

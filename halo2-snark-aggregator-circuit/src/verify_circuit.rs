@@ -135,7 +135,7 @@ impl<
             .0
             .iter()
             .enumerate()
-            .map(|(ci, instance)| {
+            .map(|(_ci, instance)| {
                 let mut proof_data_list = vec![];
                 for (i, instances) in instance.n_instances.iter().enumerate() {
                     let transcript =
@@ -144,14 +144,14 @@ impl<
                             ctx,
                             &schip,
                             8usize,
-                            33usize,
+                            63usize,
                         )
                         .unwrap();
 
                     proof_data_list.push(ProofData {
                         instances,
                         transcript,
-                        key: format!("c{}p{}", ci, i),
+                        key: format!("{}_p{}", instance.name, i),
                         _phantom: PhantomData,
                     })
                 }
@@ -172,7 +172,7 @@ impl<
                 ctx,
                 &nchip,
                 8usize,
-                33usize,
+                63usize,
             )
             .unwrap();
         let (w_x, w_g, instances, _) = verify_aggregation_proofs_in_chip(
@@ -239,13 +239,8 @@ where
     }
 
     fn configure(meta: &mut ConstraintSystem<C::ScalarExt>) -> Self::Config {
-        let mut folder = std::path::PathBuf::new();
-        folder.push("../halo2-snark-aggregator-circuit/src/configs");
-        folder.push("verify_circuit.config");
-        let params_str = std::fs::read_to_string(folder.as_path())
-            .expect(format!("{} should exist", folder.to_str().unwrap()).as_str());
-        let params: Halo2VerifierCircuitConfigParams =
-            serde_json::from_str(params_str.as_str()).unwrap();
+        let params_str = include_str!("configs/verify_circuit.config");
+        let params: Halo2VerifierCircuitConfigParams = serde_json::from_str(params_str).unwrap();
 
         assert!(
             params.limb_bits == LIMB_BITS,
@@ -495,7 +490,7 @@ where
                         ctx,
                         schip,
                         8usize,
-                        33usize,
+                        63usize,
                     )?;
 
                     proof_data_list.push(ProofData {
@@ -569,13 +564,8 @@ where
     }
 
     fn configure(meta: &mut ConstraintSystem<C::ScalarExt>) -> Self::Config {
-        let mut folder = std::path::PathBuf::new();
-        folder.push("../halo2-snark-aggregator-circuit/src/configs");
-        folder.push("verify_circuit.config");
-        let params_str = std::fs::read_to_string(folder.as_path())
-            .expect(format!("{} should exist", folder.to_str().unwrap()).as_str());
-        let params: Halo2VerifierCircuitConfigParams =
-            serde_json::from_str(params_str.as_str()).unwrap();
+        let params_str = include_str!("configs/verify_circuit.config");
+        let params: Halo2VerifierCircuitConfigParams = serde_json::from_str(params_str).unwrap();
 
         assert!(
             params.limb_bits == LIMB_BITS,

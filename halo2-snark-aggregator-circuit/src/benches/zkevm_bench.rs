@@ -2,6 +2,7 @@
 //!
 use ark_std::{end_timer, start_timer};
 use eth_types::Field;
+use halo2_proofs::halo2curves::bn256::{Bn256, Fr, G1Affine};
 use halo2_proofs::poly::{
     commitment::ParamsProver,
     kzg::{commitment::KZGCommitmentScheme, strategy::SingleStrategy},
@@ -20,7 +21,6 @@ use halo2_proofs::{
     },
     transcript::{Challenge255, PoseidonRead, PoseidonWrite},
 };
-use halo2curves::bn256::{Bn256, Fr, G1Affine};
 use rand_core::OsRng;
 use zkevm_circuits::evm_circuit::{witness::Block, EvmCircuit};
 
@@ -30,7 +30,6 @@ pub struct TestCircuit<F> {
 }
 
 const DEGREE_OF_EVM_CIRCUIT: u32 = 18;
-const K: u32 = 25u32;
 
 impl<F: Field> Circuit<F> for TestCircuit<F> {
     type Config = EvmCircuit<F>;
@@ -137,8 +136,8 @@ fn setup_sample_circuit() -> (
     let start3 = start_timer!(|| "EVM Proof verification");
     println!(
         "Proof verification result: {:#?}",
-        verify_proof(
-            &verifier_params,
+        verify_proof::<_, VerifierGWC<_>, _, _, _>(
+            verifier_params,
             pk.get_vk(),
             strategy,
             instances,
@@ -146,14 +145,6 @@ fn setup_sample_circuit() -> (
         )
         .unwrap()
     );
-    verify_proof::<_, VerifierGWC<_>, _, _, _>(
-        verifier_params,
-        pk.get_vk(),
-        strategy,
-        instances,
-        &mut verifier_transcript,
-    )
-    .unwrap();
     end_timer!(start3);
 
     let instances = instances

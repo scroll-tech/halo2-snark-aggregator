@@ -23,8 +23,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
-          override: true
-          toolchain: nightly
+          override: false
       - uses: webfactory/ssh-agent@v0.5.4
         with:
           ssh-private-key: ${{ secrets.SECRET_REPO_DEPLOY_KEY }}
@@ -48,8 +47,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
-          override: true
-          toolchain: nightly
+          override: false
       - uses: webfactory/ssh-agent@v0.5.4
         with:
           ssh-private-key: ${{ secrets.SECRET_REPO_DEPLOY_KEY }}
@@ -86,8 +84,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
-          override: true
-          toolchain: nightly
+          override: false
       - uses: webfactory/ssh-agent@v0.5.4
         with:
           ssh-private-key: ${{ secrets.SECRET_REPO_DEPLOY_KEY }}

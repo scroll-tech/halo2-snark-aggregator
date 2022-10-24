@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use group::prime::PrimeCurveAffine;
 use halo2_proofs::arithmetic::FieldExt;
 
@@ -125,6 +127,48 @@ impl<A: ArithEccChip> EvaluationQuery<A> {
     }
 }
 
+pub fn print_points_profiling(point_list: &[String]) {
+    log::debug!("===== BEGIN: Halo2VerifierCircuit rows cost estimation ========");
+    let n = point_list.len();
+    let ecmul_rows = 32196;
+    let rows = n * ecmul_rows;
+    let mut k = 18;
+    loop {
+        if 1 << k > rows {
+            break;
+        }
+        k += 1;
+    }
+    log::debug!("total ecmul: {}", n);
+    log::debug!(
+        "rows needed by ecmul: {} = {} * {} = {:.2} * 2**{}",
+        rows,
+        n,
+        ecmul_rows,
+        (rows as f64) / ((1 << k) as f64),
+        k
+    );
+    log::debug!("at least need k: {}", k);
+    let counter = point_list
+        .iter()
+        .cloned()
+        .fold(BTreeMap::new(), |mut map, val| {
+            let tag = val.split('_').next().unwrap_or("unknown").to_string();
+            map.entry(tag).and_modify(|frq| *frq += 1).or_insert(1);
+            map
+        });
+    for (k, v) in counter {
+        log::debug!(
+            "circuit {}: num {}, percentage {:.2}%",
+            k,
+            v,
+            (v as f64 / n as f64) * 100f64
+        );
+    }
+    log::trace!("all point list: {:?}", point_list);
+    log::debug!("===== END: Halo2VerifierCircuit rows cost estimation ========");
+}
+
 impl<P, S> EvaluationQuerySchema<P, S>
 where
     P: Clone + std::fmt::Debug,
@@ -139,8 +183,10 @@ where
         schip: &A::ScalarChip,
         pchip: &A,
         one: &A::AssignedScalar,
-    ) -> Result<(A::AssignedPoint, Option<A::AssignedScalar>), A::Error> {
+    ) -> Result<(A::AssignedPoint, Option<A::AssignedScalar>, Vec<String>), A::Error> {
         let points = self.eval_prepare::<Scalar, A>(ctx, schip, one, None)?;
+        let point_names: Vec<String> = points.iter().map(|(name, _p, _s)| name.clone()).collect();
+        print_points_profiling(&point_names);
 
         let re = regex::Regex::new("fixed_commitments").unwrap();
         let s = points
@@ -171,6 +217,7 @@ where
         }
         // we will handle the fixed commitments separately to make use of fixed scalar multiply / optimize
         // TODO: use fixed msm
+
         for (id, p, s) in points.into_iter() {
             if re.is_match(id.as_str()) {
                 if let (Some(p), Some(s)) = (p, s) {
@@ -188,7 +235,7 @@ where
             }
         }
 
-        Ok((acc, s))
+        Ok((acc, s, point_names))
     }
 
     fn eval_prepare<

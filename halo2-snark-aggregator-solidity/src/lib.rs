@@ -222,7 +222,7 @@ impl<'a, E: MultiMillerLoop + Debug, const N: usize> MultiCircuitSolidityGenerat
             PoseidonEncode<_>,
             9usize,
             8usize,
-        >::new(&self.proof[..], ctx, schip, 8usize, 33usize)
+        >::new(&self.proof[..], ctx, schip, 8usize, 63usize)
         .unwrap();
 
         let verify_circuit_instance1: Vec<Vec<&[E::Scalar]>> = self
@@ -260,8 +260,8 @@ impl<'a, E: MultiMillerLoop + Debug, const N: usize> MultiCircuitSolidityGenerat
 
         let one = schip.assign_one(ctx).unwrap();
 
-        let (left_s, left_e) = proof.w_x.eval::<_, _>(ctx, schip, pchip, &one).unwrap();
-        let (right_s, right_e) = proof.w_g.eval::<_, _>(ctx, schip, pchip, &one).unwrap();
+        let (left_s, left_e, _) = proof.w_x.eval::<_, _>(ctx, schip, pchip, &one).unwrap();
+        let (right_s, right_e, _) = proof.w_g.eval::<_, _>(ctx, schip, pchip, &one).unwrap();
 
         let generator = pchip.assign_one(ctx).unwrap();
         let left = match left_e {
