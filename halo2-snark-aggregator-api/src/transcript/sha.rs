@@ -2,12 +2,12 @@ use digest::Digest;
 use group::ff::PrimeField;
 use halo2_proofs::arithmetic::CurveAffine;
 use halo2_proofs::arithmetic::Field;
+use halo2_proofs::halo2curves::Coordinates;
 use halo2_proofs::transcript::Challenge255;
 use halo2_proofs::transcript::EncodedChallenge;
 use halo2_proofs::transcript::Transcript;
 use halo2_proofs::transcript::TranscriptRead;
 use halo2_proofs::transcript::TranscriptWrite;
-use halo2curves::Coordinates;
 use std::io::{self, Read, Write};
 use std::marker::PhantomData;
 

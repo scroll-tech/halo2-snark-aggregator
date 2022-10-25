@@ -80,7 +80,7 @@ fn setup_sample_circuit() -> (
     Vec<Vec<Vec<Fr>>>,
     Vec<Vec<Vec<Fr>>>,
     Vec<u8>,
-    Vec<u8>,
+    // Vec<u8>,
 ) {
     let circuit = TestCircuit::<Fr>::default();
 
@@ -123,7 +123,7 @@ fn setup_sample_circuit() -> (
     }
 
     evm_proof!(proof1);
-    evm_proof!(proof2);
+    // evm_proof!(proof2);
 
     // Verify
     let verifier_params = general_params.verifier_params();
@@ -135,6 +135,17 @@ fn setup_sample_circuit() -> (
 
     // Bench verification time
     let start3 = start_timer!(|| "EVM Proof verification");
+    println!(
+        "Proof verification result: {:#?}",
+        verify_proof(
+            &verifier_params,
+            pk.get_vk(),
+            strategy,
+            instances,
+            &mut verifier_transcript,
+        )
+        .unwrap()
+    );
     verify_proof::<_, VerifierGWC<_>, _, _, _>(
         verifier_params,
         pk.get_vk(),
@@ -161,7 +172,7 @@ fn setup_sample_circuit() -> (
         instances.clone(),
         instances,
         proof1,
-        proof2,
+        //proof2,
     )
 }
 
@@ -186,7 +197,7 @@ mod evm_circ_benches {
             instances1,
             _,
             proof1,
-            _,
+            //_,
         ) = setup_sample_circuit();
 
         let target_circuit_instance = instances1.clone();
@@ -210,7 +221,8 @@ mod evm_circ_benches {
             &vec![proof1],
         );
 
-        let prover = match MockProver::run(K, &verify_circuit, vec![instances]) {
+        let k = crate::fs::load_verify_circuit_degree();
+        let prover = match MockProver::run(k, &verify_circuit, vec![instances]) {
             Ok(prover) => prover,
             Err(e) => panic!("{:#?}", e),
         };

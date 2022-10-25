@@ -147,6 +147,7 @@ impl<
     ) -> Result<A::AssignedScalar, A::Error> {
         let v = self.hash.squeeze(ctx, nchip)?;
         let s = E::decode_scalar(ctx, nchip, schip, &[v])?;
+        println!("s in api: {:?}", s);
         Ok(s)
     }
 

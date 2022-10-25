@@ -9,6 +9,8 @@ use crate::{
     tests::systems::halo2::add_mul_test::test_circuit::test_circuit_builder,
     transcript::encode::Encode,
 };
+use halo2_proofs::halo2curves::bn256::Fr as Fp;
+use halo2_proofs::halo2curves::bn256::{Bn256, G1Affine};
 use halo2_proofs::{
     arithmetic::{CurveAffine, Field},
     poly::{
@@ -23,8 +25,6 @@ use halo2_proofs::{
     plonk::{create_proof, keygen_pk, keygen_vk},
     transcript::{Challenge255, PoseidonWrite},
 };
-use halo2curves::bn256::Fr as Fp;
-use halo2curves::bn256::{Bn256, G1Affine};
 use rand::{thread_rng, SeedableRng};
 use rand_pcg::Pcg32;
 use rand_xorshift::XorShiftRng;
@@ -53,6 +53,7 @@ pub fn test_verify_single_proof_in_chip<
         Error = halo2_proofs::plonk::Error,
     >,
 {
+    println!("test_verify_single_proof_in_chip");
     fn random() -> Fp {
         let seed = chrono::offset::Utc::now()
             .timestamp_nanos()
@@ -73,7 +74,7 @@ pub fn test_verify_single_proof_in_chip<
     let instances: &[&[&[_]]] = &[&[&[c]]];
     let circuit = test_circuit_builder(a, b);
     let pk = keygen_pk(&params, vk, &circuit).expect("keygen_pk should not fail");
-
+    println!("test_verify_single_proof_in_chip1");
     let mut transcript = PoseidonWrite::<Vec<u8>, G1Affine, Challenge255<G1Affine>>::init(vec![]);
     create_proof::<KZGCommitmentScheme<Bn256>, ProverGWC<Bn256>, _, _, _, _>(
         &params,
@@ -85,7 +86,7 @@ pub fn test_verify_single_proof_in_chip<
     )
     .expect("proof generation should not fail");
     let proof = transcript.finalize();
-
+    println!("test_verify_single_proof_in_chip2");
     let params_verifier: &ParamsVerifierKZG<Bn256> = params.verifier_params();
 
     let transcript = PoseidonTranscriptRead::<_, G1Affine, _, EncodeChip, 9usize, 8usize>::new(
@@ -106,7 +107,7 @@ pub fn test_verify_single_proof_in_chip<
         key: format!("p{}", 0),
         _phantom: PhantomData,
     };
-
+    println!("test_verify_single_proof_in_chip3");
     let mut transcript = PoseidonTranscriptRead::<_, G1Affine, _, EncodeChip, 9usize, 8usize>::new(
         &proof[..],
         ctx,
@@ -115,7 +116,7 @@ pub fn test_verify_single_proof_in_chip<
         63usize,
     )
     .unwrap();
-
+    println!("test_verify_single_proof_in_chip4");
     verify_single_proof_in_chip(
         ctx,
         nchip,
@@ -130,6 +131,7 @@ pub fn test_verify_single_proof_in_chip<
         &mut transcript,
     )
     .unwrap();
+    println!("test_verify_single_proof_in_chip5");
 }
 
 #[cfg(test)]

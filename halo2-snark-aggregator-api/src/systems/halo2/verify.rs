@@ -7,20 +7,19 @@ use super::{
 };
 use crate::arith::{common::ArithCommonChip, ecc::ArithEccChip, field::ArithFieldChip};
 use crate::scalar;
-use crate::systems::halo2::evaluation::print_points_profiling;
 use crate::transcript::read::TranscriptRead;
 use group::prime::PrimeCurveAffine;
 use group::Group;
 use halo2_proofs::arithmetic::{Field, FieldExt};
-use halo2_proofs::poly::commitment::{Params, ParamsProver};
-use halo2_proofs::poly::kzg::commitment::{ParamsKZG, ParamsVerifierKZG};
+use halo2_proofs::halo2curves::pairing::MillerLoopResult;
+use halo2_proofs::halo2curves::pairing::MultiMillerLoop;
+use halo2_proofs::poly::kzg::commitment::ParamsVerifierKZG;
 use halo2_proofs::poly::Rotation;
 use halo2_proofs::{
     arithmetic::CurveAffine,
     plonk::{Expression, VerifyingKey},
+    poly::commitment::Params,
 };
-use halo2curves::pairing::MillerLoopResult;
-use halo2curves::pairing::MultiMillerLoop;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::vec;
@@ -37,7 +36,7 @@ pub struct VerifierParamsBuilder<
     pchip: &'a A,
     assigned_instances: Vec<Vec<A::AssignedPoint>>,
     vk: &'a VerifyingKey<E::G1Affine>,
-    params: &'a ParamsKZG<E>,
+    params: &'a ParamsVerifierKZG<E>,
     transcript: &'a mut T,
     key: String,
 }
@@ -81,7 +80,7 @@ impl<
                     .iter()
                     .map(|p| {
                         self.transcript
-                            .common_point(self.ctx, self.nchip, self.schip, self.pchip, p)?;
+                            .common_point(self.ctx, self.nchip, self.schip, self.pchip, &p)?;
 
                         Ok(())
                     })
@@ -386,7 +385,7 @@ impl<
             .map(|lookups| {
                 // Hash each lookup product commitment
                 lookups
-                    .iter()
+                    .into_iter()
                     .map(|_| self.load_point())
                     .collect::<Result<Vec<_>, _>>()
             })
@@ -399,7 +398,7 @@ impl<
         let h_commitments = self.load_n_points(self.vk.get_domain().get_quotient_poly_degree())?;
         let l = self.vk.cs().blinding_factors() as u32 + 1;
         let n = self.params.n() as u32;
-        let omega = self.vk.get_domain().get_omega();
+        let omega = self.vk.domain_ref().get_omega();
 
         let x = self.squeeze_challenge_scalar()?;
 
@@ -514,7 +513,7 @@ impl<
             v,
             omega: self
                 .schip
-                .assign_const(self.ctx, self.vk.get_domain().get_omega())?,
+                .assign_const(self.ctx, self.vk.domain_ref().get_omega())?,
             w,
             zero: self
                 .schip
@@ -563,7 +562,7 @@ pub fn assign_instance_commitment<
 
                     let mut assigned_scalars = vec![];
                     for instance in instance.iter() {
-                        let s = schip.assign_var(ctx, *instance)?;
+                        let s = schip.assign_var(ctx, instance.clone())?;
                         assigned_scalars.push(s.clone());
                         plain_assigned_instances.push(s);
                     }
@@ -582,7 +581,8 @@ pub fn assign_instance_commitment<
                     let mut acc = None;
 
                     for (i, instance) in instance.iter().enumerate() {
-                        let ls = pchip.scalar_mul_constant(ctx, instance, params.g_lagrange[i])?;
+                        let ls =
+                            pchip.scalar_mul_constant(ctx, instance, params.g_lagrange_ref()[i])?;
 
                         match acc {
                             None => acc = Some(ls),
@@ -663,31 +663,46 @@ fn evaluate_multiopen_proof<
 ) -> Result<(A::AssignedPoint, A::AssignedPoint), A::Error> {
     let one = schip.assign_one(ctx)?;
 
-    println!("debug context before evaluate multiopen proof: {}", ctx);
-    let mut points = Vec::new();
-    let (left_s, left_e, mut points_wx) = proof.w_x.eval::<_, A>(ctx, schip, pchip, &one)?;
-    let (right_s, right_e, mut points_wg) = proof.w_g.eval::<_, A>(ctx, schip, pchip, &one)?;
-    points.append(&mut points_wx);
-    points.append(&mut points_wg);
-    print_points_profiling(&points);
+    // do not print ctx anymore! our ctx contains constants_to_assign and lookup_cells, very long
+    // println!("debug context before evaluate multiopen proof: {}", ctx);
+
+    println!("w_x.eval");
+    let (left_s, left_e) = proof.w_x.eval::<_, A>(ctx, schip, pchip, &one)?;
+    println!("w_g.eval");
+    let (right_s, right_e) = proof.w_g.eval::<_, A>(ctx, schip, pchip, &one)?;
+    // println!("right_s: {:#?}", right_s);
+    // println!("right_e: {:#?}", right_e);
+
+
     let generator = pchip.assign_one(ctx)?;
+
     let left = match left_e {
         None => left_s,
         Some(eval) => {
+
             let s = pchip.scalar_mul(ctx, &eval, &generator)?;
+            // let s = pchip.scalar_mul_constant(ctx, &eval, E::G1Affine::generator())?;
             pchip.add(ctx, &left_s, &s)?
         }
     };
     let right = match right_e {
         None => right_s,
         Some(eval) => {
+
             let s = pchip.scalar_mul(ctx, &eval, &generator)?;
+            // let s = pchip.scalar_mul_constant(ctx, &eval, E::G1Affine::generator())?;
             pchip.sub(ctx, &right_s, &s)?
         }
     };
 
+    println!("here left: {:?}", left);
     let left_v = pchip.to_value(&left)?;
+
+    println!("here");
     let right_v = pchip.to_value(&right)?;
+
+
+    println!("here");
 
     let s_g2_prepared = E::G2Prepared::from(params.s_g2());
     let n_g2_prepared = E::G2Prepared::from(-params.g2());
@@ -786,7 +801,7 @@ pub fn verify_single_proof_in_chip<
         "".to_owned(),
     )?;
 
-    print!("get single proof {}", circuit.name);
+    println!("get single proof {}", circuit.name);
     let (w_x, w_g) = evaluate_multiopen_proof::<E, A, T>(ctx, schip, pchip, proof, circuit.params)?;
     Ok((w_x, w_g, plain_assigned_instances, advice_commitments))
 }
@@ -868,10 +883,12 @@ pub fn verify_aggregation_proofs_in_chip<
             /* update aggregation challenge */
             for p in circuit_proof.proofs.iter_mut() {
                 let scalar = p.transcript.squeeze_challenge_scalar(ctx, nchip, schip)?;
+                println!("scalar: {:?}", scalar);
+
                 transcript.common_scalar(ctx, nchip, schip, &scalar)?;
             }
 
-            r
+            return r;
         })
         .collect::<Result<Vec<Vec<(MultiOpenProof<A>, Vec<A::AssignedPoint>)>>, A::Error>>()?;
 

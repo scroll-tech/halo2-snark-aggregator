@@ -8,21 +8,22 @@ edition = "2021"
 [dependencies]
 clap = { version = "3.1.11", features = ["derive"] }
 env_logger = "0.9.0"
-halo2_proofs = { git = "https://github.com/scroll-tech/halo2.git", branch = "scroll-dev-0902" }
+# halo2_proofs = { path = "../../halo2/halo2_proofs" }
+halo2_proofs = { git = "https://github.com/scroll-tech/halo2.git", branch = "sync-halo2-ecc-1013" }
 halo2-snark-aggregator-circuit = { path = "../halo2-snark-aggregator-circuit" }
 halo2-snark-aggregator-solidity = { path = "../halo2-snark-aggregator-solidity" }
 log = "0.4.17"
-halo2curves = { git = 'https://github.com/privacy-scaling-explorations/halo2curves', tag = "0.2.1" }
 paste = "1.0.7"
 rand_core = "0.6.3"
 rayon = "1.5.2"
 num-bigint = "0.4.3"
+serde_json = "1.0"
 
 [dev-dependencies]
 ark-std = { version = "0.3", features = ["print-trace"] }
-eth-types = { git = "https://github.com/scroll-tech/zkevm-circuits", branch = "scroll-dev-0920" }
+eth-types = { git = "https://github.com/scroll-tech/zkevm-circuits", branch = "sync-halo2-ecc-1013" }
 rand = "0.8.5"
-zkevm-circuits = { git = "https://github.com/scroll-tech/zkevm-circuits", branch = "scroll-dev-0920", features = ["test"] }
+zkevm-circuits = { git = "https://github.com/scroll-tech/zkevm-circuits", branch = "sync-halo2-ecc-1013", features = ["test"] }
 
 [features]
 default = []

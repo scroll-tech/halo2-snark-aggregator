@@ -356,12 +356,18 @@ contract Verifier {
     function verify(
         uint256[] calldata proof,
         uint256[] calldata target_circuit_final_pair
-    ) public view {
+    ) external returns (bool checked) {
         uint256[{{instance_size}}] memory instances;
-        instances[0] = target_circuit_final_pair[0] & ((1 << 136) - 1);
-        instances[1] = (target_circuit_final_pair[0] >> 136) + ((target_circuit_final_pair[1] & 1) << 136);
-        instances[2] = target_circuit_final_pair[2] & ((1 << 136) - 1);
-        instances[3] = (target_circuit_final_pair[2] >> 136) + ((target_circuit_final_pair[3] & 1) << 136);
+        // 176 = 88 * 2, where 88 = limb bits
+        instances[0] = target_circuit_final_pair[0] & ((1 << 176) - 1);
+        instances[1] =
+            (target_circuit_final_pair[0] >> 176) +
+            ((target_circuit_final_pair[1] & 1) << 176);
+        instances[2] = target_circuit_final_pair[2] & ((1 << 176) - 1);
+        instances[3] =
+            (target_circuit_final_pair[2] >> 176) +
+            ((target_circuit_final_pair[3] & 1) << 176);
+
         {% for statement in instance_assign %}
         {{statement}}
         {%- endfor %}
@@ -373,7 +379,7 @@ contract Verifier {
 
         G1Point[] memory g1_points = new G1Point[](2);
         G2Point[] memory g2_points = new G2Point[](2);
-        bool checked = false;
+        checked = false;
 
         (x0, y0, x1, y1) = get_wx_wg(proof, instances);
         g1_points[0].x = x0;
@@ -395,5 +401,7 @@ contract Verifier {
 
         checked = pairing(g1_points, g2_points);
         require(checked);
+
+        return checked;
     }
 }

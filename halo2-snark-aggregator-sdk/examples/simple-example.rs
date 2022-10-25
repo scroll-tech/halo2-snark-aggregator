@@ -1,3 +1,4 @@
+use halo2_proofs::halo2curves::pairing::MultiMillerLoop;
 use halo2_proofs::{
     arithmetic::{Field, FieldExt},
     circuit::{AssignedCell, Chip, Layouter, Region, SimpleFloorPlanner, Value},
@@ -6,7 +7,6 @@ use halo2_proofs::{
 };
 use halo2_snark_aggregator_circuit::sample_circuit::TargetCircuit;
 use halo2_snark_aggregator_sdk::zkaggregate;
-use halo2curves::pairing::MultiMillerLoop;
 use rand_core::OsRng;
 use std::{io::Read, marker::PhantomData};
 use zkevm_circuits::tx_circuit::PrimeField;
@@ -322,7 +322,7 @@ pub struct TestCircuit;
 impl<E: MultiMillerLoop> TargetCircuit<E> for TestCircuit {
     const TARGET_CIRCUIT_K: u32 = 7;
     const PUBLIC_INPUT_SIZE: usize = 1;
-    const N_PROOFS: usize = 2;
+    const N_PROOFS: usize = 1;
     const NAME: &'static str = "simple_example";
     const PARAMS_NAME: &'static str = "simple_example";
     const READABLE_VKEY: bool = true;
@@ -358,6 +358,8 @@ impl<E: MultiMillerLoop> TargetCircuit<E> for TestCircuit {
 zkaggregate! {1, vec![], TestCircuit}
 
 pub fn main() {
-    let builder = zkcli::builder(22);
+    // read in degree of test circuit from file
+    let k = halo2_snark_aggregator_circuit::fs::load_verify_circuit_degree();
+    let builder = zkcli::builder(k);
     builder.run()
 }

@@ -8,6 +8,8 @@ use crate::{
     },
 };
 use halo2_proofs::arithmetic::CurveAffine;
+use halo2_proofs::halo2curves::bn256::Fr as Fp;
+use halo2_proofs::halo2curves::bn256::{Bn256, G1Affine};
 use halo2_proofs::poly::commitment::ParamsProver;
 use halo2_proofs::poly::kzg::commitment::{KZGCommitmentScheme, ParamsKZG, ParamsVerifierKZG};
 use halo2_proofs::poly::kzg::multiopen::ProverGWC;
@@ -15,8 +17,6 @@ use halo2_proofs::{
     plonk::{create_proof, keygen_pk, keygen_vk},
     transcript::{Challenge255, PoseidonWrite},
 };
-use halo2curves::bn256::Fr as Fp;
-use halo2curves::bn256::{Bn256, G1Affine};
 use rand::rngs::OsRng;
 use rand::thread_rng;
 use std::marker::PhantomData;

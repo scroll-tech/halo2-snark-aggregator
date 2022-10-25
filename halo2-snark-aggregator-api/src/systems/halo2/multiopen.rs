@@ -7,6 +7,7 @@ use super::{
     params::VerifierParams,
 };
 
+#[derive(Debug)]
 pub struct MultiOpenProof<A: ArithEccChip> {
     pub w_x: EvaluationQuerySchema<A::AssignedPoint, A::AssignedScalar>,
     pub w_g: EvaluationQuerySchema<A::AssignedPoint, A::AssignedScalar>,
@@ -58,6 +59,7 @@ impl<A: ArithEccChip> VerifierParams<A> {
                         .into_iter()
                         .rev()
                         .reduce(|acc, q| scalar!(self.v) * acc + q);
+                assert!(acc.is_none() == false);
 
                 Ok(EvaluationProof {
                     s: acc.unwrap(),

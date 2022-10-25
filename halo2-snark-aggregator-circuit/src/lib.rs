@@ -6,6 +6,6 @@ pub mod verify_circuit;
 #[cfg(test)]
 mod tests;
 
-// #[cfg(feature = "benches")]
+#[cfg(feature = "benches")]
 #[cfg(test)]
 mod benches;

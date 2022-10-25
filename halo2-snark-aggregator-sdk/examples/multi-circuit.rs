@@ -1,3 +1,4 @@
+use halo2_proofs::halo2curves::pairing::MultiMillerLoop;
 use halo2_proofs::{
     arithmetic::{Field, FieldExt},
     circuit::{AssignedCell, Chip, Layouter, Region, SimpleFloorPlanner, Value},
@@ -6,7 +7,6 @@ use halo2_proofs::{
 };
 use halo2_snark_aggregator_circuit::sample_circuit::TargetCircuit;
 use halo2_snark_aggregator_sdk::zkaggregate;
-use halo2curves::pairing::MultiMillerLoop;
 use rand_core::OsRng;
 use std::{io::Read, marker::PhantomData};
 use zkevm_circuits::tx_circuit::PrimeField;
