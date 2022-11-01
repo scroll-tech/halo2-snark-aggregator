@@ -1,4 +1,4 @@
-use halo2_ecc_circuit_lib::utils::{bn_to_field, field_to_bn};
+use halo2_ecc::utils::{biguint_to_fe as bn_to_field, fe_to_biguint as field_to_bn};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_snark_aggregator_api::arith::{common::ArithCommonChip, field::ArithFieldChip};
 use num_bigint::ToBigUint;

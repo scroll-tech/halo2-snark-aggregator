@@ -2,6 +2,7 @@
 //!
 use ark_std::{end_timer, start_timer};
 use eth_types::Field;
+use halo2_proofs::halo2curves::bn256::{Bn256, Fr, G1Affine};
 use halo2_proofs::poly::{
     commitment::ParamsProver,
     kzg::{commitment::KZGCommitmentScheme, strategy::SingleStrategy},
@@ -20,7 +21,6 @@ use halo2_proofs::{
     },
     transcript::{Challenge255, PoseidonRead, PoseidonWrite},
 };
-use halo2curves::bn256::{Bn256, Fr, G1Affine};
 use rand_core::OsRng;
 use zkevm_circuits::evm_circuit::{witness::Block, EvmCircuit};
 
@@ -30,7 +30,6 @@ pub struct TestCircuit<F> {
 }
 
 const DEGREE_OF_EVM_CIRCUIT: u32 = 18;
-const K: u32 = 25u32;
 
 impl<F: Field> Circuit<F> for TestCircuit<F> {
     type Config = EvmCircuit<F>;
@@ -80,7 +79,7 @@ fn setup_sample_circuit() -> (
     Vec<Vec<Vec<Fr>>>,
     Vec<Vec<Vec<Fr>>>,
     Vec<u8>,
-    Vec<u8>,
+    // Vec<u8>,
 ) {
     let circuit = TestCircuit::<Fr>::default();
 
@@ -123,7 +122,7 @@ fn setup_sample_circuit() -> (
     }
 
     evm_proof!(proof1);
-    evm_proof!(proof2);
+    // evm_proof!(proof2);
 
     // Verify
     let verifier_params = general_params.verifier_params();
@@ -131,25 +130,28 @@ fn setup_sample_circuit() -> (
     let strategy: SingleStrategy<Bn256> = VerificationStrategy::<
         KZGCommitmentScheme<Bn256>,
         VerifierGWC<Bn256>,
-    >::new(&verifier_params);
+    >::new(verifier_params);
 
     // Bench verification time
     let start3 = start_timer!(|| "EVM Proof verification");
-    verify_proof::<_, VerifierGWC<_>, _, _, _>(
-        verifier_params,
-        pk.get_vk(),
-        strategy,
-        instances,
-        &mut verifier_transcript,
-    )
-    .unwrap();
+    println!(
+        "Proof verification result: {:#?}",
+        verify_proof::<_, VerifierGWC<_>, _, _, _>(
+            verifier_params,
+            pk.get_vk(),
+            strategy,
+            instances,
+            &mut verifier_transcript,
+        )
+        .unwrap()
+    );
     end_timer!(start3);
 
     let instances = instances
         .iter()
         .map(|l1| {
             l1.iter()
-                .map(|l2| l2.iter().map(|c: &Fr| *c).collect::<Vec<Fr>>())
+                .map(|l2| l2.iter().copied().collect::<Vec<Fr>>())
                 .collect::<Vec<Vec<Fr>>>()
         })
         .collect::<Vec<Vec<Vec<Fr>>>>();
@@ -161,7 +163,7 @@ fn setup_sample_circuit() -> (
         instances.clone(),
         instances,
         proof1,
-        proof2,
+        //proof2,
     )
 }
 
@@ -186,7 +188,7 @@ mod evm_circ_benches {
             instances1,
             _,
             proof1,
-            _,
+            //_,
         ) = setup_sample_circuit();
 
         let target_circuit_instance = instances1.clone();
@@ -205,12 +207,13 @@ mod evm_circ_benches {
         let instances = calc_verify_circuit_instances(
             String::from("zkevm"),
             &target_circuit_verifier_params,
-            &target_circuit_pk.get_vk(),
+            target_circuit_pk.get_vk(),
             &vec![instances1],
             &vec![proof1],
         );
 
-        let prover = match MockProver::run(K, &verify_circuit, vec![instances]) {
+        let k = crate::fs::load_verify_circuit_degree();
+        let prover = match MockProver::run(k, &verify_circuit, vec![instances]) {
             Ok(prover) => prover,
             Err(e) => panic!("{:#?}", e),
         };

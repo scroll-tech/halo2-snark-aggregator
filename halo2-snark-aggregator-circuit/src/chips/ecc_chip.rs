@@ -1,34 +1,53 @@
 use super::scalar_chip::ScalarChip;
-use halo2_ecc_circuit_lib::{
-    chips::{
-        ecc_chip::{AssignedPoint, EccChipOps},
-        native_ecc_chip::NativeEccChip,
-    },
-    gates::base_gate::{AssignedValue, Context},
+use ff::PrimeField;
+use halo2_ecc::{
+    bigint::CRTInteger,
+    ecc,
+    fields::{fp, FieldChip},
+    gates::Context,
 };
-use halo2_proofs::arithmetic::Field;
-use halo2_proofs::{arithmetic::CurveAffine, plonk::Error};
+use halo2_proofs::{arithmetic::CurveAffine, circuit::Value, plonk::Error};
 use halo2_snark_aggregator_api::arith::{common::ArithCommonChip, ecc::ArithEccChip};
 use std::marker::PhantomData;
 
-pub struct EccChip<'a, 'b, C: CurveAffine> {
-    pub chip: &'a NativeEccChip<'a, C>,
-    _phantom: PhantomData<&'b C>,
+pub type FpChip<C> = fp::FpConfig<<C as CurveAffine>::ScalarExt, <C as CurveAffine>::Base>;
+pub type FpPoint<C> = CRTInteger<<C as CurveAffine>::ScalarExt>;
+pub type AssignedValue<C> = super::scalar_chip::AssignedValue<<C as CurveAffine>::ScalarExt>;
+
+// We're assuming that the scalar field of C actually happens to be the native field F of the proving system
+// There used to be a 'b lifetime, I don't know why it's needed so I removed
+// We need this struct because you can't implement traits if you don't own either the struct or the trait...
+pub struct EccChip<'a, 'b, C: CurveAffine>
+where
+    C::Base: PrimeField,
+{
+    pub chip: ecc::EccChip<'a, C::ScalarExt, FpChip<C>>,
+    // More succinctly, if F = C::ScalarExt && Fp = C::Base, then
+    // chip: ecc::EccChip<'a, F, FpChip<F>>
+
+    // the 'b lifetime is needed for Context<'b, F> below
+    pub _marker: PhantomData<&'b C>,
 }
 
-impl<'a, 'b, C: CurveAffine> EccChip<'a, 'b, C> {
-    pub fn new(chip: &'a NativeEccChip<'a, C>) -> Self {
+impl<'a, 'b, C: CurveAffine> EccChip<'a, 'b, C>
+where
+    C::Base: PrimeField,
+{
+    pub fn new(field_chip: &'a FpChip<C>) -> Self {
         EccChip {
-            chip,
-            _phantom: PhantomData,
+            chip: ecc::EccChip::construct(field_chip),
+            _marker: PhantomData,
         }
     }
 }
 
-impl<'a, 'b, C: CurveAffine> ArithCommonChip for EccChip<'a, 'b, C> {
+impl<'a, 'b, C: CurveAffine> ArithCommonChip for EccChip<'a, 'b, C>
+where
+    C::Base: PrimeField,
+{
     type Context = Context<'b, C::ScalarExt>;
     type Value = C;
-    type AssignedValue = AssignedPoint<C, C::ScalarExt>;
+    type AssignedValue = ecc::EccPoint<C::ScalarExt, FpPoint<C>>;
     type Error = Error;
 
     fn add(
@@ -37,7 +56,9 @@ impl<'a, 'b, C: CurveAffine> ArithCommonChip for EccChip<'a, 'b, C> {
         a: &Self::AssignedValue,
         b: &Self::AssignedValue,
     ) -> Result<Self::AssignedValue, Self::Error> {
-        self.chip.add(ctx, &mut a.clone(), &mut b.clone())
+        // use strict constrained add_unequal for now
+        // TODO: find where add is used and perhaps optimize to use unconstrained version
+        self.chip.add_unequal(ctx, a, b, true)
     }
 
     fn sub(
@@ -46,16 +67,17 @@ impl<'a, 'b, C: CurveAffine> ArithCommonChip for EccChip<'a, 'b, C> {
         a: &Self::AssignedValue,
         b: &Self::AssignedValue,
     ) -> Result<Self::AssignedValue, Self::Error> {
-        self.chip.sub(ctx, &mut a.clone(), b)
+        // see comments for add
+        self.chip.sub_unequal(ctx, a, b, true)
     }
 
-    fn assign_zero(&self, ctx: &mut Self::Context) -> Result<Self::AssignedValue, Self::Error> {
-        self.chip.assign_identity(ctx)
+    fn assign_zero(&self, _ctx: &mut Self::Context) -> Result<Self::AssignedValue, Self::Error> {
+        unimplemented!()
     }
 
     fn assign_one(&self, ctx: &mut Self::Context) -> Result<Self::AssignedValue, Self::Error> {
-        self.chip
-            .assign_constant_point_from_scalar(ctx, C::ScalarExt::from(1u64))
+        let g1 = C::generator();
+        self.assign_const(ctx, g1)
     }
 
     fn assign_const(
@@ -63,7 +85,12 @@ impl<'a, 'b, C: CurveAffine> ArithCommonChip for EccChip<'a, 'b, C> {
         ctx: &mut Self::Context,
         c: Self::Value,
     ) -> Result<Self::AssignedValue, Self::Error> {
-        self.chip.assign_constant_point(ctx, c.to_curve())
+        let c_fixed = ecc::fixed::FixedEccPoint::from_g1(
+            &c,
+            self.chip.field_chip.num_limbs,
+            self.chip.field_chip.limb_bits,
+        );
+        c_fixed.assign(self.chip.field_chip, ctx)
     }
 
     fn assign_var(
@@ -71,35 +98,42 @@ impl<'a, 'b, C: CurveAffine> ArithCommonChip for EccChip<'a, 'b, C> {
         ctx: &mut Self::Context,
         v: Self::Value,
     ) -> Result<Self::AssignedValue, Self::Error> {
-        self.chip.assign_point(ctx, v.to_curve())
+        self.chip.load_private(
+            ctx,
+            (
+                Value::known(v.coordinates().unwrap().x().clone()),
+                Value::known(v.coordinates().unwrap().y().clone()),
+            ),
+        )
     }
 
     fn to_value(&self, v: &Self::AssignedValue) -> Result<Self::Value, Self::Error> {
-        if v.z.value == C::ScalarExt::one() {
-            Ok(C::identity())
-        } else {
-            let x = self.chip.integer_chip().get_w(&v.x)?;
-            let y = self.chip.integer_chip().get_w(&v.y)?;
-            Ok(C::from_xy(x, y).unwrap())
-        }
+        let x = FpChip::<C>::get_assigned_value(&v.x).assign()?;
+        let y = FpChip::<C>::get_assigned_value(&v.y).assign()?;
+        // CurveAffine allows x = 0 and y = 0 to means the point at infinity
+        Ok(C::from_xy(x, y).unwrap())
     }
 
     fn normalize(
         &self,
-        ctx: &mut Self::Context,
+        _ctx: &mut Self::Context,
         v: &Self::AssignedValue,
     ) -> Result<Self::AssignedValue, Self::Error> {
-        self.chip.reduce(ctx, &mut v.clone())
+        // identity (?)
+        Ok(v.clone())
     }
 }
 
-impl<'a, 'b, C: CurveAffine> ArithEccChip for EccChip<'a, 'b, C> {
+impl<'a, 'b, C: CurveAffine> ArithEccChip for EccChip<'a, 'b, C>
+where
+    C::Base: PrimeField,
+{
     type Point = C;
-    type AssignedPoint = AssignedPoint<C, C::ScalarExt>;
+    type AssignedPoint = ecc::EccPoint<C::ScalarExt, FpPoint<C>>;
     type Scalar = C::ScalarExt;
-    type AssignedScalar = AssignedValue<C::ScalarExt>;
+    type AssignedScalar = AssignedValue<C>;
     type Native = C::ScalarExt;
-    type AssignedNative = AssignedValue<C::ScalarExt>;
+    type AssignedNative = AssignedValue<C>;
 
     type ScalarChip = ScalarChip<'a, 'b, C::ScalarExt>;
     type NativeChip = ScalarChip<'a, 'b, C::ScalarExt>;
@@ -110,7 +144,17 @@ impl<'a, 'b, C: CurveAffine> ArithEccChip for EccChip<'a, 'b, C> {
         lhs: &Self::AssignedScalar,
         rhs: &Self::AssignedPoint,
     ) -> Result<Self::AssignedPoint, Self::Error> {
-        self.chip.mul(ctx, &mut rhs.clone(), lhs)
+        // only works if C::b(), which is an element of C::Base, actually fits into C::ScalarExt
+        let b_base = halo2_ecc::utils::fe_to_biguint(&C::b());
+        let b = halo2_ecc::utils::biguint_to_fe::<C::ScalarExt>(&b_base);
+        self.chip.scalar_mult(
+            ctx,
+            rhs,
+            &vec![lhs.0.clone()],
+            b,
+            <C::Scalar as PrimeField>::NUM_BITS as usize,
+            4,
+        )
     }
 
     fn scalar_mul_constant(
@@ -119,15 +163,44 @@ impl<'a, 'b, C: CurveAffine> ArithEccChip for EccChip<'a, 'b, C> {
         lhs: &Self::AssignedScalar,
         rhs: Self::Point,
     ) -> Result<Self::AssignedPoint, Self::Error> {
-        self.chip.constant_mul(ctx, rhs.to_curve(), lhs)
+        // only works if C::b(), which is an element of C::Base, actually fits into C::ScalarExt
+        // let b_base = halo2_ecc::utils::fe_to_biguint(&C::b());
+        // let b = halo2_ecc::utils::biguint_to_fe::<C::ScalarExt>(&b_base);
+
+        let fixed_point = ecc::fixed::FixedEccPoint::from_g1(
+            &rhs,
+            self.chip.field_chip.num_limbs,
+            self.chip.field_chip.limb_bits,
+        );
+        self.chip.fixed_base_scalar_mult(
+            ctx,
+            &fixed_point,
+            &vec![lhs.0.clone()],
+            <C::Scalar as PrimeField>::NUM_BITS as usize,
+            4,
+        )
     }
 
     fn multi_exp(
         &self,
         ctx: &mut Self::Context,
-        mut points: Vec<Self::AssignedPoint>,
+        points: Vec<Self::AssignedPoint>,
         scalars: Vec<Self::AssignedScalar>,
     ) -> Result<Self::AssignedPoint, Self::Error> {
-        self.chip.shamir(ctx, &mut points, &scalars)
+        // only works if C::b(), which is an element of C::Base, actually fits into C::ScalarExt
+        let b_base = halo2_ecc::utils::fe_to_biguint(&C::b());
+        let b = halo2_ecc::utils::biguint_to_fe::<C::ScalarExt>(&b_base);
+
+        self.chip.multi_scalar_mult::<C>(
+            ctx,
+            &points,
+            &scalars
+                .iter()
+                .map(|scalar| vec![scalar.0.clone()])
+                .collect(),
+            b,
+            <C::Scalar as PrimeField>::NUM_BITS as usize,
+            4,
+        )
     }
 }

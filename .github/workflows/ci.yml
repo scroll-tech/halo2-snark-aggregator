@@ -1,0 +1,95 @@
+name: CI Check
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+env:
+  CARGO_NET_GIT_FETCH_WITH_CLI: true
+
+jobs:
+  build:
+    if: github.event.pull_request.draft == false
+    name: Build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - rust: 1.63.0
+            feature: default
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          override: false
+      - uses: webfactory/ssh-agent@v0.5.4
+        with:
+          ssh-private-key: ${{ secrets.SECRET_REPO_DEPLOY_KEY }}
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:          
+          command: build
+          args: --features ${{ matrix.feature }}
+
+  test:
+    if: github.event.pull_request.draft == false
+    name: Test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - rust: 1.63.0
+            feature: default
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          override: false
+      - uses: webfactory/ssh-agent@v0.5.4
+        with:
+          ssh-private-key: ${{ secrets.SECRET_REPO_DEPLOY_KEY }}
+      - name: Test
+        uses: actions-rs/cargo@v1
+        with:          
+          command: test
+          args: --verbose --release --all --features ${{ matrix.feature }}
+
+  fmt:
+    if: github.event.pull_request.draft == false
+    name: Rustfmt
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+      - run: rustup component add rustfmt
+      - uses: webfactory/ssh-agent@v0.5.4
+        with:
+          ssh-private-key: ${{ secrets.SECRET_REPO_DEPLOY_KEY }}
+      - uses: actions-rs/cargo@v1
+        with:          
+          command: fmt
+          args: --all -- --check
+
+  bench:
+    if: github.event.pull_request.draft == false
+    name: Bench
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          override: false
+      - uses: webfactory/ssh-agent@v0.5.4
+        with:
+          ssh-private-key: ${{ secrets.SECRET_REPO_DEPLOY_KEY }}
+      - name: Bench
+        uses: actions-rs/cargo@v1
+        with:          
+          command: test
+

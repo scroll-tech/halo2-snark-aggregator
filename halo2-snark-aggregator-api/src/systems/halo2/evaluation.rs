@@ -1,10 +1,11 @@
 use std::collections::BTreeMap;
 
+use group::prime::PrimeCurveAffine;
 use halo2_proofs::arithmetic::FieldExt;
 
 use crate::arith::{common::ArithCommonChip, ecc::ArithEccChip, field::ArithFieldChip};
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct CommitQuery<P, S> {
     pub key: String,
     pub commitment: Option<P>,
@@ -168,7 +169,11 @@ pub fn print_points_profiling(point_list: &[String]) {
     log::debug!("===== END: Halo2VerifierCircuit rows cost estimation ========");
 }
 
-impl<P: Clone, S: Clone> EvaluationQuerySchema<P, S> {
+impl<P, S> EvaluationQuerySchema<P, S>
+where
+    P: Clone + std::fmt::Debug,
+    S: Clone + std::fmt::Debug,
+{
     pub fn eval<
         Scalar: FieldExt,
         A: ArithEccChip<AssignedPoint = P, AssignedScalar = S, Scalar = Scalar>,
@@ -181,22 +186,53 @@ impl<P: Clone, S: Clone> EvaluationQuerySchema<P, S> {
     ) -> Result<(A::AssignedPoint, Option<A::AssignedScalar>, Vec<String>), A::Error> {
         let points = self.eval_prepare::<Scalar, A>(ctx, schip, one, None)?;
         let point_names: Vec<String> = points.iter().map(|(name, _p, _s)| name.clone()).collect();
-        //Self::print_points_profiling(&point_names);
+        print_points_profiling(&point_names);
+
+        let re = regex::Regex::new("fixed_commitments").unwrap();
         let s = points
             .iter()
-            .find(|b| b.0.is_empty())
+            .find(|b| b.0 == "")
             .map(|b| b.2.as_ref().unwrap().clone());
         let p_wo_scalar = points
             .iter()
             .filter_map(|b| if b.2.is_none() { b.1.clone() } else { None })
             .collect::<Vec<_>>();
         let (p_l, s_l) = points
-            .into_iter()
-            .filter_map(|(_, p, s)| p.and_then(|p| s.map(|s| (p, s))))
+            .iter()
+            .filter_map(|(id, p, s)| {
+                p.as_ref().and_then(|p| {
+                    s.as_ref().and_then(|s| {
+                        if !re.is_match(id.as_str()) {
+                            Some((p.clone(), s.clone()))
+                        } else {
+                            None
+                        }
+                    })
+                })
+            })
             .unzip();
         let mut acc = pchip.multi_exp(ctx, p_l, s_l)?;
         for p in p_wo_scalar {
             acc = pchip.add(ctx, &acc, &p)?;
+        }
+        // we will handle the fixed commitments separately to make use of fixed scalar multiply / optimize
+        // TODO: use fixed msm
+
+        for (id, p, s) in points.into_iter() {
+            if re.is_match(id.as_str()) {
+                if let (Some(p), Some(s)) = (p, s) {
+                    if let Ok(fixed_point) = pchip.to_value(&p) {
+                        let is_identity: bool = fixed_point.is_identity().into();
+                        if !is_identity {
+                            let fixed_mul = pchip.scalar_mul_constant(ctx, &s, fixed_point)?;
+                            acc = pchip.add(ctx, &acc, &fixed_mul)?;
+                        }
+                    } else {
+                        // p = O is identity in Ecc group, so [s] * O = O
+                        // we can do nothing
+                    }
+                }
+            }
         }
 
         Ok((acc, s, point_names))
@@ -236,7 +272,8 @@ impl<P: Clone, S: Clone> EvaluationQuerySchema<P, S> {
                     let r = r.0.eval_prepare::<Scalar, A>(ctx, schip, one, None)?;
                     assert!(l.len() == 1);
                     assert!(r.len() == 1);
-                    let sum = schip.add(ctx, l[0].2.as_ref().unwrap(), r[0].2.as_ref().unwrap())?;
+                    let sum =
+                        schip.add(ctx, l[0].2.as_ref().unwrap(), &r[0].2.as_ref().unwrap())?;
                     let sum = match scalar {
                         Some(scalar) => schip.mul(ctx, &scalar, &sum)?,
                         None => sum,
@@ -313,8 +350,8 @@ impl<P: Clone, S: Clone> EvaluationQuerySchema<P, S> {
                     }
                 } else {
                     let mut est = 0;
-                    for s in &[l, r] {
-                        est += s.0.estimate(scalar)
+                    for s in vec![l, r] {
+                        est += s.0.estimate(scalar.clone())
                     }
                     est
                 }

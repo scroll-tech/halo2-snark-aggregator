@@ -10,6 +10,7 @@ use crate::{
     transcript::encode::Encode,
 };
 use ark_std::{end_timer, start_timer};
+use halo2_proofs::halo2curves::bn256::{Bn256, Fr, G1Affine};
 use halo2_proofs::{
     arithmetic::CurveAffine,
     poly::{
@@ -24,7 +25,6 @@ use halo2_proofs::{
     plonk::{create_proof, keygen_pk, keygen_vk},
     transcript::{Challenge255, PoseidonWrite},
 };
-use halo2curves::bn256::{Bn256, Fr, G1Affine};
 use rand::{rngs::OsRng, thread_rng};
 
 const K: u32 = 16;

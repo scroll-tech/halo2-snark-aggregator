@@ -1,10 +1,13 @@
 use std::marker::PhantomData;
 
 use super::ecc_chip::SolidityEccChip;
-use halo2_ecc_circuit_lib::utils::{bn_to_field, field_to_bn};
-use halo2_proofs::arithmetic::{CurveAffine, Field, FieldExt};
+use halo2_proofs::{
+    arithmetic::{CurveAffine, Field, FieldExt},
+    halo2curves::group::ff::PrimeField,
+};
 use halo2_snark_aggregator_api::{
     arith::{common::ArithCommonChip, ecc::ArithEccChip},
+    mock::transcript_encode::{bn_to_field, field_to_bn},
     transcript::encode::Encode,
 };
 
@@ -19,7 +22,10 @@ fn base_to_scalar<B: FieldExt, S: FieldExt>(base: &B) -> S {
     bn_to_field(&bn)
 }
 
-impl<C: CurveAffine, E> Encode<SolidityEccChip<C, E>> for PoseidonEncode<SolidityEccChip<C, E>> {
+impl<C: CurveAffine, E> Encode<SolidityEccChip<C, E>> for PoseidonEncode<SolidityEccChip<C, E>>
+where
+    C::Base: PrimeField,
+{
     fn encode_point(
         ctx: &mut <SolidityEccChip<C, E> as ArithCommonChip>::Context,
         nchip: &<SolidityEccChip<C, E> as ArithEccChip>::NativeChip,
