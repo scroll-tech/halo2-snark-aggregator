@@ -1440,7 +1440,6 @@ dependencies = [
 [[package]]
 name = "halo2_ecc"
 version = "0.1.0"
-source = "git+ssh://git@github.com/scroll-tech/halo2-ecc.git?branch=sync-halo2-ecc-1013#fb7d953eed1e6aa3054c8b8bb9a2a841dc81a963"
 dependencies = [
  "ff",
  "group",
