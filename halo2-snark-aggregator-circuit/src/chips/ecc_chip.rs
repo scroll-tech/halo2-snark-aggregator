@@ -1,17 +1,19 @@
 use super::scalar_chip::ScalarChip;
 use ff::PrimeField;
+use halo2_base::Context;
+use halo2_ecc::ecc::fixed_base::FixedEcPoint;
+use halo2_ecc::ecc::EcPoint;
 use halo2_ecc::{
     bigint::CRTInteger,
     ecc,
     fields::{fp, FieldChip},
-    gates::Context,
 };
 use halo2_proofs::{arithmetic::CurveAffine, circuit::Value, plonk::Error};
 use halo2_snark_aggregator_api::arith::{common::ArithCommonChip, ecc::ArithEccChip};
 use std::marker::PhantomData;
 
 pub type FpChip<C> = fp::FpConfig<<C as CurveAffine>::ScalarExt, <C as CurveAffine>::Base>;
-pub type FpPoint<C> = CRTInteger<<C as CurveAffine>::ScalarExt>;
+pub type FpPoint<'a, C> = CRTInteger<'a, <C as CurveAffine>::ScalarExt>;
 pub type AssignedValue<C> = super::scalar_chip::AssignedValue<<C as CurveAffine>::ScalarExt>;
 
 // We're assuming that the scalar field of C actually happens to be the native field F of the proving system
@@ -21,7 +23,7 @@ pub struct EccChip<'a, 'b, C: CurveAffine>
 where
     C::Base: PrimeField,
 {
-    pub chip: ecc::EccChip<'a, C::ScalarExt, FpChip<C>>,
+    pub chip: ecc::EccChip<C::ScalarExt, FpChip<C>>,
     // More succinctly, if F = C::ScalarExt && Fp = C::Base, then
     // chip: ecc::EccChip<'a, F, FpChip<F>>
 
@@ -47,7 +49,7 @@ where
 {
     type Context = Context<'b, C::ScalarExt>;
     type Value = C;
-    type AssignedValue = ecc::EccPoint<C::ScalarExt, FpPoint<C>>;
+    type AssignedValue = EcPoint<C::ScalarExt, FpPoint<C>>;
     type Error = Error;
 
     fn add(
@@ -85,7 +87,7 @@ where
         ctx: &mut Self::Context,
         c: Self::Value,
     ) -> Result<Self::AssignedValue, Self::Error> {
-        let c_fixed = ecc::fixed::FixedEccPoint::from_g1(
+        let c_fixed = FixedEcPoint::from_g1(
             &c,
             self.chip.field_chip.num_limbs,
             self.chip.field_chip.limb_bits,
@@ -129,7 +131,7 @@ where
     C::Base: PrimeField,
 {
     type Point = C;
-    type AssignedPoint = ecc::EccPoint<C::ScalarExt, FpPoint<C>>;
+    type AssignedPoint = EcPoint<C::ScalarExt, FpPoint<C>>;
     type Scalar = C::ScalarExt;
     type AssignedScalar = AssignedValue<C>;
     type Native = C::ScalarExt;
@@ -145,8 +147,8 @@ where
         rhs: &Self::AssignedPoint,
     ) -> Result<Self::AssignedPoint, Self::Error> {
         // only works if C::b(), which is an element of C::Base, actually fits into C::ScalarExt
-        let b_base = halo2_ecc::utils::fe_to_biguint(&C::b());
-        let b = halo2_ecc::utils::biguint_to_fe::<C::ScalarExt>(&b_base);
+        let b_base = halo2_base::utils::fe_to_biguint(&C::b());
+        let b = halo2_base::utils::biguint_to_fe::<C::ScalarExt>(&b_base);
         self.chip.scalar_mult(
             ctx,
             rhs,
@@ -167,7 +169,7 @@ where
         // let b_base = halo2_ecc::utils::fe_to_biguint(&C::b());
         // let b = halo2_ecc::utils::biguint_to_fe::<C::ScalarExt>(&b_base);
 
-        let fixed_point = ecc::fixed::FixedEccPoint::from_g1(
+        let fixed_point = FixedEcPoint::from_g1(
             &rhs,
             self.chip.field_chip.num_limbs,
             self.chip.field_chip.limb_bits,
@@ -188,8 +190,8 @@ where
         scalars: Vec<Self::AssignedScalar>,
     ) -> Result<Self::AssignedPoint, Self::Error> {
         // only works if C::b(), which is an element of C::Base, actually fits into C::ScalarExt
-        let b_base = halo2_ecc::utils::fe_to_biguint(&C::b());
-        let b = halo2_ecc::utils::biguint_to_fe::<C::ScalarExt>(&b_base);
+        let b_base = halo2_base::utils::fe_to_biguint(&C::b());
+        let b = halo2_base::utils::biguint_to_fe::<C::ScalarExt>(&b_base);
 
         self.chip.multi_scalar_mult::<C>(
             ctx,

@@ -12,11 +12,9 @@ use super::chips::{
 };
 use ark_std::{end_timer, start_timer};
 use ff::PrimeField;
-use halo2_ecc::gates::QuantumCell;
-use halo2_ecc::{
-    fields::fp::FpStrategy,
-    gates::{Context, ContextParams, GateInstructions},
-};
+use halo2_base::gates::GateInstructions;
+use halo2_base::{Context, ContextParams, QuantumCell};
+use halo2_ecc::fields::fp::FpStrategy;
 use halo2_proofs::circuit::{AssignedCell, SimpleFloorPlanner};
 use halo2_proofs::halo2curves::bn256::{Bn256, Fr, G1Affine};
 use halo2_proofs::halo2curves::group::Curve;
@@ -84,6 +82,8 @@ where
 {
     pub base_field_config: FpChip<C>,
     pub instance: Column<Instance>,
+    pub max_rows: usize,
+    pub num_advices: usize,
 }
 
 #[derive(Clone, Debug)]
@@ -256,7 +256,7 @@ where
             params.lookup_bits,
             params.limb_bits,
             params.num_limbs,
-            halo2_ecc::utils::modulus::<C::Base>(),
+            halo2_base::utils::modulus::<C::Base>(),
         );
 
         let instance = meta.instance_column();
@@ -292,9 +292,9 @@ where
                 let mut aux = Context::new(
                     region,
                     ContextParams {
-                        num_advice: config.base_field_config.range.gate.num_advice,
-                        using_simple_floor_planner,
-                        first_pass,
+                        max_rows: config.max_rows,
+                        num_advice: vec![config.num_advices],
+                        fixed_columns: config.instance.clone(),
                     },
                 );
                 let ctx = &mut aux;
@@ -372,13 +372,13 @@ where
                             config.base_field_config.num_limbs - i * chunk_size,
                         ) {
                             a.push(QuantumCell::Existing(&limbs[i * num_chunks + j]));
-                            b.push(QuantumCell::Constant(halo2_ecc::utils::biguint_to_fe(
+                            b.push(QuantumCell::Constant(halo2_base::utils::biguint_to_fe(
                                 &(BigUint::from(1u64) << (j * config.base_field_config.limb_bits)),
                             )));
                         }
                         if i == num_chunks - 1 {
                             a.push(QuantumCell::Existing(&bit));
-                            b.push(QuantumCell::Constant(halo2_ecc::utils::biguint_to_fe(
+                            b.push(QuantumCell::Constant(halo2_base::utils::biguint_to_fe(
                                 &(BigUint::from(1u64)
                                     << (chunk_size * config.base_field_config.limb_bits)),
                             )));
@@ -581,7 +581,7 @@ where
             params.lookup_bits,
             params.limb_bits,
             params.num_limbs,
-            halo2_ecc::utils::modulus::<C::Base>(),
+            halo2_base::utils::modulus::<C::Base>(),
         );
 
         let instance = meta.instance_column();
@@ -813,8 +813,8 @@ where
         / (limb_bits * chunk_size);
 
     let w_to_limbs_le = |w: &C::Base| {
-        let w_big = halo2_ecc::utils::fe_to_biguint(w);
-        halo2_ecc::utils::decompose_biguint::<C::ScalarExt>(
+        let w_big = halo2_base::utils::fe_to_biguint(w);
+        halo2_base::utils::decompose_biguint::<C::ScalarExt>(
             &w_big,
             num_chunks,
             chunk_size * limb_bits,
@@ -825,11 +825,11 @@ where
     let mut w_g_x = w_to_limbs_le(pair.1.coordinates().unwrap().x());
 
     let get_last_bit = |w: &C::Base| -> C::ScalarExt {
-        let w_big = halo2_ecc::utils::fe_to_biguint(w);
+        let w_big = halo2_base::utils::fe_to_biguint(w);
         if w_big % 2u64 == BigUint::from(0u64) {
             C::ScalarExt::from(0)
         } else {
-            halo2_ecc::utils::biguint_to_fe(&(BigUint::from(1u64) << (chunk_size * limb_bits)))
+            halo2_base::utils::biguint_to_fe(&(BigUint::from(1u64) << (chunk_size * limb_bits)))
         }
     };
 

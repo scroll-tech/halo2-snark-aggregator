@@ -1,10 +1,8 @@
 use super::super::chips::{
     ecc_chip::EccChip, encode_chip::PoseidonEncodeChip, scalar_chip::ScalarChip,
 };
-use halo2_ecc::{
-    fields::fp::FpConfig,
-    gates::{Context, ContextParams},
-};
+use halo2_base::gates::{Context, ContextParams};
+use halo2_ecc::fields::fp::FpConfig;
 use halo2_proofs::halo2curves::bn256::{Fq, Fr, G1Affine};
 use halo2_proofs::{
     arithmetic::CurveAffine,
@@ -97,16 +95,20 @@ impl Circuit<Fr> for TestCircuit<G1Affine> {
 
         println!("{}", serde_json::to_string_pretty(&params).unwrap());
 
-        let base_field_config = FpConfig::configure(
+        let base_field_config = 
+        
+        FpConfig::configure(
             meta,
             params.strategy,
-            params.num_advice,
-            params.num_lookup_advice,
+&[            params.num_advice],
+           &[ params.num_lookup_advice],
             params.num_fixed,
             params.lookup_bits,
             params.limb_bits,
             params.num_limbs,
-            halo2_ecc::utils::modulus::<Fq>(),
+            halo2_base::utils::modulus::<Fq>(),
+            0,
+            20
         );
         TestConfig { base_field_config }
     }

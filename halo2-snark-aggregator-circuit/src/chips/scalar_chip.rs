@@ -1,8 +1,8 @@
 use std::marker::PhantomData;
 
-use halo2_ecc::gates::{
-    flex_gate::FlexGateConfig,
-    Context, GateInstructions,
+use halo2_base::{
+    gates::{flex_gate::FlexGateConfig, GateInstructions},
+    Context,
     QuantumCell::{Constant, Existing, Witness},
 };
 use halo2_proofs::{
