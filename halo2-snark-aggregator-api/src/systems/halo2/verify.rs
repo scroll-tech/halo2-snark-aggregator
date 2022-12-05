@@ -12,22 +12,21 @@ use crate::transcript::read::TranscriptRead;
 use group::prime::PrimeCurveAffine;
 use group::Group;
 use halo2_proofs::arithmetic::{Field, FieldExt};
-use halo2_proofs::poly::commitment::{Params, ParamsProver};
+use halo2_proofs::poly::commitment::Params;
 use halo2_proofs::poly::kzg::commitment::{ParamsKZG, ParamsVerifierKZG};
 use halo2_proofs::poly::Rotation;
 use halo2_proofs::{
     arithmetic::CurveAffine,
     plonk::{Expression, VerifyingKey},
 };
-use halo2curves::pairing::MillerLoopResult;
-use halo2curves::pairing::MultiMillerLoop;
+use halo2curves::pairing::{MultiMillerLoop, MillerLoopResult, Engine};
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::vec;
 
 pub struct VerifierParamsBuilder<
     'a,
-    E: MultiMillerLoop,
+    E: MultiMillerLoop + Engine,
     A: ArithEccChip<Point = E::G1Affine>,
     T: TranscriptRead<A>,
 > {
@@ -177,6 +176,7 @@ impl<
             Expression::Fixed(fixed_query) => Expression::Fixed(fixed_query),
             Expression::Advice(advice_query) => Expression::Advice(advice_query),
             Expression::Instance(instance_query) => Expression::Instance(instance_query),
+            Expression::Challenge(value) => Expression::Challenge(value),
             Expression::Negated(b) => Expression::Negated(
                 Box::<Expression<A::AssignedScalar>>::new(self.convert_expression(*b)?),
             ),
@@ -244,7 +244,7 @@ impl<
                             columns
                                 .iter()
                                 .map(|column| match column.column_type() {
-                                    halo2_proofs::plonk::Any::Advice => advice_evals[self
+                                    halo2_proofs::plonk::Any::Advice(_) => advice_evals[self
                                         .vk
                                         .cs()
                                         .get_any_query_index(*column, Rotation::cur())]
@@ -349,6 +349,7 @@ impl<
 
         let advice_commitments =
             self.load_n_m_points(num_proofs, self.vk.cs().num_advice_columns)?;
+        let challenges = self.load_n_m_scalars(num_proofs, self.vk.cs().num_challenges)?;
 
         let theta = self.squeeze_challenge_scalar()?;
 
@@ -468,6 +469,7 @@ impl<
                 .iter()
                 .map(|column| (column.0.index, column.1 .0 as i32))
                 .collect(),
+            challenges,
             advice_commitments,
             advice_evals,
             advice_queries: self

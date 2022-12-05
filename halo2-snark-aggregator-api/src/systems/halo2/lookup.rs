@@ -38,6 +38,7 @@ impl<A: ArithEccChip> Evaluated<A> {
         fixed_evals: &Vec<A::AssignedScalar>,
         instance_evals: &Vec<A::AssignedScalar>,
         advice_evals: &Vec<A::AssignedScalar>,
+        challenges: &Vec<A::AssignedScalar>,
         l_0: &A::AssignedScalar,
         l_last: &A::AssignedScalar,
         l_blind: &A::AssignedScalar,
@@ -67,6 +68,8 @@ impl<A: ArithEccChip> Evaluated<A> {
                     &|n| fixed_evals[n].clone(),
                     &|n| advice_evals[n].clone(),
                     &|n| instance_evals[n].clone(),
+                    // &|n| challenges[n].clone(),
+                    &|challenge| challenges[challenge.index()].clone(),
                     zero,
                 )
             })
@@ -84,6 +87,8 @@ impl<A: ArithEccChip> Evaluated<A> {
                     &|n| fixed_evals[n].clone(),
                     &|n| advice_evals[n].clone(),
                     &|n| instance_evals[n].clone(),
+                    // &|n| challenges[n].clone(),
+                    &|challenge| challenges[challenge.index()].clone(),
                     zero,
                 )
             })
