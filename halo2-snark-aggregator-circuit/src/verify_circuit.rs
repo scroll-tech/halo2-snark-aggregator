@@ -16,6 +16,7 @@ use halo2_base::gates::GateInstructions;
 use halo2_base::{Context, ContextParams, QuantumCell};
 use halo2_ecc::fields::fp::FpStrategy;
 use halo2_proofs::circuit::{AssignedCell, SimpleFloorPlanner};
+use halo2_proofs::halo2curves::CurveAffineExt;
 use halo2_proofs::halo2curves::bn256::{Bn256, Fr, G1Affine};
 use halo2_proofs::halo2curves::group::Curve;
 use halo2_proofs::halo2curves::group::Group;
@@ -78,7 +79,8 @@ pub struct Halo2VerifierCircuitConfigParams {
 #[derive(Clone)]
 pub struct Halo2VerifierCircuitConfig<C: CurveAffine>
 where
-    C::Base: PrimeField,
+    C::Base: PrimeField<Repr = [u8; 32]>,
+    C::Scalar: PrimeField<Repr = [u8; 32]>,
 {
     pub base_field_config: FpChip<C>,
     pub instance: Column<Instance>,
@@ -226,7 +228,8 @@ impl<
         const N: usize,
     > Circuit<C::ScalarExt> for Halo2VerifierCircuits<'a, E, N>
 where
-    C::Base: PrimeField,
+    C::Base: PrimeField<Repr = [u8; 32]>,
+    C::Scalar: PrimeField<Repr = [u8; 32]>,
 {
     type Config = Halo2VerifierCircuitConfig<C>;
     type FloorPlanner = SimpleFloorPlanner;
@@ -340,12 +343,12 @@ where
                     ctx,
                     &res.0.y.truncation.limbs[0],
                     config.base_field_config.limb_bits,
-                )?;
+                );
                 let y1_bit = config.base_field_config.range.get_last_bit(
                     ctx,
                     &res.1.y.truncation.limbs[0],
                     config.base_field_config.limb_bits,
-                )?;
+                );
 
                 // Our big integers are represented with `limb_bits` sized limbs
                 // We want to pack as many limbs as possible to fit into native field C::ScalarExt, allowing room for 1 extra bit
@@ -441,12 +444,13 @@ where
 
 impl<
         'a,
-        C: CurveAffine,
+        C: CurveAffineExt,
         E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt> + Debug,
         const N: usize,
     > Halo2VerifierCircuits<'a, E, N>
 where
-    C::Base: PrimeField,
+    C::Base: PrimeField<Repr = [u8; 32]>,
+    C::Scalar: PrimeField<Repr = [u8; 32]>,
 {
     fn synthesize_proof(
         &self,
@@ -536,7 +540,7 @@ where
                 ctx,
                 &commits[coherent[0].0][coherent[0].1],
                 &commits[coherent[1].0][coherent[1].1],
-            )?;
+            );
         }
 
         println!("Aggregate proof synthesized.");
@@ -548,7 +552,8 @@ where
 impl<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt> + Debug>
     Circuit<C::ScalarExt> for Halo2VerifierCircuit<'a, E>
 where
-    C::Base: PrimeField,
+    C::Base: PrimeField<Repr = [u8; 32]>,
+    C::Scalar: PrimeField<Repr = [u8; 32]>,
 {
     type Config = Halo2VerifierCircuitConfig<C>;
     type FloorPlanner = SimpleFloorPlanner;
@@ -730,7 +735,8 @@ impl<
         const N: usize,
     > MultiCircuitsSetup<C, E, N>
 where
-    C::Base: PrimeField,
+    C::Base: PrimeField<Repr = [u8; 32]>,
+    C::Scalar: PrimeField<Repr = [u8; 32]>,
 {
     fn new_verify_circuit_info(&self, setup: bool) -> [SetupOutcome<C, E>; N] {
         from_0_to_n::<N>().map(|circuit_index| {
@@ -803,7 +809,8 @@ pub fn final_pair_to_instances<
     limb_bits: usize,
 ) -> Vec<C::ScalarExt>
 where
-    C::Base: PrimeField,
+    C::Base: PrimeField<Repr = [u8; 32]>,
+    C::Scalar: PrimeField<Repr = [u8; 32]>,
 {
     // Our big integers are represented with `limb_bits` sized limbs
     // We want to pack as many limbs as possible to fit into native field C::ScalarExt, allowing room for 1 extra bit
@@ -863,6 +870,7 @@ pub fn calc_verify_circuit_instances<
 ) -> Vec<C::ScalarExt>
 where
     C::Base: PrimeField,
+    C::Scalar: PrimeField<Repr = [u8; 32]>,
 {
     let pair = Halo2CircuitInstances([Halo2CircuitInstance {
         name,
@@ -959,7 +967,8 @@ impl<
         const N: usize,
     > MultiCircuitsCreateProof<'_, C, E, N>
 where
-    C::Base: PrimeField,
+    C::Base: PrimeField<Repr = [u8; 32]>,
+    C::Scalar: PrimeField<Repr = [u8; 32]>,
 {
     pub fn call(
         self,

@@ -6,8 +6,10 @@ authors = ["zhangjunyu <junyu92@gmail.com>"]
 
 [dependencies]
 clap = { version = "3.1.11", features = ["derive"] }
-halo2_base = { git = "ssh://git@github.com/scroll-tech/halo2-ecc.git", branch = "sync-halo2-ecc-11-28", default-features = false }
-halo2_ecc = { git = "ssh://git@github.com/scroll-tech/halo2-ecc.git", branch = "sync-halo2-ecc-11-28", default-features = false }
+# halo2_base = { git = "ssh://git@github.com/scroll-tech/halo2-ecc.git", branch = "sync-halo2-ecc-11-28", default-features = false }
+# halo2_ecc = { git = "ssh://git@github.com/scroll-tech/halo2-ecc.git", branch = "sync-halo2-ecc-11-28", default-features = false }
+halo2_base = { path = "../../halo2-ecc/halo2_base" }
+halo2_ecc = { path = "../../halo2-ecc/halo2_ecc" }
 halo2-snark-aggregator-api = { path = "../halo2-snark-aggregator-api" }
 ff = "0.12"
 halo2_proofs = { git = "https://github.com/scroll-tech/halo2.git", branch = "sync-halo2-ecc-1013" }

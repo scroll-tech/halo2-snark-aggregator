@@ -1,7 +1,7 @@
 use super::ecc_chip::EccChip;
-use super::scalar_chip::AssignedValue;
 use ff::PrimeField;
-use halo2_proofs::{arithmetic::CurveAffine, plonk::Error};
+use halo2_base::AssignedValue;
+use halo2_proofs::{arithmetic::CurveAffine, plonk::Error, halo2curves::CurveAffineExt};
 use halo2_snark_aggregator_api::{
     arith::{common::ArithCommonChip, ecc::ArithEccChip},
     transcript::encode::Encode,
@@ -12,40 +12,41 @@ pub struct PoseidonEncodeChip<A: ArithEccChip> {
     _phantom: PhantomData<A>,
 }
 
-impl<'a, 'b, C: CurveAffine> Encode<EccChip<'a, 'b, C>> for PoseidonEncodeChip<EccChip<'a, 'b, C>>
+impl<'a, C: CurveAffineExt> Encode<EccChip<'a, C>> for PoseidonEncodeChip<EccChip<'a, C>>
 where
-    C::Base: PrimeField,
+    C::Base: PrimeField<Repr = [u8; 32]>,
+    C::Scalar: PrimeField<Repr = [u8; 32]>,
 {
     fn encode_point(
-        _ctx: &mut <EccChip<'a, 'b, C> as ArithCommonChip>::Context,
-        _: &<EccChip<'a, 'b, C> as ArithEccChip>::NativeChip,
-        _: &<EccChip<'a, 'b, C> as ArithEccChip>::ScalarChip,
-        _pchip: &EccChip<'a, 'b, C>,
-        v: &<EccChip<'a, 'b, C> as ArithEccChip>::AssignedPoint,
-    ) -> Result<Vec<<EccChip<'a, 'b, C> as ArithEccChip>::AssignedNative>, Error> {
+        _ctx: &mut <EccChip<'a, C> as ArithCommonChip>::Context,
+        _: &<EccChip<'a, C> as ArithEccChip>::NativeChip,
+        _: &<EccChip<'a, C> as ArithEccChip>::ScalarChip,
+        _pchip: &EccChip<'a, C>,
+        v: &<EccChip<'a, C> as ArithEccChip>::AssignedPoint,
+    ) -> Result<Vec<<EccChip<'a, C> as ArithEccChip>::AssignedNative>, Error> {
         let x_native = v.x.native.clone();
         let y_native = v.y.native.clone();
         Ok(vec![
-            AssignedValue(x_native, None),
-            AssignedValue(y_native, None),
+        x_native,
+           y_native,
         ])
     }
 
     fn encode_scalar(
-        _: &mut <EccChip<'a, 'b, C> as ArithCommonChip>::Context,
-        _: &<EccChip<'a, 'b, C> as ArithEccChip>::NativeChip,
-        _: &<EccChip<'a, 'b, C> as ArithEccChip>::ScalarChip,
-        v: &<EccChip<'a, 'b, C> as ArithEccChip>::AssignedScalar,
-    ) -> Result<Vec<<EccChip<'a, 'b, C> as ArithEccChip>::AssignedNative>, Error> {
+        _: &mut <EccChip<'a, C> as ArithCommonChip>::Context,
+        _: &<EccChip<'a, C> as ArithEccChip>::NativeChip,
+        _: &<EccChip<'a, C> as ArithEccChip>::ScalarChip,
+        v: &<EccChip<'a, C> as ArithEccChip>::AssignedScalar,
+    ) -> Result<Vec<<EccChip<'a, C> as ArithEccChip>::AssignedNative>, Error> {
         Ok(vec![v.clone()])
     }
 
     fn decode_scalar(
-        _: &mut <EccChip<'a, 'b, C> as ArithCommonChip>::Context,
-        _: &<EccChip<'a, 'b, C> as ArithEccChip>::NativeChip,
-        _: &<EccChip<'a, 'b, C> as ArithEccChip>::ScalarChip,
-        v: &[<EccChip<'a, 'b, C> as ArithEccChip>::AssignedNative],
-    ) -> Result<<EccChip<'a, 'b, C> as ArithEccChip>::AssignedScalar, Error> {
+        _: &mut <EccChip<'a, C> as ArithCommonChip>::Context,
+        _: &<EccChip<'a, C> as ArithEccChip>::NativeChip,
+        _: &<EccChip<'a, C> as ArithEccChip>::ScalarChip,
+        v: &[<EccChip<'a, C> as ArithEccChip>::AssignedNative],
+    ) -> Result<<EccChip<'a, C> as ArithEccChip>::AssignedScalar, Error> {
         Ok(v[0].clone())
     }
 }

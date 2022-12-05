@@ -1388,7 +1388,8 @@ dependencies = [
  "eth-types",
  "ff",
  "halo2-snark-aggregator-api",
- "halo2_ecc",
+ "halo2_base",
+ "halo2_ecc 0.2.1",
  "halo2_proofs",
  "log",
  "num-bigint",
@@ -1429,12 +1430,27 @@ version = "0.1.0"
 dependencies = [
  "halo2-snark-aggregator-api",
  "halo2-snark-aggregator-circuit",
- "halo2_ecc",
+ "halo2_ecc 0.1.0",
  "halo2_proofs",
  "log",
  "num-bigint",
  "sha3 0.10.6",
  "tera",
+]
+
+[[package]]
+name = "halo2_base"
+version = "0.2.1"
+dependencies = [
+ "halo2_proofs",
+ "halo2curves 0.2.1 (git+https://github.com/axiom-crypto/halo2.git?branch=axiom/faster-witness-generation)",
+ "itertools",
+ "num-bigint",
+ "num-integer",
+ "num-traits",
+ "poseidon",
+ "rand_chacha",
+ "rustc-hash",
 ]
 
 [[package]]
@@ -1456,6 +1472,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "halo2_ecc"
+version = "0.2.1"
+dependencies = [
+ "ff",
+ "group",
+ "halo2_base",
+ "itertools",
+ "jemallocator",
+ "num-bigint",
+ "num-integer",
+ "num-traits",
+ "rand",
+ "rand_chacha",
+ "rand_core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "halo2_proofs"
 version = "0.2.0"
 source = "git+https://github.com/scroll-tech/halo2.git?branch=sync-halo2-ecc-1013#317bd4f6c350ecd4d38e7ff942331337edfcc694"
@@ -1464,7 +1499,7 @@ dependencies = [
  "cfg-if 0.1.10",
  "ff",
  "group",
- "halo2curves",
+ "halo2curves 0.2.1 (git+https://github.com/scroll-tech/halo2curves/?branch=sync-halo2-ecc-1013)",
  "log",
  "num-bigint",
  "num-integer",
@@ -1473,6 +1508,23 @@ dependencies = [
  "rayon",
  "subtle",
  "tracing",
+]
+
+[[package]]
+name = "halo2curves"
+version = "0.2.1"
+source = "git+https://github.com/axiom-crypto/halo2.git?branch=axiom/faster-witness-generation#c8137e1a6c4130ab414e3c7e9cad97a5111fd004"
+dependencies = [
+ "ff",
+ "group",
+ "lazy_static",
+ "num-bigint",
+ "num-traits",
+ "pasta_curves",
+ "rand",
+ "rand_core",
+ "static_assertions",
+ "subtle",
 ]
 
 [[package]]
@@ -2400,7 +2452,7 @@ version = "0.2.0"
 source = "git+https://github.com/scroll-tech/poseidon.git?branch=sync-halo2-ecc-1013#6368a8f7d503c2fcd92bc099272755c283ea1596"
 dependencies = [
  "group",
- "halo2curves",
+ "halo2curves 0.2.1 (git+https://github.com/scroll-tech/halo2curves/?branch=sync-halo2-ecc-1013)",
  "subtle",
 ]
 
@@ -2691,6 +2743,12 @@ dependencies = [
  "num-traits",
  "serde",
 ]
+
+[[package]]
+name = "rustc-hash"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "08d43f7aa6b08d49f382cde6a7982047c3426db949b1424bc4b7ec9ae12c6ce2"
 
 [[package]]
 name = "rustc-hex"

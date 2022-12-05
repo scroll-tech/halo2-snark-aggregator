@@ -1,34 +1,36 @@
-use std::marker::PhantomData;
-
 use halo2_base::{
     gates::{flex_gate::FlexGateConfig, GateInstructions},
-    Context,
+    AssignedValue, Context,
     QuantumCell::{Constant, Existing, Witness},
 };
-use halo2_proofs::{
-    arithmetic::FieldExt,
-    circuit::{AssignedCell, Value},
-    plonk::Error,
-};
+use halo2_proofs::{arithmetic::FieldExt, circuit::Value, plonk::Error};
 use halo2_snark_aggregator_api::arith::{common::ArithCommonChip, field::ArithFieldChip};
 
-pub struct ScalarChip<'a, 'b, N: FieldExt>(pub &'a FlexGateConfig<N>, PhantomData<&'b N>);
+pub struct ScalarChip<'a, N>(pub &'a FlexGateConfig<N>)
+where
+    N: FieldExt<Repr = [u8; 32]>;
 
-// It seems the aggregation api wants to get the value of constant assigned cells, see `to_value` below
-// Because keygen_vk does not actually assign_regions (it only cares about fixed columns), we need to create a wrapper that keeps track of constant values separately in the second coordinate
-#[derive(Clone, Debug)]
-pub struct AssignedValue<F: FieldExt>(pub AssignedCell<F, F>, pub Option<F>);
+// // It seems the aggregation api wants to get the value of constant assigned cells, see `to_value` below
+// // Because keygen_vk does not actually assign_regions (it only cares about fixed columns), we need to create a wrapper that keeps track of constant values separately in the second coordinate
+// #[derive(Clone, Debug)]
+// pub struct AssignedValue<F: FieldExt>(pub AssignedCell<F, F>, pub Option<F>);
 
-impl<'a, 'b, N: FieldExt> ScalarChip<'a, 'b, N> {
+impl<'a, N> ScalarChip<'a, N>
+where
+    N: FieldExt<Repr = [u8; 32]>,
+{
     pub fn new(gate: &'a FlexGateConfig<N>) -> Self {
-        ScalarChip(gate, PhantomData)
+        ScalarChip(gate)
     }
 }
 
-impl<'a, 'b, N: FieldExt> ArithCommonChip for ScalarChip<'a, 'b, N> {
-    type Context = Context<'b, N>;
+impl<'a, N> ArithCommonChip for ScalarChip<'a, N>
+where
+    N: FieldExt<Repr = [u8; 32]>,
+{
+    type Context = Context<'a, N>;
     type Value = N;
-    type AssignedValue = AssignedValue<N>;
+    type AssignedValue = AssignedValue<'a, N>;
     type Error = Error;
 
     fn add(
@@ -37,10 +39,7 @@ impl<'a, 'b, N: FieldExt> ArithCommonChip for ScalarChip<'a, 'b, N> {
         a: &Self::AssignedValue,
         b: &Self::AssignedValue,
     ) -> Result<Self::AssignedValue, Self::Error> {
-        Ok(AssignedValue(
-            self.0.add(ctx, &Existing(&a.0), &Existing(&b.0))?,
-            None,
-        ))
+        Ok(self.0.add(ctx, Existing(&a), Existing(&b)))
     }
 
     fn sub(
@@ -49,10 +48,7 @@ impl<'a, 'b, N: FieldExt> ArithCommonChip for ScalarChip<'a, 'b, N> {
         a: &Self::AssignedValue,
         b: &Self::AssignedValue,
     ) -> Result<Self::AssignedValue, Self::Error> {
-        Ok(AssignedValue(
-            self.0.sub(ctx, &Existing(&a.0), &Existing(&b.0))?,
-            None,
-        ))
+        Ok(self.0.sub(ctx, Existing(&a), Existing(&b)))
     }
 
     fn assign_zero(&self, ctx: &mut Self::Context) -> Result<Self::AssignedValue, Self::Error> {
@@ -70,8 +66,8 @@ impl<'a, 'b, N: FieldExt> ArithCommonChip for ScalarChip<'a, 'b, N> {
     ) -> Result<Self::AssignedValue, Self::Error> {
         let assignments =
             self.0
-                .assign_region_smart(ctx, vec![Constant(c)], vec![], vec![], vec![])?;
-        Ok(AssignedValue(assignments.last().unwrap().clone(), Some(c)))
+                .assign_region_smart(ctx, vec![Constant(c)], vec![], vec![], vec![]);
+        Ok(assignments[0])
     }
 
     fn assign_var(
@@ -79,21 +75,17 @@ impl<'a, 'b, N: FieldExt> ArithCommonChip for ScalarChip<'a, 'b, N> {
         ctx: &mut Self::Context,
         v: Self::Value,
     ) -> Result<Self::AssignedValue, Self::Error> {
-        let assignments = self.0.assign_region_smart(
-            ctx,
-            vec![Witness(Value::known(v))],
-            vec![],
-            vec![],
-            vec![],
-        )?;
-        Ok(AssignedValue(assignments.last().unwrap().clone(), None))
+        let assignments =
+            self.0
+                .assign_region_smart(ctx, vec![Witness(Value::known(v))], vec![], vec![], vec![]);
+        Ok(assignments.last().unwrap().clone())
     }
 
     fn to_value(&self, v: &Self::AssignedValue) -> Result<Self::Value, Self::Error> {
-        if v.1.is_none() {
+        if v.value.is_none() {
             panic!("calling to_value on a non constant cell!");
         }
-        Ok(v.1.unwrap())
+        Ok(v.value.inner.unwrap())
     }
 
     fn normalize(
@@ -105,9 +97,12 @@ impl<'a, 'b, N: FieldExt> ArithCommonChip for ScalarChip<'a, 'b, N> {
     }
 }
 
-impl<'a, 'b, N: FieldExt> ArithFieldChip for ScalarChip<'a, 'b, N> {
+impl<'a, N> ArithFieldChip for ScalarChip<'a, N>
+where
+    N: FieldExt<Repr = [u8; 32]>,
+{
     type Field = N;
-    type AssignedField = AssignedValue<N>;
+    type AssignedField = AssignedValue<'a, N>;
 
     fn mul(
         &self,
@@ -115,10 +110,7 @@ impl<'a, 'b, N: FieldExt> ArithFieldChip for ScalarChip<'a, 'b, N> {
         a: &Self::AssignedField,
         b: &Self::AssignedField,
     ) -> Result<Self::AssignedField, Self::Error> {
-        Ok(AssignedValue(
-            self.0.mul(ctx, &Existing(&a.0), &Existing(&b.0))?,
-            None,
-        ))
+        Ok(self.0.mul(ctx, Existing(&a), Existing(&b)))
     }
 
     fn div(
@@ -127,10 +119,7 @@ impl<'a, 'b, N: FieldExt> ArithFieldChip for ScalarChip<'a, 'b, N> {
         a: &Self::AssignedField,
         b: &Self::AssignedField,
     ) -> Result<Self::AssignedField, Self::Error> {
-        Ok(AssignedValue(
-            self.0.div_unsafe(ctx, &Existing(&a.0), &Existing(&b.0))?,
-            None,
-        ))
+        Ok(self.0.div_unsafe(ctx, Existing(&a), Existing(&b)))
     }
 
     fn square(
@@ -148,20 +137,19 @@ impl<'a, 'b, N: FieldExt> ArithFieldChip for ScalarChip<'a, 'b, N> {
         a_with_coeff: Vec<(&Self::AssignedField, Self::Value)>,
         b: Self::Value,
     ) -> Result<Self::AssignedField, Self::Error> {
-        let (_, _, sum, gate_index) = self.0.inner_product(
+        let sum = self.0.inner_product(
             ctx,
-            &a_with_coeff.iter().map(|(a, _)| Existing(&a.0)).collect(),
-            &a_with_coeff.iter().map(|(_, c)| Constant(*c)).collect(),
-        )?;
+            a_with_coeff.iter().map(|(&a, _)| Existing(&a)),
+            a_with_coeff.iter().map(|(_, c)| Constant(*c)),
+        );
 
         let sum = sum.value().map(|&sum| sum + b);
-        let (assignments, _) = self.0.assign_region(
+        let assignments = self.0.assign_region(
             ctx,
             vec![Constant(N::one()), Constant(b), Witness(sum)],
             vec![(-1, None)],
-            Some(gate_index),
-        )?;
-        Ok(AssignedValue(assignments.last().unwrap().clone(), None))
+        );
+        Ok(assignments.last().unwrap().clone())
     }
 
     fn sum_with_constant(
@@ -184,15 +172,15 @@ impl<'a, 'b, N: FieldExt> ArithFieldChip for ScalarChip<'a, 'b, N> {
         b: &Self::AssignedField,
         c: Self::Value,
     ) -> Result<Self::AssignedField, Self::Error> {
-        let d = a.0.value().zip(b.0.value()).map(|(&a, &b)| a * b + c);
+        let d = a.value * b.value + Value::known(c);
         let assignments = self.0.assign_region_smart(
             ctx,
-            vec![Constant(c), Existing(&a.0), Existing(&b.0), Witness(d)],
+            vec![Constant(c), Existing(&a), Existing(&b), Witness(d)],
             vec![0],
             vec![],
             vec![],
-        )?;
-        Ok(AssignedValue(assignments.last().unwrap().clone(), None))
+        );
+        Ok(assignments.last().unwrap().clone())
     }
 
     fn mul_add(
@@ -202,19 +190,15 @@ impl<'a, 'b, N: FieldExt> ArithFieldChip for ScalarChip<'a, 'b, N> {
         b: &Self::AssignedField,
         c: &Self::AssignedField,
     ) -> Result<Self::AssignedField, Self::Error> {
-        let d =
-            a.0.value()
-                .zip(b.0.value())
-                .zip(c.0.value())
-                .map(|((&a, &b), &c)| a * b + c);
+        let d = a.value * b.value + c.value;
         let assignments = self.0.assign_region_smart(
             ctx,
-            vec![Existing(&c.0), Existing(&a.0), Existing(&b.0), Witness(d)],
+            vec![Existing(&c), Existing(&a), Existing(&b), Witness(d)],
             vec![0],
             vec![],
             vec![],
-        )?;
-        Ok(AssignedValue(assignments.last().unwrap().clone(), None))
+        );
+        Ok(assignments.last().unwrap().clone())
     }
 
     // default impl of mul_add_accumulate

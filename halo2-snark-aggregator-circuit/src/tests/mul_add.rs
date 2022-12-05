@@ -108,7 +108,7 @@ impl Circuit<Fr> for TestCircuit<G1Affine> {
             params.num_limbs,
             halo2_base::utils::modulus::<Fq>(),
             0,
-            20
+            20,
         );
         TestConfig { base_field_config }
     }
