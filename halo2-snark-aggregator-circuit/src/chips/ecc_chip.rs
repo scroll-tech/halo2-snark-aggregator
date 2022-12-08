@@ -146,8 +146,8 @@ where
     type Native = C::ScalarExt;
     type AssignedNative = AssignedValue<'a, C::ScalarExt>;
 
-    type ScalarChip = ScalarChip<C::ScalarExt>;
-    type NativeChip = ScalarChip<C::ScalarExt>;
+    type ScalarChip = ScalarChip<'a, C::ScalarExt>;
+    type NativeChip = ScalarChip<'a, C::ScalarExt>;
 
     fn scalar_mul(
         &self,
@@ -155,9 +155,6 @@ where
         lhs: &Self::AssignedScalar,
         rhs: &Self::AssignedPoint,
     ) -> Result<Self::AssignedPoint, Self::Error> {
-        // only works if C::b(), which is an element of C::Base, actually fits into C::ScalarExt
-        let b_base = halo2_base::utils::fe_to_biguint(&C::b());
-        let b = halo2_base::utils::biguint_to_fe::<C::ScalarExt>(&b_base);
         Ok(self.chip.scalar_mult(
             ctx,
             &rhs,

@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use halo2_base::{
     gates::{flex_gate::FlexGateConfig, GateInstructions},
     AssignedValue, Context,
@@ -6,7 +8,7 @@ use halo2_base::{
 use halo2_proofs::{arithmetic::FieldExt, circuit::Value, plonk::Error};
 use halo2_snark_aggregator_api::arith::{common::ArithCommonChip, field::ArithFieldChip};
 
-pub struct ScalarChip<N>(pub FlexGateConfig<N>)
+pub struct ScalarChip<'a, N>(pub FlexGateConfig<N>, PhantomData<&'a N>)
 where
     N: FieldExt<Repr = [u8; 32]>;
 
@@ -15,22 +17,22 @@ where
 // #[derive(Clone, Debug)]
 // pub struct AssignedValue<F: FieldExt>(pub AssignedCell<F, F>, pub Option<F>);
 
-impl<N> ScalarChip<N>
+impl<'a, N> ScalarChip<'a, N>
 where
     N: FieldExt<Repr = [u8; 32]>,
 {
     pub fn new(gate: FlexGateConfig<N>) -> Self {
-        ScalarChip(gate)
+        ScalarChip(gate, PhantomData)
     }
 }
 
-impl<N> ArithCommonChip for ScalarChip<N>
+impl<'a, N> ArithCommonChip for ScalarChip<'a, N>
 where
     N: FieldExt<Repr = [u8; 32]>,
 {
-    type Context<'a> = Context<'a, N>;
+    type Context = Context<'a, N>;
     type Value = N;
-    type AssignedValue<'a> = AssignedValue<'a, N>;
+    type AssignedValue = AssignedValue<'a, N>;
     type Error = Error;
 
     fn add(
@@ -97,12 +99,12 @@ where
     }
 }
 
-impl<N> ArithFieldChip for ScalarChip<N>
+impl<'a, N> ArithFieldChip for ScalarChip<'a, N>
 where
     N: FieldExt<Repr = [u8; 32]>,
 {
     type Field = N;
-    type AssignedField<'a> = AssignedValue<'a, N>;
+    type AssignedField = AssignedValue<'a, N>;
 
     fn mul(
         &self,
@@ -134,12 +136,12 @@ where
     fn sum_with_coeff_and_constant(
         &self,
         ctx: &mut Self::Context,
-        a_with_coeff: Vec<(&Self::AssignedField, Self::Value)>,
+        a_with_coeff: &[(Self::AssignedField, Self::Value)],
         b: Self::Value,
     ) -> Result<Self::AssignedField, Self::Error> {
         let sum = self.0.inner_product(
             ctx,
-            a_with_coeff.iter().map(|(&a, _)| Existing(&a)),
+            a_with_coeff.iter().map(|(a, _)| Existing(&a)),
             a_with_coeff.iter().map(|(_, c)| Constant(*c)),
         );
 
@@ -155,12 +157,12 @@ where
     fn sum_with_constant(
         &self,
         ctx: &mut Self::Context,
-        a: Vec<&Self::AssignedField>,
+        a: &[Self::AssignedField],
         b: Self::Value,
     ) -> Result<Self::AssignedField, Self::Error> {
         self.sum_with_coeff_and_constant(
             ctx,
-            a.into_iter().map(|x| (x, Self::Value::one())).collect(),
+            a.into_iter().map(|x| (x.clone(), Self::Value::one())).collect::<Vec<_>>().as_ref(),
             b,
         )
     }

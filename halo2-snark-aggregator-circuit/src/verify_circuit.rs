@@ -15,7 +15,7 @@ use ff::PrimeField;
 use halo2_base::gates::GateInstructions;
 use halo2_base::{AssignedValue, Context, ContextParams, QuantumCell};
 use halo2_ecc::fields::fp::FpStrategy;
-use halo2_proofs::circuit::{AssignedCell, SimpleFloorPlanner};
+use halo2_proofs::circuit::SimpleFloorPlanner;
 use halo2_proofs::halo2curves::bn256::{Bn256, Fr, G1Affine};
 use halo2_proofs::halo2curves::group::Curve;
 use halo2_proofs::halo2curves::group::Group;
@@ -294,7 +294,7 @@ where
         let mut layouter = layouter.namespace(|| "mult-circuit");
         config.base_field_config.load_lookup_table(&mut layouter)?;
 
-        let base_gate = ScalarChip::new(&config.base_field_config.range.gate);
+        let base_gate = ScalarChip::new(config.base_field_config.range.gate.clone());
         let mut instances = None;
 
         // Need to trick layouter to skip first pass in get shape mode
@@ -336,7 +336,7 @@ where
                 }
                 */
 
-                let mut res = self.synthesize_proof(config.base_field_config, ctx)?;
+                let mut res = self.synthesize_proof(config.base_field_config.clone(), ctx)?;
                 /* println!(
                     "{:#?}\n{:#?}",
                     (res.0.x.value, res.0.y.value),
@@ -477,7 +477,7 @@ where
         ),
         Error,
     > {
-        let nchip = &ScalarChip::new(&field_chip.range.gate);
+        let nchip = &ScalarChip::new(field_chip.range.gate.clone());
         let schip = nchip;
         let pchip = &EccChip::new(field_chip);
 
