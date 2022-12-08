@@ -52,7 +52,7 @@ impl<A: ArithFieldChip, const T: usize, const RATE: usize> PoseidonState<A, T, R
         assert!(inputs.len() < T);
         let offset = inputs.len() + 1;
 
-        self.s[0] = chip.sum_with_constant(ctx, vec![&self.s[0]], pre_constants[0])?;
+        self.s[0] = chip.sum_with_constant(ctx, &[self.s[0].clone()], pre_constants[0])?;
 
         for ((x, constant), input) in self
             .s
@@ -61,7 +61,7 @@ impl<A: ArithFieldChip, const T: usize, const RATE: usize> PoseidonState<A, T, R
             .zip(pre_constants.iter().skip(1))
             .zip(inputs.iter())
         {
-            *x = chip.sum_with_constant(ctx, vec![x, input], *constant)?;
+            *x = chip.sum_with_constant(ctx, &[x.clone(), input.clone()], *constant)?;
         }
 
         for (i, (x, constant)) in self
@@ -73,7 +73,7 @@ impl<A: ArithFieldChip, const T: usize, const RATE: usize> PoseidonState<A, T, R
         {
             *x = chip.sum_with_constant(
                 ctx,
-                vec![x],
+                &[x.clone()],
                 if i == 0 {
                     *constant + A::Value::one()
                 } else {
@@ -98,10 +98,10 @@ impl<A: ArithFieldChip, const T: usize, const RATE: usize> PoseidonState<A, T, R
                     .s
                     .iter()
                     .zip(row.iter())
-                    .map(|(e, word)| (e, *word))
+                    .map(|(e, word)| (e.clone(), word.clone()))
                     .collect::<Vec<_>>();
 
-                chip.sum_with_coeff_and_constant(ctx, a, A::Value::zero())
+                chip.sum_with_coeff_and_constant(ctx, a.as_ref(), A::Value::zero())
             })
             .collect::<Result<Vec<_>, A::Error>>()?;
 
@@ -120,15 +120,15 @@ impl<A: ArithFieldChip, const T: usize, const RATE: usize> PoseidonState<A, T, R
             .s
             .iter()
             .zip(mds.row().iter())
-            .map(|(e, word)| (e, *word))
+            .map(|(e, word)| (e.clone(), word.clone()))
             .collect::<Vec<_>>();
 
-        let mut res = vec![chip.sum_with_coeff_and_constant(ctx, a, A::Value::zero())?];
+        let mut res = vec![chip.sum_with_coeff_and_constant(ctx, a.as_ref(), A::Value::zero())?];
 
         for (e, x) in mds.col_hat().iter().zip(self.s.iter().skip(1)) {
             res.push(chip.sum_with_coeff_and_constant(
                 ctx,
-                vec![(&self.s[0], *e), (x, A::Value::one())],
+                &[(self.s[0].clone(), *e), (x.clone(), A::Value::one())],
                 A::Value::zero(),
             )?);
         }

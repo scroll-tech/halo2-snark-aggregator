@@ -58,7 +58,6 @@ impl<Scalar: FieldExt, A: ArithEccChip<Scalar = Scalar>> VerifierParams<A> {
         schip: &A::ScalarChip,
         at: i32,
     ) -> Result<A::AssignedScalar, A::Error> {
-        let x = &self.x;
         let omega = schip.to_value(&self.omega)?;
         let (base, exp) = if at < 0 {
             (omega.invert().unwrap(), [(-at) as u64, 0, 0, 0])
@@ -66,7 +65,7 @@ impl<Scalar: FieldExt, A: ArithEccChip<Scalar = Scalar>> VerifierParams<A> {
             (omega, [at as u64, 0, 0, 0])
         };
         let omega_at = base.pow_vartime(exp);
-        schip.sum_with_coeff_and_constant(ctx, vec![(x, omega_at)], A::Scalar::zero())
+        schip.sum_with_coeff_and_constant(ctx, &[(self.x.clone(), omega_at)], A::Scalar::zero())
     }
 
     pub fn queries(
@@ -80,7 +79,7 @@ impl<Scalar: FieldExt, A: ArithEccChip<Scalar = Scalar>> VerifierParams<A> {
         let l_last = &ls[self.common.l as usize];
         let l_blind = &schip.sum_with_constant(
             ctx,
-            ls[1..(self.common.l as usize)].iter().collect(),
+            ls[1..(self.common.l as usize)].as_ref(),
             Scalar::zero(),
         )?;
         let zero = &self.zero;

@@ -124,12 +124,12 @@ impl<F: FieldExt, E> ArithFieldChip for MockFieldChip<F, E> {
     fn sum_with_coeff_and_constant(
         &self,
         _ctx: &mut Self::Context,
-        a_with_coeff: Vec<(&Self::AssignedField, Self::Value)>,
+        a_with_coeff: &[(Self::AssignedField, Self::Value)],
         b: Self::Field,
     ) -> Result<Self::AssignedField, Self::Error> {
         let mut acc = b;
         for (x, coeff) in a_with_coeff {
-            acc += *x * coeff
+            acc += *x * *coeff
         }
         Ok(acc)
     }
