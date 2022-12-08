@@ -1,7 +1,7 @@
 use super::ecc_chip::EccChip;
 use ff::PrimeField;
 use halo2_base::AssignedValue;
-use halo2_proofs::{arithmetic::CurveAffine, plonk::Error, halo2curves::CurveAffineExt};
+use halo2_proofs::{arithmetic::CurveAffine, halo2curves::CurveAffineExt, plonk::Error};
 use halo2_snark_aggregator_api::{
     arith::{common::ArithCommonChip, ecc::ArithEccChip},
     transcript::encode::Encode,
@@ -26,10 +26,7 @@ where
     ) -> Result<Vec<<EccChip<'a, C> as ArithEccChip>::AssignedNative>, Error> {
         let x_native = v.x.native.clone();
         let y_native = v.y.native.clone();
-        Ok(vec![
-        x_native,
-           y_native,
-        ])
+        Ok(vec![x_native, y_native])
     }
 
     fn encode_scalar(

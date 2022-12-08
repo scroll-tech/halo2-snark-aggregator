@@ -2,7 +2,7 @@ use super::scalar_chip::ScalarChip;
 use ff::PrimeField;
 use halo2_base::{AssignedValue, Context};
 use halo2_ecc::ecc::fixed_base::FixedEcPoint;
-use halo2_ecc::ecc::EcPoint;
+use halo2_ecc::ecc::{multi_scalar_multiply, EcPoint};
 use halo2_ecc::{
     bigint::CRTInteger,
     ecc,
@@ -20,7 +20,7 @@ pub type FpPoint<'a, C> = CRTInteger<'a, <C as CurveAffine>::ScalarExt>;
 // We're assuming that the scalar field of C actually happens to be the native field F of the proving system
 // There used to be a 'b lifetime, I don't know why it's needed so I removed
 // We need this struct because you can't implement traits if you don't own either the struct or the trait...
-pub struct EccChip<'a, C: CurveAffine>
+pub struct EccChip<'a, C: CurveAffineExt>
 where
     C::Base: PrimeField<Repr = [u8; 32]>,
     C::Scalar: PrimeField<Repr = [u8; 32]>,
@@ -33,7 +33,7 @@ where
     pub _marker: PhantomData<&'a C>,
 }
 
-impl<'a, C: CurveAffine> EccChip<'a, C>
+impl<'a, C: CurveAffineExt> EccChip<'a, C>
 where
     C::Base: PrimeField<Repr = [u8; 32]>,
     C::Scalar: PrimeField<Repr = [u8; 32]>,
@@ -92,11 +92,15 @@ where
         c: Self::Value,
     ) -> Result<Self::AssignedValue, Self::Error> {
         let c_fixed = FixedEcPoint::from_curve(
-            &c,
+            c,
             self.chip.field_chip.num_limbs,
             self.chip.field_chip.limb_bits,
         );
-        c_fixed.assign(self.chip.field_chip, ctx)
+        Ok(c_fixed.assign(
+            &self.chip.field_chip,
+            ctx,
+            self.chip.field_chip.native_modulus(),
+        ))
     }
 
     fn assign_var(
@@ -114,8 +118,8 @@ where
     }
 
     fn to_value(&self, v: &Self::AssignedValue) -> Result<Self::Value, Self::Error> {
-        let x = self.chip.field_chip. get_assigned_value(&v.x).assign()?;
-        let y = self.chip.field_chip. get_assigned_value(&v.y).assign()?;
+        let x = self.chip.field_chip.get_assigned_value(&v.x).assign()?;
+        let y = self.chip.field_chip.get_assigned_value(&v.y).assign()?;
         // CurveAffine allows x = 0 and y = 0 to means the point at infinity
         Ok(C::from_xy(x, y).unwrap())
     }
@@ -138,12 +142,12 @@ where
     type Point = C;
     type AssignedPoint = EcPoint<C::ScalarExt, FpPoint<'a, C>>;
     type Scalar = C::ScalarExt;
-    type AssignedScalar = AssignedValue<'a, C>;
+    type AssignedScalar = AssignedValue<'a, C::ScalarExt>;
     type Native = C::ScalarExt;
-    type AssignedNative = AssignedValue<'a, C>;
+    type AssignedNative = AssignedValue<'a, C::ScalarExt>;
 
-    type ScalarChip = ScalarChip<'a, C::ScalarExt>;
-    type NativeChip = ScalarChip<'a, C::ScalarExt>;
+    type ScalarChip = ScalarChip<C::ScalarExt>;
+    type NativeChip = ScalarChip<C::ScalarExt>;
 
     fn scalar_mul(
         &self,
@@ -156,9 +160,8 @@ where
         let b = halo2_base::utils::biguint_to_fe::<C::ScalarExt>(&b_base);
         Ok(self.chip.scalar_mult(
             ctx,
-            rhs,
-            &vec![lhs.0.clone()],
-            b,
+            &rhs,
+            &vec![lhs.clone()],
             <C::Scalar as PrimeField>::NUM_BITS as usize,
             4,
         ))
@@ -171,21 +174,13 @@ where
         rhs: Self::Point,
     ) -> Result<Self::AssignedPoint, Self::Error> {
         // only works if C::b(), which is an element of C::Base, actually fits into C::ScalarExt
-        // let b_base = halo2_ecc::utils::fe_to_biguint(&C::b());
-        // let b = halo2_ecc::utils::biguint_to_fe::<C::ScalarExt>(&b_base);
-
-        let fixed_point = FixedEcPoint::from_g1(
-            &rhs,
-            self.chip.field_chip.num_limbs,
-            self.chip.field_chip.limb_bits,
-        );
-        self.chip.fixed_base_scalar_mult(
+        Ok(self.chip.fixed_base_scalar_mult(
             ctx,
-            &fixed_point,
-            &vec![lhs.0.clone()],
+            &rhs,
+            &[lhs.clone()],
             <C::Scalar as PrimeField>::NUM_BITS as usize,
             4,
-        )
+        ))
     }
 
     fn multi_exp(
@@ -194,20 +189,24 @@ where
         points: Vec<Self::AssignedPoint>,
         scalars: Vec<Self::AssignedScalar>,
     ) -> Result<Self::AssignedPoint, Self::Error> {
-        // only works if C::b(), which is an element of C::Base, actually fits into C::ScalarExt
-        let b_base = halo2_base::utils::fe_to_biguint(&C::b());
-        let b = halo2_base::utils::biguint_to_fe::<C::ScalarExt>(&b_base);
-
-        self.chip.multi_scalar_mult::<C>(
+        Ok(multi_scalar_multiply::<_, _, C>(
+            &self.chip.field_chip,
             ctx,
             &points,
-            &scalars
-                .iter()
-                .map(|scalar| vec![scalar.0.clone()])
-                .collect(),
-            b,
+            &[scalars],
             <C::Scalar as PrimeField>::NUM_BITS as usize,
             4,
-        )
+        ))
+        // self.chip.multi_scalar_multiply::<C>(
+        //     ctx,
+        //     &points,
+        //     &scalars
+        //         .iter()
+        //         .map(|scalar| vec![scalar.0.clone()])
+        //         .collect(),
+        //     b,
+        //     <C::Scalar as PrimeField>::NUM_BITS as usize,
+        //     4,
+        // )
     }
 }

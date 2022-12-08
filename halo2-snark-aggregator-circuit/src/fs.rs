@@ -252,7 +252,7 @@ pub fn write_verify_circuit_solidity(folder: &mut PathBuf, buf: &Vec<u8>) {
     write_file(folder, "verifier.sol", buf)
 }
 
-pub fn load_verify_circuit_degree() -> u32 {
+pub fn load_verify_circuit_degree() -> usize {
     let params_str = include_str!("configs/verify_circuit.config");
     let params: crate::verify_circuit::Halo2VerifierCircuitConfigParams =
         serde_json::from_str(params_str).unwrap();

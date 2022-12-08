@@ -6,7 +6,7 @@ use halo2_base::{
 use halo2_proofs::{arithmetic::FieldExt, circuit::Value, plonk::Error};
 use halo2_snark_aggregator_api::arith::{common::ArithCommonChip, field::ArithFieldChip};
 
-pub struct ScalarChip<'a, N>(pub &'a FlexGateConfig<N>)
+pub struct ScalarChip<N>(pub FlexGateConfig<N>)
 where
     N: FieldExt<Repr = [u8; 32]>;
 
@@ -15,22 +15,22 @@ where
 // #[derive(Clone, Debug)]
 // pub struct AssignedValue<F: FieldExt>(pub AssignedCell<F, F>, pub Option<F>);
 
-impl<'a, N> ScalarChip<'a, N>
+impl<N> ScalarChip<N>
 where
     N: FieldExt<Repr = [u8; 32]>,
 {
-    pub fn new(gate: &'a FlexGateConfig<N>) -> Self {
+    pub fn new(gate: FlexGateConfig<N>) -> Self {
         ScalarChip(gate)
     }
 }
 
-impl<'a, N> ArithCommonChip for ScalarChip<'a, N>
+impl<N> ArithCommonChip for ScalarChip<N>
 where
     N: FieldExt<Repr = [u8; 32]>,
 {
-    type Context = Context<'a, N>;
+    type Context<'a> = Context<'a, N>;
     type Value = N;
-    type AssignedValue = AssignedValue<'a, N>;
+    type AssignedValue<'a> = AssignedValue<'a, N>;
     type Error = Error;
 
     fn add(
@@ -67,7 +67,7 @@ where
         let assignments =
             self.0
                 .assign_region_smart(ctx, vec![Constant(c)], vec![], vec![], vec![]);
-        Ok(assignments[0])
+        Ok(assignments[0].clone())
     }
 
     fn assign_var(
@@ -97,12 +97,12 @@ where
     }
 }
 
-impl<'a, N> ArithFieldChip for ScalarChip<'a, N>
+impl<N> ArithFieldChip for ScalarChip<N>
 where
     N: FieldExt<Repr = [u8; 32]>,
 {
     type Field = N;
-    type AssignedField = AssignedValue<'a, N>;
+    type AssignedField<'a> = AssignedValue<'a, N>;
 
     fn mul(
         &self,
