@@ -12,7 +12,7 @@ use crate::transcript::read::TranscriptRead;
 use group::prime::PrimeCurveAffine;
 use group::Group;
 use halo2_proofs::arithmetic::{Field, FieldExt};
-use halo2_proofs::poly::commitment::{Params, ParamsProver};
+use halo2_proofs::poly::commitment::Params;
 use halo2_proofs::poly::kzg::commitment::{ParamsKZG, ParamsVerifierKZG};
 use halo2_proofs::poly::Rotation;
 use halo2_proofs::{
@@ -192,6 +192,7 @@ impl<
                 Box::<Expression<A::AssignedScalar>>::new(self.convert_expression(*b)?),
                 self.schip.assign_const(self.ctx, f)?,
             ),
+            Expression::Challenge(_) => unimplemented!(),
         })
     }
 
@@ -244,7 +245,7 @@ impl<
                             columns
                                 .iter()
                                 .map(|column| match column.column_type() {
-                                    halo2_proofs::plonk::Any::Advice => advice_evals[self
+                                    halo2_proofs::plonk::Any::Advice(_) => advice_evals[self
                                         .vk
                                         .cs()
                                         .get_any_query_index(*column, Rotation::cur())]

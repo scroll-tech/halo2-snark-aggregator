@@ -97,6 +97,7 @@ impl<A: ArithEccChip> Evaluable<A> for Expression<A::AssignedScalar> {
                 )?;
                 arith_ast!((f * a)).eval(ctx, schip)?
             }
+            Expression::Challenge(_) => unimplemented!(),
         };
 
         Ok(res)
