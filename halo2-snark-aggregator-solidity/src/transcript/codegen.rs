@@ -1,7 +1,8 @@
 use crate::chips::ecc_chip::SolidityEccExpr;
 use crate::chips::scalar_chip::SolidityFieldExpr;
 use crate::code_generator::ctx::SolidityCodeGeneratorContext;
-use halo2_ecc::utils::fe_to_biguint as field_to_bn;
+use halo2_base::utils::fe_to_biguint as field_to_bn;
+use halo2_proofs::halo2curves::group::ff::PrimeField;
 use halo2_proofs::halo2curves::group::Curve;
 use halo2_proofs::transcript::EncodedChallenge;
 use halo2_proofs::transcript::{Challenge255, Transcript, TranscriptRead};
@@ -131,6 +132,8 @@ impl<
         const T: usize,
         const RATE: usize,
     > APITranscriptRead<A> for CodegenTranscriptRead<R, C, A, E, T, RATE>
+where
+    C::ScalarExt: PrimeField<Repr = [u8; 32]>,
 {
     fn read_point(
         &mut self,

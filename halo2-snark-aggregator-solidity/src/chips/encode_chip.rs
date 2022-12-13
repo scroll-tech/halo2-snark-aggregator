@@ -24,7 +24,8 @@ fn base_to_scalar<B: FieldExt, S: FieldExt>(base: &B) -> S {
 
 impl<C: CurveAffine, E> Encode<SolidityEccChip<C, E>> for PoseidonEncode<SolidityEccChip<C, E>>
 where
-    C::Base: PrimeField,
+    C::Base: PrimeField<Repr = [u8; 32]>,
+    C::ScalarExt: PrimeField<Repr = [u8; 32]>,
 {
     fn encode_point(
         ctx: &mut <SolidityEccChip<C, E> as ArithCommonChip>::Context,

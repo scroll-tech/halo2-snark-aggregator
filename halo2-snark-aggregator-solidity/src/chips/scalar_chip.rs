@@ -1,4 +1,4 @@
-use halo2_ecc::utils::{biguint_to_fe as bn_to_field, fe_to_biguint as field_to_bn};
+use halo2_base::utils::{biguint_to_fe as bn_to_field, fe_to_biguint as field_to_bn};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_snark_aggregator_api::arith::{common::ArithCommonChip, field::ArithFieldChip};
 use num_bigint::ToBigUint;
@@ -28,7 +28,7 @@ impl<F: FieldExt, E> SolidityFieldChip<F, E> {
     }
 }
 
-impl<F: FieldExt, E> ArithCommonChip for SolidityFieldChip<F, E> {
+impl<F: FieldExt<Repr = [u8; 32]>, E> ArithCommonChip for SolidityFieldChip<F, E> {
     type Context = SolidityCodeGeneratorContext;
     type Value = F;
     type AssignedValue = SolidityFieldExpr<F>;
@@ -146,7 +146,7 @@ impl<F: FieldExt, E> ArithCommonChip for SolidityFieldChip<F, E> {
     }
 }
 
-impl<F: FieldExt, E> ArithFieldChip for SolidityFieldChip<F, E> {
+impl<F: FieldExt<Repr = [u8; 32]>, E> ArithFieldChip for SolidityFieldChip<F, E> {
     type Field = F;
     type AssignedField = SolidityFieldExpr<F>;
 
@@ -229,12 +229,12 @@ impl<F: FieldExt, E> ArithFieldChip for SolidityFieldChip<F, E> {
     fn sum_with_coeff_and_constant(
         &self,
         ctx: &mut Self::Context,
-        a_with_coeff: Vec<(&Self::AssignedField, Self::Value)>,
+        a_with_coeff: &[(Self::AssignedField, Self::Value)],
         b: Self::Field,
     ) -> Result<Self::AssignedField, Self::Error> {
         let mut acc = self.assign_const(ctx, b)?;
-        for (x, coeff) in a_with_coeff {
-            let coeff = self.assign_const(ctx, coeff)?;
+        for (x, coeff) in a_with_coeff.iter() {
+            let coeff = self.assign_const(ctx, *coeff)?;
             let m = self.mul(ctx, x, &coeff)?;
             acc = self.add(ctx, &acc, &m)?;
         }
