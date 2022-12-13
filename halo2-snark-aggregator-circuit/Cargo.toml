@@ -12,7 +12,7 @@ halo2_ecc = { git = "ssh://git@github.com/scroll-tech/halo2-ecc.git", branch = "
 # halo2_ecc = { path = "../../halo2-ecc/halo2_ecc" }
 halo2-snark-aggregator-api = { path = "../halo2-snark-aggregator-api" }
 ff = "0.12"
-halo2_proofs = { git = "https://github.com/scroll-tech/halo2.git", branch = "sync-halo2-ecc-1013" }
+halo2_proofs = { git = "https://github.com/scroll-tech/halo2.git", branch = "sync-halo2-ecc-11-28" }
 log = "0.4.17"
 rand = "0.8.5"
 rand_core = "0.6.3"
@@ -26,8 +26,8 @@ ark-std = { version = "0.3", features = ["print-trace"] }
 
 [dev-dependencies]
 ark-std = { version = "0.3", features = ["print-trace"] }
-eth-types = { git = "https://github.com/scroll-tech/zkevm-circuits", branch = "sync-halo2-ecc-1013" }
-zkevm-circuits = { git = "https://github.com/scroll-tech/zkevm-circuits", branch = "sync-halo2-ecc-1013", features = ["test"] }
+eth-types = { git = "https://github.com/scroll-tech/zkevm-circuits", branch = "sync-halo2-ecc-11-28" }
+zkevm-circuits = { git = "https://github.com/scroll-tech/zkevm-circuits", branch = "sync-halo2-ecc-11-28", features = ["test"] }
 
 [features]
 default = ["halo2", "halo2_ecc/halo2-pse"]

@@ -6,7 +6,7 @@ authors = ["zhangjunyu <junyu92@gmail.com>"]
 
 [dependencies]
 # halo2_proofs = { path = "../../halo2/halo2_proofs" }
-halo2_proofs = { git = "https://github.com/scroll-tech/halo2.git", branch = "sync-halo2-ecc-1013" }
+halo2_proofs = { git = "https://github.com/scroll-tech/halo2.git", branch = "sync-halo2-ecc-11-28" }
 halo2-snark-aggregator-api = { path = "../halo2-snark-aggregator-api" }
 halo2-snark-aggregator-circuit = { path = "../halo2-snark-aggregator-circuit" }
 halo2_base = { git = "ssh://git@github.com/scroll-tech/halo2-ecc.git", branch = "sync-halo2-ecc-11-28", default-features = false }

@@ -1,11 +1,10 @@
 use super::super::chips::{
     ecc_chip::EccChip, encode_chip::PoseidonEncodeChip, scalar_chip::ScalarChip,
 };
-use halo2_ecc::{
-    fields::fp::FpConfig,
-    gates::{Context, ContextParams},
-};
+use halo2_base::{Context, ContextParams};
+use halo2_ecc::fields::fp::FpConfig;
 use halo2_proofs::halo2curves::bn256::{Fq, Fr, G1Affine};
+use halo2_proofs::plonk::{Column, Fixed};
 use halo2_proofs::{
     arithmetic::CurveAffine,
     circuit::{Layouter, SimpleFloorPlanner},
@@ -31,6 +30,9 @@ impl Default for TestCase {
 #[derive(Clone)]
 struct TestConfig {
     base_field_config: FpConfig<Fr, Fq>,
+    constants: Vec<Column<Fixed>>,
+    max_rows: usize,
+    num_advices: usize,
 }
 
 #[derive(Default)]
@@ -43,7 +45,7 @@ struct TestCircuit<C: CurveAffine> {
 impl TestCircuit<G1Affine> {
     fn setup_single_proof_verify_test<'a>(
         &self,
-        base_field_config: &FpConfig<Fr, Fq>,
+        base_field_config: FpConfig<Fr, Fq>,
         ctx: &mut Context<'a, Fr>,
     ) -> Result<(), Error> {
         test_verify_single_proof_in_chip::<
@@ -52,9 +54,9 @@ impl TestCircuit<G1Affine> {
             EccChip<G1Affine>,
             PoseidonEncodeChip<_>,
         >(
-            &ScalarChip::new(&base_field_config.range.gate),
-            &ScalarChip::new(&base_field_config.range.gate),
-            &EccChip::new(&base_field_config),
+            &ScalarChip::new(base_field_config.range.gate.clone()),
+            &ScalarChip::new(base_field_config.range.gate.clone()),
+            &EccChip::new(base_field_config),
             ctx,
         );
 
@@ -63,7 +65,7 @@ impl TestCircuit<G1Affine> {
 
     fn setup_aggregation_proof_verify_test<'a>(
         &self,
-        base_field_config: &FpConfig<Fr, Fq>,
+        base_field_config: FpConfig<Fr, Fq>,
         ctx: &mut Context<'a, Fr>,
     ) -> Result<(), Error> {
         test_verify_aggregation_proof_in_chip::<
@@ -72,9 +74,9 @@ impl TestCircuit<G1Affine> {
             EccChip<G1Affine>,
             PoseidonEncodeChip<_>,
         >(
-            &ScalarChip::new(&base_field_config.range.gate),
-            &ScalarChip::new(&base_field_config.range.gate),
-            &EccChip::new(&base_field_config),
+            &ScalarChip::new(base_field_config.range.gate.clone()),
+            &ScalarChip::new(base_field_config.range.gate.clone()),
+            &EccChip::new(base_field_config),
             ctx,
         );
 
@@ -100,8 +102,8 @@ impl Circuit<Fr> for TestCircuit<G1Affine> {
         let base_field_config = FpConfig::configure(
             meta,
             params.strategy,
-            params.num_advice,
-            params.num_lookup_advice,
+            &[params.num_advice],
+            &[params.num_lookup_advice],
             params.num_fixed,
             params.lookup_bits,
             params.limb_bits,
@@ -110,7 +112,20 @@ impl Circuit<Fr> for TestCircuit<G1Affine> {
             0,
             20,
         );
-        TestConfig { base_field_config }
+
+        let mut constants = Vec::with_capacity(params.num_fixed);
+        for _i in 0..params.num_fixed {
+            let c = meta.fixed_column();
+            meta.enable_equality(c);
+            constants.push(c);
+        }
+        
+        TestConfig {
+            base_field_config,
+            constants,
+            max_rows: 1 << params.degree,
+            num_advices: params.num_advice,
+        }
     }
 
     fn synthesize(
@@ -135,9 +150,9 @@ impl Circuit<Fr> for TestCircuit<G1Affine> {
                 let mut aux = Context::new(
                     region,
                     ContextParams {
-                        num_advice: config.base_field_config.range.gate.num_advice,
-                        using_simple_floor_planner,
-                        first_pass,
+                        max_rows: config.max_rows,
+                        num_advice: vec![config.num_advices],
+                        fixed_columns: config.constants.clone(),
                     },
                 );
                 let ctx = &mut aux;
@@ -147,28 +162,32 @@ impl Circuit<Fr> for TestCircuit<G1Affine> {
                     match self.test_case {
                         TestCase::Single => {
                             println!("single");
-                            self.setup_single_proof_verify_test(&config.base_field_config, ctx)
+                            self.setup_single_proof_verify_test(
+                                config.base_field_config.clone(),
+                                ctx,
+                            )
                         }
                         TestCase::Aggregation => {
                             println!("Aggregation");
-                            self.setup_aggregation_proof_verify_test(&config.base_field_config, ctx)
+                            self.setup_aggregation_proof_verify_test(
+                                config.base_field_config.clone(),
+                                ctx,
+                            )
                         }
                     }?;
                 }
-                let (const_rows, total_fixed, _lookup_rows) =
-                    config.base_field_config.finalize(ctx)?;
+                let param = config.base_field_config.finalize(ctx);
+                let const_rows = param[0];
+                let total_fixed = param[1];
 
-                let advice_rows = ctx.advice_rows.iter();
-                println!(
-                    "maximum rows used by an advice column: {}",
-                    advice_rows.clone().max().or(Some(&0)).unwrap(),
-                );
-                println!(
-                    "minimum rows used by an advice column: {}",
-                    advice_rows.clone().min().or(Some(&usize::MAX)).unwrap(),
-                );
-                let total_cells = advice_rows.sum::<usize>();
-                println!("total cells used: {}", total_cells);
+                // let advice_rows = ctx.advice_rows.iter();
+                println!("maximum rows used by an advice column: {}", ctx.max_rows,);
+                // println!(
+                //     "minimum rows used by an advice column: {}",
+                //     advice_rows.clone().min().or(Some(&usize::MAX)).unwrap(),
+                // );
+                // let total_cells = advice_rows.sum::<usize>();
+                // println!("total cells used: {}", total_cells);
                 println!(
                     "cells used in special lookup column: {}",
                     ctx.cells_to_lookup.len()
@@ -177,10 +196,10 @@ impl Circuit<Fr> for TestCircuit<G1Affine> {
 
                 println!("Suggestions:");
                 let degree = config.base_field_config.range.lookup_bits + 1;
-                println!(
-                    "Have you tried using {} advice columns?",
-                    (total_cells + (1 << degree) - 1) / (1 << degree)
-                );
+                // println!(
+                //     "Have you tried using {} advice columns?",
+                //     (total_cells + (1 << degree) - 1) / (1 << degree)
+                // );
                 println!(
                     "Have you tried using {} lookup columns?",
                     (ctx.cells_to_lookup.len() + (1 << degree) - 1) / (1 << degree)
@@ -227,7 +246,7 @@ mod tests {
         println!("mock prover OK");
         */
 
-        let general_params: ParamsKZG<Bn256> = get_params_cached::<G1Affine, Bn256>(k);
+        let general_params: ParamsKZG<Bn256> = get_params_cached::<G1Affine, Bn256>(k as u32);
         keygen_vk(&general_params, &chip).expect("keygen_vk should not fail");
     }
 
@@ -241,7 +260,7 @@ mod tests {
             _phantom_n: PhantomData,
         };
 
-        let general_params: ParamsKZG<Bn256> = get_params_cached::<G1Affine, Bn256>(k);
+        let general_params: ParamsKZG<Bn256> = get_params_cached::<G1Affine, Bn256>(k as u32);
         keygen_vk(&general_params, &chip).expect("keygen_vk should not fail");
         /*
         let prover = match MockProver::run(k, &chip, vec![]) {
