@@ -1,7 +1,6 @@
 use super::ecc_chip::EccChip;
 use ff::PrimeField;
-use halo2_base::AssignedValue;
-use halo2_proofs::{arithmetic::CurveAffine, halo2curves::CurveAffineExt, plonk::Error};
+use halo2_proofs::{halo2curves::CurveAffineExt, plonk::Error};
 use halo2_snark_aggregator_api::{
     arith::{common::ArithCommonChip, ecc::ArithEccChip},
     transcript::encode::Encode,

@@ -15,7 +15,7 @@ use ff::PrimeField;
 use halo2_base::gates::GateInstructions;
 use halo2_base::{AssignedValue, Context, ContextParams, QuantumCell};
 use halo2_ecc::fields::fp::FpStrategy;
-use halo2_proofs::circuit::SimpleFloorPlanner;
+use halo2_proofs::circuit::{Cell, SimpleFloorPlanner};
 use halo2_proofs::halo2curves::bn256::{Bn256, Fr, G1Affine};
 use halo2_proofs::halo2curves::group::Curve;
 use halo2_proofs::halo2curves::group::Group;
@@ -301,7 +301,7 @@ where
         let mut first_pass = true;
         let instances = layouter.assign_region(
             || "get instances",
-            |region| -> Result<Vec<AssignedValue<'a, C::ScalarExt>>, _> {
+            |region| -> Result<Vec<Cell>, _> {
                 if using_simple_floor_planner && first_pass {
                     first_pass = false;
                     return Ok(vec![]);
@@ -386,20 +386,14 @@ where
                 println!("total cells used in fixed columns: {}", total_fixed);
                 println!("maximum rows used by a fixed column: {}", const_rows);
 
-                // instances = Some(pair_instance_0);
-                Ok(pair_instance_0)
+                Ok(pair_instance_0.iter().map(|x| x.cell()).collect::<Vec<_>>())
             },
         )?;
 
-        // println!("Proposed instances: {:#?}", instances);
         Ok({
             let mut layouter = layouter.namespace(|| "expose");
             for (i, assigned_instance) in instances.iter().enumerate() {
-                layouter.constrain_instance(
-                    assigned_instance.cell().clone(),
-                    config.instance,
-                    i,
-                )?;
+                layouter.constrain_instance(*assigned_instance, config.instance, i)?;
             }
         })
     }
