@@ -162,7 +162,10 @@ where
     ) -> Result<Self::AssignedField, Self::Error> {
         self.sum_with_coeff_and_constant(
             ctx,
-            a.into_iter().map(|x| (x.clone(), Self::Value::one())).collect::<Vec<_>>().as_ref(),
+            a.into_iter()
+                .map(|x| (x.clone(), Self::Value::one()))
+                .collect::<Vec<_>>()
+                .as_ref(),
             b,
         )
     }

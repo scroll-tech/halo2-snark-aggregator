@@ -295,17 +295,16 @@ where
         config.base_field_config.load_lookup_table(&mut layouter)?;
 
         let base_gate = ScalarChip::new(config.base_field_config.range.gate.clone());
-        let mut instances = None;
 
         // Need to trick layouter to skip first pass in get shape mode
         let using_simple_floor_planner = true;
         let mut first_pass = true;
-        layouter.assign_region(
+        let instances = layouter.assign_region(
             || "get instances",
-            |region| {
+            |region| -> Result<Vec<AssignedValue<'a, C::ScalarExt>>, _> {
                 if using_simple_floor_planner && first_pass {
                     first_pass = false;
-                    return Ok(());
+                    return Ok(vec![]);
                 }
                 let mut aux = Context::new(
                     region,
@@ -317,31 +316,7 @@ where
                 );
                 let ctx = &mut aux;
 
-                /*
-                // Edit: no longer needed because we just pass ctx into synthesize_proof
-                //
-                // since we already ran one layouter in synthesize_proof, we can't just return with an empty region: that would tell the layouter to set the region at row 0
-                // so we will set a horizontal line of cells
-                if using_simple_floor_planner && first_pass {
-                    for i in 0..config.base_field_config.range.gate.basic_gates.len() {
-                        config.base_field_config.range.gate.assign_cell(
-                            ctx,
-                            QuantumCell::Witness(None),
-                            config.base_field_config.range.gate.basic_gates[i].value,
-                            0,
-                        )?;
-                    }
-                    first_pass = false;
-                    return Ok(());
-                }
-                */
-
                 let mut res = self.synthesize_proof(config.base_field_config.clone(), ctx)?;
-                /* println!(
-                    "{:#?}\n{:#?}",
-                    (res.0.x.value, res.0.y.value),
-                    (res.1.x.value, res.1.y.value)
-                );*/
                 // TODO: probably need to constrain these Fp elements to be < p
                 // integer_chip.reduce(ctx, &mut res.0.x)?;
                 // integer_chip.reduce(ctx, &mut res.0.y)?;
@@ -353,61 +328,35 @@ where
 
                 // We now compute compressed commitments of `res` in order to constrain them to equal the public inputs of this aggregation circuit
                 // See `final_pair_to_instances` for the format
-
                 let y0_bit = config.base_field_config.range.get_last_bit(
                     ctx,
-                    &res.0.y.truncation.limbs[0],
+                    &res.0.y.truncation.limbs[0].clone(),
                     config.base_field_config.limb_bits,
                 );
                 let y1_bit = config.base_field_config.range.get_last_bit(
                     ctx,
-                    &res.1.y.truncation.limbs[0],
+                    &res.1.y.truncation.limbs[0].clone(),
                     config.base_field_config.limb_bits,
                 );
 
                 // Our big integers are represented with `limb_bits` sized limbs
                 // We want to pack as many limbs as possible to fit into native field C::ScalarExt, allowing room for 1 extra bit
-                let chunk_size = (<C::Scalar as PrimeField>::NUM_BITS as usize - 2)
-                    / config.base_field_config.limb_bits;
-                assert!(chunk_size > 0);
-                let num_chunks = (<C::Base as PrimeField>::NUM_BITS as usize
-                    + config.base_field_config.limb_bits * chunk_size
-                    - 1)
-                    / (config.base_field_config.limb_bits * chunk_size);
-
-                let mut get_instance =
-                    |limbs: &Vec<AssignedValue<C::ScalarExt>>,
-                     bit|
-                     -> Result<Vec<AssignedValue<C::ScalarExt>>, Error> {
-                        let mut instances = Vec::with_capacity(num_chunks);
-                        for i in 0..num_chunks {
-                            let mut a = Vec::with_capacity(chunk_size + 1);
-                            let mut b = Vec::with_capacity(chunk_size + 1);
-                            for j in 0..std::cmp::min(
-                                chunk_size,
-                                config.base_field_config.num_limbs - i * chunk_size,
-                            ) {
-                                a.push(QuantumCell::Existing(&limbs[i * num_chunks + j]));
-                                b.push(QuantumCell::Constant(halo2_base::utils::biguint_to_fe(
-                                    &(BigUint::from(1u64)
-                                        << (j * config.base_field_config.limb_bits)),
-                                )));
-                            }
-                            if i == num_chunks - 1 {
-                                a.push(QuantumCell::Existing(&bit));
-                                b.push(QuantumCell::Constant(halo2_base::utils::biguint_to_fe(
-                                    &(BigUint::from(1u64)
-                                        << (chunk_size * config.base_field_config.limb_bits)),
-                                )));
-                            }
-                            let chunk = base_gate.0.inner_product(ctx, a, b);
-                            instances.push(chunk);
-                        }
-                        Ok(instances)
-                    };
-
-                let mut pair_instance_0 = get_instance(&res.0.x.truncation.limbs, y0_bit)?;
-                let mut pair_instance_1 = get_instance(&res.1.x.truncation.limbs, y1_bit)?;
+                let mut pair_instance_0 = get_instance::<C, E>(
+                    &base_gate,
+                    ctx,
+                    &res.0.x.truncation.limbs,
+                    &y0_bit,
+                    config.base_field_config.limb_bits,
+                    config.base_field_config.num_limbs,
+                )?;
+                let mut pair_instance_1 = get_instance::<C, E>(
+                    &base_gate,
+                    ctx,
+                    &res.1.x.truncation.limbs,
+                    &y1_bit,
+                    config.base_field_config.limb_bits,
+                    config.base_field_config.num_limbs,
+                )?;
 
                 pair_instance_0.append(&mut pair_instance_1);
                 pair_instance_0.append(&mut res.2);
@@ -436,15 +385,16 @@ where
                 );
                 println!("total cells used in fixed columns: {}", total_fixed);
                 println!("maximum rows used by a fixed column: {}", const_rows);
-                instances = Some(pair_instance_0);
-                Ok(())
+
+                // instances = Some(pair_instance_0);
+                Ok(pair_instance_0)
             },
         )?;
 
         // println!("Proposed instances: {:#?}", instances);
         Ok({
             let mut layouter = layouter.namespace(|| "expose");
-            for (i, assigned_instance) in instances.unwrap().iter().enumerate() {
+            for (i, assigned_instance) in instances.iter().enumerate() {
                 layouter.constrain_instance(
                     assigned_instance.cell().clone(),
                     config.instance,
@@ -453,6 +403,47 @@ where
             }
         })
     }
+}
+
+fn get_instance<'a: 'c, 'c, C, E>(
+    base_gate: &ScalarChip<C::ScalarExt>,
+    ctx: &mut Context<'c, C::ScalarExt>,
+    limbs: &[AssignedValue<'a, C::ScalarExt>],
+    bit: &AssignedValue<'a, E::Scalar>,
+    limb_bits: usize,
+    num_limbs: usize,
+) -> Result<Vec<AssignedValue<'c, C::ScalarExt>>, Error>
+where
+    C: CurveAffineExt,
+    E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt> + Debug,
+    C::Base: PrimeField<Repr = [u8; 32]>,
+    C::Scalar: PrimeField<Repr = [u8; 32]>,
+{
+    let chunk_size = (<C::Scalar as PrimeField>::NUM_BITS as usize - 2) / limb_bits;
+    assert!(chunk_size > 0);
+    let num_chunks = (<C::Base as PrimeField>::NUM_BITS as usize + limb_bits * chunk_size - 1)
+        / (limb_bits * chunk_size);
+
+    let mut instances = Vec::with_capacity(num_chunks);
+    for i in 0..num_chunks {
+        let mut a = Vec::with_capacity(chunk_size + 1);
+        let mut b = Vec::with_capacity(chunk_size + 1);
+        for j in 0..std::cmp::min(chunk_size, num_limbs - i * chunk_size) {
+            a.push(QuantumCell::Existing(&limbs[i * num_chunks + j]));
+            b.push(QuantumCell::Constant(halo2_base::utils::biguint_to_fe(
+                &(BigUint::from(1u64) << (j * limb_bits)),
+            )));
+        }
+        if i == num_chunks - 1 {
+            a.push(QuantumCell::Existing(&bit));
+            b.push(QuantumCell::Constant(halo2_base::utils::biguint_to_fe(
+                &(BigUint::from(1u64) << (chunk_size * limb_bits)),
+            )));
+        }
+        let chunk = base_gate.0.inner_product(ctx, a, b);
+        instances.push(chunk);
+    }
+    Ok(instances)
 }
 
 impl<
@@ -465,15 +456,15 @@ where
     C::Base: PrimeField<Repr = [u8; 32]>,
     C::Scalar: PrimeField<Repr = [u8; 32]>,
 {
-    fn synthesize_proof(
+    fn synthesize_proof<'c>(
         &self,
         field_chip: FpChip<C>,
-        ctx: &mut Context<'_, C::ScalarExt>,
+        ctx: &mut Context<'c, C::ScalarExt>,
     ) -> Result<
         (
-            <EccChip<C> as ArithEccChip>::AssignedPoint,
-            <EccChip<C> as ArithEccChip>::AssignedPoint,
-            Vec<AssignedValue<C::ScalarExt>>,
+            <EccChip<'c, C> as ArithEccChip>::AssignedPoint,
+            <EccChip<'c, C> as ArithEccChip>::AssignedPoint,
+            Vec<AssignedValue<'c, C::ScalarExt>>,
         ),
         Error,
     > {
