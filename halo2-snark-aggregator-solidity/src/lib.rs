@@ -193,7 +193,11 @@ pub struct MultiCircuitSolidityGenerate<'a, E: Engine, const N: usize> {
     pub verify_public_inputs_size: usize,
 }
 
-impl<'a, E: MultiMillerLoop + Debug, const N: usize> MultiCircuitSolidityGenerate<'a, E, N> {
+impl<'a, E: MultiMillerLoop + Debug, const N: usize> MultiCircuitSolidityGenerate<'a, E, N>
+where
+    E::Scalar: PrimeField<Repr = [u8; 32]>,
+    <E::G1Affine as CurveAffine>::Base: PrimeField<Repr = [u8; 32]>,
+{
     pub fn call(&self, template_folder: std::path::PathBuf) -> String {
         /*
         for i in self.target_circuits_params.iter() {

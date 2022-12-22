@@ -213,7 +213,7 @@ mod evm_circ_benches {
         );
 
         let k = crate::fs::load_verify_circuit_degree();
-        let prover = match MockProver::run(k, &verify_circuit, vec![instances]) {
+        let prover = match MockProver::run(k as u32, &verify_circuit, vec![instances]) {
             Ok(prover) => prover,
             Err(e) => panic!("{:#?}", e),
         };

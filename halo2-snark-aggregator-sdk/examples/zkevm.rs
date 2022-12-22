@@ -82,6 +82,6 @@ pub fn main() {
     // read in degree of test circuit from file
     let k = halo2_snark_aggregator_circuit::fs::load_verify_circuit_degree();
 
-    let builder = zkcli::builder(k);
+    let builder = zkcli::builder(k as u32);
     builder.run()
 }

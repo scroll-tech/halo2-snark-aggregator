@@ -160,8 +160,11 @@ impl<
             (omega, [at as u64, 0, 0, 0])
         };
         let omega_at = base.pow_vartime(exp);
-        self.schip
-            .sum_with_coeff_and_constant(self.ctx, vec![(x, omega_at)], A::Scalar::zero())
+        self.schip.sum_with_coeff_and_constant(
+            self.ctx,
+            &[(x.clone(), omega_at)],
+            A::Scalar::zero(),
+        )
     }
 
     fn convert_expression(

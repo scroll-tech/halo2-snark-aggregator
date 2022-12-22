@@ -71,14 +71,14 @@ impl<A: ArithEccChip> Evaluated<A> {
 
         // Enforce only for the first set.
         // l_0(X) * (1 - z_0(X)) = 0
-        for first_set in self.sets.first() {
+        while let Some(first_set) = self.sets.first() {
             let z_x = &first_set.permutation_product_eval;
             res.push(arith_ast!((l_0 * (one - z_x))).eval(ctx, schip)?);
         }
 
         // Enforce only for the last set.
         // l_last(X) * (z_l(X)^2 - z_l(X)) = 0
-        for last_set in self.sets.last() {
+        while let Some(last_set) = self.sets.last() {
             let z_x = &last_set.permutation_product_eval;
             res.push(arith_ast!((l_last * ((z_x * z_x) - z_x))).eval(ctx, schip)?);
         }

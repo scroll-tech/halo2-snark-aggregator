@@ -12,19 +12,18 @@ use super::chips::{
 };
 use ark_std::{end_timer, start_timer};
 use ff::PrimeField;
-use halo2_ecc::gates::QuantumCell;
-use halo2_ecc::{
-    fields::fp::FpStrategy,
-    gates::{Context, ContextParams, GateInstructions},
-};
-use halo2_proofs::circuit::{AssignedCell, SimpleFloorPlanner};
+use halo2_base::gates::GateInstructions;
+use halo2_base::{AssignedValue, Context, ContextParams, QuantumCell};
+use halo2_ecc::fields::fp::FpStrategy;
+use halo2_proofs::circuit::{Cell, SimpleFloorPlanner};
 use halo2_proofs::halo2curves::bn256::{Bn256, Fr, G1Affine};
 use halo2_proofs::halo2curves::group::Curve;
 use halo2_proofs::halo2curves::group::Group;
 use halo2_proofs::halo2curves::pairing::Engine;
 use halo2_proofs::halo2curves::pairing::MillerLoopResult;
 use halo2_proofs::halo2curves::pairing::MultiMillerLoop;
-use halo2_proofs::plonk::{create_proof, keygen_vk, ProvingKey};
+use halo2_proofs::halo2curves::CurveAffineExt;
+use halo2_proofs::plonk::{create_proof, keygen_vk, Fixed, ProvingKey};
 use halo2_proofs::plonk::{Column, Instance};
 use halo2_proofs::poly::commitment::ParamsProver;
 use halo2_proofs::poly::kzg::commitment::{KZGCommitmentScheme, ParamsKZG, ParamsVerifierKZG};
@@ -68,7 +67,7 @@ const LIMB_BITS: usize = 88;
 #[derive(Serialize, Deserialize)]
 pub struct Halo2VerifierCircuitConfigParams {
     pub strategy: FpStrategy,
-    pub degree: u32,
+    pub degree: usize,
     pub num_advice: usize,
     pub num_lookup_advice: usize,
     pub num_fixed: usize,
@@ -80,10 +79,15 @@ pub struct Halo2VerifierCircuitConfigParams {
 #[derive(Clone)]
 pub struct Halo2VerifierCircuitConfig<C: CurveAffine>
 where
-    C::Base: PrimeField,
+    C::Base: PrimeField<Repr = [u8; 32]>,
+    C::Scalar: PrimeField<Repr = [u8; 32]>,
 {
     pub base_field_config: FpChip<C>,
+    // `constants` is a vector of fixed columns for allocating constant values
+    pub constants: Vec<Column<Fixed>>,
     pub instance: Column<Instance>,
+    pub max_rows: usize,
+    pub num_advices: usize,
 }
 
 #[derive(Clone, Debug)]
@@ -221,12 +225,13 @@ pub struct Halo2VerifierCircuits<'a, E: Engine, const N: usize> {
 
 impl<
         'a,
-        C: CurveAffine,
+        C: CurveAffineExt,
         E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt> + Debug,
         const N: usize,
     > Circuit<C::ScalarExt> for Halo2VerifierCircuits<'a, E, N>
 where
-    C::Base: PrimeField,
+    C::Base: PrimeField<Repr = [u8; 32]>,
+    C::Scalar: PrimeField<Repr = [u8; 32]>,
 {
     type Config = Halo2VerifierCircuitConfig<C>;
     type FloorPlanner = SimpleFloorPlanner;
@@ -250,21 +255,34 @@ where
         let base_field_config = FpChip::<C>::configure(
             meta,
             params.strategy,
-            params.num_advice,
-            params.num_lookup_advice,
+            &[params.num_advice],
+            &[params.num_lookup_advice],
             params.num_fixed,
             params.lookup_bits,
             params.limb_bits,
             params.num_limbs,
-            halo2_ecc::utils::modulus::<C::Base>(),
+            halo2_base::utils::modulus::<C::Base>(),
+            0,
+            params.degree,
         );
+
+        let mut constants = Vec::with_capacity(params.num_fixed);
+        for _i in 0..params.num_fixed {
+            let c = meta.fixed_column();
+            meta.enable_equality(c);
+            // meta.enable_constant(c);
+            constants.push(c);
+        }
 
         let instance = meta.instance_column();
         meta.enable_equality(instance);
 
         Self::Config {
             base_field_config,
+            constants,
             instance,
+            max_rows: 1 << params.degree,
+            num_advices: params.num_advice,
         }
     }
 
@@ -276,54 +294,29 @@ where
         let mut layouter = layouter.namespace(|| "mult-circuit");
         config.base_field_config.load_lookup_table(&mut layouter)?;
 
-        let base_gate = ScalarChip::new(&config.base_field_config.range.gate);
-        let mut instances = None;
+        let base_gate = ScalarChip::new(config.base_field_config.range.gate.clone());
 
         // Need to trick layouter to skip first pass in get shape mode
         let using_simple_floor_planner = true;
         let mut first_pass = true;
-        layouter.assign_region(
+        let instances = layouter.assign_region(
             || "get instances",
-            |region| {
+            |region| -> Result<Vec<Cell>, _> {
                 if using_simple_floor_planner && first_pass {
                     first_pass = false;
-                    return Ok(());
+                    return Ok(vec![]);
                 }
                 let mut aux = Context::new(
                     region,
                     ContextParams {
-                        num_advice: config.base_field_config.range.gate.num_advice,
-                        using_simple_floor_planner,
-                        first_pass,
+                        max_rows: config.max_rows,
+                        num_advice: vec![config.num_advices],
+                        fixed_columns: config.constants.clone(),
                     },
                 );
                 let ctx = &mut aux;
 
-                /*
-                // Edit: no longer needed because we just pass ctx into synthesize_proof
-                //
-                // since we already ran one layouter in synthesize_proof, we can't just return with an empty region: that would tell the layouter to set the region at row 0
-                // so we will set a horizontal line of cells
-                if using_simple_floor_planner && first_pass {
-                    for i in 0..config.base_field_config.range.gate.basic_gates.len() {
-                        config.base_field_config.range.gate.assign_cell(
-                            ctx,
-                            QuantumCell::Witness(None),
-                            config.base_field_config.range.gate.basic_gates[i].value,
-                            0,
-                        )?;
-                    }
-                    first_pass = false;
-                    return Ok(());
-                }
-                */
-
-                let mut res = self.synthesize_proof(&config.base_field_config, ctx)?;
-                /* println!(
-                    "{:#?}\n{:#?}",
-                    (res.0.x.value, res.0.y.value),
-                    (res.1.x.value, res.1.y.value)
-                );*/
+                let mut res = self.synthesize_proof(config.base_field_config.clone(), ctx)?;
                 // TODO: probably need to constrain these Fp elements to be < p
                 // integer_chip.reduce(ctx, &mut res.0.x)?;
                 // integer_chip.reduce(ctx, &mut res.0.y)?;
@@ -335,81 +328,53 @@ where
 
                 // We now compute compressed commitments of `res` in order to constrain them to equal the public inputs of this aggregation circuit
                 // See `final_pair_to_instances` for the format
-
                 let y0_bit = config.base_field_config.range.get_last_bit(
                     ctx,
-                    &res.0.y.truncation.limbs[0],
+                    &res.0.y.truncation.limbs[0].clone(),
                     config.base_field_config.limb_bits,
-                )?;
+                );
                 let y1_bit = config.base_field_config.range.get_last_bit(
                     ctx,
-                    &res.1.y.truncation.limbs[0],
+                    &res.1.y.truncation.limbs[0].clone(),
                     config.base_field_config.limb_bits,
-                )?;
+                );
 
                 // Our big integers are represented with `limb_bits` sized limbs
                 // We want to pack as many limbs as possible to fit into native field C::ScalarExt, allowing room for 1 extra bit
-                let chunk_size = (<C::Scalar as PrimeField>::NUM_BITS as usize - 2)
-                    / config.base_field_config.limb_bits;
-                assert!(chunk_size > 0);
-                let num_chunks = (<C::Base as PrimeField>::NUM_BITS as usize
-                    + config.base_field_config.limb_bits * chunk_size
-                    - 1)
-                    / (config.base_field_config.limb_bits * chunk_size);
-
-                let mut get_instance = |limbs: &Vec<AssignedCell<C::ScalarExt, C::ScalarExt>>,
-                                        bit|
-                 -> Result<
-                    Vec<AssignedCell<C::ScalarExt, C::ScalarExt>>,
-                    Error,
-                > {
-                    let mut instances = Vec::with_capacity(num_chunks);
-                    for i in 0..num_chunks {
-                        let mut a = Vec::with_capacity(chunk_size + 1);
-                        let mut b = Vec::with_capacity(chunk_size + 1);
-                        for j in 0..std::cmp::min(
-                            chunk_size,
-                            config.base_field_config.num_limbs - i * chunk_size,
-                        ) {
-                            a.push(QuantumCell::Existing(&limbs[i * num_chunks + j]));
-                            b.push(QuantumCell::Constant(halo2_ecc::utils::biguint_to_fe(
-                                &(BigUint::from(1u64) << (j * config.base_field_config.limb_bits)),
-                            )));
-                        }
-                        if i == num_chunks - 1 {
-                            a.push(QuantumCell::Existing(&bit));
-                            b.push(QuantumCell::Constant(halo2_ecc::utils::biguint_to_fe(
-                                &(BigUint::from(1u64)
-                                    << (chunk_size * config.base_field_config.limb_bits)),
-                            )));
-                        }
-                        let (_, _, chunk, _) = base_gate.0.inner_product(ctx, &a, &b)?;
-                        instances.push(chunk);
-                    }
-                    Ok(instances)
-                };
-
-                let mut pair_instance_0 = get_instance(&res.0.x.truncation.limbs, y0_bit)?;
-                let mut pair_instance_1 = get_instance(&res.1.x.truncation.limbs, y1_bit)?;
+                let mut pair_instance_0 = get_instance::<C, E>(
+                    &base_gate,
+                    ctx,
+                    &res.0.x.truncation.limbs,
+                    &y0_bit,
+                    config.base_field_config.limb_bits,
+                    config.base_field_config.num_limbs,
+                )?;
+                let mut pair_instance_1 = get_instance::<C, E>(
+                    &base_gate,
+                    ctx,
+                    &res.1.x.truncation.limbs,
+                    &y1_bit,
+                    config.base_field_config.limb_bits,
+                    config.base_field_config.num_limbs,
+                )?;
 
                 pair_instance_0.append(&mut pair_instance_1);
                 pair_instance_0.append(&mut res.2);
 
-                let (const_rows, total_fixed, lookup_rows) =
-                    config.base_field_config.finalize(ctx)?;
+                let sizes = config.base_field_config.finalize(ctx);
+                let const_rows = sizes[0];
+                let total_fixed = sizes[1];
+                let lookup_rows = sizes[2];
 
                 println!("Finished exposing instances\n");
-                let advice_rows = ctx.advice_rows.iter();
-                let total_cells = advice_rows.clone().sum::<usize>();
-                println!("total non-lookup advice cells used: {}", total_cells);
-                println!(
-                    "maximum rows used by an advice column: {}",
-                    advice_rows.clone().max().or(Some(&0)).unwrap(),
-                );
-                println!(
-                    "minimum rows used by an advice column: {}",
-                    advice_rows.clone().min().or(Some(&usize::MAX)).unwrap(),
-                );
+                // let advice_rows = ctx.advice_alloc.iter();
+                // let total_cells = advice_rows.map(|&x|x.clone().sum::<usize>()).sum();
+                // println!("total non-lookup advice cells used: {}", total_cells);
+                println!("maximum rows used by an advice column: {}", ctx.max_rows,);
+                // println!(
+                //     "minimum rows used by an advice column: {}",
+                //     advice_rows.clone().min().or(Some(&usize::MAX)).unwrap(),
+                // );
                 println!(
                     "total cells used in special lookup advice columns: {}",
                     ctx.cells_to_lookup.len()
@@ -420,47 +385,84 @@ where
                 );
                 println!("total cells used in fixed columns: {}", total_fixed);
                 println!("maximum rows used by a fixed column: {}", const_rows);
-                instances = Some(pair_instance_0);
-                Ok(())
+
+                Ok(pair_instance_0.iter().map(|x| x.cell()).collect::<Vec<_>>())
             },
         )?;
 
-        // println!("Proposed instances: {:#?}", instances);
         Ok({
             let mut layouter = layouter.namespace(|| "expose");
-            for (i, assigned_instance) in instances.unwrap().iter().enumerate() {
-                layouter.constrain_instance(
-                    assigned_instance.cell().clone(),
-                    config.instance,
-                    i,
-                )?;
+            for (i, assigned_instance) in instances.iter().enumerate() {
+                layouter.constrain_instance(*assigned_instance, config.instance, i)?;
             }
         })
     }
 }
 
+fn get_instance<'a: 'c, 'c, C, E>(
+    base_gate: &ScalarChip<C::ScalarExt>,
+    ctx: &mut Context<'c, C::ScalarExt>,
+    limbs: &[AssignedValue<'a, C::ScalarExt>],
+    bit: &AssignedValue<'a, E::Scalar>,
+    limb_bits: usize,
+    num_limbs: usize,
+) -> Result<Vec<AssignedValue<'c, C::ScalarExt>>, Error>
+where
+    C: CurveAffineExt,
+    E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt> + Debug,
+    C::Base: PrimeField<Repr = [u8; 32]>,
+    C::Scalar: PrimeField<Repr = [u8; 32]>,
+{
+    let chunk_size = (<C::Scalar as PrimeField>::NUM_BITS as usize - 2) / limb_bits;
+    assert!(chunk_size > 0);
+    let num_chunks = (<C::Base as PrimeField>::NUM_BITS as usize + limb_bits * chunk_size - 1)
+        / (limb_bits * chunk_size);
+
+    let mut instances = Vec::with_capacity(num_chunks);
+    for i in 0..num_chunks {
+        let mut a = Vec::with_capacity(chunk_size + 1);
+        let mut b = Vec::with_capacity(chunk_size + 1);
+        for j in 0..std::cmp::min(chunk_size, num_limbs - i * chunk_size) {
+            a.push(QuantumCell::Existing(&limbs[i * num_chunks + j]));
+            b.push(QuantumCell::Constant(halo2_base::utils::biguint_to_fe(
+                &(BigUint::from(1u64) << (j * limb_bits)),
+            )));
+        }
+        if i == num_chunks - 1 {
+            a.push(QuantumCell::Existing(&bit));
+            b.push(QuantumCell::Constant(halo2_base::utils::biguint_to_fe(
+                &(BigUint::from(1u64) << (chunk_size * limb_bits)),
+            )));
+        }
+        let chunk = base_gate.0.inner_product(ctx, a, b);
+        instances.push(chunk);
+    }
+    Ok(instances)
+}
+
 impl<
         'a,
-        C: CurveAffine,
+        C: CurveAffineExt,
         E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt> + Debug,
         const N: usize,
     > Halo2VerifierCircuits<'a, E, N>
 where
-    C::Base: PrimeField,
+    C::Base: PrimeField<Repr = [u8; 32]>,
+    C::Scalar: PrimeField<Repr = [u8; 32]>,
 {
-    fn synthesize_proof(
+    fn synthesize_proof<'c>(
         &self,
-        field_chip: &FpChip<C>,
-        ctx: &mut Context<'_, C::ScalarExt>,
+        field_chip: FpChip<C>,
+        ctx: &mut Context<'c, C::ScalarExt>,
     ) -> Result<
         (
-            <EccChip<C> as ArithEccChip>::AssignedPoint,
-            <EccChip<C> as ArithEccChip>::AssignedPoint,
-            Vec<AssignedCell<C::ScalarExt, C::ScalarExt>>,
+            <EccChip<'c, C> as ArithEccChip>::AssignedPoint,
+            <EccChip<'c, C> as ArithEccChip>::AssignedPoint,
+            Vec<AssignedValue<'c, C::ScalarExt>>,
         ),
         Error,
     > {
-        let nchip = &ScalarChip::new(&field_chip.range.gate);
+        let nchip = &ScalarChip::new(field_chip.range.gate.clone());
         let schip = nchip;
         let pchip = &EccChip::new(field_chip);
 
@@ -529,14 +531,13 @@ where
             circuit_proofs,
             &mut transcript,
         )?;
-        let v = v.iter().map(|a| a.0.clone()).collect();
 
         for coherent in &self.coherent {
             pchip.chip.assert_equal(
                 ctx,
                 &commits[coherent[0].0][coherent[0].1],
                 &commits[coherent[1].0][coherent[1].1],
-            )?;
+            );
         }
 
         println!("Aggregate proof synthesized.");
@@ -545,10 +546,11 @@ where
     }
 }
 
-impl<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt> + Debug>
+impl<'a, C: CurveAffineExt, E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt> + Debug>
     Circuit<C::ScalarExt> for Halo2VerifierCircuit<'a, E>
 where
-    C::Base: PrimeField,
+    C::Base: PrimeField<Repr = [u8; 32]>,
+    C::Scalar: PrimeField<Repr = [u8; 32]>,
 {
     type Config = Halo2VerifierCircuitConfig<C>;
     type FloorPlanner = SimpleFloorPlanner;
@@ -575,21 +577,34 @@ where
         let base_field_config = FpChip::<C>::configure(
             meta,
             params.strategy,
-            params.num_advice,
-            params.num_lookup_advice,
+            &[params.num_advice],
+            &[params.num_lookup_advice],
             params.num_fixed,
             params.lookup_bits,
             params.limb_bits,
             params.num_limbs,
-            halo2_ecc::utils::modulus::<C::Base>(),
+            halo2_base::utils::modulus::<C::Base>(),
+            0,
+            params.degree as usize,
         );
+
+        let mut constants = Vec::with_capacity(params.num_fixed);
+        for _i in 0..params.num_fixed {
+            let c = meta.fixed_column();
+            meta.enable_equality(c);
+            // meta.enable_constant(c);
+            constants.push(c);
+        }
 
         let instance = meta.instance_column();
         meta.enable_equality(instance);
 
         Self::Config {
             base_field_config,
+            constants,
             instance,
+            max_rows: 1 << params.degree,
+            num_advices: params.num_advice,
         }
     }
 
@@ -725,12 +740,13 @@ fn from_0_to_n<const N: usize>() -> [usize; N] {
 }
 
 impl<
-        C: CurveAffine,
+        C: CurveAffineExt,
         E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt> + Debug,
         const N: usize,
     > MultiCircuitsSetup<C, E, N>
 where
-    C::Base: PrimeField,
+    C::Base: PrimeField<Repr = [u8; 32]>,
+    C::Scalar: PrimeField<Repr = [u8; 32]>,
 {
     fn new_verify_circuit_info(&self, setup: bool) -> [SetupOutcome<C, E>; N] {
         from_0_to_n::<N>().map(|circuit_index| {
@@ -803,7 +819,8 @@ pub fn final_pair_to_instances<
     limb_bits: usize,
 ) -> Vec<C::ScalarExt>
 where
-    C::Base: PrimeField,
+    C::Base: PrimeField<Repr = [u8; 32]>,
+    C::Scalar: PrimeField<Repr = [u8; 32]>,
 {
     // Our big integers are represented with `limb_bits` sized limbs
     // We want to pack as many limbs as possible to fit into native field C::ScalarExt, allowing room for 1 extra bit
@@ -813,8 +830,8 @@ where
         / (limb_bits * chunk_size);
 
     let w_to_limbs_le = |w: &C::Base| {
-        let w_big = halo2_ecc::utils::fe_to_biguint(w);
-        halo2_ecc::utils::decompose_biguint::<C::ScalarExt>(
+        let w_big = halo2_base::utils::fe_to_biguint(w);
+        halo2_base::utils::decompose_biguint::<C::ScalarExt>(
             &w_big,
             num_chunks,
             chunk_size * limb_bits,
@@ -825,11 +842,11 @@ where
     let mut w_g_x = w_to_limbs_le(pair.1.coordinates().unwrap().x());
 
     let get_last_bit = |w: &C::Base| -> C::ScalarExt {
-        let w_big = halo2_ecc::utils::fe_to_biguint(w);
+        let w_big = halo2_base::utils::fe_to_biguint(w);
         if w_big % 2u64 == BigUint::from(0u64) {
             C::ScalarExt::from(0)
         } else {
-            halo2_ecc::utils::biguint_to_fe(&(BigUint::from(1u64) << (chunk_size * limb_bits)))
+            halo2_base::utils::biguint_to_fe(&(BigUint::from(1u64) << (chunk_size * limb_bits)))
         }
     };
 
@@ -852,7 +869,7 @@ where
 
 // This is used for zkevm bench
 pub fn calc_verify_circuit_instances<
-    C: CurveAffine,
+    C: CurveAffineExt,
     E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt> + Debug,
 >(
     name: String,
@@ -862,7 +879,8 @@ pub fn calc_verify_circuit_instances<
     n_transcript: &Vec<Vec<u8>>,
 ) -> Vec<C::ScalarExt>
 where
-    C::Base: PrimeField,
+    C::Base: PrimeField<Repr = [u8; 32]>,
+    C::Scalar: PrimeField<Repr = [u8; 32]>,
 {
     let pair = Halo2CircuitInstances([Halo2CircuitInstance {
         name,
@@ -954,12 +972,13 @@ pub struct MultiCircuitsCreateProof<
 }
 
 impl<
-        C: CurveAffine,
+        C: CurveAffineExt,
         E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt> + Debug,
         const N: usize,
     > MultiCircuitsCreateProof<'_, C, E, N>
 where
-    C::Base: PrimeField,
+    C::Base: PrimeField<Repr = [u8; 32]>,
+    C::Scalar: PrimeField<Repr = [u8; 32]>,
 {
     pub fn call(
         self,
