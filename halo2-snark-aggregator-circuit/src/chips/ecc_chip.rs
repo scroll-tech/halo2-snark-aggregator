@@ -190,7 +190,10 @@ where
             &self.chip.field_chip,
             ctx,
             &points,
-            &[scalars],
+            &scalars
+                .iter()
+                .map(|scalar| vec![scalar.clone()])
+                .collect::<Vec<_>>(),
             <C::Scalar as PrimeField>::NUM_BITS as usize,
             4,
         ))

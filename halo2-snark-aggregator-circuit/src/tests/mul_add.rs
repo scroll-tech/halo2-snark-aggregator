@@ -119,7 +119,7 @@ impl Circuit<Fr> for TestCircuit<G1Affine> {
             meta.enable_equality(c);
             constants.push(c);
         }
-        
+
         TestConfig {
             base_field_config,
             constants,
