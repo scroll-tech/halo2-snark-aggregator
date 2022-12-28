@@ -350,7 +350,7 @@ impl<
 
         let advice_commitments =
             self.load_n_m_points(num_proofs, self.vk.cs().num_advice_columns)?;
-        let challenges = self.load_n_m_scalars(num_proofs, self.vk.cs().num_challenges)?;
+        let challenges = self.load_n_m_scalars(num_proofs, self.vk.cs().num_challenges())?;
 
         let theta = self.squeeze_challenge_scalar()?;
 
