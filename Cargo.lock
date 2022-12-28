@@ -1311,7 +1311,7 @@ dependencies = [
  "chrono",
  "group",
  "halo2_proofs",
- "halo2curves 0.2.1",
+ "halo2curves 0.2.1 (git+https://github.com/privacy-scaling-explorations/halo2curves?tag=0.3.0)",
  "num-bigint",
  "num-integer",
  "rand",
@@ -1329,7 +1329,7 @@ dependencies = [
  "eth-types",
  "group",
  "halo2_proofs",
- "halo2curves 0.2.1",
+ "halo2curves 0.2.1 (git+https://github.com/privacy-scaling-explorations/halo2curves?tag=0.3.0)",
  "log",
  "num-bigint",
  "poseidon 0.2.0 (git+https://github.com/privacy-scaling-explorations/poseidon.git)",
@@ -1349,7 +1349,7 @@ dependencies = [
  "halo2-ecc-circuit-lib",
  "halo2-snark-aggregator-api",
  "halo2_proofs",
- "halo2curves 0.2.1",
+ "halo2curves 0.2.1 (git+https://github.com/privacy-scaling-explorations/halo2curves?tag=0.3.0)",
  "log",
  "rand",
  "rand_core",
@@ -1371,7 +1371,7 @@ dependencies = [
  "halo2-snark-aggregator-circuit",
  "halo2-snark-aggregator-solidity",
  "halo2_proofs",
- "halo2curves 0.2.1",
+ "halo2curves 0.2.1 (git+https://github.com/privacy-scaling-explorations/halo2curves?tag=0.3.0)",
  "log",
  "num-bigint",
  "paste",
@@ -1389,7 +1389,7 @@ dependencies = [
  "halo2-snark-aggregator-api",
  "halo2-snark-aggregator-circuit",
  "halo2_proofs",
- "halo2curves 0.2.1",
+ "halo2curves 0.2.1 (git+https://github.com/privacy-scaling-explorations/halo2curves?tag=0.3.0)",
  "log",
  "num-bigint",
  "sha3 0.10.2",
@@ -1405,7 +1405,7 @@ dependencies = [
  "cfg-if 0.1.10",
  "ff",
  "group",
- "halo2curves 0.2.1",
+ "halo2curves 0.2.1 (git+https://github.com/privacy-scaling-explorations/halo2curves?tag=0.2.1)",
  "log",
  "num-bigint",
  "num-integer",
@@ -1437,6 +1437,23 @@ dependencies = [
 name = "halo2curves"
 version = "0.2.1"
 source = "git+https://github.com/privacy-scaling-explorations/halo2curves?tag=0.2.1#f75ed26c961179186e9cec02cc3f841ca9e3fec1"
+dependencies = [
+ "ff",
+ "group",
+ "lazy_static",
+ "num-bigint",
+ "num-traits",
+ "pasta_curves",
+ "rand",
+ "rand_core",
+ "static_assertions",
+ "subtle",
+]
+
+[[package]]
+name = "halo2curves"
+version = "0.2.1"
+source = "git+https://github.com/privacy-scaling-explorations/halo2curves?tag=0.3.0#83c72d49762343ffc9576ca11a2aa615efe1029b"
 dependencies = [
  "ff",
  "group",

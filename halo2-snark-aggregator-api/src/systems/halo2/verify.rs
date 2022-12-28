@@ -19,15 +19,14 @@ use halo2_proofs::{
     arithmetic::CurveAffine,
     plonk::{Expression, VerifyingKey},
 };
-use halo2curves::pairing::MillerLoopResult;
-use halo2curves::pairing::MultiMillerLoop;
+use halo2curves::pairing::{MultiMillerLoop, MillerLoopResult, Engine};
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::vec;
 
 pub struct VerifierParamsBuilder<
     'a,
-    E: MultiMillerLoop,
+    E: MultiMillerLoop + Engine,
     A: ArithEccChip<Point = E::G1Affine>,
     T: TranscriptRead<A>,
 > {
@@ -177,6 +176,7 @@ impl<
             Expression::Fixed(fixed_query) => Expression::Fixed(fixed_query),
             Expression::Advice(advice_query) => Expression::Advice(advice_query),
             Expression::Instance(instance_query) => Expression::Instance(instance_query),
+            Expression::Challenge(value) => Expression::Challenge(value),
             Expression::Negated(b) => Expression::Negated(
                 Box::<Expression<A::AssignedScalar>>::new(self.convert_expression(*b)?),
             ),
@@ -350,6 +350,7 @@ impl<
 
         let advice_commitments =
             self.load_n_m_points(num_proofs, self.vk.cs().num_advice_columns)?;
+        let challenges = self.load_n_m_scalars(num_proofs, self.vk.cs().num_challenges)?;
 
         let theta = self.squeeze_challenge_scalar()?;
 
@@ -469,6 +470,7 @@ impl<
                 .iter()
                 .map(|column| (column.0.index, column.1 .0 as i32))
                 .collect(),
+            challenges,
             advice_commitments,
             advice_evals,
             advice_queries: self
