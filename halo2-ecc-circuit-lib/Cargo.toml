@@ -9,7 +9,7 @@ group = "0.12"
 halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2022_09_10" }
 num-integer = "0.1"
 num-bigint = { version = "0.4", features = ["rand"] }
-halo2curves = { git = 'https://github.com/privacy-scaling-explorations/halo2curves', tag = '0.3.0' }
+halo2curves = { git = 'https://github.com/privacy-scaling-explorations/halo2curves', tag = "0.2.1" }
 
 [dev-dependencies]
 chrono = "0.4.19"
