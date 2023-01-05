@@ -15,7 +15,7 @@ For example we can write down the verifying schema of standard plonk in some ast
             + eval!(b) * commit!(qr) + eval!(c) * commit!(qo) + pi_xi + commit!(qc)
             + scalar!(self.alpha) * (
                   (eval!(a) + (scalar!(self.beta) * xi.clone()) + scalar!(self.gamma))
-                * (eval!(b) + (scalar!(self.beta) 
+                * (eval!(b) + (scalar!(self.beta)
                         * scalar!(self.common.k[0]) * xi.clone()) + scalar!(self.gamma))
                 * (eval!(c) + (scalar!(self.beta)
                         * scalar!(self.common.k[1]) * xi) + scalar!(self.gamma))
@@ -126,8 +126,8 @@ Suppose that verifying a single proof of a target circuit $C$ is split into thre
 Then by the linearity of pairing, we can construct random linear combinition of multiple $W_x[i]$ $W_e[i]$ and check that:
   $$(\sum_i \lambda^{i-1}W_x[i], x) = (\sum_i \lambda^{i-1}W_e[i], 1)$$
 
-Motivated by the above thoughts, we split the process of verifying into 4 stages 
-* 1. Argument Preparing 
+Motivated by the above thoughts, we split the process of verifying into 4 stages
+* 1. Argument Preparing
 * 2. Query Constructing (read from transcript) for multiple proofs
 * 3. Construct schema from queries of multiple proofs
 * 4. Construct the schema using the linear combination of the schemas from multiple proofs.
@@ -389,6 +389,15 @@ pub struct BaseGateConfig<const VAR_COLUMNS: usize, const MUL_COLUMNS: usize> {
 
 1. Wider arith base gate
 2. Multi-layer aggregator
+
+# License
+
+Licensed under either of
+
+- Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+- MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+
+at your option.
 
 # Appendix
 ## Fp over fr materials
