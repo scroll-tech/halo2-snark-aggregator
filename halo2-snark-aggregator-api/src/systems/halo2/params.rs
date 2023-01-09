@@ -20,7 +20,8 @@ pub struct VerifierParams<A: ArithEccChip> {
     pub instance_commitments: Vec<Vec<A::AssignedPoint>>,
     pub instance_evals: Vec<Vec<A::AssignedScalar>>,
     pub instance_queries: Vec<(usize, i32)>,
-    pub challenges: Vec<Vec<A::AssignedScalar>>,
+    //pub challenges: Vec<Vec<A::AssignedScalar>>,
+    pub challenges: Vec<A::AssignedScalar>,
     pub advice_commitments: Vec<Vec<A::AssignedPoint>>,
     pub advice_evals: Vec<Vec<A::AssignedScalar>>,
     pub advice_queries: Vec<(usize, i32)>,
@@ -98,7 +99,7 @@ impl<Scalar: FieldExt, A: ArithEccChip<Scalar = Scalar>> VerifierParams<A> {
             let advice_evals = &self.advice_evals[k];
             let instance_evals = &self.instance_evals[k];
             let permutation = &self.permutation_evaluated[k];
-            let challenges = &self.challenges[k];
+            let challenges = &self.challenges;
             let lookups = &self.lookup_evaluated[k];
             for i in 0..self.gates.len() {
                 for j in 0..self.gates[i].len() {

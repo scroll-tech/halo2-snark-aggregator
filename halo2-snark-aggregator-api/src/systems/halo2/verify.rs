@@ -191,8 +191,7 @@ impl<
             Expression::Scaled(b, f) => Expression::Scaled(
                 Box::<Expression<A::AssignedScalar>>::new(self.convert_expression(*b)?),
                 self.schip.assign_const(self.ctx, f)?,
-            ),
-            Expression::Challenge(_) => unimplemented!(),
+            )
         })
     }
 
@@ -348,9 +347,48 @@ impl<
 
         let num_proofs = instance_commitments.len();
 
-        let advice_commitments =
-            self.load_n_m_points(num_proofs, self.vk.cs().num_advice_columns)?;
+        let (advice_commitments, challenges) = {
+            let mut advice_commitments = vec![
+                vec![None;self.vk.cs().num_advice_columns()];
+                num_proofs
+            ];
+
+            let scalar_zero = <E::G1Affine as CurveAffine>::ScalarExt::zero();
+            let assigned_scalar_zero = self.schip.assign_const(self.ctx, scalar_zero)?;
+
+            let mut challenges = vec![assigned_scalar_zero; self.vk.cs().num_challenges()];
+            for current_phase in self.vk.cs().phases() {
+                for advice_commitments in advice_commitments.iter_mut() {
+                    for (phase, commitment) in self.vk
+                        .cs()
+                        .advice_column_phase.iter()
+                        .zip(advice_commitments.iter_mut())
+                    {
+                        if current_phase == *phase {
+                            let point = self.transcript.read_point(self.ctx, self.nchip, self.schip, self.pchip)?;
+                            *commitment = Some(point);
+                        }
+                    }
+                }
+                for (phase, challenge) in self.vk.cs().challenge_phase.iter().zip(challenges.iter_mut()) {
+                    if current_phase == *phase {
+                        *challenge = self.squeeze_challenge_scalar()?
+                    }
+                };
+            };
+            let commitments = advice_commitments
+                .into_iter()
+                .map(|a| a.into_iter()
+                     .map(|b| b.unwrap())
+                     .collect())
+                .collect();
+
+            (commitments, challenges.to_vec())
+        };
+
+        /* FIXME: The above handling of multi-phase seems does not handle the multi-proof correctly
         let challenges = self.load_n_m_scalars(num_proofs, self.vk.cs().num_challenges())?;
+        */
 
         let theta = self.squeeze_challenge_scalar()?;
 
