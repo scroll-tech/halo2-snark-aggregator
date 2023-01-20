@@ -20,6 +20,8 @@ pub struct VerifierParams<A: ArithEccChip> {
     pub instance_commitments: Vec<Vec<A::AssignedPoint>>,
     pub instance_evals: Vec<Vec<A::AssignedScalar>>,
     pub instance_queries: Vec<(usize, i32)>,
+    //pub challenges: Vec<Vec<A::AssignedScalar>>,
+    pub challenges: Vec<A::AssignedScalar>,
     pub advice_commitments: Vec<Vec<A::AssignedPoint>>,
     pub advice_evals: Vec<Vec<A::AssignedScalar>>,
     pub advice_queries: Vec<(usize, i32)>,
@@ -97,6 +99,7 @@ impl<Scalar: FieldExt, A: ArithEccChip<Scalar = Scalar>> VerifierParams<A> {
             let advice_evals = &self.advice_evals[k];
             let instance_evals = &self.instance_evals[k];
             let permutation = &self.permutation_evaluated[k];
+            let challenges = &self.challenges;
             let lookups = &self.lookup_evaluated[k];
             for i in 0..self.gates.len() {
                 for j in 0..self.gates[i].len() {
@@ -108,6 +111,7 @@ impl<Scalar: FieldExt, A: ArithEccChip<Scalar = Scalar>> VerifierParams<A> {
                         &|n| self.fixed_evals[n].clone(),
                         &|n| advice_evals[n].clone(),
                         &|n| instance_evals[n].clone(),
+                        &|challenge| challenges[challenge.index()].clone(),
                         zero,
                     )?);
                 }
@@ -135,6 +139,7 @@ impl<Scalar: FieldExt, A: ArithEccChip<Scalar = Scalar>> VerifierParams<A> {
                     &self.fixed_evals,
                     instance_evals,
                     advice_evals,
+                    challenges,
                     l_0,
                     l_last,
                     l_blind,

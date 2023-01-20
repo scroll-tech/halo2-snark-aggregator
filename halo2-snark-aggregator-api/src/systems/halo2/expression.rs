@@ -1,6 +1,7 @@
 use crate::arith::ast::FieldArithHelper;
 use crate::{arith::ecc::ArithEccChip, arith_ast};
-use halo2_proofs::plonk::Expression;
+use halo2_proofs::plonk::{Expression, Challenge};
+
 pub trait Evaluable<A: ArithEccChip> {
     fn chip_evaluate(
         &self,
@@ -9,6 +10,7 @@ pub trait Evaluable<A: ArithEccChip> {
         fixed: &impl Fn(usize) -> A::AssignedScalar,
         advice: &impl Fn(usize) -> A::AssignedScalar,
         instance: &impl Fn(usize) -> A::AssignedScalar,
+        challenge: &impl Fn(Challenge) -> A::AssignedScalar,
         zero: &A::AssignedScalar,
     ) -> Result<A::AssignedScalar, A::Error>;
 }
@@ -21,6 +23,7 @@ impl<A: ArithEccChip> Evaluable<A> for Expression<A::AssignedScalar> {
         fixed: &impl Fn(usize) -> A::AssignedScalar,
         advice: &impl Fn(usize) -> A::AssignedScalar,
         instance: &impl Fn(usize) -> A::AssignedScalar,
+        challenge: &impl Fn(Challenge) -> A::AssignedScalar,
         zero: &A::AssignedScalar,
     ) -> Result<A::AssignedScalar, A::Error> {
         let res = match self {
@@ -31,6 +34,7 @@ impl<A: ArithEccChip> Evaluable<A> for Expression<A::AssignedScalar> {
             Expression::Fixed(fixed_query) => fixed(fixed_query.index()),
             Expression::Advice(advice_query) => advice(advice_query.index()),
             Expression::Instance(instance_query) => instance(instance_query.index()),
+            Expression::Challenge(value) => challenge(*value),
             Expression::Negated(a) => {
                 let a = &Evaluable::<A>::chip_evaluate(
                     a.as_ref(),
@@ -39,6 +43,7 @@ impl<A: ArithEccChip> Evaluable<A> for Expression<A::AssignedScalar> {
                     fixed,
                     advice,
                     instance,
+                    challenge,
                     zero,
                 )?;
                 arith_ast!(zero - a).eval(ctx, schip)?
@@ -51,6 +56,7 @@ impl<A: ArithEccChip> Evaluable<A> for Expression<A::AssignedScalar> {
                     fixed,
                     advice,
                     instance,
+                    challenge,
                     zero,
                 )?;
                 let b = &Evaluable::<A>::chip_evaluate(
@@ -60,6 +66,7 @@ impl<A: ArithEccChip> Evaluable<A> for Expression<A::AssignedScalar> {
                     fixed,
                     advice,
                     instance,
+                    challenge,
                     zero,
                 )?;
                 arith_ast!(a + b).eval(ctx, schip)?
@@ -72,6 +79,7 @@ impl<A: ArithEccChip> Evaluable<A> for Expression<A::AssignedScalar> {
                     fixed,
                     advice,
                     instance,
+                    challenge,
                     zero,
                 )?;
                 let b = &Evaluable::<A>::chip_evaluate(
@@ -81,6 +89,7 @@ impl<A: ArithEccChip> Evaluable<A> for Expression<A::AssignedScalar> {
                     fixed,
                     advice,
                     instance,
+                    challenge,
                     zero,
                 )?;
                 arith_ast!((a * b)).eval(ctx, schip)?
@@ -93,6 +102,7 @@ impl<A: ArithEccChip> Evaluable<A> for Expression<A::AssignedScalar> {
                     fixed,
                     advice,
                     instance,
+                    challenge,
                     zero,
                 )?;
                 arith_ast!((f * a)).eval(ctx, schip)?

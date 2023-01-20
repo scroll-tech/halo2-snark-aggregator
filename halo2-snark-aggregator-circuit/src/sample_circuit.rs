@@ -61,7 +61,12 @@ pub fn sample_circuit_random_run<E: MultiMillerLoop + Debug, CIRCUIT: TargetCirc
 ) {
     let params = load_target_circuit_params::<E, CIRCUIT>(&mut folder);
 
-    let vk = load_target_circuit_vk::<E, CIRCUIT>(&mut folder, &params);
+    let vk = if CIRCUIT::READABLE_VKEY {
+      load_target_circuit_vk::<E, CIRCUIT>(&mut folder, &params)
+    } else {
+      keygen_vk(&params, &circuit).expect("keygen_vk should not fail")
+    };
+
     let pk = keygen_pk(&params, vk, &circuit).expect("keygen_pk should not fail");
 
     // let instances: &[&[&[C::Scalar]]] = &[&[&[constant * a.square() * b.square()]]];
