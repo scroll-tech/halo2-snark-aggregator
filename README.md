@@ -53,7 +53,7 @@ For example we can write down the verifying schema of standard plonk in some ast
 ```
 
 ### 1.2 Arithment within special context:
-This document is a design brief of how to generate plonk verifying code and plonk verification circuit (mainly for proof aggregation) at the same time. The main idea is to abstract a trait of group and field algebra for both code and circuit(We believe there are various benifits to do so both for maintaince and for furture updating of the proof schema for the verifying circuit). To achieve this, we notice that in verifying code generation, arithment are performed with no side effects but when using fp over fr arithment gates, integer and pointer arithment will have side effects(change the state of the gate).
+This document is a design brief of how to generate plonk verifying code and plonk verification circuit (mainly for proof aggregation) at the same time. The main idea is to abstract a trait of group and field algebra for both code and circuit (We believe there are various benefits to do so both for maintenance and for future updating of the proof schema for the verifying circuit). To achieve this, we notice that in verifying code generation, arithment are performed with no side effects but when using fp over fr arithment gates, integer and pointer arithment will have side effects(change the state of the gate).
 
 Thus our arithment trait is a trait that will assume side effects do exists during the arithment of scalar fields, base fields and point groups of ecc.
 
@@ -123,7 +123,7 @@ Suppose that verifying a single proof of a target circuit $C$ is split into thre
   $$(W_x[i], x) = (W_e[i], 1)$$
 4. Check the above pair.
 
-Then by the linearity of pairing, we can construct random linear combinition of multiple $W_x[i]$ $W_e[i]$ and check that:
+Then by the linearity of pairing, we can construct random linear combination of multiple $W_x[i]$ $W_e[i]$ and check that:
   $$(\sum_i \lambda^{i-1}W_x[i], x) = (\sum_i \lambda^{i-1}W_e[i], 1)$$
 
 Motivated by the above thoughts, we split the process of verifying into 4 stages
@@ -133,7 +133,7 @@ Motivated by the above thoughts, we split the process of verifying into 4 stages
 * 4. Construct the schema using the linear combination of the schemas from multiple proofs.
 * 4. Evaluate the multiopen result of the schema.
 
-More precisely the top level pseudo code might looks like the following
+More precisely the top level pseudo code might look like the following
 
 ```
 pub fn verify_aggregation_proofs_in_chip<
@@ -385,7 +385,7 @@ pub struct BaseGateConfig<const VAR_COLUMNS: usize, const MUL_COLUMNS: usize> {
 ## Base field Arith Chip
 ## Ecc Arith Chip
 
-# Furture Work
+# Future Work
 
 1. Wider arith base gate
 2. Multi-layer aggregator
