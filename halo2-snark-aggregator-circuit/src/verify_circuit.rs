@@ -53,6 +53,7 @@ use halo2_snark_aggregator_api::transcript::sha::{ShaRead, ShaWrite};
 use halo2curves::bn256::{Bn256, Fr, G1Affine};
 use halo2curves::group::{Curve, Group};
 use halo2curves::pairing::{Engine, MillerLoopResult, MultiMillerLoop};
+use halo2curves::serde::SerdeObject;
 use log::info;
 use rand_core::OsRng;
 use std::env::var;
@@ -560,7 +561,7 @@ fn verify_circuit_builder<'a, C: CurveAffine, E: MultiMillerLoop<G1Affine = C>, 
 pub fn load_params<E: Engine + Debug>(
     folder: &mut std::path::PathBuf,
     file_name: &str,
-) -> ParamsKZG<E> {
+) -> ParamsKZG<E> where <E as Engine>::G2Affine: SerdeObject, <E as Engine>::G1Affine: SerdeObject, <E as Engine>::Scalar: SerdeObject {
     folder.push(file_name);
     let mut fd = std::fs::File::open(folder.as_path()).unwrap();
     folder.pop();
@@ -698,7 +699,7 @@ impl<
         })
     }
 
-    fn get_params_cached(k: u32) -> ParamsKZG<E> {
+    fn get_params_cached(k: u32) -> ParamsKZG<E> where <E as Engine>::G2Affine: SerdeObject, <E as Engine>::G1Affine: SerdeObject, <E as Engine>::Scalar: SerdeObject  {
         let params_path = format!("HALO2_PARAMS_{}", k);
 
         let path = var(params_path);
@@ -730,7 +731,7 @@ impl<
         }
     }
 
-    pub fn call(&self, verify_circuit_k: u32) -> (ParamsKZG<E>, VerifyingKey<C>) {
+    pub fn call(&self, verify_circuit_k: u32) -> (ParamsKZG<E>, VerifyingKey<C>) where <E as Engine>::G2Affine: SerdeObject, <E as Engine>::G1Affine: SerdeObject, <E as Engine>::Scalar: SerdeObject {
         let setup_outcome = self.new_verify_circuit_info(true);
 
         let verify_circuit = verify_circuit_builder(
@@ -879,7 +880,7 @@ impl CreateProof<G1Affine, Bn256> {
 
 pub struct MultiCircuitsCreateProof<
     'a,
-    C: CurveAffine,
+    C: CurveAffine + SerdeObject,
     E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>,
     const N: usize,
 > {
@@ -890,7 +891,7 @@ pub struct MultiCircuitsCreateProof<
 }
 
 impl<
-        C: CurveAffine,
+        C: CurveAffine + SerdeObject,
         E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt> + Debug,
         const N: usize,
     > MultiCircuitsCreateProof<'_, C, E, N>
@@ -902,7 +903,7 @@ impl<
         (C, C, Vec<C::ScalarExt>),
         Vec<C::ScalarExt>,
         Vec<u8>,
-    ) {
+    ) where <E as Engine>::G2Affine: SerdeObject, <E as Engine>::G1Affine: SerdeObject, <E as Engine>::Scalar: SerdeObject {
         let setup = MultiCircuitsSetup {
             setups: self.target_circuit_proofs.map(|target_circuit| Setup {
                 name: target_circuit.name,
@@ -1029,7 +1030,7 @@ impl VerifyCheck<Bn256> {
     }
 }
 
-impl<E: Engine + MultiMillerLoop + Debug> VerifyCheck<E> {
+impl<E: Engine + MultiMillerLoop + Debug> VerifyCheck<E> where <E as Engine>::G2Affine: SerdeObject, <E as Engine>::G1Affine: SerdeObject, <E as Engine>::Scalar: SerdeObject {
     pub fn call(&self) -> Result<(), Error> {
         let strategy = SingleStrategy::new(&self.verify_params);
 

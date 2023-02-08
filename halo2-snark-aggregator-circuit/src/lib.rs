@@ -7,5 +7,5 @@ pub mod verify_circuit;
 mod tests;
 
 // #[cfg(feature = "benches")]
-#[cfg(test)]
-mod benches;
+//#[cfg(test)]
+//mod benches;
