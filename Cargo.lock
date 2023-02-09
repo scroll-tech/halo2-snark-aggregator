@@ -577,7 +577,7 @@ dependencies = [
 [[package]]
 name = "halo2_proofs"
 version = "0.2.0"
-source = "git+https://github.com/scroll-tech/halo2.git?branch=scroll-dev-0220#df552beed921e9ce932c7980b4a0e623c26d5747"
+source = "git+https://github.com/scroll-tech/halo2.git?branch=scroll-dev-0220#c9a9ab71afcee06358923351d1775c6a0e9a3fe4"
 dependencies = [
  "ark-std",
  "blake2b_simd",
