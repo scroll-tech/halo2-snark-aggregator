@@ -67,7 +67,7 @@ impl<'a, C: CurveAffine, N: FieldExt> EccChip<'a, C, N> {
     }
 }
 
-const CONFIG_WINDOW_SIZE: usize = 4usize;
+const CONFIG_WINDOW_SIZE: usize = 2usize;
 
 pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
     type AssignedScalar;
