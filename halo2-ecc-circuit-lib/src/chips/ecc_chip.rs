@@ -281,8 +281,8 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
                                 match inner_acc {
                                     None => inner_acc = Some(ci),
                                     Some(_inner_acc) => {
-                                        //let p = self.add_unsafe(ctx, &mut ci, &_inner_acc)?;
-                                        let p = self.add(ctx, &mut ci, &_inner_acc)?;
+                                        let p = self.add_unsafe(ctx, &mut ci, &_inner_acc)?;
+                                        //let p = self.add(ctx, &mut ci, &_inner_acc)?;
                                         inner_acc = Some(p);
                                     }
                                 }
@@ -293,8 +293,8 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
                                 match inner_acc {
                                     None => inner_acc = Some(ci),
                                     Some(_inner_acc) => {
-                                        //let p = self.add_unsafe(ctx, &mut ci, &_inner_acc)?;
-                                        let p = self.add(ctx, &mut ci, &_inner_acc)?;
+                                        let p = self.add_unsafe(ctx, &mut ci, &_inner_acc)?;
+                                        //let p = self.add(ctx, &mut ci, &_inner_acc)?;
                                         inner_acc = Some(p);
                                     }
                                 }
@@ -318,7 +318,6 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
                         //_acc = self.double_unsafe(ctx, &mut _acc)?;
                         _acc = self.double(ctx, &mut _acc)?;
                     }
-                    //_acc = self.add_unsafe(ctx, &mut inner_acc, &_acc)?;
                     _acc = self.add(ctx, &mut inner_acc, &_acc)?;
                     acc = Some(_acc);
                 }
@@ -476,29 +475,25 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
         a: &mut AssignedPoint<C, N>,
         b: &AssignedPoint<C, N>,
     ) -> Result<AssignedPoint<C, N>, Error> {
-        //let base_gate = self.base_gate();
+        let base_gate = self.base_gate();
         let integer_chip = self.integer_chip();
-
-        //self.assert_neq(a.z, zero);
-        //self.assert_neq(b.z, zero);
 
         let mut diff_x = integer_chip.sub(ctx, &a.x, &b.x)?;
         let mut diff_y = integer_chip.sub(ctx, &a.y, &b.y)?;
         let (x_eq, tangent) = integer_chip.div(ctx, &mut diff_y, &mut diff_x)?;
 
-        // If y is not equal and both points are neq identity then x are not equal
-        //self.assert_neq(diff_y, zero);
-
-        //let y_eq = integer_chip.is_zero(ctx, &mut diff_y)?;
-        //let eq = base_gate.and(ctx, &x_eq, &y_eq)?;
+        /* Assert non-eq diff_y thus no zero is produced and no curvative case */
+        let is_zero = integer_chip.is_zero(ctx, &mut diff_x)?;
+        base_gate.assert_constant(ctx, &is_zero.into(), N::one())?;
 
         /* Not necessary to compute curvature for the case of a=b */
         let tangent = AssignedCurvature::new(tangent, x_eq);
         let mut lambda = tangent;
 
         let p = self.lambda_to_point(ctx, &mut lambda, a, b)?;
+        /* The idea is that we make sure the rhs=accumulator is not identity */
         let p = self.bisec_point(ctx, &a.z, b, &p)?;
-//      let p = self.bisec_point(ctx, &b.z, a, &p)?;
+        let p = self.bisec_point(ctx, &b.z, a, &p)?;
         Ok(p)
     }
 
@@ -534,10 +529,8 @@ pub trait EccChipOps<C: CurveAffine, N: FieldExt> {
         ctx: &mut Context<N>,
         a: &mut AssignedPoint<C, N>,
     ) -> Result<AssignedPoint<C, N>, Error> {
-        let base_gate = self.base_gate();
         let curvature = self.curvature(ctx, a)?;
-        let mut p = self.lambda_to_point(ctx, &mut curvature.clone(), a, a)?;
-        //p.z = base_gate.bisec_cond(ctx, &a.z, &a.z, &p.z)?;
+        let p = self.lambda_to_point(ctx, &mut curvature.clone(), a, a)?;
         Ok(p)
     }
 
