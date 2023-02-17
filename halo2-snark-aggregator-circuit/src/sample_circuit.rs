@@ -1,3 +1,4 @@
+use halo2_proofs::SerdeFormat;
 use halo2_proofs::plonk::keygen_vk;
 use halo2_proofs::plonk::{create_proof, keygen_pk};
 use halo2_proofs::poly::kzg::commitment::{KZGCommitmentScheme, ParamsKZG};
@@ -8,6 +9,7 @@ use halo2_proofs::transcript::{Challenge255, PoseidonWrite};
 use halo2_proofs::{plonk::Circuit, poly::commitment::Params};
 use halo2curves::group::ff::PrimeField;
 use halo2curves::pairing::{Engine, MultiMillerLoop};
+use halo2curves::serde::SerdeObject;
 use rand_core::OsRng;
 use std::fmt::Debug;
 use std::io::Write;
@@ -31,7 +33,7 @@ pub trait TargetCircuit<E: MultiMillerLoop> {
 
 pub fn sample_circuit_setup<E: MultiMillerLoop + Debug, CIRCUIT: TargetCircuit<E>>(
     mut folder: std::path::PathBuf,
-) {
+)where <E as Engine>::G2Affine: SerdeObject, <E as Engine>::G1Affine: SerdeObject, <E as Engine>::Scalar: SerdeObject  {
     // TODO: Do not use setup in production
     let params = ParamsKZG::<E>::unsafe_setup(CIRCUIT::TARGET_CIRCUIT_K);
 
@@ -49,7 +51,7 @@ pub fn sample_circuit_setup<E: MultiMillerLoop + Debug, CIRCUIT: TargetCircuit<E
         folder.push(format!("sample_circuit_{}.vkey", CIRCUIT::PARAMS_NAME));
         let mut fd = std::fs::File::create(folder.as_path()).unwrap();
         folder.pop();
-        vk.write(&mut fd).unwrap();
+        vk.write(&mut fd, SerdeFormat::Processed).unwrap();
     }
 }
 
@@ -58,7 +60,7 @@ pub fn sample_circuit_random_run<E: MultiMillerLoop + Debug, CIRCUIT: TargetCirc
     circuit: CIRCUIT::Circuit,
     instances: &[&[E::Scalar]],
     index: usize,
-) {
+)where <E as Engine>::G2Affine: SerdeObject, <E as Engine>::G1Affine: SerdeObject, <E as Engine>::Scalar: SerdeObject  {
     let params = load_target_circuit_params::<E, CIRCUIT>(&mut folder);
 
     let vk = if CIRCUIT::READABLE_VKEY {

@@ -129,7 +129,7 @@ impl<A: ArithEccChip> EvaluationQuery<A> {
 pub fn print_points_profiling(point_list: &[String]) {
     log::debug!("===== BEGIN: Halo2VerifierCircuit rows cost estimation ========");
     let n = point_list.len();
-    let ecmul_rows = 32196;
+    let ecmul_rows = 29454;
     let rows = n * ecmul_rows;
     let mut k = 18;
     loop {

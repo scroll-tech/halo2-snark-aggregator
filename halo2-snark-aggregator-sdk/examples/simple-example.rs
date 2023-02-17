@@ -1,3 +1,4 @@
+use ff::PrimeField;
 use halo2_proofs::{
     arithmetic::{Field, FieldExt},
     circuit::{AssignedCell, Chip, Layouter, Region, SimpleFloorPlanner, Value},
@@ -9,7 +10,6 @@ use halo2_snark_aggregator_sdk::zkaggregate;
 use halo2curves::pairing::MultiMillerLoop;
 use rand_core::OsRng;
 use std::{io::Read, marker::PhantomData};
-use zkevm_circuits::tx_circuit::PrimeField;
 
 // ANCHOR: instructions
 trait NumericInstructions<F: FieldExt>: Chip<F> {

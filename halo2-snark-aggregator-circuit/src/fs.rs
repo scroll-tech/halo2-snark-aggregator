@@ -5,11 +5,11 @@ use halo2_proofs::{
     poly::{
         commitment::{CommitmentScheme, Params},
         kzg::commitment::{KZGCommitmentScheme, ParamsKZG},
-    },
+    }, SerdeFormat,
 };
 use halo2curves::{
     bn256::{Bn256, Fr, G1Affine},
-    pairing::MultiMillerLoop,
+    pairing::MultiMillerLoop, serde::SerdeObject,
 };
 use halo2curves::{group::ff::PrimeField, pairing::Engine};
 use std::{
@@ -46,10 +46,10 @@ pub fn read_target_circuit_params<E: MultiMillerLoop, Circuit: TargetCircuit<E>>
     )
 }
 
-pub fn load_target_circuit_params<E: MultiMillerLoop + Debug, Circuit: TargetCircuit<E>>(
+pub fn load_target_circuit_params<E: MultiMillerLoop + Debug + Engine, Circuit: TargetCircuit<E>>(
     folder: &mut PathBuf,
-) -> ParamsKZG<E> {
-    KZGCommitmentScheme::<E>::read_params(&mut Cursor::new(
+) -> ParamsKZG<E>  where <E as Engine>::G2Affine: SerdeObject, <E as Engine>::G1Affine: SerdeObject {
+    ParamsKZG::read(&mut Cursor::new(
         &read_target_circuit_params::<E, Circuit>(&mut folder.clone()),
     ))
     .unwrap()
@@ -64,14 +64,14 @@ pub fn read_target_circuit_vk<E: MultiMillerLoop, Circuit: TargetCircuit<E>>(
     )
 }
 
-pub fn load_target_circuit_vk<E: MultiMillerLoop + Debug, Circuit: TargetCircuit<E>>(
+pub fn load_target_circuit_vk<E: MultiMillerLoop + Debug + Engine, Circuit: TargetCircuit<E>>(
     folder: &mut PathBuf,
     params: &ParamsKZG<E>,
-) -> VerifyingKey<E::G1Affine> {
+) -> VerifyingKey<E::G1Affine> where <E as Engine>::G2Affine: SerdeObject, <E as Engine>::G1Affine: SerdeObject, <E as Engine>::Scalar: SerdeObject {
     if Circuit::READABLE_VKEY {
-        VerifyingKey::<E::G1Affine>::read::<_, Circuit::Circuit, E, _>(
+        VerifyingKey::<E::G1Affine>::read::<_, Circuit::Circuit>(
             &mut Cursor::new(&read_target_circuit_vk::<E, Circuit>(&mut folder.clone())),
-            &load_target_circuit_params::<E, Circuit>(&mut folder.clone()),
+            SerdeFormat::Processed,
         )
         .unwrap()
     } else {
@@ -118,9 +118,9 @@ pub fn read_verify_circuit_vk(folder: &mut PathBuf) -> Vec<u8> {
 }
 
 pub fn load_verify_circuit_vk(folder: &mut PathBuf) -> VerifyingKey<G1Affine> {
-    VerifyingKey::<G1Affine>::read::<_, Halo2VerifierCircuit<'_, Bn256>, Bn256, _>(
+    VerifyingKey::<G1Affine>::read::<_, Halo2VerifierCircuit<'_, Bn256>>(
         &mut Cursor::new(&read_verify_circuit_vk(&mut folder.clone())),
-        &load_verify_circuit_params(&mut folder.clone()),
+        SerdeFormat::Processed
     )
     .unwrap()
 }
@@ -163,7 +163,7 @@ pub fn write_verify_circuit_vk(folder: &mut PathBuf, verify_circuit_vk: &Verifyi
     let mut fd = std::fs::File::create(folder.as_path()).unwrap();
     folder.pop();
 
-    verify_circuit_vk.write(&mut fd).unwrap();
+    verify_circuit_vk.write(&mut fd, SerdeFormat::Processed).unwrap();
 }
 
 pub fn write_verify_circuit_instance(

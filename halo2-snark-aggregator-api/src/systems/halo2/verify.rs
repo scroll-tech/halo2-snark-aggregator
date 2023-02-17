@@ -12,7 +12,6 @@ use crate::transcript::read::TranscriptRead;
 use group::prime::PrimeCurveAffine;
 use group::Group;
 use halo2_proofs::arithmetic::{Field, FieldExt};
-use halo2_proofs::poly::commitment::Params;
 use halo2_proofs::poly::kzg::commitment::{ParamsKZG, ParamsVerifierKZG};
 use halo2_proofs::poly::Rotation;
 use halo2_proofs::{
@@ -438,7 +437,7 @@ impl<
 
         let h_commitments = self.load_n_points(self.vk.get_domain().get_quotient_poly_degree())?;
         let l = self.vk.cs().blinding_factors() as u32 + 1;
-        let n = self.params.n() as u32;
+        let n = self.params.n as u32;
         let omega = self.vk.get_domain().get_omega();
 
         let x = self.squeeze_challenge_scalar()?;
@@ -599,7 +598,7 @@ pub fn assign_instance_commitment<
                 .iter()
                 .map(|instance| {
                     assert!(
-                        instance.len() <= params.n() as usize - (vk.cs().blinding_factors() + 1)
+                        instance.len() <= params.n as usize - (vk.cs().blinding_factors() + 1)
                     );
 
                     let mut assigned_scalars = vec![];
